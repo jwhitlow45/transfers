@@ -1,0 +1,27 @@
+{
+  "name": "transfers",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev:server": "node --watch server/main.ts",
+    "dev:web": "vite --config web/vite.config.ts",
+    "build": "vite build --config web/vite.config.ts",
+    "ingest": "node server/gtfs/ingest-cli.ts",
+    "test": "node --test 'server/**/*.test.ts' 'shared/**/*.test.ts'",
+    "typecheck": "tsc -p server && tsc -p web"
+  },
+  "dependencies": {
+    "fflate": "^0.8.3",
+    "protobufjs": "^8.8.0"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.10.6",
+    "@types/node": "^24.19.1",
+    "preact": "^11.0.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.2"
+  }
+}
