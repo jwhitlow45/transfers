@@ -1,0 +1,171 @@
+name: transfers
+
+# Three containers, each on only the networks it needs:
+#   web     Caddy. Serves the frontend and proxies the API. Reached only by cloudflared.
+#   api     Node. No route off the machine except through egress.
+#   egress  Squid. Allows HTTPS to api.511.org and api.bart.gov, nothing else.
+# Same shape as screamr.ai on this server. See docs/deploy.md for the steps outside this file.
+
+services:
+  web:
+    container_name: transfers_web
+    build:
+      context: .
+      target: web
+    networks:
+      - edge
+      - app
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: always
+    read_only: true
+    tmpfs:
+      - /config:mode=1777,size=8m
+      - /data:mode=1777,size=8m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128m
+          pids: 64
+
+  api:
+    build:
+      context: .
+      target: api
+    networks:
+      - app
+      - proxy
+    environment:
+      - API_KEYS_511
+      - DATA_DIR=/data
+      # Node's fetch only honors HTTPS_PROXY with this set.
+      - NODE_USE_ENV_PROXY=1
+      - HTTPS_PROXY=http://egress:3128
+      - NO_PROXY=127.0.0.1,localhost
+    volumes:
+      # The schedule database and 511 key usage, so a restart neither rebuilds the schedule nor
+      # forgets requests already spent.
+      - transfers-data:/data
+    depends_on:
+      egress:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: always
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=64m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          # Building the schedule peaks near 600 MB.
+          memory: 1g
+          pids: 128
+
+  egress:
+    image: ubuntu/squid@sha256:6a097f68bae708cedbabd6188d68c7e2e7a38cedd05a176e1cc0ba29e3bbe029
+    networks:
+      - proxy
+      - internet
+    volumes:
+      - ./docker/squid.conf:/etc/squid/squid.conf:ro
+    restart: always
+    init: true
+    read_only: true
+    tmpfs:
+      - /var/log/squid:mode=1777,size=32m
+      - /var/spool/squid:mode=1777,size=32m
+      - /run:mode=1777,size=8m
+      - /tmp:mode=1777,size=16m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETGID
+      - SETUID
+      - DAC_OVERRIDE
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/3128"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m
+          pids: 128
+
+# Internal networks get `internal: true` and an isolated gateway together: internal alone still
+# leaves the bridge's gateway address, which is this host (see the gerbil-porgy-recipes compose
+# file on the server for the measurements). Subnets are pinned to ranges unused on the server.
+networks:
+  # Created here, joined by the cloudflared project as external. The tunnel reaches Caddy and
+  # nothing else.
+  edge:
+    name: transfers-edge
+    internal: true
+    enable_ipv6: false
+    ipam:
+      config:
+        - subnet: 192.168.203.0/24
+    driver_opts:
+      com.docker.network.bridge.name: br-trf-edge
+      com.docker.network.bridge.gateway_mode_ipv4: isolated
+
+  # Caddy and the API, alone together.
+  app:
+    name: transfers-app
+    internal: true
+    enable_ipv6: false
+    ipam:
+      config:
+        - subnet: 192.168.204.0/24
+    driver_opts:
+      com.docker.network.bridge.name: br-trf-app
+      com.docker.network.bridge.gateway_mode_ipv4: isolated
+
+  # The API and the proxy, alone together. Kept apart from edge so the tunnel can never use the
+  # proxy as a way out.
+  proxy:
+    name: transfers-proxy
+    internal: true
+    enable_ipv6: false
+    ipam:
+      config:
+        - subnet: 192.168.205.0/24
+    driver_opts:
+      com.docker.network.bridge.name: br-trf-proxy
+      com.docker.network.bridge.gateway_mode_ipv4: isolated
+
+  # The one bridge with a route off the machine, holding only the proxy.
+  internet:
+    name: transfers-egress
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: br-trf-egress
+      com.docker.network.bridge.enable_icc: "false"
+    ipam:
+      config:
+        - subnet: 172.31.242.0/28
+
+volumes:
+  transfers-data:

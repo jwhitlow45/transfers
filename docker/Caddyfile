@@ -1,0 +1,40 @@
+{
+	# Nothing else on this network may reconfigure Caddy, and TLS ends at Cloudflare.
+	admin off
+	auto_https off
+	# Trust the tunnel as a proxy, so X-Forwarded-For carries the visitor's address to the
+	# API's rate limit.
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+# Listens on 8080, not 80, so the container needs no capabilities. Nothing is published to the
+# host: the only way in is cloudflared over the transfers-edge network.
+:8080 {
+	encode zstd gzip
+
+	handle /api/* {
+		reverse_proxy api:3000
+	}
+
+	# Saved trip links get their first results inside the page.
+	handle /t/* {
+		reverse_proxy api:3000
+	}
+
+	handle {
+		root * /srv
+		# File names under /assets carry a content hash, so they never change. Everything else,
+		# including the page shell every route rewrites to, is checked each time. Headers match the
+		# path as requested, before try_files rewrites it.
+		@hashed path /assets/*
+		header @hashed Cache-Control "public, max-age=31536000, immutable"
+		@unhashed not path /assets/*
+		header @unhashed Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server {
+			precompressed br gzip
+		}
+	}
+}
