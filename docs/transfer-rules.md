@@ -6,12 +6,26 @@ Status: agreed with J on 2026-10-03, except where marked "Open".
 
 A search names a **From** stop, where the rider boards the first vehicle, and a **To**, which is either the stop where they board the second vehicle or a route they want to reach.
 
-- **To is a stop.** Candidate transfer points are the stops after From on each first-leg trip that lie within the longest transfer walk of the To stop. When several qualify, the one with the shortest estimated transfer is used. Example: Montgomery St BART to Muni 13477 gets off at 24th St Mission.
-- **To is a route.** Candidate transfer points are pairs of a stop after From on a first-leg trip and a stop on the target route within the longest transfer walk of it. Each pair, per direction of the target route, becomes its own group. Example: 26th St & De Haro (13516) to the 22 rides the 19 inbound to Rhode Island St & 16th St (16189), then boards the 22 at 17770 (toward Fillmore, 39 m away) or 17761 (toward UCSF Mission Bay, 53 m away). The 48 also serves 13516 but never comes within 400 m of the 22, so it drops out.
+- **To is a stop.** Candidate transfer points are the stops after From on each first-leg trip that lie within walking range of the To stop. When several qualify, the one with the shortest estimated transfer is used. Example: Montgomery St BART to Muni 13477 gets off at 24th St Mission.
+- **To is a route.** Candidate transfer points are pairs of a stop after From on a first-leg trip and a stop on the target route within walking range of it. Each pair, per direction of the target route, becomes its own group. Example: 26th St & De Haro (13516) to the 22 rides the 19 inbound to Rhode Island St & 16th St (16189), then boards the 22 at 17770 (toward Fillmore, 39 m away) or 17761 (toward UCSF Mission Bay, 53 m away). The 48 also serves 13516 but never comes within 400 m of the 22, so it drops out.
 
 ### Longest transfer walk
 
-Open: 400 m straight line for now. To be checked against how people actually transfer in SF (BART to Muni at each SF station, crossing Muni lines) before settling the default. Riders can change it in device settings.
+Straight-line limits, checked on 2026-10-03 against 511's BART station maps and every crossing of two Muni lines:
+
+| Pair | Default | Walk | Why |
+|---|---|---|---|
+| Street stop to street stop | 300 m | about 4.6 min | Catches every Muni crossing where both routes stop (the longest is 208 m, the 45 to the T at 4th & King) and 97.8% of route pairs that meet. 400 m adds about 1 point of coverage and 50% more nearby routes per stop, mostly parallel streets. |
+| Either end a BART station or Muni Metro platform | 450 m (1.5 times the street limit) | about 7.0 min | Measured from the nearest BART entrance. Catches 98.7% of the connections BART's station maps list. The one miss is Civic Center to the 49 and 90 at Van Ness (about 510 m). |
+| To is a named stop | 800 m | about 12 min | The rider picked the walk, so the limit only stops absurd pairings. |
+
+Riders set the street limit in device settings, and the station limit scales with it. The analysis scripts are not in the repo; the numbers above are the record.
+
+### Transfer points along the way
+
+Along each first-leg pattern, the stops within range of the target form stretches, and each stretch gives one transfer point: the quickest one in it. Two routes that share a street for a mile meet once, not at every stop. BART stations, a mile apart, each count separately when each sits near the same bus line. A stop only counts if it is closer to the target than the From stop, so a From stop already beside the To stop does not suggest riding away and walking back.
+
+When To is a BART station, its departures are grouped by platform (direction), with every line in one group, since a rider transferring to BART cares which way the train goes.
 
 ## Minimum transfer time
 
