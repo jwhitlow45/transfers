@@ -42,7 +42,7 @@ export function ResultsScreen({ search }: { search: Search }) {
     const matches = initialData && initialData.from === search.from && matchesServerDefaults(settings) && !search.firstRoutes && !search.secondRoutes;
     return matches ? initialData : null;
   }, []);
-  const { data, error, fetchedAt, feed, settled } = usePoll<TripResponse>(url, 30_000, initial);
+  const { data, error, fetchedAt, feed, settled, refresh } = usePoll<TripResponse>(url, 30_000, initial);
   // Every time on the page is the server's, so the clock is too.
   const skew = clockSkewMs(data?.generatedAt, fetchedAt);
   const now = deviceNow + skew;
@@ -117,6 +117,7 @@ export function ResultsScreen({ search }: { search: Search }) {
           action={<SaveButton saved={saved !== null} onToggle={toggleSaved} />}
           accent={saved?.color}
           onBack={() => navigate('/')}
+          onRefresh={refresh}
         />
         <main class="tf-page" id="main">
           {feed === 'offline' && <OfflineBanner statusText={liveStatusText(feed, secondsSinceUpdate)} />}

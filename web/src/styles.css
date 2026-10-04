@@ -440,3 +440,17 @@ button.tf-band:hover { filter: brightness(1.12); }
 .tf-livestatus--stale .tf-stat--live { color: var(--caution); font-weight: var(--weight-bold); }
 .tf-livestatus--stale .tf-stat--live .tf-dot { background: transparent; border-color: var(--caution); }
 .tf-tip { position: absolute; top: calc(100% + 4px); left: 0; z-index: 6; width: max-content; max-width: min(260px, 80vw); padding: var(--space-2) var(--space-3); background: var(--field); color: var(--on-field); font-size: var(--text-sm); font-weight: var(--weight-regular); line-height: 1.35; white-space: normal; }
+
+/* ── gestures ─────────────────────────────────────── */
+/* A handle on whatever drags up or down: the sheet, and the bottom bar that opens it. */
+.tf-grabber { width: 36px; height: 4px; margin: 2px auto 2px; background: var(--line); opacity: .5; }
+.tf-bottombar { position: relative; }
+.tf-bottombar > .tf-grabber { position: absolute; top: 2px; left: 50%; margin: 0 0 0 -18px; }
+/* Only seen when a drag lets go: the sheet sliding away or back. */
+.tf-sheet__panel, .tf-sheet__scrim { transition: transform 180ms ease-out, opacity 180ms ease-out; }
+/* Pull to refresh: a tile that slides out from under the header, its arrow turning as it comes. */
+.tf-pull-track { position: absolute; top: 100%; left: 0; right: 0; height: 132px; overflow: hidden; pointer-events: none; }
+.tf-pull { width: 40px; height: 40px; margin: -44px auto 0; display: grid; place-items: center; opacity: 0; background: var(--bg); color: var(--text); border: var(--border-hair) solid var(--line); transition: transform 180ms ease-out, opacity 180ms ease-out; }
+.tf-pull svg { transform: rotate(var(--pull-turn, 0deg)); }
+.tf-pull--ready { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+@media (prefers-reduced-motion: reduce) { .tf-sheet__panel, .tf-sheet__scrim, .tf-pull { transition: none; } }

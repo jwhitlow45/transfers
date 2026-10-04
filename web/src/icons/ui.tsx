@@ -86,3 +86,4 @@ export const IconHidden = ({ size = 16 }: Props) =>
     </>,
     size,
   );
+export const IconRefresh = ({ size = 20 }: Props) => icon(<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4v4h-4" />, size);

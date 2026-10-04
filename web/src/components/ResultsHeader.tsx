@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import type { FeedState } from '../hooks.ts';
 import { ageShort, ageText } from '../lib/freshness.ts';
 import { IconBack, IconBookmark } from '../icons/ui.tsx';
+import { PullToRefresh } from './PullToRefresh.tsx';
 
 // secondsSinceUpdate counts from when the server got the data from 511, not when this page
 // fetched it, so it says how old the times on screen really are.
@@ -73,8 +74,9 @@ function liveStatusSentence(feed: FeedState, seconds: number | null, stale: bool
   return ago ? `Live times, updated ${ago}` : 'Live times';
 }
 
-// Sticky header for every screen but search: back, a title, and the live status.
-export function ScreenHeader({ title, feed, secondsSinceUpdate, stale, items, action, accent, onBack }: {
+// Sticky header for every screen but search: back, a title, and the live status. Screens with
+// live data pass onRefresh to be refreshed by pulling down.
+export function ScreenHeader({ title, feed, secondsSinceUpdate, stale, items, action, accent, onBack, onRefresh }: {
   title: ComponentChildren;
   stale?: boolean;
   items?: StatusItem[];
@@ -84,6 +86,7 @@ export function ScreenHeader({ title, feed, secondsSinceUpdate, stale, items, ac
   secondsSinceUpdate?: number | null;
   action?: ComponentChildren;
   onBack: () => void;
+  onRefresh?: () => void;
 }) {
   return (
     <header class="tf-header" style={accent ? { '--saved-color': accent } : undefined} data-accent={accent ? 'true' : undefined}>
@@ -98,6 +101,7 @@ export function ScreenHeader({ title, feed, secondsSinceUpdate, stale, items, ac
         <LiveStatus feed={feed} secondsSinceUpdate={secondsSinceUpdate ?? null} stale={stale ?? false} items={items ?? []} />
       )}
       {(feed === 'refreshing' || feed === 'loading') && <div class="tf-refresh-bar" aria-hidden="true" />}
+      {onRefresh && <PullToRefresh onRefresh={onRefresh} />}
     </header>
   );
 }
