@@ -33,14 +33,6 @@ export const IconInfo = ({ size = 20 }: Props) =>
     size,
   );
 export const IconOffline = ({ size = 22 }: Props) => icon(<path d="M2 8.5a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M12 19.5h.01M3 3l18 18" />, size);
-export const IconClock = ({ size = 16 }: Props) =>
-  icon(
-    <>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v5l3 2" />
-    </>,
-    size,
-  );
 export const IconPencil = ({ size = 18 }: Props) => icon(<path d="M4 20h4L19 9l-4-4L4 16z" />, size);
 export const IconClose = ({ size = 22 }: Props) => icon(<path d="M6 6l12 12M18 6L6 18" />, size);
 // Not in the handoff. Drawn to match the set above.

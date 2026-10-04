@@ -151,7 +151,7 @@ function NearbyResults({ position, onRelocate }: { position: Position; onRelocat
                         <li key={arrival.trip}>
                           {routes.length > 1 && <RouteChip route={route} size="sm" label={route?.agency === 'BA' ? route.name : undefined} />}
                           <span class="tf-near__time">{clock(arrival.at)}</span>
-                          <span class="tf-near__in">{minutes < 1 ? 'now' : `${arrival.live ? '' : '~'}${minutes} min`}</span>
+                          <span class="tf-near__in">{minutes < 1 ? 'now' : `${minutes} min`}</span>
                           <StatusTag status={statusOf(arrival.delay, arrival.live)} plain />
                         </li>
                       );

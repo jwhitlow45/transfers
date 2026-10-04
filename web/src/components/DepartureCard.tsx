@@ -1,5 +1,5 @@
 import type { Departure, Group } from '../../../shared/api.ts';
-import { IconChevron, IconClock } from '../icons/ui.tsx';
+import { IconChevron } from '../icons/ui.tsx';
 import { clock, minutesUntil } from '../format.ts';
 import type { CardContext } from '../lib/results.ts';
 import { chipLabel, spokenRoute, statusOf } from '../view.ts';
@@ -39,7 +39,6 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
       </div>
     );
   }
-  const scheduled = !departure.live;
   const status = statusOf(departure.delay, departure.live);
   const minutes = minutesUntil(departure.at, context.now);
   const destinationName = context.destinationName ?? (walk ? context.toName : null);
@@ -49,7 +48,7 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
   const countdowns = departure.connections.map(({ departs }) => Math.max(0, minutesUntil(departs, context.now)));
   const summary = `${count} ${noun[count === 1 ? 0 : 1]} · in ${countdowns.join(', ')} min`;
   const spoken =
-    `${route ? spokenRoute(route) : 'Departure'} at ${clock(departure.at)}, ${status.label}${scheduled ? ', no live prediction' : ''}, ` +
+    `${route ? spokenRoute(route) : 'Departure'} at ${clock(departure.at)}, ${status.label}, ` +
     `${minutes} minutes away${toward ? `, ${toward.toLowerCase()}` : ''}${destination ? `, reaches ${destination}` : ''}.` +
     (walk ? '' : ` ${count} connecting ${noun[count === 1 ? 0 : 1]}${expanded ? '' : `, leaving in ${countdowns.join(', ')} minutes`}.`);
   const band = (
@@ -58,18 +57,17 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
       <span class="tf-band__main" aria-hidden="true">
         <span class="tf-band__line">
           <RouteChip route={route} size="band" color={color} />
-          {scheduled && <IconClock />}
           <span class="tf-band__time">{clock(departure.at)}</span>
           <StatusTag status={status} />
         </span>
         <span class="tf-band__sub">
-          {[toward, scheduled ? 'Scheduled time, no live prediction' : walk ? null : `Arrives at ${boardName}`].filter(Boolean).join(' · ')}
+          {[toward, walk ? null : `Arrives at ${boardName}`].filter(Boolean).join(' · ')}
         </span>
         {destination && <span class="tf-band__dest">{destination}</span>}
       </span>
       <span class="tf-band__right" aria-hidden="true">
-        <span class="tf-band__in">{minutes < 1 ? 'Now' : `${scheduled ? '~' : ''}${minutes} min`}</span>
-        <span class="tf-band__inlabel">{scheduled ? 'by schedule' : 'away'}</span>
+        <span class="tf-band__in">{minutes < 1 ? 'Now' : `${minutes} min`}</span>
+        <span class="tf-band__inlabel">away</span>
         {!walk && (
           <span class="tf-band__chev">
             <IconChevron size={18} />
