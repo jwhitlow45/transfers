@@ -136,13 +136,18 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
   const context = { schedule, snapshot: realtime.trips, now };
 
   const groups: Group[] = [];
-  // The stop keys where the rider rides BART: a BART From, To, or destination, unless they chose
-  // Muni Metro there, and the stops of BART legs. A shared station's key outside it is Muni Metro's.
-  const ridesBart = (stop: StopRow, agencies?: Agency[]) => stop.agency === 'BA' && (!agencies || agencies.includes('BA'));
+  // The stop keys where the rider rides BART, which a shared station's key alone does not say: the
+  // stops of BART legs, and From, To, or the destination where a BART leg starts or ends. A shared
+  // station's key outside it is Muni Metro's.
   const bartAt = new Set<string>();
-  if (ridesBart(from, request.fromAgencies)) bartAt.add(stopKeyOf(from));
-  if (toStop && ridesBart(toStop, request.toAgencies)) bartAt.add(stopKeyOf(toStop));
-  if (destination && ridesBart(destination)) bartAt.add(stopKeyOf(destination));
+  const isBart = (route: RouteRow) => route.agency === 'BA';
+  const choseBart = (agencies?: Agency[]) => !agencies || agencies.includes('BA');
+  // A walk group boards its route at From. Otherwise the first legs leave From.
+  if (from.agency === 'BA' && choseBart(request.fromAgencies) && links.some((link) => (link.kind === 'walk' ? link.routes.some(isBart) : link.firstLegs.some(({ pattern }) => isBart(schedule.route(pattern.route)))))) {
+    bartAt.add(stopKeyOf(from));
+  }
+  if (toStop?.agency === 'BA' && choseBart(request.toAgencies) && links.some(({ boards }) => boards.some(({ agency }) => agency === 'BA'))) bartAt.add(stopKeyOf(toStop));
+  if (destination?.agency === 'BA' && links.some(({ routes }) => routes.some(isBart))) bartAt.add(stopKeyOf(destination));
   const tripStops = new Set<string>([...schedule.boardingStops(from), from].map(stopKeyOf));
   const tripRoutes = new Set<string>();
   // A shared station belongs to both systems, so its own agency says nothing about the trip.
@@ -180,7 +185,11 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
       for (const connection of departure.connections) {
         const stop = connection.alight ? schedule.stopsByKey.get(connection.alight) : undefined;
         if (!stop || schedule.stationOf(stop).id === groupStation) delete connection.alight;
-        else connection.alight = tables.stop(schedule.stationOf(stop));
+        else {
+          connection.alight = tables.stop(schedule.stationOf(stop));
+          // Whether the rider rides BART there is the stop's own, not its shared station's.
+          if (stop.agency === 'BA') bartAt.add(connection.alight);
+        }
       }
     }
     for (const departure of departures) {
@@ -205,7 +214,6 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
     // Where the rider rides BART, which a shared station's key alone does not say.
     if (link.alights.some(({ agency }) => agency === 'BA')) bartAt.add(stopKeyOf(link.alight));
     if (link.boards.some(({ agency }) => agency === 'BA')) bartAt.add(stopKeyOf(link.board));
-    for (const departure of departures) for (const { alight } of departure.connections) if (alight?.startsWith('BA:')) bartAt.add(alight);
     for (const route of routes) tripRoutes.add(routeKeyOf(route));
     for (const { pattern } of link.firstLegs) {
       tripRoutes.add(routeKeyOf(schedule.route(pattern.route)));
