@@ -7,6 +7,7 @@ import type { Agency } from '../config.ts';
 import { buildScheduleDatabase } from '../gtfs/ingest.ts';
 import { type FeedObject, decodeFeed, encodeFeed } from '../realtime/feed.ts';
 import { buildAlerts, buildTripSnapshot } from '../realtime/snapshot.ts';
+import { all } from '../db.ts';
 import { Schedule } from '../schedule.ts';
 import { serviceDayStart } from '../time.ts';
 import { mergeOrder, search } from '../api/search.ts';
@@ -96,12 +97,13 @@ function feeds() {
   ]);
 }
 
-// The same network with 80 more Muni stops on Monterey Blvd, all served by one route, for
-// searches where street stops crowd out a station.
+// The same network with 80 more Muni stops named just "Montgomery St", all served by one route,
+// for searches where street stops crowd out a station. Names that short rank above the station's
+// longer entry by text alone, as Montgomery St's many corners do in the real data.
 function crowdedFeeds() {
   const network = feeds();
   const muni = network.get('SF')!;
-  const corners = Array.from({ length: 80 }, (_, n) => ({ id: `m${n}`, name: `${n + 1}th Ave & Montgomery St`, lon: (-122.46 + n * 0.0005).toFixed(6) }));
+  const corners = Array.from({ length: 80 }, (_, n) => ({ id: `m${n}`, name: `Montgomery St`, lon: (-122.46 + n * 0.0005).toFixed(6) }));
   muni.set('stops.txt', `${muni.get('stops.txt')}\n${corners.map(({ id, name, lon }) => `${id},,${name},37.731000,${lon}`).join('\n')}`);
   muni.set('routes.txt', `${muni.get('routes.txt')}23,23,MONTEREY,3\n`);
   muni.set('trips.txt', `${muni.get('trips.txt')}23,all,mty,Bayview,0,,\n`);
@@ -275,7 +277,10 @@ test('BART and Muni Metro share Montgomery, and the rider can pick either', () =
 });
 
 test('a station comes first for the start of its name, even among many street stops that share it', () => {
-  // Eighty street stops on Montgomery St match "mont" too.
+  // The case only means something if text rank alone puts the station past the first 60.
+  const station = crowded.stopsByKey.get('BA:901209')!.id;
+  const byText = all<{ id: number }>(crowded.db, 'SELECT rowid AS id FROM stop_search WHERE stop_search MATCH ? ORDER BY rank', '"mont"*');
+  ok(byText.findIndex(({ id }) => id === station) >= 60);
   const results = search(crowded, 'mont', { routes: false }).results;
   strictEqual(results[0]?.type === 'stop' && results[0].key, 'BA:901209');
 });
