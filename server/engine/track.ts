@@ -13,7 +13,9 @@ const PASS_METERS = 60;
 
 // `marks` are other stops of the rider's to show on the way, such as where they get on and where
 // they transfer.
-type TrackRequest = { trip: string; stop: string; marks?: string[] };
+// `span` is the stretch of the trip, by stop position, that an open map already shows: it is
+// drawn again whatever the vehicle has done since, so the stops stay put while the vehicle moves.
+type TrackRequest = { trip: string; stop: string; marks?: string[]; span?: [number, number] };
 
 // The trip and where it visits the rider's stop, or a 404 when the trip is not in the schedule or
 // does not stop there. Called before waiting on 511 too, so a bad request is turned away at once.
@@ -97,15 +99,18 @@ export function trackVehicle(schedule: Schedule, live: { vehicles: VehicleSnapsh
   const markedAt = marked.filter((index) => index !== null);
   // From the stop behind the vehicle, so it sits on the line, to one past the rider's, or on to
   // the vehicle when it has gone past, and taking in every marked stop.
-  const from = Math.max(0, Math.min(coming ? Math.min(vehicleAt - 1, estimate?.from ?? vehicleAt) : targetAt - STOPS_BEFORE, ...markedAt));
-  const to = Math.min(stops.length - 1, Math.max(targetAt + 1, vehicleAt, ...markedAt));
+  const span = request.span && request.span[0] >= 0 && request.span[0] <= request.span[1] && request.span[1] < stops.length ? request.span : null;
+  // A pinned span grows only to take in a vehicle that has left it, so it stays on the line.
+  const from = span ? (vehicleAt === -1 ? span[0] : Math.min(span[0], vehicleAt)) : Math.max(0, Math.min(coming ? Math.min(vehicleAt - 1, estimate?.from ?? vehicleAt) : targetAt - STOPS_BEFORE, ...markedAt));
+  const to = span ? Math.max(span[1], vehicleAt) : Math.min(stops.length - 1, Math.max(targetAt + 1, vehicleAt, ...markedAt));
   const shown = stops.slice(from, to + 1);
 
-  // The middle of everything drawn, so the picture centers on the trip from vehicle to stop.
-  const places: Point[] = [...shown, ...(vehicle ? [vehicle] : [])];
+  // The middle of the stops drawn, or of the pinned span, leaving out the vehicle, so an open map
+  // keeps every stop at the same place on each refresh while only the vehicle moves.
+  const centered = span ? stops.slice(span[0], span[1] + 1) : shown;
   const project = projector({
-    lat: (Math.min(...places.map(({ lat }) => lat)) + Math.max(...places.map(({ lat }) => lat))) / 2,
-    lon: (Math.min(...places.map(({ lon }) => lon)) + Math.max(...places.map(({ lon }) => lon))) / 2,
+    lat: (Math.min(...centered.map(({ lat }) => lat)) + Math.max(...centered.map(({ lat }) => lat))) / 2,
+    lon: (Math.min(...centered.map(({ lon }) => lon)) + Math.max(...centered.map(({ lon }) => lon))) / 2,
   });
 
   // The stretch of the trip's shape between the first and last stops drawn.
@@ -135,6 +140,7 @@ export function trackVehicle(schedule: Schedule, live: { vehicles: VehicleSnapsh
       // A canceled trip is due nowhere.
       return { stop: tables.stop(stop), x, y, at: rt?.canceled ? null : (expected.times[from + index] ?? null) };
     }),
+    span: [from, to],
     targetIndex: targetAt - from,
     marks: marked.map((index) => (index === null ? null : index - from)),
     nextIndex: vehicleAt === -1 ? null : vehicleAt - from,

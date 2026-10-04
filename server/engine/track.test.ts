@@ -240,3 +240,13 @@ test('boarding at a stop a loop makes twice, the journey is the one under way, s
   );
   deepStrictEqual([response.targetIndex, response.marks[0]! < response.marks[1]!], [response.marks[1], true]);
 });
+
+test('a map pinned to its span keeps its stops in place as the vehicle moves on', () => {
+  const first = trackVehicle(schedule, at({ lon: lon(1.5), stopId: '102' }), { trip: 'SF:t1', stop: 'SF:104' }, NOW);
+  deepStrictEqual(first.span, [1, 5]);
+  // Later, past stop 3: unpinned, the picture would start at stop 2 and recenter.
+  const later = trackVehicle(schedule, at({ lon: lon(3.5), stopId: '104' }), { trip: 'SF:t1', stop: 'SF:104', span: first.span }, NOW);
+  deepStrictEqual([later.path, later.line], [first.path.map((stop) => ({ ...stop })), first.line]);
+  deepStrictEqual([later.nextIndex, later.targetIndex], [3, 3]);
+  strictEqual(later.vehicle!.x > first.vehicle!.x, true);
+});

@@ -1,4 +1,4 @@
-import { useId, useState } from 'preact/hooks';
+import { useEffect, useId, useState } from 'preact/hooks';
 import type { TrackResponse } from '../../../shared/api.ts';
 import { clock, minutesUntil } from '../format.ts';
 import { useNow, usePoll } from '../hooks.ts';
@@ -29,9 +29,18 @@ const MISSING = {
 // our own data like Nearby's map, with the stops in between.
 export function TrackMap({ tracked }: { tracked: Tracked }) {
   const marks = tracked.marks ?? [];
-  const url = `/api/vehicle?trip=${encodeURIComponent(tracked.trip)}&stop=${encodeURIComponent(tracked.stop)}${marks.map(({ stop }) => `&mark=${encodeURIComponent(stop)}`).join('')}`;
+  // The stretch of the trip the first answer drew. Later refreshes ask for the same one, so the
+  // map's stops stay where they are and only the vehicle moves.
+  const [span, setSpan] = useState<[number, number] | null>(null);
+  const url =
+    `/api/vehicle?trip=${encodeURIComponent(tracked.trip)}&stop=${encodeURIComponent(tracked.stop)}` +
+    marks.map(({ stop }) => `&mark=${encodeURIComponent(stop)}`).join('') +
+    (span ? `&from=${span[0]}&to=${span[1]}` : '');
   // Not kept in storage: a position from an earlier visit is no use.
   const { data, error, fetchedAt, feed } = usePoll<TrackResponse>(url, REFRESH_MS, null, false);
+  useEffect(() => {
+    if (!span && data?.span) setSpan(data.span);
+  }, [data]);
   const now = useNow() + clockSkewMs(data?.generatedAt, fetchedAt);
   // Folded runs the rider opened, by a stop key, which stays put as the vehicle moves and the
   // picture's positions shift.

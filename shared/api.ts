@@ -234,6 +234,9 @@ export type TrackResponse = {
   path: { stop: string; x: number; y: number; at: number | null }[];
   // Where in path the rider's stop is, and the stop the vehicle is at or heading to, which is
   // null with no position.
+  // The stretch of the trip drawn, by stop position, which the page sends back on each refresh so
+  // the map's stops stay put.
+  span: [number, number];
   targetIndex: number;
   nextIndex: number | null;
   // Where in path each requested mark is, in the order asked, or null when the trip does not
