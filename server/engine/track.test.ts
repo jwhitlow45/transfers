@@ -216,3 +216,14 @@ test('on a loop, the transfer stop is marked at its visit after boarding, from e
     strictEqual(response.marks[1]! > response.marks[0]!, true);
   }
 });
+
+test('boarding at a stop a loop makes twice, the journey is the one under way, so the transfer keeps its mark', () => {
+  // Boarding at stop 1 (made at 8:01 and 8:04) and transferring at stop 2, heading there now.
+  const heading = at({ lon: lon(2), stopId: '102', sequence: 3 }, 'SF:l1');
+  const response = trackVehicle(schedule, heading, { trip: 'SF:l1', stop: 'SF:102', marks: ['SF:101', 'SF:102'] }, LOOP_NOW);
+  deepStrictEqual(
+    response.marks.map((index) => response.stops[response.path[index!]!.stop]!.name),
+    ['Market St & Stop 1', 'Market St & Stop 2'],
+  );
+  deepStrictEqual([response.targetIndex, response.marks[0]! < response.marks[1]!], [response.marks[1], true]);
+});

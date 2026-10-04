@@ -30,20 +30,33 @@ export function trackTarget(schedule: Schedule, request: TrackRequest) {
 }
 
 // The rider's stops on this trip, given in the order their journey makes them, such as where they
-// get on and then where they transfer. The first is the visit the vehicle comes to next, or its
-// last once it has made them all, and each after it the visit following the one before, so on a
-// loop the transfer never comes before boarding. A stop the trip does not make, or not in that
-// order, is left out.
+// get on and then where they transfer. Each way of fitting the journey to the trip starts at one
+// visit to the first stop it makes, with each later stop at the first visit after the one before,
+// so on a loop the transfer never comes before boarding. The journey is the first fit still under
+// way when the vehicle gets where it is going, or else the last. A stop the trip does not make,
+// or not in that order, is left out.
 function markVisits(schedule: Schedule, patternStops: number[], keys: string[], vehicleAt: number) {
-  let floor: number | null = null;
-  return keys.map((key) => {
+  const visits = keys.map((key) => {
     const stop = schedule.stopsByKey.get(key);
-    const visits = stop ? visitsTo(schedule, patternStops, stop) : [];
-    const visit = floor === null ? (visits.find((index) => index >= vehicleAt) ?? visits.at(-1)) : visits.find((index) => index >= floor!);
-    if (visit === undefined) return null;
-    floor = visit;
-    return visit;
+    return stop ? visitsTo(schedule, patternStops, stop) : [];
   });
+  const first = visits.findIndex((list) => list.length > 0);
+  if (first === -1) return keys.map(() => null);
+  const fits = visits[first]!.map((start) => {
+    let floor = start;
+    return visits.map((list, n) => {
+      if (n < first) return null;
+      if (n === first) return start;
+      const visit = list.find((index) => index >= floor);
+      if (visit === undefined) return null;
+      floor = visit;
+      return visit;
+    });
+  });
+  // A fit that makes every later stop beats one that runs out of trip.
+  const whole = fits.filter((fit) => fit.slice(first).every((visit) => visit !== null));
+  const candidates = whole.length > 0 ? whole : fits;
+  return candidates.find((fit) => Math.max(...fit.filter((visit) => visit !== null)) >= vehicleAt) ?? candidates.at(-1)!;
 }
 
 // Where along its stops a trip calls at a stop. A station is called at by its platforms.
