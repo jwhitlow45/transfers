@@ -200,10 +200,17 @@ test("the rider's other stops on the trip are marked and drawn, and one it does 
 test('on a loop, the transfer stop is marked at its visit after boarding, from either stop', () => {
   // Boarding at stop 2 and transferring at stop 1, which the loop makes before and after stop 2.
   const marks = ['SF:102', 'SF:101'];
-  const heading = at({ lon: lon(2), stopId: '102', sequence: 3 }, 'SF:l1');
-  const board = trackVehicle(schedule, heading, { trip: 'SF:l1', stop: 'SF:102', marks }, LOOP_NOW);
-  const off = trackVehicle(schedule, heading, { trip: 'SF:l1', stop: 'SF:101', marks }, LOOP_NOW);
-  for (const response of [board, off]) {
+  const responses = [
+    // Heading to stop 2, and still short of the loop's first visit to stop 1.
+    at({ lon: lon(2), stopId: '102', sequence: 3 }, 'SF:l1'),
+    at({ lon: lon(0.5), stopId: '101', sequence: 2 }, 'SF:l1'),
+  ].flatMap((heading) => [
+    trackVehicle(schedule, heading, { trip: 'SF:l1', stop: 'SF:102', marks }, LOOP_NOW),
+    trackVehicle(schedule, heading, { trip: 'SF:l1', stop: 'SF:101', marks }, LOOP_NOW),
+  ]);
+  // The Off time watches the transfer, three stops past the first visit to stop 1.
+  deepStrictEqual([responses[3]!.stopsAway, responses[3]!.passed], [3, false]);
+  for (const response of responses) {
     const [boarding, transfer] = response.marks.map((index) => (index === null ? null : response.path[index]!));
     deepStrictEqual([response.stops[boarding!.stop]!.name, response.stops[transfer!.stop]!.name], ['Market St & Stop 2', 'Market St & Stop 1']);
     strictEqual(response.marks[1]! > response.marks[0]!, true);

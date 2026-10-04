@@ -30,34 +30,20 @@ export function trackTarget(schedule: Schedule, request: TrackRequest) {
 }
 
 // The rider's stops on this trip, given in the order their journey makes them, such as where they
-// get on and then where they transfer. The watched stop's own mark is the visit watched, and the
-// others follow from it in order, each at the visit after the one before, so on a loop the
-// transfer never comes before boarding. A stop the trip does not make, or not in that order, is
-// left out.
-function markVisits(schedule: Schedule, patternStops: number[], request: TrackRequest, targetAt: number) {
-  const keys = request.marks ?? [];
-  const visits = keys.map((key) => {
+// get on and then where they transfer. The first is the visit the vehicle comes to next, or its
+// last once it has made them all, and each after it the visit following the one before, so on a
+// loop the transfer never comes before boarding. A stop the trip does not make, or not in that
+// order, is left out.
+function markVisits(schedule: Schedule, patternStops: number[], keys: string[], vehicleAt: number) {
+  let floor: number | null = null;
+  return keys.map((key) => {
     const stop = schedule.stopsByKey.get(key);
-    return stop ? visitsTo(schedule, patternStops, stop) : [];
-  });
-  const marked: (number | null)[] = keys.map(() => null);
-  const anchor = keys.indexOf(request.stop);
-  if (anchor !== -1) marked[anchor] = targetAt;
-  let floor = anchor === -1 ? 0 : targetAt;
-  for (let n = anchor + 1; n < keys.length; n++) {
-    const visit = visits[n]!.find((index) => index >= floor);
-    if (visit === undefined) continue;
-    marked[n] = visit;
+    const visits = stop ? visitsTo(schedule, patternStops, stop) : [];
+    const visit = floor === null ? (visits.find((index) => index >= vehicleAt) ?? visits.at(-1)) : visits.find((index) => index >= floor!);
+    if (visit === undefined) return null;
     floor = visit;
-  }
-  let ceiling = targetAt;
-  for (let n = anchor - 1; n >= 0; n--) {
-    const visit = visits[n]!.findLast((index) => index <= ceiling);
-    if (visit === undefined) continue;
-    marked[n] = visit;
-    ceiling = visit;
-  }
-  return marked;
+    return visit;
+  });
 }
 
 // Where along its stops a trip calls at a stop. A station is called at by its platforms.
@@ -85,12 +71,14 @@ export function trackVehicle(schedule: Schedule, live: { vehicles: VehicleSnapsh
   const vehicle: Point | null = reported ?? estimate?.point ?? null;
   const missing = vehicle ? undefined : estimate?.missing;
   const vehicleAt = reported ? placeOf(schedule, trip.row, stops, { shape, passes }, reported, now) : (estimate?.next ?? -1);
-  // A trip that makes the rider's stop twice, as on a loop, is watched to the visit it reaches
+  const marked = markVisits(schedule, pattern.stops, request.marks ?? [], vehicleAt);
+  // The stop watched is at its place in the rider's journey when it is one of their marked stops.
+  // Otherwise, on a trip that makes it twice, as on a loop, it is the visit the vehicle reaches
   // next, or the last once it has made them all.
-  const targetAt = visits.find((index) => index >= vehicleAt) ?? visits.at(-1)!;
+  const watched = marked[(request.marks ?? []).indexOf(request.stop)];
+  const targetAt = watched ?? visits.find((index) => index >= vehicleAt) ?? visits.at(-1)!;
   const coming = vehicleAt !== -1 && vehicleAt <= targetAt;
   const passed = vehicleAt > targetAt;
-  const marked = markVisits(schedule, pattern.stops, request, targetAt);
   const markedAt = marked.filter((index) => index !== null);
   // From the stop behind the vehicle, so it sits on the line, to one past the rider's, or on to
   // the vehicle when it has gone past, and taking in every marked stop.
