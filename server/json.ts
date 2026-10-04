@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
-// Results change only when a feed refreshes or a vehicle leaves, so most refreshes match the
-// last one and get an empty 304. A response's time changes every second, so for a page that
+// Results change only when a feed refreshes or a vehicle leaves, so a refresh that lands before
+// the next feed refresh gets an empty 304. A response's time changes every second, so for a page that
 // reads it from the X-Generated-At header, which it says with a header of its own, the tag leaves
 // the time out. Pages from before that header read the time from the body, and a 304 would leave
 // them an old one, so their tags keep it.

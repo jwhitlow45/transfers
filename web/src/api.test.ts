@@ -25,7 +25,12 @@ test('the time comes from the header, on a 304 and on a 200 the browser rebuilt 
   deepStrictEqual(sent, [{ 'X-Reads-Generated-At': '1' }, { 'X-Reads-Generated-At': '1', 'If-None-Match': '"a"' }]);
 });
 
-test('a response with no time header comes through as it is', async () => {
+test('with the time header dropped on the way, the Date header gives the time', async () => {
+  serve([json({ generatedAt: 1000, groups: [] }, { 'Date': new Date(1_600_000 * 1000).toUTCString() })]);
+  deepStrictEqual(await getJson('/api/trip?x=2'), { generatedAt: 1_600_000, groups: [] });
+});
+
+test('a response with no time of its own comes through as it is', async () => {
   serve([json({ results: [] }, {})]);
   deepStrictEqual(await getJson('/api/search?q=mont'), { results: [] });
 });

@@ -48,10 +48,11 @@ export function TrackProvider({ children }: { children: ComponentChildren }) {
             <map.Map key={`${tracked.trip}|${tracked.stop}`} tracked={tracked} />
           ) : failed ? (
             // Browsers remember a failed load of a script chunk and refuse it again until the page
-            // reloads, so a reload is the way to retry. Online, the likely cause is a new version of
-            // the site: this page asked for a map file the server no longer has.
+            // reloads, so a reload is the way to retry. Online, a likely cause is a new version of
+            // the site, whose server no longer has the map file this page asks for, but a weak
+            // connection underground also reads as online.
             <p class="tf-muted">
-              {navigator.onLine ? 'Transfers has been updated since this page opened. ' : 'The map could not load while offline. Once back online, '}
+              {navigator.onLine ? 'The map could not load. Transfers may have been updated since this page opened. ' : 'The map could not load while offline. Once back online, '}
               <button type="button" class="tf-time-link" onClick={() => location.reload()}>
                 {navigator.onLine ? 'Reload the page' : 'reload the page'}
               </button>
