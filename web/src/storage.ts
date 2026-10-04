@@ -117,6 +117,10 @@ export function loadRecent(): RecentSearch[] {
   return read<RecentSearch[]>('recent', []);
 }
 
+export function removeRecent(id: string) {
+  write('recent', loadRecent().filter((item) => searchId(item) !== id));
+}
+
 export function rememberRecent(search: Search, via?: string) {
   const recent = loadRecent().filter((item) => searchId(item) !== searchId(search));
   write('recent', [{ ...search, at: Date.now(), ...(via ? { via } : {}) }, ...recent].slice(0, 8));

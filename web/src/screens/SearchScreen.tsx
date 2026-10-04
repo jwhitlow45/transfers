@@ -14,7 +14,7 @@ import { ageText, freshness, nextPollMs } from '../lib/freshness.ts';
 import { summarize } from '../lib/summary.ts';
 import { navigate, tripPath } from '../router.ts';
 import { tripApiUrl, useSettings } from '../settings.tsx';
-import { type SavedSearch, loadFields, loadRecent, loadSaved, removeSaved, saveFields, saveSaved, searchId } from '../storage.ts';
+import { type SavedSearch, loadFields, loadRecent, loadSaved, removeRecent, removeSaved, saveFields, saveSaved, searchId } from '../storage.ts';
 import { chipLabel, dayLabel, shortStopName } from '../view.ts';
 
 // A picked stop or route. `short` is what headers and lists call it.
@@ -47,6 +47,8 @@ export function SearchScreen() {
   const [focus, setFocus] = useState<'from' | 'to' | null>(null);
   const [response, setResponse] = useState<SearchResponse | null>(null);
   const [saved, setSaved] = useState(loadSaved);
+  // Bumped when a recent search is removed, so the list reads storage again.
+  const [, setRecentVersion] = useState(0);
 
   const active = focus === 'from' ? from : focus === 'to' ? to : null;
   const query = active && !active.picked ? active.query.trim() : '';
@@ -154,7 +156,14 @@ export function SearchScreen() {
                 </div>
               </section>
             )}
-            <RecentList items={recent} onOpen={(item) => navigate(item.href)} />
+            <RecentList
+              items={recent}
+              onOpen={(item) => navigate(item.href)}
+              onRemove={(item) => {
+                removeRecent(item.id);
+                setRecentVersion((version) => version + 1);
+              }}
+            />
             <DataCredit />
           </>
         )}

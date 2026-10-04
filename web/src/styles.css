@@ -414,3 +414,14 @@ button.tf-band { width: 100%; text-align: left; color: var(--on-field); }
 .tf-select-wrap .tf-select { margin-top: 0; }
 .tf-select:hover { background: color-mix(in srgb, var(--text) 5%, var(--bg)); }
 .tf-select option, .tf-select optgroup { background: var(--bg); color: var(--text); }
+
+/* Recent searches swipe left to remove. Vertical panning stays the browser's own. */
+.tf-recent-row { position: relative; overflow: hidden; touch-action: pan-y; transition: opacity .18s; }
+.tf-recent-row--leaving { opacity: 0; }
+.tf-recent-row__behind { position: absolute; inset: 0 0 1px 0; display: flex; align-items: center; justify-content: flex-end; padding-right: var(--space-5); background: var(--late-tint); color: var(--late); font-weight: var(--weight-bold); }
+.tf-recent-row .tf-recent { position: relative; background: var(--bg); transition: transform .18s; user-select: none; -webkit-user-select: none; -webkit-user-drag: none; -webkit-touch-callout: none; }
+.tf-recent-row .tf-recent--dragging { transition: none; }
+/* Shows only for keyboard users, who cannot swipe. */
+.tf-recent-remove { position: absolute; right: 0; top: 0; bottom: 1px; width: var(--tap-min); display: grid; place-items: center; background: var(--late-tint); color: var(--late); opacity: 0; pointer-events: none; }
+.tf-recent-remove:focus-visible { opacity: 1; pointer-events: auto; }
+@media (prefers-reduced-motion: reduce) { .tf-recent-row, .tf-recent-row .tf-recent { transition: none; } }
