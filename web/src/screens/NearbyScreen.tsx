@@ -134,12 +134,16 @@ function NearbyResults({ position, onRelocate }: { position: Position; onRelocat
               return (
                 <article key={`${row.stop}|${row.routes.join(',')}|${row.direction}`} class="tf-near" aria-label={`${routes.map(({ name }) => name).join(', ')} toward ${row.headsign}`}>
                   <div class="tf-near__head">
-                    <div class="tf-chips">
+                    <h2 class="tf-group__title">
                       {routes.map((route) => (
-                        <RouteChip key={route.key} route={route} label={routes.length > 1 && route.agency === 'BA' ? route.name : undefined} />
+                        <RouteChip key={route.key} route={route} iconSize={18} label={routes.length > 1 && route.agency === 'BA' ? route.name : undefined} />
                       ))}
-                    </div>
-                    <div class="tf-near__toward">toward {row.headsign}</div>
+                      <span>
+                        <span aria-hidden="true">→ </span>
+                        <span class="tf-sr">toward </span>
+                        {row.headsign}
+                      </span>
+                    </h2>
                     <div class="tf-group__meta">
                       {shortStopName(stop, row.stop)}
                       {stop?.code ? ` · Stop ${stop.code}` : ''} · {row.meters} m away
@@ -154,8 +158,8 @@ function NearbyResults({ position, onRelocate }: { position: Position; onRelocat
                         <li key={arrival.trip}>
                           {routes.length > 1 && <RouteChip route={route} size="sm" label={route?.agency === 'BA' ? route.name : undefined} />}
                           <span class="tf-near__time">{clock(arrival.at)}</span>
-                          <span class="tf-near__in">{minutes < 1 ? 'now' : `${minutes} min`}</span>
                           <StatusTag status={statusOf(arrival.delay, arrival.live)} plain />
+                          <span class="tf-near__in">{minutes < 1 ? 'Now' : `${minutes} min`}</span>
                         </li>
                       );
                     })}

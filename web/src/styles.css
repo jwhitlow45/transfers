@@ -362,11 +362,12 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-near-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: var(--space-4); }
 .tf-near { border: var(--border-strong) solid var(--line); display: flex; flex-direction: column; }
 .tf-near__head { padding: var(--space-3) var(--space-4) var(--space-2); }
-.tf-near__toward { margin-top: var(--space-2); font-size: var(--text-lg); font-weight: var(--weight-bold); }
 .tf-near__times { list-style: none; margin: 0; padding: 0 var(--space-4) var(--space-3); display: flex; flex-direction: column; gap: var(--space-1); }
-.tf-near__times li { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) 10px; }
+/* Each arrival reads like a departure band on results: time and status, then the countdown. */
+.tf-near__times li { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) 10px; padding: 6px 0; border-top: var(--border-hair) solid var(--divider); }
+.tf-near__times li:first-child { border-top: 0; }
 .tf-near__time { font-size: var(--text-lg); font-weight: var(--weight-bold); }
-.tf-near__in { font-weight: var(--weight-semibold); }
+.tf-near__in { margin-left: auto; font-size: var(--text-lg); font-weight: var(--weight-heavy); }
 .tf-near__actions { display: grid; grid-template-columns: 1fr 1fr; border-top: var(--border-hair) solid var(--divider); margin-top: auto; }
 .tf-near__actions .tf-btn-secondary { border: 0; min-height: var(--tap); }
 .tf-near__actions .tf-btn-secondary + .tf-btn-secondary { border-left: var(--border-hair) solid var(--divider); }
