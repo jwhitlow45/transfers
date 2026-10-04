@@ -77,6 +77,11 @@ export function SettingsScreen() {
               onChange={({ min, max }) => update({ min, max })}
             />
           )}
+        </section>
+
+        {/* Its own section: hiding departures works the same with either window choice above. */}
+        <section class="tf-section tf-section--tight" aria-labelledby="departures-heading">
+          <h2 id="departures-heading">Departures</h2>
           <MinutesSlider label="Hide departures leaving in less than" help="Time to reach your first stop" value={settings.hide} onChange={(value) => update({ hide: value })} />
         </section>
 
