@@ -131,6 +131,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-btn-icon { width: var(--tap-min); height: var(--tap-min); flex: none; display: grid; place-items: center; }
 .tf-btn-outline { min-height: var(--tap-primary); border: var(--border-strong) solid var(--line); }
 .tf-btn-outline:hover, .tf-btn-icon:hover { background: color-mix(in srgb, var(--text) 7%, transparent); }
+.tf-force-refresh { width: 100%; margin-top: var(--space-2); font-weight: 650; }
 
 /* ── route chip ────────────────────────────────────── */
 .tf-chip { display: inline-flex; align-items: center; gap: 4px; padding: 0 7px 0 5px; font-weight: var(--weight-bold); line-height: 1.4; white-space: nowrap; }

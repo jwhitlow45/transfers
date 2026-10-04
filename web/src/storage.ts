@@ -171,3 +171,12 @@ export function loadCached<T>(url: string) {
 export function saveCached(url: string, data: unknown, fetchedAt = Date.now()) {
   write(`cache:${url}`, { data, fetchedAt });
 }
+
+// Forgets every stored response, keeping settings and saved and recent searches.
+export function clearCached() {
+  try {
+    for (const key of Object.keys(localStorage)) if (key.startsWith(`${PREFIX}cache:`)) localStorage.removeItem(key);
+  } catch {
+    // Storage the browser blocks holds nothing to clear.
+  }
+}
