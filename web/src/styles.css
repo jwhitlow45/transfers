@@ -303,7 +303,9 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-skeleton { border: 1px solid var(--divider); padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); }
 .tf-skeleton__block { background: var(--surface); }
 
-.tf-credit { margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--divider); font-size: var(--text-sm); color: var(--muted); display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); }
+/* 511's credit at the left and BART's at the right. On a phone too narrow for both on one line,
+   BART's wraps and, alone on its line, sits at the left too. */
+.tf-credit { margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--divider); font-size: var(--text-sm); color: var(--muted); display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-1) var(--space-4); }
 
 /* ── bottom bar ────────────────────────────────────── */
 .tf-bottombar { flex: none; border-top: var(--border-strong) solid var(--line); background: var(--bg); padding: var(--space-2) var(--space-3) calc(var(--space-2) + env(safe-area-inset-bottom)); }
