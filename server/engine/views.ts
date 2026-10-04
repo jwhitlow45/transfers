@@ -1,4 +1,5 @@
 import type { AgencyId, Mode, Route, Stop } from '../../shared/api.ts';
+import { bartStationCode } from '../bart-stations.ts';
 import { compassLabel } from '../geo.ts';
 import { type RouteRow, type Schedule, type StopRow, routeKeyOf, stopKeyOf } from '../schedule.ts';
 
@@ -38,7 +39,15 @@ export function stopView(schedule: Schedule, stop: StopRow): Stop {
     lon: stop.lon,
     mode: stopMode(schedule, stop),
     ...(schedule.sharedMembers.has(stop.id) ? { serves: ['BA', 'SF'] as const satisfies AgencyId[] } : {}),
+    ...bartCode(stop),
   };
+}
+
+// BART's own code for a station, which its web pages use, so the page can link to it.
+function bartCode(stop: StopRow) {
+  if (stop.agency !== 'BA') return {};
+  const code = bartStationCode(stop);
+  return code ? { bart: code } : {};
 }
 
 function stopMode(schedule: Schedule, stop: StopRow): Mode {

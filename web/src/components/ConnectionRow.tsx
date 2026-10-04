@@ -3,6 +3,7 @@ import { clock, minutesUntil } from '../format.ts';
 import { type CardContext, isTight } from '../lib/results.ts';
 import { shortStopName, spokenRoute, statusOf } from '../view.ts';
 import { RouteChip } from './RouteChip.tsx';
+import { StopLink } from './StopLink.tsx';
 import { StatusTag } from './StatusTag.tsx';
 import { TimeBar } from './TimeBar.tsx';
 
@@ -50,7 +51,12 @@ export function ConnectionRow({ connection, departure, alightName, min, secondCo
         <StatusTag status={status} plain />
         <div class="tf-row__off">
           Off {clock(connection.arrives)}
-          {offAt && ` at ${offAt}`}
+          {offAt && (
+            <>
+              {' at '}
+              <StopLink stop={context.data.stops[connection.alight!]}>{offAt}</StopLink>
+            </>
+          )}
         </div>
       </div>
       <div class="tf-row__xfer" aria-hidden="true">

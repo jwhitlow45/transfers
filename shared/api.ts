@@ -35,6 +35,8 @@ export type Stop = {
   mode: Mode;
   // A shared downtown station, where BART and Muni Metro both stop: ["BA", "SF"].
   serves?: AgencyId[];
+  // A BART station's own code ("mont"), for its page on bart.gov.
+  bart?: string;
 };
 
 export type StopSearchResult = Stop & {

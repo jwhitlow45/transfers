@@ -16,6 +16,15 @@ export const chipLabel = (route: Route) => (route.agency === 'BA' ? 'BART' : rou
 
 export const spokenRoute = (route: Route) => (route.agency === 'BA' ? `BART ${route.name} line` : `${agencyName(route)} ${route.name}`);
 
+// The agency's own page for a stop, with its live arrivals: SFMTA's for a Muni stop, by the code
+// on its sign, and bart.gov's for a BART station. SamTrans and Golden Gate have no page per stop.
+export function stopPage(stop: Stop | undefined) {
+  if (!stop) return null;
+  if (stop.agency === 'SF' && stop.code) return `https://www.sfmta.com/${stop.code}`;
+  if (stop.bart) return `https://www.bart.gov/stations/${stop.bart}`;
+  return null;
+}
+
 // BART's station names are long ("24th Street / Mission"). Headers use the short form riders say.
 export function shortStopName(stop: Stop | undefined, fallback = '') {
   if (!stop) return fallback;

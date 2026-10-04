@@ -7,6 +7,7 @@ import { RouteChip } from '../components/RouteChip.tsx';
 import { Schematic } from '../components/Schematic.tsx';
 import { SkeletonResults } from '../components/SkeletonResults.tsx';
 import { StatusTag } from '../components/StatusTag.tsx';
+import { StopLink } from '../components/StopLink.tsx';
 import { clock, minutesUntil } from '../format.ts';
 import { useNow, usePoll } from '../hooks.ts';
 import { IconLocation } from '../icons/ui.tsx';
@@ -145,7 +146,7 @@ function NearbyResults({ position, onRelocate }: { position: Position; onRelocat
                       </span>
                     </h2>
                     <div class="tf-group__meta">
-                      {shortStopName(stop, row.stop)}
+                      <StopLink stop={stop}>{shortStopName(stop, row.stop)}</StopLink>
                       {stop?.code ? ` · Stop ${stop.code}` : ''} · {row.meters} m away
                     </div>
                   </div>

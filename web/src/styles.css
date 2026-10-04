@@ -522,3 +522,9 @@ button.tf-band:hover { filter: brightness(1.12); }
 :root[data-motion="off"] *, :root[data-motion="off"] *::before, :root[data-motion="off"] *::after { transition: none !important; animation: none !important; }
 /* With its sliding stopped, the refresh bar stays a still, faint bar so refreshing still shows. */
 :root[data-motion="off"] .tf-refresh-bar::after { width: 100%; opacity: .5; }
+
+/* ── links out ─────────────────────────────────────── */
+/* A stop's name links to its agency's page. An underline says so, in the text's own color so it
+   sits quietly in a line of muted detail. */
+.tf-stop-link { color: inherit; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.tf-stop-link:hover { color: var(--text); text-decoration-thickness: 2px; }

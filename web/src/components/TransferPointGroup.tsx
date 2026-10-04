@@ -1,9 +1,11 @@
+import { type ComponentChildren, Fragment } from 'preact';
 import type { Group, Route } from '../../../shared/api.ts';
 import { walkMinutes } from '../format.ts';
 import { type CardContext, alightVerb, familyName, firstNoun, firstWord, pointId, visibleDepartures } from '../lib/results.ts';
 import { agencyName, chipLabel, shortStopName, windowText } from '../view.ts';
 import { DepartureCard } from './DepartureCard.tsx';
 import { RouteChip } from './RouteChip.tsx';
+import { StopLink } from './StopLink.tsx';
 
 // One group per connecting route, or per transfer point when To is a route. Up to 3 departures.
 export function TransferPointGroup({ group, context, isExpanded, onToggle, onWiden, onShowHidden }: {
@@ -30,7 +32,8 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
   const many = routes.length > 1;
   const routeLabel = familyName(group.routes, data);
   const station = board?.serves ? 'BART and Muni Metro station' : board ? `${agencyName(board)} station` : null;
-  const place = [board?.direction, `at ${boardName}`, board?.code ? `stop ${board.code}` : station].filter(Boolean).join(' · ');
+  const boardLink = <StopLink stop={board}>{boardName}</StopLink>;
+  const place = joined([board?.direction, <>at {boardLink}</>, board?.code ? `stop ${board.code}` : station]);
   const firstOpen = departures.find(({ canceled }) => !canceled)?.trip;
   const walk = group.kind === 'walk';
   // Rows that get off at another stop may walk farther than the group's own stop.
@@ -40,13 +43,21 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
   const routeNames = familyName(group.routes, data);
   // Where to get off says it once here, so each row only needs the time. A walk group has no
   // first vehicle: the route is right here, or a short walk away.
-  const off = walk
-    ? group.walkMeters < 15
-      ? `No transfer needed: ${routeNames} ${group.routes.length > 1 && !/^(BART|Muni Metro)/.test(routeNames) ? 'stop' : 'stops'} here`
-      : `No transfer needed: walk ${walkMinutes(group.walkMeters)} min to ${boardName}`
-    : sameStop
-      ? `Transfer at ${boardName}`
-      : `${alightVerb(group, data)} ${alightName} · ${walkTime} min walk`;
+  const off = walk ? (
+    group.walkMeters < 15 ? (
+      `No transfer needed: ${routeNames} ${group.routes.length > 1 && !/^(BART|Muni Metro)/.test(routeNames) ? 'stop' : 'stops'} here`
+    ) : (
+      <>
+        No transfer needed: walk {walkMinutes(group.walkMeters)} min to {boardLink}
+      </>
+    )
+  ) : sameStop ? (
+    <>Transfer at {boardLink}</>
+  ) : (
+    <>
+      {alightVerb(group, data)} <StopLink stop={alight}>{alightName}</StopLink> · {walkTime} min walk
+    </>
+  );
   return (
     <section class="tf-group">
       <div>
@@ -127,4 +138,14 @@ function familyChips(routes: Route[]) {
       ))}
     </>
   );
+}
+
+// Parts of a line joined by " · ", leaving out the empty ones.
+function joined(parts: (ComponentChildren | null | undefined | false)[]) {
+  return parts.filter(Boolean).map((part, index) => (
+    <Fragment key={index}>
+      {index > 0 && ' · '}
+      {part}
+    </Fragment>
+  ));
 }
