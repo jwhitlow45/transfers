@@ -455,10 +455,8 @@ button.tf-band:hover { filter: brightness(1.12); }
 .tf-header--no-back .tf-livestatus { padding-left: var(--space-2); }
 
 /* ── gestures ─────────────────────────────────────── */
-/* A handle on whatever drags up or down: the sheet, and the bottom bar that opens it. */
+/* A handle on the sheet, which drags down to close. */
 .tf-grabber { width: 36px; height: 4px; margin: 2px auto 2px; background: color-mix(in srgb, var(--line) 50%, transparent); }
-.tf-bottombar { position: relative; }
-.tf-bottombar > .tf-grabber { position: absolute; top: 2px; left: 50%; margin: 0 0 0 -18px; }
 /* Only seen when a drag lets go: the sheet sliding away or back. */
 .tf-sheet__panel, .tf-sheet__scrim { transition: transform 180ms ease-out, opacity 180ms ease-out; }
 /* Pull to refresh: a tile that slides out from under the header, its arrow turning as it comes. */

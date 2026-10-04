@@ -1,15 +1,9 @@
-import { useRef } from 'preact/hooks';
-import { useDrag } from '../gestures.ts';
 import { IconBack, IconBookmark, IconSliders } from '../icons/ui.tsx';
-
-// How far up a swipe on the bar goes before it opens the settings, or how fast, in px per ms.
-const OPEN_PX = 28;
-const OPEN_FLING = 0.4;
 
 // Thumb-reach controls on the results screen: back, the trip's settings, and saving the search.
 // Back and save sit here rather than in the header, so the header has room for the trip. The
-// settings open from the wide button, or a swipe up, which shows the transfer window, the
-// setting riders change most.
+// settings button shows the transfer window, the setting riders change most. There is no swipe
+// up to open them: an iPhone's swipe home starts on this bar and opened them on the way out.
 // windowText is null when nothing on the page has a transfer window, such as when the route
 // already stops where the rider is.
 export function BottomBar({ windowText, saved, onBack, onOpen, onToggleSaved }: {
@@ -19,24 +13,8 @@ export function BottomBar({ windowText, saved, onBack, onOpen, onToggleSaved }: 
   onOpen: () => void;
   onToggleSaved: () => void;
 }) {
-  const bar = useRef<HTMLElement>(null);
-  const opened = useRef(false);
-  const open = () => {
-    if (opened.current) return;
-    opened.current = true;
-    onOpen();
-  };
-  useDrag(() => bar.current, 'y', {
-    claim: (direction) => {
-      opened.current = false;
-      return direction === 'up';
-    },
-    move: (dy) => dy <= -OPEN_PX && open(),
-    end: (release) => release && -release.velocity >= OPEN_FLING && open(),
-  });
   return (
-    <nav class="tf-bottombar" aria-label="Trip controls" ref={bar}>
-      <div class="tf-grabber" aria-hidden="true" />
+    <nav class="tf-bottombar" aria-label="Trip controls">
       <div class="tf-bottombar__inner">
         <button type="button" class="tf-btn-outline tf-bottombar__icon" onClick={onBack} aria-label="Back to search">
           <IconBack />
