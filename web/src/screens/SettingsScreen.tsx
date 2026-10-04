@@ -94,6 +94,15 @@ export function SettingsScreen() {
             </div>
           </div>
           <div class="tf-setting">
+            <div class="tf-setting__label">Transit icons</div>
+            <div class="tf-setting__help">The bus, train, and boat pictures beside route names</div>
+            <div class="tf-filters">
+              <Toggle pressed={settings.modeIcons} onToggle={() => update({ modeIcons: !settings.modeIcons })}>
+                Show transit icons
+              </Toggle>
+            </div>
+          </div>
+          <div class="tf-setting">
             <div class="tf-setting__label">Departure cards</div>
             <div class="tf-setting__help">How cards start out on results. First expanded opens each group's soonest departure. Tap any card to open or close it.</div>
             <div class="tf-filters">

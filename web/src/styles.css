@@ -136,6 +136,8 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-chip--sm { gap: 3px; padding: 1px 7px 1px 4px; font-size: var(--text-sm); }
 .tf-chip--band { font-size: var(--text-lg); font-weight: var(--weight-heavy); padding: 1px 7px 1px 5px; }
 .tf-chip svg { flex: none; }
+/* Without its icon, a chip pads both sides alike. */
+.tf-chip--plain { padding-left: 7px; }
 
 /* ── status tag ────────────────────────────────────── */
 .tf-status { display: inline-block; padding: 0 7px; font-size: var(--text-base); font-weight: var(--weight-bold); border: 1px solid transparent; }

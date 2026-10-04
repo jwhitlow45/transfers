@@ -33,9 +33,11 @@ export type DeviceSettings = {
   theme: 'system' | 'light' | 'dark';
   // How departure cards start out: all open, each group's soonest open, or all closed.
   cards: 'expanded' | 'first' | 'collapsed';
+  // Whether route chips show their vehicle pictogram.
+  modeIcons: boolean;
 };
 
-export const DEFAULT_SETTINGS: DeviceSettings = { walkSpeed: 1.4, maxWalk: 300, min: null, max: null, hide: 0, theme: 'system', cards: 'expanded' };
+export const DEFAULT_SETTINGS: DeviceSettings = { walkSpeed: 1.4, maxWalk: 300, min: null, max: null, hide: 0, theme: 'system', cards: 'expanded', modeIcons: true };
 
 export function loadSettings(): DeviceSettings {
   return { ...DEFAULT_SETTINGS, ...read<Partial<DeviceSettings>>('settings', {}) };
