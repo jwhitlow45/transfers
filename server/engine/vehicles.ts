@@ -85,6 +85,8 @@ export function secondLegs(context: VehicleContext, link: Link, destination: Sto
   const legs = new Map<string, SecondLeg>();
   const routeIds = new Set(link.routes.map(({ id }) => id));
   const directionMatches = (pattern: PatternRow | undefined) => !pattern || link.direction === null || pattern.direction === link.direction;
+  // A BART station as the destination means whichever of its platforms the trip stops at.
+  const destinationStops = destination ? schedule.boardingStops(destination) : [];
 
   if (snapshot) {
     for (const { trip, index } of snapshot.byStop.get(stopKey(link.board.agency, link.board.stopId)) ?? []) {
@@ -104,18 +106,23 @@ export function secondLegs(context: VehicleContext, link: Link, destination: Sto
         live: true,
         canceled: trip.canceled,
       };
-      if (destination) {
-        const reaches = timeAfter(context, trip, index, staticTrip, pattern, destination);
-        if (reaches) leg.destination = reaches.at;
+      for (const stop of destinationStops) {
+        const reaches = timeAfter(context, trip, index, staticTrip, pattern, stop);
+        if (reaches) {
+          leg.destination = reaches.at;
+          break;
+        }
       }
       legs.set(leg.trip, leg);
     }
   }
 
   const destinationPositions = (pattern: PatternRow, from: number) => {
-    if (!destination) return [];
-    const position = pattern.stops.indexOf(destination.id, from + 1);
-    return position === -1 ? [] : [position];
+    for (const stop of destinationStops) {
+      const position = pattern.stops.indexOf(stop.id, from + 1);
+      if (position !== -1) return [position];
+    }
+    return [];
   };
   for (const { pattern, position } of link.boardPatterns) {
     if (!routeIds.has(pattern.route)) continue;

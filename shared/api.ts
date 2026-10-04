@@ -94,8 +94,13 @@ export type Group = {
   direction: number | null;
   headsign: string;
   walkMeters: number;
+  // Every route that can carry the rider from the From stop to `alight`, for route filters.
+  firstRoutes: string[];
   // Minutes, after defaults.
   window: { min: number; max: number };
+  // When nothing connects in the window: the smallest window, widened by the same amount on
+  // both ends, that would find a connection.
+  widen?: { min: number; max: number };
   departures: Departure[];
 };
 
@@ -130,11 +135,12 @@ export type TripResponse = {
   feeds: FeedStatus[];
 };
 
-export type NearbyArrival = { trip: string; at: number; delay: number | null; live: boolean };
+export type NearbyArrival = { trip: string; route: string; at: number; delay: number | null; live: boolean };
 
 export type NearbyStop = {
   stop: string;
-  route: string;
+  // One route, except at a BART platform, where every line toward the same direction shares a row.
+  routes: string[];
   direction: number | null;
   headsign: string;
   meters: number;
@@ -145,6 +151,13 @@ export type NearbyStop = {
 export type Schematic = {
   stops: { stop: string; x: number; y: number }[];
   lines: { route: string; points: [number, number][] }[];
+};
+
+// Stops after each transfer point, where the rider might ride the second vehicle to.
+export type DestinationsResponse = {
+  groups: { board: string; routes: string[]; headsign: string; stops: string[] }[];
+  routes: Record<string, Route>;
+  stops: Record<string, Stop>;
 };
 
 export type NearbyResponse = {

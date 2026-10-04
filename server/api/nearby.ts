@@ -17,6 +17,8 @@ export function nearby(schedule: Schedule, realtime: RealtimeView, center: Point
   const tables = new Tables(schedule);
   type Candidate = { stop: StopRow; meters: number; route: number; direction: number | null; headsign: string; trips: number };
   const nearest = new Map<string, Candidate>();
+  // BART riders pick a platform, not a line, so lines through the same platform share a row.
+  const bartLines = new Map<number, Candidate[]>();
   for (const stop of schedule.stops.values()) {
     // Vehicles stop at platforms and street stops, never at a station's own point.
     if (stop.kind !== 'stop' && stop.kind !== 'platform') continue;
@@ -24,6 +26,11 @@ export function nearby(schedule: Schedule, realtime: RealtimeView, center: Point
     if (meters > radius) continue;
     for (const served of schedule.stopRoutes.get(stop.id) ?? []) {
       const direction = served.direction === -1 ? null : served.direction;
+      if (stop.access === 'bart') {
+        const lines = bartLines.get(stop.id) ?? [];
+        bartLines.set(stop.id, [...lines, { stop, meters, route: served.route, direction, headsign: served.headsign, trips: served.trips }]);
+        continue;
+      }
       const key = `${served.route}|${direction}`;
       const current = nearest.get(key);
       if (!current || meters < current.meters || (meters === current.meters && served.trips > current.trips)) {
@@ -32,19 +39,28 @@ export function nearby(schedule: Schedule, realtime: RealtimeView, center: Point
     }
   }
 
+  type Row = Candidate & { routes: number[] };
+  const rows: Row[] = [...nearest.values()].map((candidate) => ({ ...candidate, routes: [candidate.route] }));
+  for (const lines of bartLines.values()) {
+    const busiest = [...lines].sort((a, b) => b.trips - a.trips);
+    const headsigns = [...new Set(busiest.map(({ headsign }) => headsign))];
+    rows.push({ ...busiest[0]!, routes: [...new Set(busiest.map(({ route }) => route))], headsign: headsigns.slice(0, 3).join(' / ') });
+  }
+
   const context = { schedule, snapshot: realtime.trips, now };
   const groups: NearbyStop[] = [];
-  for (const candidate of [...nearest.values()].sort((a, b) => a.meters - b.meters).slice(0, MAX_GROUPS)) {
-    const route = schedule.route(candidate.route);
+  for (const candidate of rows.sort((a, b) => a.meters - b.meters).slice(0, MAX_GROUPS)) {
+    const routes = candidate.routes.map((id) => schedule.route(id));
+    const routeIds = new Set(candidate.routes);
     const link: Link = {
       key: '',
       alight: candidate.stop,
       board: candidate.stop,
-      routes: [route],
+      routes,
       direction: candidate.direction,
       headsign: candidate.headsign,
       boardPatterns: (schedule.patternsByStop.get(candidate.stop.id) ?? []).filter(
-        ({ pattern, position }) => pattern.route === route.id && (candidate.direction === null || pattern.direction === candidate.direction) && position < pattern.stops.length - 1,
+        ({ pattern, position }) => routeIds.has(pattern.route) && (candidate.direction === null || pattern.direction === candidate.direction) && position < pattern.stops.length - 1,
       ),
       firstLegs: [],
       walkMeters: 0,
@@ -55,10 +71,10 @@ export function nearby(schedule: Schedule, realtime: RealtimeView, center: Point
       .filter(({ at, canceled }) => !canceled && at >= now - 30)
       .sort((a, b) => a.at - b.at)
       .slice(0, ARRIVALS_PER_STOP)
-      .map(({ trip, at, delay, live }) => ({ trip, at, delay, live }));
+      .map(({ trip, route, at, delay, live }) => ({ trip, route: tables.route(schedule.routesByKey.get(route)!), at, delay, live }));
     groups.push({
       stop: tables.stop(candidate.stop.parent !== null && candidate.stop.access === 'bart' ? schedule.stop(candidate.stop.parent) : candidate.stop),
-      route: tables.route(route),
+      routes: routes.map((route) => tables.route(route)),
       direction: candidate.direction,
       headsign: candidate.headsign,
       meters: Math.round(candidate.meters),
@@ -71,7 +87,7 @@ export function nearby(schedule: Schedule, realtime: RealtimeView, center: Point
     nearby: groups,
     routes: tables.routes,
     stops: tables.stops,
-    schematic: schematic(schedule, center, radius, [...nearest.values()]),
+    schematic: schematic(schedule, center, radius, [...nearest.values(), ...[...bartLines.values()].flat()]),
     feeds: [],
   };
 }

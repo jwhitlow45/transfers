@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { DEFAULT_NEARBY_METERS, nearby } from './api/nearby.ts';
 import { search } from './api/search.ts';
 import { config, requireApiKeys } from './config.ts';
-import { type RealtimeView, RequestError, type TripRequest, planTrip } from './engine/trip.ts';
+import { type RealtimeView, RequestError, type TripRequest, destinations, planTrip } from './engine/trip.ts';
 import { KeyPool } from './realtime/keys.ts';
 import { Realtime } from './realtime/manager.ts';
 import { ScheduleStore } from './schedule-store.ts';
@@ -42,6 +42,8 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
       const view = await realtimeView();
       return sendJson(request, response, planTrip(schedule, view, tripRequest(url.searchParams), nowSeconds()));
     }
+    case '/api/destinations':
+      return sendJson(request, response, destinations(schedule, tripRequest(url.searchParams)));
     case '/api/nearby': {
       const center = point(url.searchParams);
       if (!center) throw new RequestError(400, 'Send lat and lon');

@@ -1,8 +1,8 @@
-import type { Alert, AlertRelevance, AgencyId, FeedStatus, Group, TripResponse } from '../../shared/api.ts';
+import type { Alert, AlertRelevance, AgencyId, Departure, DestinationsResponse, FeedStatus, Group, TripResponse } from '../../shared/api.ts';
 import type { Agency } from '../config.ts';
 import type { RtAlert, TripSnapshot } from '../realtime/snapshot.ts';
 import { type Schedule, type StopRow, routeKeyOf, stopKeyOf } from '../schedule.ts';
-import { pairConnections } from './connections.ts';
+import { type FirstLeg, type PairingOptions, type SecondLeg, pairConnections } from './connections.ts';
 import { type Link, findLinks } from './links.ts';
 import { firstLegs, secondLegs } from './vehicles.ts';
 import { Tables } from './views.ts';
@@ -57,16 +57,46 @@ function cachedLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow } | 
   return links;
 }
 
-export function planTrip(schedule: Schedule, realtime: RealtimeView, request: TripRequest, now: number): TripResponse {
+function resolveEnds(schedule: Schedule, request: Pick<TripRequest, 'from' | 'to'>) {
   const from = schedule.stopsByKey.get(request.from);
   if (!from) throw new RequestError(404, `No stop ${request.from}`);
   const toRoute = request.to.startsWith('route:') ? schedule.routesByKey.get(request.to.slice('route:'.length)) : undefined;
   const toStop = toRoute ? undefined : schedule.stopsByKey.get(request.to);
   if (!toRoute && !toStop) throw new RequestError(404, `No stop or route ${request.to}`);
+  return { from, to: toStop ? { stop: toStop } : { route: toRoute! } };
+}
+
+// For each transfer point, the stops its routes reach after boarding, in riding order. Most
+// riders ride the busiest pattern, so its stops come first and other branches follow.
+export function destinations(schedule: Schedule, request: TripRequest): DestinationsResponse {
+  const { from, to } = resolveEnds(schedule, request);
+  const tables = new Tables(schedule);
+  const groups: DestinationsResponse['groups'] = [];
+  for (const link of cachedLinks(schedule, from, to, request.walk, request.speed)) {
+    const stops: string[] = [];
+    const seen = new Set<number>();
+    for (const { pattern, position } of [...link.boardPatterns].sort((a, b) => b.pattern.trips - a.pattern.trips)) {
+      for (const id of pattern.stops.slice(position + 1)) {
+        if (seen.has(id)) continue;
+        seen.add(id);
+        const stop = schedule.stop(id);
+        // BART riders get off at a station, not a platform.
+        stops.push(tables.stop(stop.parent !== null && stop.access === 'bart' ? schedule.stop(stop.parent) : stop));
+      }
+    }
+    groups.push({ board: tables.stop(link.board), routes: link.routes.map((route) => tables.route(route)), headsign: link.headsign, stops: [...new Set(stops)] });
+  }
+  return { groups, routes: tables.routes, stops: tables.stops };
+}
+
+export function planTrip(schedule: Schedule, realtime: RealtimeView, request: TripRequest, now: number): TripResponse {
+  const { from, to } = resolveEnds(schedule, request);
+  const toStop = 'stop' in to ? to.stop : undefined;
+  const toRoute = 'route' in to ? to.route : undefined;
   const destination = request.dest ? schedule.stopsByKey.get(request.dest) ?? null : null;
 
   const tables = new Tables(schedule);
-  const links = cachedLinks(schedule, from, toStop ? { stop: toStop } : { route: toRoute! }, request.walk, request.speed);
+  const links = cachedLinks(schedule, from, to, request.walk, request.speed);
   const firstFilter = request.firstRoutes?.length ? new Set(request.firstRoutes) : null;
   const secondFilter = request.secondRoutes?.length ? new Set(request.secondRoutes) : null;
   const context = { schedule, snapshot: realtime.trips, now };
@@ -82,14 +112,11 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
     const min = request.min ?? link.defaultMinutes;
     const headway = request.max === undefined ? schedule.headwayMinutes(link.boardPatterns, now) : null;
     const max = Math.max(min, request.max ?? defaultMaximum(min, headway));
-    const departures = pairConnections(firstLegs(context, linkForRoutes, firstFilter), secondLegs(context, linkForRoutes, destination), {
-      now,
-      min,
-      max,
-      hide: request.hide ?? 0,
-      count: DEPARTURES_PER_GROUP,
-      showHidden: request.hidden ?? false,
-    });
+    const first = firstLegs(context, linkForRoutes, firstFilter);
+    const second = secondLegs(context, linkForRoutes, destination);
+    const pairing = { now, min, max, hide: request.hide ?? 0, count: DEPARTURES_PER_GROUP, showHidden: request.hidden ?? false };
+    const departures = pairConnections(first, second, pairing);
+    const widen = connects(departures) ? undefined : widenWindow(first, second, pairing);
     for (const departure of departures) {
       tables.route(departure.route);
       for (const connection of departure.connections) tables.route(connection.route);
@@ -101,7 +128,9 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
       direction: link.direction,
       headsign: link.headsign,
       walkMeters: link.walkMeters,
+      firstRoutes: [...new Set(link.firstLegs.map(({ pattern }) => pattern.route))].map((id) => tables.route(schedule.route(id))),
       window: { min, max },
+      ...(widen ? { widen } : {}),
       departures,
     });
     tripStops.add(stopKeyOf(link.alight)).add(stopKeyOf(link.board));
@@ -127,6 +156,18 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
     alerts: relevantAlerts(realtime.alerts, tripStops, tripRoutes, agencies),
     feeds: [...agencies].map((agency) => ({ agency, state: realtime.status(agency), updatedAt: realtime.updatedAt })),
   };
+}
+
+const connects = (departures: Departure[]) => departures.some(({ canceled, connections }) => !canceled && connections.some(({ hidden }) => !hidden));
+
+// The smallest symmetric widening of an empty window that finds a connection, within half an hour.
+function widenWindow(first: FirstLeg[], second: SecondLeg[], pairing: PairingOptions) {
+  for (let step = 1; step <= 30; step++) {
+    const min = Math.max(0, pairing.min - step);
+    const max = pairing.max + step;
+    if (connects(pairConnections(first, second, { ...pairing, min, max, showHidden: false }))) return { min, max };
+  }
+  return null;
 }
 
 // Alerts that name a stop on the trip (for a route on the trip, or for every route there),

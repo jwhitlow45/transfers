@@ -9,7 +9,7 @@ import { type FeedObject, decodeFeed, encodeFeed } from '../realtime/feed.ts';
 import { buildAlerts, buildTripSnapshot } from '../realtime/snapshot.ts';
 import { Schedule } from '../schedule.ts';
 import { serviceDayStart } from '../time.ts';
-import { planTrip } from './trip.ts';
+import { destinations, planTrip } from './trip.ts';
 
 // A tiny network shaped like J's commute: BART from Montgomery to 24th St Mission, where the
 // 48 stops 36 m from the station's entrance. BART runs every 10 minutes, the 48 every 15.
@@ -172,4 +172,34 @@ test('the 48 to BART groups trains by platform', () => {
   strictEqual(response.groups.length, 1);
   deepStrictEqual(response.groups[0]?.routes, ['BA:Yellow-S']);
   strictEqual(response.groups[0]?.alight, 'SF:13477');
+});
+
+test('suggests the smallest symmetric widening when nothing connects', () => {
+  // Trains reach 24th St on the 8s and scheduled buses come on the 2s and 7s, so transfers run
+  // 4, 9, 14, ... minutes. The live bus 2 minutes late adds 6 and 16. A 7 to 8 minute window
+  // finds none.
+  const empty = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477', min: 7, max: 8 }, NOW).groups[0]!;
+  ok(empty.departures.every(({ connections }) => connections.length === 0));
+  const widen = empty.widen!;
+  ok(widen, 'expected a suggestion');
+  deepStrictEqual(widen, { min: 6, max: 9 });
+  const widened = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477', ...widen }, NOW).groups[0]!;
+  ok(widened.departures.some(({ connections }) => connections.length > 0));
+  strictEqual(widened.widen, undefined);
+  const narrower = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477', min: widen.min + 1, max: widen.max - 1 }, NOW).groups[0]!;
+  ok(narrower.departures.every(({ connections }) => connections.length === 0));
+});
+
+test('lists first-leg routes and destinations for each transfer point', () => {
+  const response = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477' }, NOW);
+  deepStrictEqual(response.groups[0]?.firstRoutes, ['BA:Yellow-S']);
+  const { groups } = destinations(schedule, { from: 'BA:901209', to: 'SF:13477' });
+  deepStrictEqual(groups.map(({ board, stops }) => [board, stops]), [['SF:13477', ['SF:13500']]]);
+});
+
+test('a BART station as destination matches its platform', () => {
+  const response = planTrip(schedule, realtime(), { from: 'SF:13486', to: 'BA:901609', dest: 'BA:902109' }, NOW);
+  const departure = response.groups[0]!.departures.find(({ canceled }) => !canceled)!;
+  // Trains reach Glen Park 4 minutes after 24th St.
+  strictEqual(departure.destination, departure.at + 240);
 });
