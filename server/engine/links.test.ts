@@ -113,5 +113,7 @@ test('a loop that comes back past From after the rider gets off still boards nea
   const boards = (links: ReturnType<typeof findLinks>) => links.map((link) => `${link.kind} at ${link.board.stopId}`);
   deepStrictEqual(boards(findLinks(schedule, from, { stop: to })), ['walk at across']);
   deepStrictEqual(boards(findLinks(schedule, from, { route: schedule.routesByKey.get('SF:C')! }, { reaches: new Set([to.id]) })), ['walk at across']);
+  // Going on past the named stop and around to From itself, the ride ends where it started.
+  deepStrictEqual(boards(findLinks(schedule, from, { stop: to }, { reaches: new Set([from.id]) })), []);
   schedule.close();
 });

@@ -93,6 +93,7 @@ type Context = {
   // Where a vehicle boarded at `position` reaches the rider's destination: the position, or -1
   // when it never does. With no destination, where the pattern ends.
   ridesTo: (pattern: PatternRow, position: number) => number;
+  hasDestination: boolean;
 };
 
 export function findLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow } | { route: RouteRow }, settings: LinkSettings = {}): Link[] {
@@ -113,6 +114,7 @@ export function findLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow
     // Riders choose BART or Muni Metro only where both leave from one station.
     splitSystems: schedule.sharedMembers.has(from.id),
     ridesTo,
+    hasDestination: reaches !== null,
   };
   const origins = schedule.boardingStops(from, settings.fromAgencies ?? null);
   const targets = ('stop' in to ? stopTargets(schedule, to.stop, settings.toAgencies ?? null) : routeTargets(schedule, to.route))
@@ -181,8 +183,8 @@ const isStation = (stop: StopRow) => stop.access === 'bart' || stop.access === '
 // make no more sense, so the answer is 'pointless' rather than no walk.
 function walkLink(context: Context, origins: StopRow[], target: Target): Link | 'pointless' | null {
   const { schedule, maxWalk } = context;
-  // Each boarding with where the rider gets off: the named stop, or else the destination or the
-  // end of the line.
+  // Each boarding with where the rider gets off: the destination, or else the named stop or the
+  // end of the line. A destination past a named stop is where the ride really ends.
   const candidates = new Map<number, Map<string, { board: BoardPattern; getsOff: number }>>();
   for (const board of target.stops) {
     for (const { pattern, position } of board.patterns) {
@@ -193,7 +195,7 @@ function walkLink(context: Context, origins: StopRow[], target: Target): Link | 
         if (ridesTo === -1) continue;
         const stop = schedule.stop(pattern.stops[at]!);
         const list = candidates.get(stop.id) ?? new Map<string, { board: BoardPattern; getsOff: number }>();
-        list.set(`${pattern.id}|${at}`, { board: { pattern, position: at, stop }, getsOff: context.namedStop ? position : ridesTo });
+        list.set(`${pattern.id}|${at}`, { board: { pattern, position: at, stop }, getsOff: context.namedStop && !context.hasDestination ? position : ridesTo });
         candidates.set(stop.id, list);
       }
     }
