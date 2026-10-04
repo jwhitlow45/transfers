@@ -366,3 +366,26 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-near__actions .tf-btn-secondary { border: 0; min-height: var(--tap); }
 .tf-near__actions .tf-btn-secondary + .tf-btn-secondary { border-left: var(--border-hair) solid var(--divider); }
 .tf-near__problem { padding: var(--space-2) var(--space-3); background: var(--late-tint); color: var(--late); font-weight: 650; }
+
+/* Collapsible departure cards. The band is the toggle, a button inside the card's heading. */
+.tf-card__heading { margin: 0; font: inherit; }
+button.tf-band { width: 100%; text-align: left; color: var(--on-field); }
+.tf-band__main, .tf-band__sub, .tf-band__in, .tf-band__inlabel { display: block; }
+.tf-band__right { display: flex; flex-direction: column; align-items: flex-end; }
+.tf-band__dest { display: block; margin-top: 2px; font-size: var(--text-md); font-weight: 650; color: var(--on-field); }
+.tf-band__chev { display: block; margin-top: var(--space-1); color: var(--on-field-muted); transition: transform .15s; }
+.tf-band[aria-expanded="true"] .tf-band__chev { transform: rotate(180deg); }
+.tf-band:hover { filter: brightness(1.12); }
+.tf-card__summary { padding: 10px var(--space-4); font-size: 15px; font-weight: var(--weight-semibold); }
+@media (prefers-reduced-motion: reduce) { .tf-band__chev { transition: none; } }
+
+/* Group headings lead with the direction, and say once where to get off. */
+.tf-group__off { margin-top: 6px; font-size: var(--text-md); font-weight: 650; }
+
+/* Direction switcher */
+.tf-seg { display: flex; flex-direction: column; gap: var(--space-2); max-width: var(--form-max); }
+.tf-seg__options { display: grid; border: var(--border-strong) solid var(--line); }
+.tf-seg__option { min-height: var(--tap); padding: 6px var(--space-3); text-align: left; font-size: 15px; font-weight: 650; line-height: 1.25; color: var(--muted); }
+.tf-seg__option + .tf-seg__option { border-left: var(--border-hair) solid var(--divider); }
+.tf-seg__option:hover { background: color-mix(in srgb, var(--text) 7%, transparent); }
+.tf-seg__option[aria-pressed="true"] { background: var(--field); color: var(--on-field); }

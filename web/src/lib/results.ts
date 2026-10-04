@@ -73,3 +73,46 @@ export function firstWord(group: Group, data: TripResponse) {
   if (routes.length > 0 && routes.every(({ agency }) => agency === 'BA')) return 'train';
   return routes.length === 1 ? chipLabel(routes[0]!) : 'vehicle';
 }
+
+// When one route shows up in two or more directions (both ways on the 48), the rider picks one.
+// Each option lists the transfer points it keeps. The choice is stored as the other options'
+// points in the search's off list, the same list trip settings edits.
+export type DirectionOption = { key: string; headsign: string; ids: string[] };
+export type DirectionChoice = { routes: string[]; options: DirectionOption[]; selected: string | null };
+
+export function directionChoices(groups: Group[], off: string[]): DirectionChoice[] {
+  const byRoutes = new Map<string, Map<string, DirectionOption>>();
+  for (const group of groups) {
+    const routesKey = group.routes.join(',');
+    const directionKey = group.direction === null ? group.headsign : String(group.direction);
+    let options = byRoutes.get(routesKey);
+    if (!options) byRoutes.set(routesKey, (options = new Map()));
+    const option = options.get(directionKey) ?? { key: directionKey, headsign: group.headsign, ids: [] };
+    option.ids.push(pointId(group));
+    options.set(directionKey, option);
+  }
+  const choices: DirectionChoice[] = [];
+  for (const [routesKey, options] of byRoutes) {
+    if (options.size < 2) continue;
+    const list = [...options.values()];
+    const shown = list.filter(({ ids }) => ids.some((id) => !off.includes(id)));
+    choices.push({ routes: routesKey.split(','), options: list, selected: shown.length === 1 ? shown[0]!.key : null });
+  }
+  return choices;
+}
+
+// The off list after picking an option, or every direction when `key` is null.
+export function chooseDirection(choice: DirectionChoice, key: string | null, off: string[]) {
+  const ids = new Set(choice.options.flatMap(({ ids }) => ids));
+  const kept = off.filter((id) => !ids.has(id));
+  if (key === null) return kept;
+  return [...kept, ...choice.options.filter((option) => option.key !== key).flatMap(({ ids }) => ids)];
+}
+
+// What to call the first vehicles in a summary line: trains, buses, or vehicles.
+export function firstNoun(group: Group, data: TripResponse) {
+  const modes = new Set(group.firstRoutes.map((key) => data.routes[key]?.mode));
+  if ([...modes].every((mode) => mode === 'bart' || mode === 'light-rail')) return ['train', 'trains'] as const;
+  if ([...modes].every((mode) => mode === 'bus' || mode === 'trolleybus')) return ['bus', 'buses'] as const;
+  return ['vehicle', 'vehicles'] as const;
+}

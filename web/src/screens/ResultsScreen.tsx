@@ -5,6 +5,7 @@ import { AlertList } from '../components/AlertList.tsx';
 import { FeedOutageBanner, OfflineBanner } from '../components/Banners.tsx';
 import { BottomBar } from '../components/BottomBar.tsx';
 import { DataCredit } from '../components/DataCredit.tsx';
+import { DirectionSwitcher } from '../components/DirectionSwitcher.tsx';
 import { ScreenHeader, SaveButton, TripChain, liveStatusText } from '../components/ResultsHeader.tsx';
 import { RouteChip } from '../components/RouteChip.tsx';
 import { SkeletonResults } from '../components/SkeletonResults.tsx';
@@ -12,7 +13,7 @@ import { TransferPointGroup } from '../components/TransferPointGroup.tsx';
 import { type SearchUpdate, TransferWindowSheet, TripSettingsSheet } from '../components/TripSettingsSheet.tsx';
 import { useNow, usePoll } from '../hooks.ts';
 import { viewAlerts } from '../lib/alerts.ts';
-import { type CardContext, groupColors, scaleFor } from '../lib/results.ts';
+import { type CardContext, chooseDirection, directionChoices, groupColors, scaleFor } from '../lib/results.ts';
 import { summarize } from '../lib/summary.ts';
 import { navigate, tripPath } from '../router.ts';
 import { matchesServerDefaults, tripApiUrl, useSettings } from '../settings.tsx';
@@ -27,6 +28,11 @@ export function ResultsScreen({ search }: { search: Search }) {
   const [showHidden, setShowHidden] = useState(false);
   const [sheet, setSheet] = useState<'none' | 'window' | 'settings'>('none');
   const [saved, setSaved] = useState(() => findSaved(search));
+  // Cards the rider opened or closed, by departure. Others follow the default: each group's
+  // soonest departure open, the rest closed. Kept across refreshes, which reuse trip ids.
+  const [toggled, setToggled] = useState<Record<string, boolean>>({});
+  const isExpanded = (trip: string, first: boolean) => toggled[trip] ?? first;
+  const toggleCard = (trip: string, first: boolean) => setToggled((current) => ({ ...current, [trip]: !(current[trip] ?? first) }));
   const url = tripApiUrl(search, settings, showHidden);
   // Results the server put in the page answer this request only if nothing differs from its defaults.
   const initial = useMemo(() => {
@@ -105,6 +111,18 @@ export function ResultsScreen({ search }: { search: Search }) {
             </div>
           )}
           {data && <AlertList key={data.from} alerts={viewAlerts(data, summary.boarding)} />}
+          {data &&
+            directionChoices(data.groups, search.off ?? []).map((choice) => (
+              <DirectionSwitcher
+                key={choice.routes.join(',')}
+                choice={choice}
+                data={data}
+                onChoose={(key) => {
+                  const off = chooseDirection(choice, key, search.off ?? []);
+                  update((current) => ({ ...current, off: off.length ? off : undefined }));
+                }}
+              />
+            ))}
           {!data && feed === 'loading' ? (
             <SkeletonResults />
           ) : data && groups.length === 0 ? (
@@ -121,6 +139,8 @@ export function ResultsScreen({ search }: { search: Search }) {
                     group={group}
                     kicker={'route' in data.to && groups.length > 1 ? `Transfer point ${index + 1} of ${groups.length}` : null}
                     context={context}
+                    isExpanded={isExpanded}
+                    onToggle={toggleCard}
                     onWiden={(widened) => update((current) => ({ ...current, ...widened }))}
                     onShowHidden={() => setShowHidden(true)}
                   />

@@ -45,9 +45,7 @@ export function ConnectionRow({ connection, departure, alightName, min, secondCo
           <span>{clock(connection.departs)}</span>
         </div>
         <StatusTag status={status} plain />
-        <div class="tf-row__off">
-          Off at {alightName} {clock(connection.arrives)}
-        </div>
+        <div class="tf-row__off">Off {clock(connection.arrives)}</div>
       </div>
       <div class="tf-row__xfer" aria-hidden="true">
         <div class="tf-row__xfer-min">{connection.transfer} min</div>
