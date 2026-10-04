@@ -76,8 +76,10 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
     else rows.push(plain ? [index] : index);
   }
   // By position, since a loop's path can hold one stop twice.
+  // An ended trip has passed every stop.
+  const passedAt = (index: number) => (nextIndex === null ? data.missing === 'ended' : index < nextIndex);
   const item = (index: number) => (
-    <li key={index} class={labels.has(index) ? `tf-track__mark tf-track__mark--${labels.get(index)![0]}` : ''}>
+    <li key={index} class={labels.has(index) ? `tf-track__mark tf-track__mark--${labels.get(index)![0]}${passedAt(index) ? ' tf-track__mark--passed' : ''}` : ''}>
       <span class="tf-track__stop-dot" aria-hidden="true" style={index === nextIndex ? { background: color } : undefined} />
       <span class="tf-track__stop-name">{shortStopName(data.stops[data.path[index]!.stop], data.path[index]!.stop)}</span>
       {/* One tag says both when the rider's stop is also where the vehicle stops next. */}
@@ -88,8 +90,8 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
         </span>
       ))}
       {index === nextIndex && !labels.has(index) && <span class="tf-track__tag">Next stop</span>}
-      {/* An ended trip has passed every stop. A canceled one comes with no times. */}
-      <When at={data.path[index]!.at ?? null} passed={nextIndex === null ? data.missing === 'ended' : index < nextIndex} now={now} />
+      {/* A canceled trip comes with no times. */}
+      <When at={data.path[index]!.at ?? null} passed={passedAt(index)} now={now} />
     </li>
   );
   const fold = (run: number[]) => {
