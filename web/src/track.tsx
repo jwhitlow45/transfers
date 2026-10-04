@@ -6,9 +6,9 @@ import { Sheet } from './components/Sheet.tsx';
 
 // A vehicle the rider asked to follow to a stop. The title is what they tapped, such as "49 at
 // 8:12", so the sheet names it before the map arrives. The color is the route's on the page they
-// tapped it on, where results pick colors that tell routes apart. `marks` name the rider's stops
-// on the way, such as "Your stop" where they get on and "Transfer stop" where they change.
-export type Mark = { stop: string; label: string };
+// tapped it on, where results pick colors that tell routes apart. `marks` are the rider's stops
+// on the way, in the order their journey makes them: where they get on, and where they change.
+export type Mark = { stop: string; kind: 'yours' | 'transfer' };
 export type Tracked = { trip: string; stop: string; title: string; color?: string; marks?: Mark[] };
 
 type MapComponent = FunctionComponent<{ tracked: Tracked }>;

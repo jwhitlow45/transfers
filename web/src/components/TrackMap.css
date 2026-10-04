@@ -5,7 +5,8 @@
 .tf-track__headline { margin-top: 2px; font-size: var(--text-lg); font-weight: var(--weight-bold); }
 .tf-track__map { display: block; width: 100%; height: auto; max-height: 50vh; margin-top: var(--space-3); border: var(--border-strong) solid var(--line); background: var(--bg); }
 .tf-track__stop { fill: var(--bg); stroke: var(--text); }
-.tf-track__target { fill: var(--text); stroke: var(--bg); }
+.tf-track__square--yours { fill: var(--text); stroke: var(--bg); }
+.tf-track__square--transfer { fill: var(--bg); stroke: var(--text); }
 .tf-track__vehicle { stroke: var(--bg); }
 .tf-track__vehicle--estimate { fill-opacity: .55; stroke: var(--text); }
 .tf-track__heading { fill: var(--text); stroke: var(--bg); }
@@ -15,8 +16,10 @@
 .tf-track__stops li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); padding: var(--space-2) 0; border-top: var(--border-hair) solid var(--divider); }
 .tf-track__stop-dot { flex: none; width: 10px; height: 10px; border-radius: var(--radius-dot); border: 1.5px solid var(--text); background: var(--bg); }
 .tf-track__stop-name { flex: 1; min-width: 0; }
-.tf-track__yours .tf-track__stop-name { font-weight: var(--weight-bold); }
-.tf-track__yours .tf-track__stop-dot { border-radius: 0; background: var(--text); }
+.tf-track__mark .tf-track__stop-name { font-weight: var(--weight-bold); }
+.tf-track__mark .tf-track__stop-dot { border-radius: 0; }
+.tf-track__mark--yours .tf-track__stop-dot { background: var(--text); }
+.tf-track__mark--transfer .tf-track__stop-dot { border-width: 3px; }
 .tf-track__tag { font-size: var(--text-sm); font-weight: 650; color: var(--muted); }
 .tf-track__tag--yours { color: var(--text); }
 .tf-track__stops .tf-track__fold { display: block; padding: 0; }

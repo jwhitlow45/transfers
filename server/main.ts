@@ -50,7 +50,7 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
       if (!trip || !stop) throw new RequestError(400, 'Send trip and stop');
       trackTarget(schedule, { trip, stop });
       const [vehicles, { trips }] = await Promise.all([realtime.vehiclePositions(), realtime.current()]);
-      return sendJson(request, response, trackVehicle(schedule, { vehicles, trips }, { trip, stop, marks: url.searchParams.getAll('mark') }, nowSeconds()));
+      return sendJson(request, response, trackVehicle(schedule, { vehicles, trips }, { trip, stop, marks: url.searchParams.getAll('mark').slice(0, MAX_MARKS) }, nowSeconds()));
     }
     case '/api/destinations':
       return sendJson(request, response, destinations(schedule, tripRequest(url.searchParams)));
@@ -117,6 +117,9 @@ function point(params: URLSearchParams) {
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+// The page marks at most a rider's boarding and transfer stops on a map.
+const MAX_MARKS = 4;
 
 let shell: string | null = null;
 async function sendShell(response: ServerResponse, data: () => Promise<unknown>) {

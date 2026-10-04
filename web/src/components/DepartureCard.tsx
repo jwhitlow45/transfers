@@ -71,7 +71,7 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
               color={color}
               // A route already at From is boarded there. Otherwise the rider boards it where they
               // transfer, and From shows only if this route passes it too.
-              marks={walk ? [{ stop: group.board, label: 'Your stop' }] : [{ stop: context.data.from, label: 'Your stop' }, { stop: group.board, label: 'Transfer stop' }]}
+              marks={walk ? [{ stop: group.board, kind: 'yours' }] : [{ stop: context.data.from, kind: 'yours' }, { stop: group.board, kind: 'transfer' }]}
             >
               {clock(departure.at)}
             </TimeLink>

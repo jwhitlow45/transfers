@@ -29,6 +29,37 @@ export function trackTarget(schedule: Schedule, request: TrackRequest) {
   return { trip, pattern, target, visits };
 }
 
+// The rider's stops on this trip, given in the order their journey makes them, such as where they
+// get on and then where they transfer. The watched stop's own mark is the visit watched, and the
+// others follow from it in order, each at the visit after the one before, so on a loop the
+// transfer never comes before boarding. A stop the trip does not make, or not in that order, is
+// left out.
+function markVisits(schedule: Schedule, patternStops: number[], request: TrackRequest, targetAt: number) {
+  const keys = request.marks ?? [];
+  const visits = keys.map((key) => {
+    const stop = schedule.stopsByKey.get(key);
+    return stop ? visitsTo(schedule, patternStops, stop) : [];
+  });
+  const marked: (number | null)[] = keys.map(() => null);
+  const anchor = keys.indexOf(request.stop);
+  if (anchor !== -1) marked[anchor] = targetAt;
+  let floor = anchor === -1 ? 0 : targetAt;
+  for (let n = anchor + 1; n < keys.length; n++) {
+    const visit = visits[n]!.find((index) => index >= floor);
+    if (visit === undefined) continue;
+    marked[n] = visit;
+    floor = visit;
+  }
+  let ceiling = targetAt;
+  for (let n = anchor - 1; n >= 0; n--) {
+    const visit = visits[n]!.findLast((index) => index <= ceiling);
+    if (visit === undefined) continue;
+    marked[n] = visit;
+    ceiling = visit;
+  }
+  return marked;
+}
+
 // Where along its stops a trip calls at a stop. A station is called at by its platforms.
 function visitsTo(schedule: Schedule, patternStops: number[], stop: StopRow) {
   const platforms = new Set(schedule.boardingStops(stop).map(({ id }) => id));
@@ -59,13 +90,7 @@ export function trackVehicle(schedule: Schedule, live: { vehicles: VehicleSnapsh
   const targetAt = visits.find((index) => index >= vehicleAt) ?? visits.at(-1)!;
   const coming = vehicleAt !== -1 && vehicleAt <= targetAt;
   const passed = vehicleAt > targetAt;
-  // The rider's other stops on this trip, at the visit nearest the one watched. A stop the trip
-  // does not make is left out.
-  const marked = (request.marks ?? []).map((key) => {
-    const stop = schedule.stopsByKey.get(key);
-    const markVisits = stop ? visitsTo(schedule, pattern.stops, stop) : [];
-    return markVisits.length === 0 ? null : markVisits.reduce((best, index) => (Math.abs(index - targetAt) < Math.abs(best - targetAt) ? index : best));
-  });
+  const marked = markVisits(schedule, pattern.stops, request, targetAt);
   const markedAt = marked.filter((index) => index !== null);
   // From the stop behind the vehicle, so it sits on the line, to one past the rider's, or on to
   // the vehicle when it has gone past, and taking in every marked stop.
@@ -157,13 +182,14 @@ function estimatePlace(schedule: Schedule, tripRow: number, stops: StopRow[], li
   const next = times.findIndex((time) => time !== null && time > now);
   if (next === 0) return { missing: 'not-started' };
   if (next === -1) return times.some((time) => time !== null) ? { missing: 'ended' } : {};
-  // From the last stop it was due at, passing over a skipped one, which has no time.
+  // From the last stop it was due at, passing over a skipped one, which has no time. With none
+  // left yet, as when its first stop is skipped, it has not started.
   const left = times.findLastIndex((time, index) => index < next && time !== null);
-  const from = left === -1 ? next - 1 : left;
+  if (left === -1) return { missing: 'not-started' };
   const arrives = times[next]!;
-  const share = left === -1 ? 0 : Math.min(1, Math.max(0, (now - times[left]!) / (arrives - times[left]!)));
-  const point = alongLine(line.shape, line.passes[from]!, line.passes[next]!, share, stops[from]!, stops[next]!);
-  return { next, from, point, source: predicted ? 'predicted' : 'scheduled' };
+  const share = Math.min(1, Math.max(0, (now - times[left]!) / (arrives - times[left]!)));
+  const point = alongLine(line.shape, line.passes[left]!, line.passes[next]!, share, stops[left]!, stops[next]!);
+  return { next, from: left, point, source: predicted ? 'predicted' : 'scheduled' };
 }
 
 type Estimate =
@@ -177,8 +203,10 @@ type Estimate =
 function expectedTimes(schedule: Schedule, tripRow: number, stops: StopRow[], rt: RtTrip | undefined, now: number) {
   const scheduled = stops.map((_, index) => schedule.scheduledTimeAt(tripRow, index, now));
   // The feed's stops matched to positions in order. The feed drops visits already made, so a stop
-  // a loop makes twice is told apart by the update's stop sequence, counted from 1 along the trip,
-  // or else by which visit is scheduled nearest its predicted time.
+  // a loop makes twice is told apart by the update's stop sequence, or else by which visit is
+  // scheduled nearest its predicted time. The schedule keeps positions rather than GTFS
+  // stop_sequence, so this assumes sequences count 1, 2, 3 along the trip, as placeOf does. A feed
+  // that numbers otherwise rarely names a matching visit and falls back to time.
   const listed = new Map<number, RtStopTime>();
   let from = 0;
   for (const update of rt?.stops ?? []) {

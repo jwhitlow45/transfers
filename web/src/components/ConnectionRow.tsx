@@ -42,8 +42,8 @@ export function ConnectionRow({ connection, departure, alightName, alight, min, 
   // to transfer marked.
   const offStop = connection.alight ?? alight;
   const marks = [
-    { stop: context.data.from, label: 'Your stop' },
-    { stop: offStop, label: 'Transfer stop' },
+    { stop: context.data.from, kind: 'yours' as const },
+    { stop: offStop, kind: 'transfer' as const },
   ];
   return (
     <div role="listitem" class={`tf-row${tight ? ' tf-row--tight' : ''}${hidden ? ' tf-row--hidden' : ''}`}>

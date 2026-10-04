@@ -4,7 +4,7 @@ import { useNow, usePoll } from '../hooks.ts';
 import { IconChevron } from '../icons/ui.tsx';
 import { routeColor } from '../lib/color.ts';
 import { ageText, clockSkewMs } from '../lib/freshness.ts';
-import type { Tracked } from '../track.tsx';
+import type { Mark, Tracked } from '../track.tsx';
 import { shortStopName } from '../view.ts';
 import { Collapse } from './Collapse.tsx';
 import './TrackMap.css';
@@ -14,6 +14,8 @@ import './TrackMap.css';
 const REFRESH_MS = 15_000;
 // A position older than this is shown as old: the vehicle has likely moved on since.
 const OLD_SECONDS = 120;
+
+const MARK_LABEL = { yours: 'Your stop', transfer: 'Transfer stop' };
 
 const MISSING = {
   'not-started': 'Not under way yet. It shows here once its trip starts.',
@@ -30,8 +32,9 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
   // Not kept in storage: a position from an earlier visit is no use.
   const { data, error, fetchedAt, feed } = usePoll<TrackResponse>(url, REFRESH_MS, null, false);
   const now = useNow() + clockSkewMs(data?.generatedAt, fetchedAt);
-  // Folded runs the rider opened, by the position of their first stop.
-  const [opened, setOpened] = useState<ReadonlySet<number>>(new Set());
+  // Folded runs the rider opened, by their first stop's key, which stays put as the vehicle moves
+  // and the picture's positions shift.
+  const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
   const between = useId();
   if (!data) {
     return <p class="tf-muted">{error ?? (feed === 'offline' ? 'Offline. The map shows once you are back online.' : 'Finding the vehicle…')}</p>;
@@ -57,19 +60,13 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
       : estimate === 'predicted'
         ? `Estimated from arrival times predicted ${ageText(age)} ago`
         : `Position ${data.vehicle?.at ? 'from' : 'received'} ${ageText(age)} ago`;
-  // Each stop's labels: the rider's stops as the page named them, such as where they get on and
-  // where they transfer. The stop watched is "Your stop" unless the page named it.
   const { targetIndex, nextIndex } = data;
-  const labels = new Map<number, string[]>();
-  const label = (index: number | null | undefined, text: string) => {
-    if (index !== null && index !== undefined) labels.set(index, [...(labels.get(index) ?? []), text]);
-  };
-  marks.forEach(({ label: text }, n) => label(data.marks[n], text));
-  if (!labels.has(targetIndex)) label(targetIndex, 'Your stop');
-  // The list runs against the direction of travel: the stops the vehicle has yet to reach first,
-  // its next stop below them, so the rider scrolls down toward the vehicle. Runs of stops between
-  // the labeled ones fold into one row that opens on a tap, since one stop takes no more room
-  // than a row saying so. With no position, it reaches down to the first stop drawn.
+  const labels = markedStops(data, marks);
+  // The list runs against the direction of travel, from the farthest stop down: the stops the
+  // vehicle has yet to reach first and its next stop below them, so the rider scrolls down toward
+  // the vehicle. A labeled stop it has already passed comes below it. Runs of stops between the
+  // labeled ones fold into one row that opens on a tap, since one stop takes no more room than a
+  // row saying so. With no position, it reaches down to the first stop drawn.
   const ends = [...labels.keys(), nextIndex ?? 0];
   const rows: (number | number[])[] = [];
   for (let index = Math.max(...ends); index >= Math.min(...ends); index--) {
@@ -80,24 +77,25 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
   }
   // By position, since a loop's path can hold one stop twice.
   const item = (index: number) => (
-    <li key={index} class={labels.has(index) ? 'tf-track__yours' : ''}>
+    <li key={index} class={labels.has(index) ? `tf-track__mark tf-track__mark--${labels.get(index)![0]}` : ''}>
       <span class="tf-track__stop-dot" aria-hidden="true" style={index === nextIndex ? { background: color } : undefined} />
       <span class="tf-track__stop-name">{shortStopName(data.stops[data.path[index]!.stop], data.path[index]!.stop)}</span>
-      {labels.get(index)?.map((text) => (
-        <span key={text} class="tf-track__tag tf-track__tag--yours">
-          {text}
+      {labels.get(index)?.map((kind) => (
+        <span key={kind} class="tf-track__tag tf-track__tag--yours">
+          {MARK_LABEL[kind]}
         </span>
       ))}
       {index === nextIndex && <span class="tf-track__tag">Next stop</span>}
     </li>
   );
   const fold = (run: number[]) => {
-    const isOpen = opened.has(run[0]!);
+    const key = data.path[run[0]!]!.stop;
+    const isOpen = opened.has(key);
     const toggle = () =>
       setOpened((current) => {
         const next = new Set(current);
-        if (isOpen) next.delete(run[0]!);
-        else next.add(run[0]!);
+        if (isOpen) next.delete(key);
+        else next.add(key);
         return next;
       });
     return (
@@ -119,7 +117,7 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
       <p class="tf-track__headline" aria-live="polite">
         {headline}
       </p>
-      <LineMap data={data} color={color} label={headline} />
+      <LineMap data={data} color={color} label={headline} labels={labels} />
       {ageLine && <p class={`tf-track__age${age !== null && age > OLD_SECONDS ? ' tf-track__age--old' : ''}`}>{ageLine}</p>}
       {feed === 'offline' && <p class="tf-track__age tf-track__age--old">Offline. This is the last update received.</p>}
       <ol class="tf-track__stops">{rows.map((row) => (Array.isArray(row) ? (row.length > 1 ? fold(row) : item(row[0]!)) : item(row)))}</ol>
@@ -131,7 +129,7 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
 // The line, its stops, the rider's stops as squares, and the vehicle pointing the way it heads.
 // Sizes are in meters, scaled to the picture, so a long ride and a short one look alike. North is
 // up.
-function LineMap({ data, color, label }: { data: TrackResponse; color: string; label: string }) {
+function LineMap({ data, color, label, labels }: { data: TrackResponse; color: string; label: string; labels: Map<number, Mark['kind'][]> }) {
   const points: [number, number][] = [...data.line, ...data.path.map(({ x, y }): [number, number] => [x, y]), ...(data.vehicle ? [[data.vehicle.x, data.vehicle.y] as [number, number]] : [])];
   const xs = points.map(([x]) => x);
   // SVG's y axis points down.
@@ -149,12 +147,16 @@ function LineMap({ data, color, label }: { data: TrackResponse; color: string; l
   return (
     <svg class="tf-track__map" viewBox={`${left} ${top} ${width} ${height}`} role="img" aria-label={label}>
       <polyline points={data.line.map(([x, y]) => `${x},${-y}`).join(' ')} fill="none" stroke={color} stroke-width={unit * 0.9} stroke-linecap="round" stroke-linejoin="round" />
-      {data.path.map(({ stop, x, y }) => (
-        <circle key={stop} cx={x} cy={-y} r={unit * 0.8} class="tf-track__stop" stroke-width={unit * 0.35} />
+      {data.path.map(({ x, y }, index) => (
+        <circle key={index} cx={x} cy={-y} r={unit * 0.8} class="tf-track__stop" stroke-width={unit * 0.35} />
       ))}
-      {[...new Set([data.targetIndex, ...data.marks])].map((index) => {
-        const place = index === null ? undefined : data.path[index];
-        return place && <rect key={index} x={place.x - unit * 1.4} y={-place.y - unit * 1.4} width={unit * 2.8} height={unit * 2.8} class="tf-track__target" stroke-width={unit * 0.45} />;
+      {/* The rider's stops as squares: solid where they get on, open where they transfer. */}
+      {[...labels].map(([index, kinds]) => {
+        const place = data.path[index]!;
+        const kind = kinds[0]!;
+        return (
+          <rect key={index} x={place.x - unit * 1.4} y={-place.y - unit * 1.4} width={unit * 2.8} height={unit * 2.8} class={`tf-track__square--${kind}`} stroke-width={unit * (kind === 'yours' ? 0.45 : 0.7)} />
+        );
       })}
       {data.vehicle && (
         <g transform={`translate(${data.vehicle.x} ${-data.vehicle.y})`}>
@@ -169,4 +171,16 @@ function LineMap({ data, color, label }: { data: TrackResponse; color: string; l
       )}
     </svg>
   );
+}
+
+// The kinds of the rider's stops at each place in the path, in journey order. The stop watched is
+// theirs unless the page said otherwise. A server from before marks sends none.
+function markedStops(data: TrackResponse, marks: Mark[]) {
+  const labels = new Map<number, Mark['kind'][]>();
+  const mark = (index: number | null | undefined, kind: Mark['kind']) => {
+    if (index !== null && index !== undefined) labels.set(index, [...(labels.get(index) ?? []), kind]);
+  };
+  marks.forEach(({ kind }, n) => mark(data.marks?.[n], kind));
+  if (!labels.has(data.targetIndex)) mark(data.targetIndex, 'yours');
+  return labels;
 }
