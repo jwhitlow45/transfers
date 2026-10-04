@@ -14,7 +14,8 @@ const PASS_METERS = 60;
 // `marks` are other stops of the rider's to show on the way, such as where they get on and where
 // they transfer.
 // `span` is the stretch of the trip, by stop position, that an open map already shows: it is
-// drawn again whatever the vehicle has done since, so the stops stay put while the vehicle moves.
+// drawn again whatever the vehicle has done since, so the stops stay put while the vehicle moves,
+// until it leaves the rider's boarding stop.
 // `transfer` is the vehicle the rider changes to, and the stop where they board it.
 type TrackRequest = { trip: string; stop: string; marks?: string[]; span?: [number, number]; transfer?: TrackRequest };
 
@@ -136,11 +137,15 @@ function placeLeg(schedule: Schedule, live: Live, request: TrackRequest, now: nu
   // From the stop behind the vehicle, so it sits on the line, to one past the rider's, or on to
   // the vehicle when it has gone past, and taking in every marked stop.
   const span = request.span && request.span[0] >= 0 && request.span[0] <= request.span[1] && request.span[1] < stops.length ? request.span : null;
+  // Once the vehicle has left where the rider gets on, their first marked stop, a pinned picture
+  // drops what came before it, once, so a long ride zooms in on what is left of it.
+  const boardAt = marked.find((index) => index !== null) ?? null;
+  const pinnedFrom = span && boardAt !== null && vehicleAt > boardAt ? Math.max(span[0], boardAt) : span?.[0];
   // A pinned span grows only to take in a vehicle that has left it, so it stays on the line.
-  const from = span ? (vehicleAt === -1 ? span[0] : Math.min(span[0], vehicleAt)) : Math.max(0, Math.min(coming ? Math.min(vehicleAt - 1, estimate?.from ?? vehicleAt) : targetAt - STOPS_BEFORE, ...markedAt));
+  const from = span ? (vehicleAt === -1 ? pinnedFrom! : Math.min(pinnedFrom!, vehicleAt)) : Math.max(0, Math.min(coming ? Math.min(vehicleAt - 1, estimate?.from ?? vehicleAt) : targetAt - STOPS_BEFORE, ...markedAt));
   const to = span ? Math.max(span[1], vehicleAt) : Math.min(stops.length - 1, Math.max(targetAt + 1, vehicleAt, ...markedAt));
   const shown = stops.slice(from, to + 1);
-  const centered = span ? stops.slice(span[0], span[1] + 1) : shown;
+  const centered = span ? stops.slice(pinnedFrom!, span[1] + 1) : shown;
   return { trip, pattern, target, stops, shape, passes, rt, expected, reported, estimate, vehicle, missing, vehicleAt, targetAt, coming, marked, from, to, shown, centered };
 }
 

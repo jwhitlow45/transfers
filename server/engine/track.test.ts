@@ -264,3 +264,18 @@ test('the vehicle the rider transfers to is drawn on the same picture, and one t
   const lost = trackVehicle(schedule, at({ lon: lon(0.5), stopId: '101' }), { ...request, transfer: { trip: 'SF:nope', stop: 'SF:102' } }, EIGHT + 30);
   strictEqual(lost.transfer, undefined);
 });
+
+test('a pinned map zooms in once, when the vehicle leaves the rider\'s boarding stop', () => {
+  const request = { trip: 'SF:t1', stop: 'SF:104', marks: ['SF:102', 'SF:104'] };
+  const first = trackVehicle(schedule, at({ lon: lon(0.5), stopId: '101' }), request, NOW);
+  deepStrictEqual(first.span, [0, 5]);
+  // Still short of stop 2, where the rider gets on: the picture holds.
+  const coming = trackVehicle(schedule, at({ lon: lon(1.5), stopId: '102' }), { ...request, span: first.span }, NOW);
+  deepStrictEqual(coming.path, first.path);
+  // Past it: the picture starts at stop 2 and recenters, and stays so as the vehicle goes on.
+  const aboard = trackVehicle(schedule, at({ lon: lon(2.5), stopId: '103' }), { ...request, span: first.span }, NOW);
+  const later = trackVehicle(schedule, at({ lon: lon(3.5), stopId: '104' }), { ...request, span: first.span }, NOW);
+  deepStrictEqual([names(aboard)[0], aboard.span], ['Market St & Stop 2', [2, 5]]);
+  deepStrictEqual(later.path, aboard.path);
+  strictEqual(aboard.path[0]!.x === first.path[2]!.x, false);
+});
