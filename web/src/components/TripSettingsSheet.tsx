@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { DestinationsResponse, TripResponse } from '../../../shared/api.ts';
 import { getJson } from '../api.ts';
+import { IconChevron } from '../icons/ui.tsx';
 import { routeColor } from '../lib/color.ts';
 import { pointId } from '../lib/results.ts';
 import type { Search } from '../storage.ts';
@@ -122,31 +123,34 @@ export function TripSettingsSheet({ search, data, window, footer, chain, destina
       <label class="tf-setting tf-setting--block">
         <span class="tf-setting__label">Destination stop</span>
         <span class="tf-setting__help">Shows when each departure gets you there</span>
-        <select
-          class="tf-select"
-          value={search.dest ?? ''}
-          onChange={(event) => {
-            const dest = event.currentTarget.value;
-            update(({ dest: _dest, destLabel: _label, ...rest }) => (dest ? { ...rest, dest, destLabel: destinationLabel(dest) } : rest));
-          }}
-        >
-          <option value="">None</option>
-          {search.dest && !destinations && <option value={search.dest}>{search.destLabel ?? search.dest}</option>}
-          {!destinations && <option disabled>Loading stops…</option>}
-          {destinations?.groups.map((group) => {
-            const routes = group.routes.map((key) => destinations.routes[key]).filter((route) => route !== undefined);
-            const label = `${routes[0]?.agency === 'BA' ? 'BART' : routes.map(chipLabel).join(', ')} toward ${group.headsign}`;
-            return (
-              <optgroup key={group.board} label={label}>
-                {group.stops.map((key) => (
-                  <option key={key} value={key}>
-                    {destinationLabel(key)}
-                  </option>
-                ))}
-              </optgroup>
-            );
-          })}
-        </select>
+        <span class="tf-select-wrap">
+          <select
+            class="tf-select"
+            value={search.dest ?? ''}
+            onChange={(event) => {
+              const dest = event.currentTarget.value;
+              update(({ dest: _dest, destLabel: _label, ...rest }) => (dest ? { ...rest, dest, destLabel: destinationLabel(dest) } : rest));
+            }}
+          >
+            <option value="">None</option>
+            {search.dest && !destinations && <option value={search.dest}>{search.destLabel ?? search.dest}</option>}
+            {!destinations && <option disabled>Loading stops…</option>}
+            {destinations?.groups.map((group, index) => {
+              const routes = group.routes.map((key) => destinations.routes[key]).filter((route) => route !== undefined);
+              const label = `${routes[0]?.agency === 'BA' ? 'BART' : routes.map(chipLabel).join(', ')} toward ${group.headsign}`;
+              return (
+                <optgroup key={`${group.board}|${index}`} label={label}>
+                  {group.stops.map((key) => (
+                    <option key={key} value={key}>
+                      {destinationLabel(key)}
+                    </option>
+                  ))}
+                </optgroup>
+              );
+            })}
+          </select>
+          <IconChevron />
+        </span>
       </label>
       {firstRoutes.length > 1 && (
         <div class="tf-setting">

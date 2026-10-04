@@ -404,3 +404,13 @@ button.tf-band { width: 100%; text-align: left; color: var(--on-field); }
 .tf-livestatus__state--stale { color: var(--caution); font-weight: var(--weight-bold); }
 .tf-livestatus__state--stale .tf-dot { background: transparent; border-color: var(--caution); }
 .tf-saved__stale { display: inline-flex; align-self: flex-start; align-items: center; gap: 6px; margin-top: var(--space-2); padding: 3px var(--space-2); background: var(--caution-tint); color: var(--caution); font-size: var(--text-sm); font-weight: 650; }
+
+/* Dropdowns stay native, so phones show their own picker, but are drawn in the site's style.
+   The open list follows the page's color-scheme, which the theme tokens set, including a theme
+   the rider picked in Settings. */
+.tf-select-wrap { position: relative; display: block; margin-top: var(--space-2); }
+.tf-select-wrap > svg { position: absolute; right: var(--space-3); top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+.tf-select { appearance: none; -webkit-appearance: none; border-radius: var(--radius-none); padding: 0 calc(var(--space-3) + 28px) 0 var(--space-3); font-size: var(--text-md); font-weight: var(--weight-semibold); cursor: pointer; }
+.tf-select-wrap .tf-select { margin-top: 0; }
+.tf-select:hover { background: color-mix(in srgb, var(--text) 5%, var(--bg)); }
+.tf-select option, .tf-select optgroup { background: var(--bg); color: var(--text); }
