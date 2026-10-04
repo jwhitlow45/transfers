@@ -76,10 +76,10 @@ export function Sheet({ title, subtitle, footer, onClose, children }: { title: s
           </div>
           {subtitle && <div class="tf-sheet__subtitle">{subtitle}</div>}
           {children}
+          <div class="tf-sheet__saved">{footer}</div>
           <button type="button" class="tf-btn-primary tf-sheet__done" onClick={onClose}>
             Done
           </button>
-          <div class="tf-sheet__saved">{footer}</div>
         </div>
       </div>
     </div>

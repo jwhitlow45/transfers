@@ -40,38 +40,8 @@ function ResetWindow({ search, update }: { search: Search; update: SearchUpdate 
   );
 }
 
-// The compact sheet from the bottom bar.
-export function TransferWindowSheet({ search, window, footer, showHidden, update, onShowHidden, onClose, onMore }: {
-  search: Search;
-  window: Window;
-  footer: string;
-  showHidden: boolean;
-  update: SearchUpdate;
-  onShowHidden: (show: boolean) => void;
-  onClose: () => void;
-  onMore: () => void;
-}) {
-  return (
-    <Sheet title="Transfer window" subtitle="Only show connections with a transfer in this range" footer={footer} onClose={onClose}>
-      <WindowSteppers window={window} update={update} />
-      <div class="tf-setting">
-        <div class="tf-setting__label">Hidden connections</div>
-        <div class="tf-setting__help">Show transfers outside the window, and vehicles you may not reach, marked with why they were hidden.</div>
-        <div class="tf-filters">
-          <Toggle pressed={showHidden} onToggle={() => onShowHidden(!showHidden)}>
-            Show hidden connections
-          </Toggle>
-        </div>
-      </div>
-      <ResetWindow search={search} update={update} />
-      <button type="button" class="tf-link-button" onClick={onMore}>
-        All trip settings
-      </button>
-    </Sheet>
-  );
-}
-
-export function TripSettingsSheet({ search, data, window, footer, chain, destinationsUrl, deviceHide, update, onClose }: {
+// Every setting for this search, opened from the bottom bar.
+export function TripSettingsSheet({ search, data, window, footer, chain, destinationsUrl, deviceHide, showHidden, update, onShowHidden, onClose }: {
   search: Search;
   // The device's own default, which this search uses until it sets its own.
   deviceHide: number;
@@ -80,7 +50,9 @@ export function TripSettingsSheet({ search, data, window, footer, chain, destina
   footer: string;
   chain: string;
   destinationsUrl: string;
+  showHidden: boolean;
   update: SearchUpdate;
+  onShowHidden: (show: boolean) => void;
   onClose: () => void;
 }) {
   const [destinations, setDestinations] = useState<DestinationsResponse | null>(null);
@@ -105,6 +77,13 @@ export function TripSettingsSheet({ search, data, window, footer, chain, destina
     if (next.length >= groups.length) return;
     update((current) => ({ ...current, off: next.length ? next : undefined }));
   };
+  // At a shared station each system can catch the same route at its own stop, so twin labels
+  // name their stop.
+  const secondLabel = (group: (typeof groups)[number]) => {
+    const route = data?.routes[group.routes[0]!];
+    return `${route ? chipLabel(route) : ''} toward ${group.headsign}`;
+  };
+  const twins = new Set(groups.map(secondLabel).filter((label, index, all) => all.indexOf(label) !== index));
   const destinationLabel = (key: string) => {
     const stop = destinations?.stops[key] ?? data?.stops[key];
     return stop ? `${shortStopName(stop)}${stop.code ? ` (${stop.code})` : ''}` : key;
@@ -120,6 +99,15 @@ export function TripSettingsSheet({ search, data, window, footer, chain, destina
         value={search.hide ?? deviceHide}
         onChange={(value) => update((current) => ({ ...current, hide: value }))}
       />
+      <div class="tf-setting">
+        <div class="tf-setting__label">Hidden connections</div>
+        <div class="tf-setting__help">Show transfers outside the window, and vehicles you may not reach, marked with why they were hidden.</div>
+        <div class="tf-filters">
+          <Toggle pressed={showHidden} onToggle={() => onShowHidden(!showHidden)}>
+            Show hidden connections
+          </Toggle>
+        </div>
+      </div>
       <label class="tf-setting tf-setting--block">
         <span class="tf-setting__label">Destination stop</span>
         <span class="tf-setting__help">Shows when each departure gets you there</span>
@@ -177,7 +165,8 @@ export function TripSettingsSheet({ search, data, window, footer, chain, destina
               const route = data?.routes[group.routes[0]!];
               return (
                 <Toggle key={id} pressed={!off.has(id)} swatch={route ? routeColor(route) : undefined} onToggle={() => togglePoint(id)}>
-                  {route ? chipLabel(route) : ''} toward {group.headsign}
+                  {secondLabel(group)}
+                  {twins.has(secondLabel(group)) && ` at ${shortStopName(data?.stops[group.board], group.board)}`}
                 </Toggle>
               );
             })}

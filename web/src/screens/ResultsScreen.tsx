@@ -10,7 +10,7 @@ import { ScreenHeader, SaveButton, TripChain, liveStatusText } from '../componen
 import { RouteChip } from '../components/RouteChip.tsx';
 import { SkeletonResults } from '../components/SkeletonResults.tsx';
 import { TransferPointGroup } from '../components/TransferPointGroup.tsx';
-import { type SearchUpdate, TransferWindowSheet, TripSettingsSheet } from '../components/TripSettingsSheet.tsx';
+import { type SearchUpdate, TripSettingsSheet } from '../components/TripSettingsSheet.tsx';
 import { useNow, usePoll } from '../hooks.ts';
 import { defaultSavedColor } from '../lib/color.ts';
 import { viewAlerts } from '../lib/alerts.ts';
@@ -29,7 +29,7 @@ export function ResultsScreen({ search }: { search: Search }) {
   const { settings } = useSettings();
   const deviceNow = useNow();
   const [showHidden, setShowHidden] = useState(false);
-  const [sheet, setSheet] = useState<'none' | 'window' | 'settings'>('none');
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [saved, setSaved] = useState(() => findSaved(search));
   // Cards the rider opened or closed, by departure. Others follow the default: each group's
   // soonest departure open, the rest closed. Kept across refreshes, which reuse trip ids.
@@ -185,20 +185,8 @@ export function ResultsScreen({ search }: { search: Search }) {
           <DataCredit />
         </main>
       </div>
-      <BottomBar windowText={summary.windowText} onWindow={() => setSheet('window')} onSettings={() => setSheet('settings')} />
-      {sheet === 'window' && (
-        <TransferWindowSheet
-          search={search}
-          window={window}
-          footer={footer}
-          showHidden={showHidden}
-          update={update}
-          onShowHidden={setShowHidden}
-          onClose={() => setSheet('none')}
-          onMore={() => setSheet('settings')}
-        />
-      )}
-      {sheet === 'settings' && (
+      <BottomBar windowText={summary.windowText} onOpen={() => setSettingsOpen(true)} />
+      {settingsOpen && (
         <TripSettingsSheet
           search={search}
           data={data}
@@ -207,8 +195,10 @@ export function ResultsScreen({ search }: { search: Search }) {
           chain={summary.chain}
           destinationsUrl={destinationsUrl}
           deviceHide={settings.hide}
+          showHidden={showHidden}
           update={update}
-          onClose={() => setSheet('none')}
+          onShowHidden={setShowHidden}
+          onClose={() => setSettingsOpen(false)}
         />
       )}
     </>
