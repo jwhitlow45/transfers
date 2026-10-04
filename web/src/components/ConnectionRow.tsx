@@ -1,7 +1,7 @@
 import type { Connection, Departure } from '../../../shared/api.ts';
 import { clock, minutesUntil } from '../format.ts';
 import { type CardContext, isTight } from '../lib/results.ts';
-import { spokenRoute, statusOf } from '../view.ts';
+import { shortStopName, spokenRoute, statusOf } from '../view.ts';
 import { RouteChip } from './RouteChip.tsx';
 import { StatusTag } from './StatusTag.tsx';
 import { TimeBar } from './TimeBar.tsx';
@@ -27,9 +27,12 @@ export function ConnectionRow({ connection, departure, alightName, min, secondCo
   const status = statusOf(connection.departDelay, connection.live);
   const tight = isTight(connection, min);
   const hidden = connection.hidden ? HIDDEN[connection.hidden] : null;
+  // A pooled group's vehicles can let the rider off at different stops. The group names its
+  // usual one, and a row says its own when it differs.
+  const offAt = connection.alight ? shortStopName(context.data.stops[connection.alight], '') : null;
   const spoken =
     `${route ? spokenRoute(route) : 'Vehicle'}, ${now ? 'arriving now' : `arrives in ${minutes} minute${minutes === 1 ? '' : 's'}`}, ${clock(connection.departs)}, ${status.label}. ` +
-    `Off at ${alightName} ${clock(connection.arrives)}. ${connection.transfer} minute transfer${tight ? ', tight' : ''}${hidden ? `, hidden because it is ${hidden.spoken}` : ''}.`;
+    `Off at ${offAt ?? alightName} ${clock(connection.arrives)}. ${connection.transfer} minute transfer${tight ? ', tight' : ''}${hidden ? `, hidden because it is ${hidden.spoken}` : ''}.`;
   const secondEnd = departure.destination ?? departure.at + 8 * 60;
   return (
     <div role="listitem" class={`tf-row${tight ? ' tf-row--tight' : ''}${hidden ? ' tf-row--hidden' : ''}`}>
@@ -45,7 +48,10 @@ export function ConnectionRow({ connection, departure, alightName, min, secondCo
           <span>{clock(connection.departs)}</span>
         </div>
         <StatusTag status={status} plain />
-        <div class="tf-row__off">Off {clock(connection.arrives)}</div>
+        <div class="tf-row__off">
+          Off {clock(connection.arrives)}
+          {offAt && ` at ${offAt}`}
+        </div>
       </div>
       <div class="tf-row__xfer" aria-hidden="true">
         <div class="tf-row__xfer-min">{connection.transfer} min</div>

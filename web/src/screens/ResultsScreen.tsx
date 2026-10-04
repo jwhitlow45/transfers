@@ -14,7 +14,8 @@ import { type SearchUpdate, TransferWindowSheet, TripSettingsSheet } from '../co
 import { useNow, usePoll } from '../hooks.ts';
 import { defaultSavedColor } from '../lib/color.ts';
 import { viewAlerts } from '../lib/alerts.ts';
-import { ageText, freshness } from '../lib/freshness.ts';
+import { ageText, clockSkewMs, freshness } from '../lib/freshness.ts';
+import { IconHidden, IconTransfer } from '../icons/ui.tsx';
 import { type CardContext, chooseDirection, directionChoices, pageColors, pointId, scaleFor, visibleDepartures } from '../lib/results.ts';
 import { summarize } from '../lib/summary.ts';
 import { navigate, tripPath } from '../router.ts';
@@ -26,7 +27,7 @@ const initialData = takeInitialData<TripResponse>();
 
 export function ResultsScreen({ search }: { search: Search }) {
   const { settings } = useSettings();
-  const now = useNow();
+  const deviceNow = useNow();
   const [showHidden, setShowHidden] = useState(false);
   const [sheet, setSheet] = useState<'none' | 'window' | 'settings'>('none');
   const [saved, setSaved] = useState(() => findSaved(search));
@@ -41,8 +42,12 @@ export function ResultsScreen({ search }: { search: Search }) {
     const matches = initialData && initialData.from === search.from && matchesServerDefaults(settings) && !search.firstRoutes && !search.secondRoutes;
     return matches ? initialData : null;
   }, []);
-  const { data, error, fetchedAt, feed } = usePoll<TripResponse>(url, 30_000, initial);
-  const fresh = freshness(now, fetchedAt, data?.dataAt ?? null);
+  const { data, error, fetchedAt, feed, settled } = usePoll<TripResponse>(url, 30_000, initial);
+  // Every time on the page is the server's, so the clock is too.
+  const skew = clockSkewMs(data?.generatedAt, fetchedAt);
+  const now = deviceNow + skew;
+  const fresh = freshness(now, fetchedAt === null ? null : fetchedAt + skew, data?.dataAt ?? null);
+  const showStale = fresh.stale && settled;
   const summary = summarize(search, data, now);
 
   useEffect(() => {
@@ -102,30 +107,20 @@ export function ResultsScreen({ search }: { search: Search }) {
           title={<TripChain from={summary.from} via={summary.via} to={toChip} />}
           feed={feed}
           secondsSinceUpdate={secondsSinceUpdate}
-          stale={fresh.stale}
-          status={
-            <>
-              {summary.windowText && (
-                <>
-                  <span aria-hidden="true">·</span>
-                  <span>Transfer {summary.windowText}</span>
-                </>
-              )}
-              {hide > 0 && (
-                <>
-                  <span aria-hidden="true">·</span>
-                  <span>Hiding departures under {hide} min</span>
-                </>
-              )}
-            </>
-          }
+          stale={showStale}
+          items={[
+            ...(summary.window
+              ? [{ key: 'window', icon: <IconTransfer />, short: `${summary.window.min}–${summary.window.max}m`, full: `Showing transfers of ${summary.window.min} to ${summary.window.max} minutes` }]
+              : []),
+            ...(hide > 0 ? [{ key: 'hide', icon: <IconHidden />, short: `<${hide}m`, full: `Hiding departures that leave in under ${hide} minutes` }] : []),
+          ]}
           action={<SaveButton saved={saved !== null} onToggle={toggleSaved} />}
           accent={saved?.color}
           onBack={() => navigate('/')}
         />
         <main class="tf-page" id="main">
           {feed === 'offline' && <OfflineBanner statusText={liveStatusText(feed, secondsSinceUpdate)} />}
-          {feed !== 'offline' && fresh.stale && <StaleBanner ageText={ageText(fresh.ageSeconds!)} cause={fresh.cause!} />}
+          {feed !== 'offline' && showStale && <StaleBanner ageText={ageText(fresh.ageSeconds!)} cause={fresh.cause!} />}
           {outages.map(({ agency }) => (
             <FeedOutageBanner key={agency} agency={agencyOnly(agency)} routes={routesOf(agency)} liveAgencies={liveAgencies.join(' and ')} />
           ))}
@@ -224,12 +219,25 @@ const weekdayTime = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_An
 // Why nothing showed up, in the rider's terms, with the one thing that might help.
 function EmptyTrip({ data, search, summary, maxWalk, update }: { data: TripResponse; search: Search; summary: ReturnType<typeof summarize>; maxWalk: number; update: SearchUpdate }) {
   const notice = data.notice;
-  const to = summary.toRoute ? `the ${summary.to}` : summary.to;
+  const route = summary.toRoute;
+  // "the 48", or a BART line by its color.
+  const toName = route ? (route.agency === 'BA' ? `the ${route.name} line` : `the ${summary.to}`) : summary.to;
+  const again = (next: number | null, place: string) => (next ? `${place} starts again ${weekdayTime.format(next * 1000)}.` : `${place} does not run in the next few days.`);
+  if (notice?.kind === 'idle' && notice.side === 'to') {
+    return (
+      <div class="tf-empty">
+        <div class="tf-empty__title">{route ? `${capitalize(toName)} isn't running now` : `Nothing boards at ${summary.to} right now`}</div>
+        <div class="tf-muted">{again(notice.next, route ? 'Service' : 'Service there')}</div>
+      </div>
+    );
+  }
   if (notice?.kind === 'idle') {
     return (
       <div class="tf-empty">
-        <div class="tf-empty__title">{summary.toRoute ? `The ${summary.to} isn't running now` : `Nothing stops at ${summary.to} for a while`}</div>
-        <div class="tf-muted">{notice.next ? `It runs again ${weekdayTime.format(notice.next * 1000)}.` : 'It does not run in the next few days.'}</div>
+        <div class="tf-empty__title">
+          Nothing from {summary.from} connects to {toName} at this hour
+        </div>
+        <div class="tf-muted">{again(notice.next, `Service from ${summary.from}`)}</div>
       </div>
     );
   }
@@ -244,12 +252,29 @@ function EmptyTrip({ data, search, summary, maxWalk, update }: { data: TripRespo
       </div>
     );
   }
+  if (notice?.kind === 'filtered' || data.groups.length > 0) {
+    return (
+      <div class="tf-empty">
+        <div class="tf-empty__title">Your route filters hide every transfer</div>
+        <div class="tf-muted">Trip settings has the routes and directions this search leaves out.</div>
+        <button
+          type="button"
+          class="tf-btn-outline tf-btn-secondary"
+          onClick={() => update(({ firstRoutes: _first, secondRoutes: _second, off: _off, ...rest }) => rest)}
+        >
+          Show every route
+        </button>
+      </div>
+    );
+  }
   return (
     <div class="tf-empty">
       <div class="tf-empty__title">
-        Nothing from {summary.from} gets within a short walk of {to}
+        Nothing from {summary.from} gets within a short walk of {toName}
       </div>
       <div class="tf-muted">{maxWalk < 650 ? 'A longer walk between stops, in Settings, may find one.' : 'Try a stop or route closer to where you start.'}</div>
     </div>
   );
 }
+
+const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);

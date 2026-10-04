@@ -10,7 +10,7 @@ import { StatusTag } from '../components/StatusTag.tsx';
 import { clock, minutesUntil } from '../format.ts';
 import { useNow, usePoll } from '../hooks.ts';
 import { IconLocation } from '../icons/ui.tsx';
-import { ageText, freshness } from '../lib/freshness.ts';
+import { ageText, clockSkewMs, freshness } from '../lib/freshness.ts';
 import { navigate } from '../router.ts';
 import { agencyName, directionText, shortStopName, statusOf } from '../view.ts';
 import type { Picked } from './SearchScreen.tsx';
@@ -72,9 +72,11 @@ export function NearbyScreen() {
 function NearbyResults({ position }: { position: Position }) {
   // Rounded to about 10 m, so small GPS jitter reuses the same request.
   const url = `/api/nearby?lat=${position.lat.toFixed(4)}&lon=${position.lon.toFixed(4)}`;
-  const { data, error, fetchedAt, feed } = usePoll<NearbyResponse>(url, 30_000);
-  const now = useNow();
-  const fresh = freshness(now, fetchedAt, data?.dataAt ?? null);
+  const { data, error, fetchedAt, feed, settled } = usePoll<NearbyResponse>(url, 30_000);
+  const skew = clockSkewMs(data?.generatedAt, fetchedAt);
+  const now = useNow() + skew;
+  const fresh = freshness(now, fetchedAt === null ? null : fetchedAt + skew, data?.dataAt ?? null);
+  const showStale = fresh.stale && settled;
   const secondsSinceUpdate = fresh.ageSeconds ?? (fetchedAt === null ? null : Math.max(0, Math.floor((now - fetchedAt) / 1000)));
   const pick = (row: NearbyStop, as: 'from' | 'to') => {
     const stop = data?.stops[row.stop];
@@ -87,10 +89,10 @@ function NearbyResults({ position }: { position: Position }) {
 
   return (
     <div class="tf-scroll">
-      <ScreenHeader title="Nearby" feed={feed} secondsSinceUpdate={secondsSinceUpdate} stale={fresh.stale} onBack={() => navigate('/')} />
+      <ScreenHeader title="Nearby" feed={feed} secondsSinceUpdate={secondsSinceUpdate} stale={showStale} onBack={() => navigate('/')} />
       <main class="tf-page" id="main">
         {feed === 'offline' && <OfflineBanner statusText={liveStatusText(feed, secondsSinceUpdate)} />}
-        {feed !== 'offline' && fresh.stale && <StaleBanner ageText={ageText(fresh.ageSeconds!)} cause={fresh.cause!} />}
+        {feed !== 'offline' && showStale && <StaleBanner ageText={ageText(fresh.ageSeconds!)} cause={fresh.cause!} />}
         {error && (
           <div class="tf-empty" role="alert">
             <div class="tf-empty__title">{error}</div>

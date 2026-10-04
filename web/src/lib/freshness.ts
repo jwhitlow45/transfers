@@ -27,4 +27,19 @@ export function freshness(nowMs: number, fetchedAtMs: number | null, dataAt: num
   return { ageSeconds, stale: true, cause: sinceFetch > REFRESH_SECONDS * 1.5 ? 'connection' : 'source' };
 }
 
-export const ageText = (seconds: number) => (seconds < 60 ? `${seconds} s` : `${Math.floor(seconds / 60)} min`);
+export function ageText(seconds: number) {
+  if (seconds < 60) return `${seconds} s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} min`;
+  return `${Math.floor(seconds / 3600)} h`;
+}
+
+// The status line's short form: "12s", "3m", "2h".
+export const ageShort = (seconds: number) => ageText(seconds).replace(/ (\w)\w*$/, '$1');
+
+// How far the server's clock is ahead of this device's, in milliseconds, from a response's
+// own timestamp and when it arrived. Every time on the page is a server timestamp, so a phone
+// clock a minute fast would otherwise show every countdown a minute short and data a minute
+// older than it is.
+export function clockSkewMs(generatedAt: number | undefined, fetchedAtMs: number | null) {
+  return generatedAt === undefined || fetchedAtMs === null ? 0 : generatedAt * 1000 - fetchedAtMs;
+}

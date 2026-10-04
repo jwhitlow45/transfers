@@ -77,3 +77,12 @@ export const IconGear = ({ size = 22 }: Props) =>
     </>,
     size,
   );
+export const IconTransfer = ({ size = 16 }: Props) => icon(<path d="M4 8h14l-4-4M20 16H6l4 4" />, size);
+export const IconHidden = ({ size = 16 }: Props) =>
+  icon(
+    <>
+      <path d="M3 12s3.5-6 9-6c1.6 0 3 .5 4.2 1.2M21 12s-3.5 6-9 6c-1.6 0-3-.5-4.2-1.2" />
+      <path d="M4 20L20 4" />
+    </>,
+    size,
+  );

@@ -1,5 +1,7 @@
 import type { ComponentChildren } from 'preact';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import type { FeedState } from '../hooks.ts';
+import { ageShort, ageText } from '../lib/freshness.ts';
 import { IconBack, IconBookmark } from '../icons/ui.tsx';
 
 // secondsSinceUpdate counts from when the server got the data from 511, not when this page
@@ -12,28 +14,74 @@ export function liveStatusText(feed: FeedState, secondsSinceUpdate: number | nul
   return secondsSinceUpdate === null ? 'Live' : `Updated ${ago(secondsSinceUpdate)}`;
 }
 
-export function LiveStatus({ feed, secondsSinceUpdate, stale, children }: { feed: FeedState; secondsSinceUpdate: number | null; stale?: boolean; children?: ComponentChildren }) {
-  const state = feed === 'offline' ? ' tf-livestatus__state--offline' : stale ? ' tf-livestatus__state--stale' : '';
+// One item of the status line: a symbol and a short value, with the full sentence on tap.
+export type StatusItem = { key: string; icon: ComponentChildren; short: string; full: string };
+
+// The live status as one line of short items. Each one opens its full sentence on tap, and
+// screen readers hear the full sentence as its name. Only changes of state are announced: the
+// age ticking every second would otherwise be read out constantly.
+export function LiveStatus({ feed, secondsSinceUpdate, stale, items = [] }: { feed: FeedState; secondsSinceUpdate: number | null; stale?: boolean; items?: StatusItem[] }) {
+  const [open, setOpen] = useState<string | null>(null);
+  const line = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (open === null) return;
+    const close = (event: PointerEvent) => {
+      if (!line.current?.contains(event.target as Node)) setOpen(null);
+    };
+    document.addEventListener('pointerdown', close);
+    return () => document.removeEventListener('pointerdown', close);
+  }, [open]);
+  const tone = feed === 'offline' ? 'offline' : stale ? 'stale' : 'live';
+  const age = secondsSinceUpdate === null ? null : ageShort(secondsSinceUpdate);
+  const live: StatusItem = {
+    key: 'live',
+    icon: <span class="tf-dot" />,
+    short: feed === 'loading' ? 'Loading' : feed === 'offline' ? `Offline${age ? ` · ${age}` : ''}` : (age ?? 'Live'),
+    full: liveStatusSentence(feed, secondsSinceUpdate, stale ?? false),
+  };
+  const announcement = feed === 'offline' ? 'Offline, showing the last results' : stale ? 'Live times are out of date' : feed === 'loading' ? 'Loading' : '';
   return (
-    <div class="tf-livestatus" role="status">
-      <span class={`tf-livestatus__state${state}`}>
-        <span class="tf-dot" />
-        {liveStatusText(feed, secondsSinceUpdate)}
+    <div class={`tf-livestatus tf-livestatus--${tone}`} ref={line}>
+      <span class="tf-sr" role="status">
+        {announcement}
       </span>
-      {children}
+      {[live, ...items].map((item) => (
+        <span key={item.key} class={`tf-stat tf-stat--${item.key}`}>
+          <button type="button" class="tf-stat__button" aria-label={item.full} aria-expanded={open === item.key} onClick={() => setOpen(open === item.key ? null : item.key)}>
+            <span class="tf-stat__icon" aria-hidden="true">
+              {item.icon}
+            </span>
+            <span aria-hidden="true">{item.short}</span>
+          </button>
+          {open === item.key && (
+            <span class="tf-tip" role="tooltip">
+              {item.full}
+            </span>
+          )}
+        </span>
+      ))}
     </div>
   );
 }
 
+function liveStatusSentence(feed: FeedState, seconds: number | null, stale: boolean) {
+  const ago = seconds === null ? null : `${ageText(seconds).replace(' s', ' seconds').replace(' min', ' minutes').replace(' h', ' hours')} ago`;
+  if (feed === 'loading') return 'Loading live times';
+  if (feed === 'offline') return ago ? `Offline. Live times last updated ${ago}` : 'Offline';
+  if (stale) return `Live times last updated ${ago}, so they may be out of date`;
+  if (feed === 'refreshing') return ago ? `Refreshing. Live times last updated ${ago}` : 'Refreshing live times';
+  return ago ? `Live times, updated ${ago}` : 'Live times';
+}
+
 // Sticky header for every screen but search: back, a title, and the live status.
-export function ScreenHeader({ title, feed, secondsSinceUpdate, stale, status, action, accent, onBack }: {
+export function ScreenHeader({ title, feed, secondsSinceUpdate, stale, items, action, accent, onBack }: {
   title: ComponentChildren;
   stale?: boolean;
+  items?: StatusItem[];
   // A saved search's color, as a stripe along the top.
   accent?: string | undefined;
   feed?: FeedState;
   secondsSinceUpdate?: number | null;
-  status?: ComponentChildren;
   action?: ComponentChildren;
   onBack: () => void;
 }) {
@@ -47,9 +95,7 @@ export function ScreenHeader({ title, feed, secondsSinceUpdate, stale, status, a
         {action}
       </div>
       {feed && (
-        <LiveStatus feed={feed} secondsSinceUpdate={secondsSinceUpdate ?? null} stale={stale ?? false}>
-          {status}
-        </LiveStatus>
+        <LiveStatus feed={feed} secondsSinceUpdate={secondsSinceUpdate ?? null} stale={stale ?? false} items={items ?? []} />
       )}
       {(feed === 'refreshing' || feed === 'loading') && <div class="tf-refresh-bar" aria-hidden="true" />}
     </header>

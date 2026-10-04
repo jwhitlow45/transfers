@@ -375,7 +375,8 @@ button.tf-band { width: 100%; text-align: left; color: var(--on-field); }
 .tf-band__dest { display: block; margin-top: 2px; font-size: var(--text-md); font-weight: 650; color: var(--on-field); }
 .tf-band__chev { display: block; margin-top: var(--space-1); color: var(--on-field-muted); transition: transform .15s; }
 .tf-band[aria-expanded="true"] .tf-band__chev { transform: rotate(180deg); }
-.tf-band:hover { filter: brightness(1.12); }
+button.tf-band:hover { filter: brightness(1.12); }
+.tf-band--static { display: flex; }
 .tf-card__summary { padding: 10px var(--space-4); font-size: 15px; font-weight: var(--weight-semibold); }
 @media (prefers-reduced-motion: reduce) { .tf-band__chev { transition: none; } }
 
@@ -425,3 +426,15 @@ button.tf-band { width: 100%; text-align: left; color: var(--on-field); }
 .tf-recent-remove { position: absolute; right: 0; top: 0; bottom: 1px; width: var(--tap-min); display: grid; place-items: center; background: var(--late-tint); color: var(--late); opacity: 0; pointer-events: none; }
 .tf-recent-remove:focus-visible { opacity: 1; pointer-events: auto; }
 @media (prefers-reduced-motion: reduce) { .tf-recent-row, .tf-recent-row .tf-recent { transition: none; } }
+
+/* The status line under the trip: short items, each with its full sentence on tap. */
+.tf-livestatus { flex-wrap: nowrap; gap: var(--space-1); position: relative; padding: 0 var(--space-5) var(--space-1) 40px; }
+.tf-stat { position: relative; display: inline-flex; flex: none; }
+.tf-stat__button { display: inline-flex; align-items: center; gap: 5px; min-height: 36px; padding: 0 var(--space-2); color: inherit; font-size: var(--text-base); white-space: nowrap; }
+.tf-stat__button:hover { background: color-mix(in srgb, var(--text) 7%, transparent); }
+.tf-stat__icon { display: inline-flex; }
+.tf-livestatus--offline .tf-stat--live { color: var(--late); font-weight: var(--weight-bold); }
+.tf-livestatus--offline .tf-stat--live .tf-dot { background: transparent; border-color: var(--late); }
+.tf-livestatus--stale .tf-stat--live { color: var(--caution); font-weight: var(--weight-bold); }
+.tf-livestatus--stale .tf-stat--live .tf-dot { background: transparent; border-color: var(--caution); }
+.tf-tip { position: absolute; top: calc(100% + 4px); left: 0; z-index: 6; width: max-content; max-width: min(260px, 80vw); padding: var(--space-2) var(--space-3); background: var(--field); color: var(--on-field); font-size: var(--text-sm); font-weight: var(--weight-regular); line-height: 1.35; white-space: normal; }

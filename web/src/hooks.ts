@@ -17,28 +17,42 @@ export type FeedState = 'live' | 'refreshing' | 'loading' | 'offline';
 export type Polled<T> = {
   data: T | null;
   error: string | null;
-  // When the shown data was fetched, in milliseconds.
+  // When the shown data arrived, in milliseconds on this device's clock.
   fetchedAt: number | null;
   feed: FeedState;
+  // False until the first refresh after opening has finished or had five seconds. Cached data
+  // shown on open is usually old, and a warning about it would flash for the second it takes
+  // to refresh, so warnings wait for this.
+  settled: boolean;
   refresh: () => void;
 };
 
-// A quick refresh would flash the header's bar for a frame, so it stays up at least this long.
+// The header's refresh bar stays up at least this long, so a quick refresh does not flash it.
 const MIN_REFRESH_MS = 800;
+// A request still unanswered after this is given up on, so a stalled connection underground
+// cannot stop refreshing.
+const REQUEST_TIMEOUT_MS = 15_000;
+const SETTLE_MS = 5000;
 
 // Fetches `url` now and every `intervalMs` while the page is visible. Shows the last response
 // for the same URL at once (from this session or storage), so returning or going offline
-// never blanks the screen.
-// Fetches come every `intervalMs` from when the page opened, and never faster when data is old.
-// Pages opening at different times keep their own rhythm, so devices never line up into bursts.
+// never blanks the screen. Fetches come every `intervalMs` from when the page opened, and
+// never faster when data is old. Pages opening at different times keep their own rhythm, so
+// devices never line up into bursts.
 export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: T | null = null): Polled<T> {
-  const [state, setState] = useState<Omit<Polled<T>, 'refresh'>>(() => {
+  const [state, setState] = useState<Omit<Polled<T>, 'refresh' | 'settled'>>(() => {
     const cached = url ? loadCached<T>(url) : null;
     const data = initial ?? cached?.data ?? null;
     return { data, error: null, fetchedAt: initial ? Date.now() : (cached?.fetchedAt ?? null), feed: initial ? 'live' : data ? 'refreshing' : 'loading' };
   });
+  const [settled, setSettled] = useState(Boolean(initial));
   const tick = useRef<() => void>(() => {});
   const seeded = useRef(Boolean(initial));
+
+  useEffect(() => {
+    const hold = setTimeout(() => setSettled(true), SETTLE_MS);
+    return () => clearTimeout(hold);
+  }, []);
 
   useEffect(() => {
     if (!url) return;
@@ -59,20 +73,33 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: T |
     const fetchNow = async () => {
       controller?.abort();
       controller = new AbortController();
+      // The next refresh is set before this one is sent, so one that never answers still leaves
+      // the next on its way.
+      plan(intervalMs);
       const started = Date.now();
+      const request = controller;
+      // A plain timer rather than AbortSignal.timeout, which older iPhones lack.
+      let timedOut = false;
+      const giveUp = setTimeout(() => {
+        timedOut = true;
+        request.abort();
+      }, REQUEST_TIMEOUT_MS);
       setState((current) => ({ ...current, feed: current.data ? 'refreshing' : 'loading' }));
       try {
-        const data = await getJson<T>(url, { signal: controller.signal, remember: true });
-        const fetchedAt = Date.now();
-        const wait = Math.max(0, MIN_REFRESH_MS - (fetchedAt - started));
+        const data = await getJson<T>(url, { signal: request.signal, remember: true });
+        // New data shows at once. Only the refresh bar lingers.
+        setState({ data, error: null, fetchedAt: Date.now(), feed: 'refreshing' });
         clearTimeout(settle);
-        settle = setTimeout(() => setState({ data, error: null, fetchedAt, feed: 'live' }), wait);
-        plan(intervalMs);
+        settle = setTimeout(() => setState((current) => ({ ...current, feed: 'live' })), Math.max(0, MIN_REFRESH_MS - (Date.now() - started)));
       } catch (error) {
-        if ((error as Error).name === 'AbortError') return;
-        const offline = !navigator.onLine || error instanceof TypeError;
-        setState((current) => ({ ...current, error: offline ? null : (error as Error).message, feed: offline ? 'offline' : 'live' }));
-        plan(intervalMs);
+        // Aborted for a newer request or for leaving the page: that one takes over.
+        if ((error as Error).name === 'AbortError' && !timedOut) return;
+        // A timeout or a network failure both mean the server could not be reached.
+        const unreachable = timedOut || !navigator.onLine || error instanceof TypeError;
+        setState((current) => ({ ...current, error: unreachable ? null : (error as Error).message, feed: unreachable ? 'offline' : 'live' }));
+      } finally {
+        clearTimeout(giveUp);
+        setSettled(true);
       }
     };
     tick.current = () => void fetchNow();
@@ -97,5 +124,5 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: T |
     };
   }, [url, intervalMs]);
 
-  return { ...state, refresh: () => tick.current() };
+  return { ...state, settled, refresh: () => tick.current() };
 }

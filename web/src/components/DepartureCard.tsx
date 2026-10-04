@@ -83,7 +83,7 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
     return (
       <article class="tf-card tf-card--walk">
         <h3 class="tf-card__heading">
-          <div class="tf-band">{band}</div>
+          <span class="tf-band tf-band--static">{band}</span>
         </h3>
       </article>
     );
