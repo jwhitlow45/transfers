@@ -32,6 +32,10 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
   const place = [board?.direction, `at ${boardName}`, board?.code ? `stop ${board.code}` : station].filter(Boolean).join(' · ');
   const firstOpen = departures.find(({ canceled }) => !canceled)?.trip;
   const walk = group.kind === 'walk';
+  // Rows that get off at another stop may walk farther than the group's own stop.
+  const shortest = walkMinutes(group.walkMeters);
+  const longest = walkMinutes(group.longestWalkMeters ?? group.walkMeters);
+  const walkTime = longest > shortest ? `${shortest}–${longest}` : `${shortest}`;
   const routeNames = familyName(group.routes, data);
   // Where to get off says it once here, so each row only needs the time. A walk group has no
   // first vehicle: the route is right here, or a short walk away.
@@ -41,7 +45,7 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
       : `No transfer needed: walk ${walkMinutes(group.walkMeters)} min to ${boardName}`
     : sameStop
       ? `Transfer at ${boardName}`
-      : `${alightVerb(group, data)} ${alightName} · ${walkMinutes(group.walkMeters)} min walk`;
+      : `${alightVerb(group, data)} ${alightName} · ${walkTime} min walk`;
   return (
     <section class="tf-group">
       <div>

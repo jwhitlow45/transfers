@@ -67,6 +67,7 @@ export function nearby(schedule: Schedule, realtime: RealtimeView, center: Point
       ).map((entry) => ({ ...entry, stop: candidate.stop })),
       firstLegs: [],
       walkMeters: 0,
+      longestWalkMeters: 0,
       defaultMinutes: 0,
       stopsRidden: 0,
     };

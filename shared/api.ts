@@ -112,6 +112,8 @@ export type Group = {
   direction: number | null;
   headsign: string;
   walkMeters: number;
+  // Present when connections get off at different stops and some walk farther.
+  longestWalkMeters?: number;
   // Every route that can carry the rider from the From stop to `alight`, for route filters.
   firstRoutes: string[];
   // Minutes, after defaults.

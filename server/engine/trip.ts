@@ -172,6 +172,7 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
       direction: link.direction,
       headsign: link.headsign,
       walkMeters: link.walkMeters,
+      ...(link.longestWalkMeters > link.walkMeters ? { longestWalkMeters: link.longestWalkMeters } : {}),
       firstRoutes: [...new Set(link.firstLegs.map(({ pattern }) => pattern.route))].map((id) => tables.route(schedule.route(id))),
       window: { min, max },
       ...(widen ? { widen } : {}),
@@ -247,6 +248,7 @@ function towardDestination(schedule: Schedule, links: Link[], destination: StopR
       boardPatterns: [...current.boardPatterns, ...link.boardPatterns],
       firstLegs: [...firstLegs.values()],
       walkMeters: Math.min(current.walkMeters, link.walkMeters),
+      longestWalkMeters: Math.max(current.longestWalkMeters, link.longestWalkMeters),
       defaultMinutes: Math.max(current.defaultMinutes, link.defaultMinutes),
       stopsRidden: Math.min(current.stopsRidden, link.stopsRidden),
     });

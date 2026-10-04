@@ -44,6 +44,8 @@ export type Link = {
   boardPatterns: BoardPattern[];
   firstLegs: FirstLegPattern[];
   walkMeters: number;
+  // The longest walk, when riders getting off at different stops walk different distances.
+  longestWalkMeters: number;
   defaultMinutes: number;
   // Fewest stops ridden on the first leg, for ordering.
   stopsRidden: number;
@@ -228,6 +230,7 @@ function walkLink(context: Context, origins: StopRow[], target: Target): Link | 
     boardPatterns: best.patterns,
     firstLegs: [],
     walkMeters: Math.round(best.meters),
+    longestWalkMeters: Math.round(best.meters),
     defaultMinutes: best.meters < 15 ? 0 : minimumMinutes(seconds),
     stopsRidden: 0,
   };
@@ -312,6 +315,7 @@ function addPicks(schedule: Schedule, picks: Pick[], target: Target): Link {
     boardPatterns: [...boardPatterns.values()],
     firstLegs: [...firstLegs.values()],
     walkMeters: Math.min(...picks.map(({ meters }) => Math.round(meters))),
+    longestWalkMeters: Math.max(...picks.map(({ meters }) => Math.round(meters))),
     defaultMinutes: Math.max(...picks.map(({ minutes }) => minutes)),
     stopsRidden: Math.min(...picks.map(({ position, feeder }) => position - feeder.position)),
   };
