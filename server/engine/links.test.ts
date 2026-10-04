@@ -22,32 +22,27 @@ const CORNERS = [
   ['market', 1500],
 ] as const;
 
-function network(shortRunTrips: number) {
-  const stops = ['stop_id,stop_code,stop_name,stop_lat,stop_lon'];
-  for (const [name, meters] of CORNERS) {
-    stops.push(`${name}-wb,${name}-wb,${name} westbound,${(LAT + 0.0002).toFixed(6)},${lon(meters)}`);
-    stops.push(`${name}-eb,${name}-eb,${name} eastbound,${LAT.toFixed(6)},${lon(meters)}`);
-  }
+// Builds a one-route network. `stops` are names with their position along the street in meters
+// and whether they sit on its north side. `runs` repeat a stop sequence `count` times.
+function build(stops: [string, number, boolean][], runs: { id: string; direction: number; headsign: string; sequence: string[]; count: number }[]) {
+  const rows = ['stop_id,stop_code,stop_name,stop_lat,stop_lon'];
+  for (const [name, meters, north] of stops) rows.push(`${name},${name},${name},${(LAT + (north ? 0.0002 : 0)).toFixed(6)},${lon(meters)}`);
   const trips: string[] = [];
   const times: string[] = [];
-  const run = (id: string, direction: number, headsign: string, sequence: string[]) => {
-    trips.push(`C,all,${id},${headsign},${direction},,`);
-    sequence.forEach((stop, index) => {
-      const at = `08:${String(index * 2).padStart(2, '0')}:00`;
-      times.push(`${id},${at},${at},${stop},${index + 1}`);
-    });
-  };
-  const westbound = ['market-wb', 'jones-wb', 'hyde-wb', 'larkin-wb', 'polk-wb', 'vanness-wb'];
-  const eastbound = ['vanness-eb', 'polk-eb', 'larkin-eb', 'hyde-eb', 'jones-eb', 'market-eb'];
-  for (let n = 0; n < 10; n++) run(`w${n}`, 0, 'Van Ness', westbound);
-  for (let n = 0; n < 10; n++) run(`e${n}`, 1, 'Market', eastbound);
-  // A short run that starts at Hyde, one block past Larkin.
-  for (let n = 0; n < shortRunTrips; n++) run(`s${n}`, 1, 'Market', eastbound.slice(3));
+  for (const { id, direction, headsign, sequence, count } of runs) {
+    for (let n = 0; n < count; n++) {
+      trips.push(`C,all,${id}${n},${headsign},${direction},,`);
+      sequence.forEach((stop, index) => {
+        const at = `08:${String(index * 2).padStart(2, '0')}:00`;
+        times.push(`${id}${n},${at},${at},${stop},${index + 1}`);
+      });
+    }
+  }
   const calendar = 'service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,start_date,end_date\nall,1,1,1,1,1,1,1,20260101,20271231\n';
   const files = new Map(
     Object.entries({
       'routes.txt': 'route_id,route_short_name,route_long_name,route_type\nC,C,CALIFORNIA,3\n',
-      'stops.txt': `${stops.join('\n')}\n`,
+      'stops.txt': `${rows.join('\n')}\n`,
       'calendar.txt': calendar,
       'trips.txt': `route_id,service_id,trip_id,trip_headsign,direction_id,block_id,shape_id\n${trips.join('\n')}\n`,
       'stop_times.txt': `trip_id,arrival_time,departure_time,stop_id,stop_sequence\n${times.join('\n')}\n`,
@@ -56,6 +51,20 @@ function network(shortRunTrips: number) {
   const path = join(mkdtempSync(join(tmpdir(), 'links-')), 'schedule.db');
   buildScheduleDatabase(new Map<Agency, Map<string, string>>([['SF', files]]), path);
   return new Schedule(path);
+}
+
+function network(shortRunTrips: number) {
+  const stops = CORNERS.flatMap(([name, meters]): [string, number, boolean][] => [
+    [`${name}-wb`, meters, true],
+    [`${name}-eb`, meters, false],
+  ]);
+  const eastbound = ['vanness-eb', 'polk-eb', 'larkin-eb', 'hyde-eb', 'jones-eb', 'market-eb'];
+  return build(stops, [
+    { id: 'w', direction: 0, headsign: 'Van Ness', sequence: ['market-wb', 'jones-wb', 'hyde-wb', 'larkin-wb', 'polk-wb', 'vanness-wb'], count: 10 },
+    { id: 'e', direction: 1, headsign: 'Market', sequence: eastbound, count: 10 },
+    // A short run that starts at Hyde, one block past Larkin.
+    { id: 's', direction: 1, headsign: 'Market', sequence: eastbound.slice(3), count: shortRunTrips },
+  ]);
 }
 
 const fromLarkin = (schedule: Schedule, destination?: string) => {
@@ -84,5 +93,25 @@ test('a walk to a destination boards before it, even where a stop past it is bus
   const schedule = network(30);
   // Hyde wins on its own, but a rider going to Hyde boards at Larkin.
   deepStrictEqual(fromLarkin(schedule, 'SF:hyde-eb'), ['walk Market at larkin-eb']);
+  schedule.close();
+});
+
+test('a loop that comes back past From after the rider gets off still boards near From', () => {
+  // Like the 18 at Legion of Honor: boarded across the street from From, it reaches the named
+  // stop, then loops back through From itself.
+  const schedule = build(
+    [
+      ['from', 0, false],
+      ['across', 0, true],
+      ['out', 600, true],
+      ['to', 1200, true],
+    ],
+    [{ id: 'l', direction: 0, headsign: 'Loop', sequence: ['across', 'out', 'to', 'from'], count: 10 }],
+  );
+  const from = schedule.stopsByKey.get('SF:from')!;
+  const to = schedule.stopsByKey.get('SF:to')!;
+  const boards = (links: ReturnType<typeof findLinks>) => links.map((link) => `${link.kind} at ${link.board.stopId}`);
+  deepStrictEqual(boards(findLinks(schedule, from, { stop: to })), ['walk at across']);
+  deepStrictEqual(boards(findLinks(schedule, from, { route: schedule.routesByKey.get('SF:C')! }, { reaches: new Set([to.id]) })), ['walk at across']);
   schedule.close();
 });

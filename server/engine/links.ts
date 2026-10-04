@@ -181,16 +181,19 @@ const isStation = (stop: StopRow) => stop.access === 'bart' || stop.access === '
 // make no more sense, so the answer is 'pointless' rather than no walk.
 function walkLink(context: Context, origins: StopRow[], target: Target): Link | 'pointless' | null {
   const { schedule, maxWalk } = context;
-  const candidates = new Map<number, Map<string, BoardPattern>>();
+  // Each boarding with where the rider gets off: the named stop, or else the destination or the
+  // end of the line.
+  const candidates = new Map<number, Map<string, { board: BoardPattern; getsOff: number }>>();
   for (const board of target.stops) {
     for (const { pattern, position } of board.patterns) {
       const last = context.namedStop ? position : pattern.stops.length - 2;
       for (let at = 0; at <= last; at++) {
+        const ridesTo = context.ridesTo(pattern, at);
         // A stop past the destination is no place to board for it.
-        if (context.ridesTo(pattern, at) === -1) continue;
+        if (ridesTo === -1) continue;
         const stop = schedule.stop(pattern.stops[at]!);
-        const list = candidates.get(stop.id) ?? new Map<string, BoardPattern>();
-        list.set(`${pattern.id}|${at}`, { pattern, position: at, stop });
+        const list = candidates.get(stop.id) ?? new Map<string, { board: BoardPattern; getsOff: number }>();
+        list.set(`${pattern.id}|${at}`, { board: { pattern, position: at, stop }, getsOff: context.namedStop ? position : ridesTo });
         candidates.set(stop.id, list);
       }
     }
@@ -207,9 +210,9 @@ function walkLink(context: Context, origins: StopRow[], target: Target): Link | 
     }
     if (meters === Infinity) continue;
     inRange = true;
-    const patterns = [...byPattern.values()].filter(
-      ({ pattern, position }) => !origins.some((origin) => endsNear(schedule, pattern, position, origin, maxWalk)) && !passesCloser(schedule, pattern, position, context.ridesTo(pattern, position), origins, maxWalk),
-    );
+    const patterns = [...byPattern.values()]
+      .filter(({ board: { pattern, position }, getsOff }) => !origins.some((origin) => endsNear(schedule, pattern, position, origin, maxWalk)) && !passesCloser(schedule, pattern, position, getsOff, origins, maxWalk))
+      .map(({ board }) => board);
     if (patterns.length === 0) continue;
     usable.push({ stop, meters, trips: patterns.reduce((sum, { pattern }) => sum + pattern.trips, 0), patterns });
   }
@@ -368,8 +371,6 @@ function endsNear(schedule: Schedule, pattern: PatternRow, position: number, ali
   return true;
 }
 
-// The target pattern, after boarding, comes back near From or a stop the rider already rode
-// through, where they could have boarded it instead.
 // Whether a vehicle boarded at `position` stops within half a walk of From, and closer to it than
 // where it was boarded, before the rider gets off at `last`. A loop that passes From only after
 // the rider's destination does not count.
@@ -383,6 +384,8 @@ function passesCloser(schedule: Schedule, pattern: PatternRow, position: number,
   return false;
 }
 
+// The target pattern, after boarding, comes back near From or a stop the rider already rode
+// through, where they could have boarded it instead.
 function doublesBack(schedule: Schedule, pattern: PatternRow, position: number, ridden: StopRow[], maxWalk: number) {
   if (ridden.length === 0) return false;
   for (let at = position + 1; at < pattern.stops.length; at++) {
