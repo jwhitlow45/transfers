@@ -28,8 +28,14 @@ export function search(schedule: Schedule, text: string, options: { routes: bool
     // One or two letters ("N") match stop names and codes only, or every stop a route by that
     // letter serves would match through its route list.
     const match = searchQuery(query, query.trim().length <= 2 ? ['name', 'code'] : undefined);
+    // Stations and subway and ferry stops are looked up on their own, ahead of the rest, so the
+    // ranking below always sees them. By text rank alone, "mont" puts Montgomery Station 73rd of
+    // 74 matches, behind every street stop on Montgomery St and Monterey Blvd.
     const ids = match
-      ? all<{ id: number }>(schedule.db, 'SELECT rowid AS id FROM stop_search WHERE stop_search MATCH ? ORDER BY rank LIMIT 60', match)
+      ? [
+          ...all<{ id: number }>(schedule.db, "SELECT rowid AS id FROM stop_search WHERE stop_search MATCH ? AND rowid IN (SELECT id FROM stops WHERE access <> 'street') ORDER BY rank LIMIT 20", match),
+          ...all<{ id: number }>(schedule.db, 'SELECT rowid AS id FROM stop_search WHERE stop_search MATCH ? ORDER BY rank LIMIT 60', match),
+        ].filter(({ id }, index, list) => list.findIndex((other) => other.id === id) === index)
       : [];
     // A shared station's Muni Metro platforms answer to the station by name, and to their own
     // codes only when searched by number.

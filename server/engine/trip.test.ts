@@ -96,13 +96,33 @@ function feeds() {
   ]);
 }
 
+// The same network with 80 more Muni stops on Monterey Blvd, all served by one route, for
+// searches where street stops crowd out a station.
+function crowdedFeeds() {
+  const network = feeds();
+  const muni = network.get('SF')!;
+  const corners = Array.from({ length: 80 }, (_, n) => ({ id: `m${n}`, name: `${n + 1}th Ave & Montgomery St`, lon: (-122.46 + n * 0.0005).toFixed(6) }));
+  muni.set('stops.txt', `${muni.get('stops.txt')}\n${corners.map(({ id, name, lon }) => `${id},,${name},37.731000,${lon}`).join('\n')}`);
+  muni.set('routes.txt', `${muni.get('routes.txt')}23,23,MONTEREY,3\n`);
+  muni.set('trips.txt', `${muni.get('trips.txt')}23,all,mty,Bayview,0,,\n`);
+  muni.set('stop_times.txt', `${muni.get('stop_times.txt')}${corners.map(({ id }, n) => `mty,${clock(8 * 3600 + n * 60)},${clock(8 * 3600 + n * 60)},${id},${n + 1}`).join('\n')}\n`);
+  return network;
+}
+
 let schedule: Schedule;
+let crowded: Schedule;
 before(() => {
   const path = join(mkdtempSync(join(tmpdir(), 'trip-')), 'schedule.db');
   buildScheduleDatabase(feeds(), path);
   schedule = new Schedule(path);
+  const crowdedPath = join(mkdtempSync(join(tmpdir(), 'crowded-')), 'schedule.db');
+  buildScheduleDatabase(crowdedFeeds(), crowdedPath);
+  crowded = new Schedule(crowdedPath);
 });
-after(() => schedule.close());
+after(() => {
+  schedule.close();
+  crowded.close();
+});
 
 // Trains b6 to b8 are live and on time. Bus m4 (scheduled 8:32) runs 2 minutes late, bus m5
 // (8:47) is canceled, and the rest of the buses and trains are known only from the schedule.
@@ -252,6 +272,12 @@ test('BART and Muni Metro share Montgomery, and the rider can pick either', () =
   strictEqual(planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477', fromAgencies: ['BA'] }, NOW).groups.length, 1);
   const response = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477' }, NOW);
   deepStrictEqual(response.stops['BA:901209']?.serves, ['BA', 'SF']);
+});
+
+test('a station comes first for the start of its name, even among many street stops that share it', () => {
+  // Eighty street stops on Montgomery St match "mont" too.
+  const results = search(crowded, 'mont', { routes: false }).results;
+  strictEqual(results[0]?.type === 'stop' && results[0].key, 'BA:901209');
 });
 
 test('search finds a shared station once, by name', () => {
