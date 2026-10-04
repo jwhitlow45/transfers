@@ -128,8 +128,11 @@ function Map({ data, color, label }: { data: TrackResponse; color: string; label
       {target && <rect x={target.x - unit * 1.4} y={-target.y - unit * 1.4} width={unit * 2.8} height={unit * 2.8} class="tf-track__target" stroke-width={unit * 0.45} />}
       {data.vehicle && (
         <g transform={`translate(${data.vehicle.x} ${-data.vehicle.y})`}>
-          {/* Bearing is clockwise from north, as SVG rotates. */}
-          {data.vehicle.bearing !== null && <path d={`M0 ${-unit * 3.2} L${unit * 1.3} ${-unit * 1.5} L${-unit * 1.3} ${-unit * 1.5} Z`} fill={color} transform={`rotate(${data.vehicle.bearing})`} />}
+          {/* Bearing is clockwise from north, as SVG rotates. The arrow is in the text color, outlined,
+              so it stands out from the line it travels along, which is the vehicle's color. */}
+          {data.vehicle.bearing !== null && (
+            <path d={`M0 ${-unit * 4.4} L${unit * 1.9} ${-unit * 1.2} L${-unit * 1.9} ${-unit * 1.2} Z`} class="tf-track__heading" stroke-width={unit * 0.35} stroke-linejoin="round" transform={`rotate(${data.vehicle.bearing})`} />
+          )}
           {/* An estimate is drawn faded and dashed, so it does not pass for a reported position. */}
           <circle r={unit * 1.8} fill={color} class={`tf-track__vehicle${data.vehicle.estimate ? ' tf-track__vehicle--estimate' : ''}`} stroke-width={unit * 0.5} stroke-dasharray={data.vehicle.estimate ? `${unit * 0.7} ${unit * 0.5}` : undefined} />
         </g>
