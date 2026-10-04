@@ -102,21 +102,40 @@ const pointOf = ([x, y]: [number, number]) => ({ x, y });
 // Where along its stops the vehicle is: the stop it reports heading to or standing at. A stop the
 // trip makes twice is told apart by the sequence the vehicle reports, which Muni and SamTrans
 // count from 1 along the trip, or else by which visit is scheduled nearest now. Golden Gate
-// reports no stop, so its vehicles head to the first stop the line reaches past the point nearest
-// them, which the nearest stop alone would get wrong just after a stop.
+// reports no stop, so its vehicles head to the first stop the line reaches past them, which the
+// nearest stop alone would get wrong just after a stop. Where the line passes them twice, the
+// pass whose next stop is scheduled nearest now is the one.
 function placeOf(schedule: Schedule, tripRow: number, stops: StopRow[], line: { shape: Point[]; passes: number[] }, vehicle: RtVehicle, now: number) {
   const { sequence, stopId } = vehicle;
+  const offBy = (index: number) => Math.abs((schedule.scheduledTimeAt(tripRow, index, now) ?? Infinity) - now);
+  const soonest = (indexes: number[]) => indexes.reduce((best, index) => (offBy(index) < offBy(best) ? index : best));
   if (sequence !== null && stopId !== null && stops[sequence - 1]?.stopId === stopId) return sequence - 1;
   if (stopId === null && line.shape.length > 0) {
-    const along = nearest(line.shape, vehicle);
-    const ahead = line.passes.findIndex((pass) => pass >= along);
-    return ahead === -1 ? stops.length - 1 : ahead;
+    const ahead = (along: number) => {
+      const next = line.passes.findIndex((pass) => pass >= along);
+      return next === -1 ? stops.length - 1 : next;
+    };
+    return soonest(passesNear(line.shape, vehicle).map(ahead));
   }
   const named = stopId ?? stops[nearest(stops, vehicle)]!.stopId;
   const visits = stops.flatMap((stop, index) => (stop.stopId === named ? [index] : []));
-  if (visits.length === 0) return nearest(stops, vehicle);
-  const offBy = (index: number) => Math.abs((schedule.scheduledTimeAt(tripRow, index, now) ?? Infinity) - now);
-  return visits.reduce((best, index) => (offBy(index) < offBy(best) ? index : best));
+  return visits.length === 0 ? nearest(stops, vehicle) : soonest(visits);
+}
+
+// Each time the line passes a place: the closest point of each run of points within
+// PASS_METERS of it, or else the line's nearest point.
+function passesNear(shape: Point[], place: Point) {
+  const passes: number[] = [];
+  let within = false;
+  for (const [index, point] of shape.entries()) {
+    const meters = distanceMeters(point, place);
+    if (meters > PASS_METERS) within = false;
+    else if (!within) {
+      within = true;
+      passes.push(index);
+    } else if (meters < distanceMeters(shape[passes.at(-1)!]!, place)) passes[passes.length - 1] = index;
+  }
+  return passes.length > 0 ? passes : [nearest(shape, place)];
 }
 
 // The shape point where the line passes a stop, searching on from `from`: the closest point of

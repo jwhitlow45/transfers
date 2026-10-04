@@ -109,6 +109,9 @@ test('on a loop, the visit the vehicle reports by sequence, or else the one due 
   // With no sequence, the visit scheduled at 8:04 is nearer than the one at 8:01.
   const unsequenced = trackVehicle(schedule, at({ lon: lon(1), stopId: '101' }, 'SF:l1'), { trip: 'SF:l1', stop: 'SF:102' }, LOOP_NOW);
   deepStrictEqual([unsequenced.stopsAway, unsequenced.passed], [null, true]);
+  // Golden Gate sends no stop: at stop 1's corner, the line's later pass is the one due now.
+  const stopless = trackVehicle(schedule, at({ lon: lon(1) }, 'SF:l1'), { trip: 'SF:l1', stop: 'SF:102' }, LOOP_NOW);
+  deepStrictEqual([stopless.stopsAway, stopless.passed], [null, true]);
   // A rider at stop 1 is watching the visit still to come.
   const coming = trackVehicle(schedule, at({ lon: lon(2), stopId: '102', sequence: 3 }, 'SF:l1'), { trip: 'SF:l1', stop: 'SF:101' }, LOOP_NOW);
   deepStrictEqual([coming.stopsAway, coming.targetIndex, coming.nextIndex], [2, 3, 1]);
