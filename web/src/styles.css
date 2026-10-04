@@ -306,7 +306,10 @@ button:disabled { opacity: .45; cursor: default; }
 /* ── sheet ─────────────────────────────────────────── */
 .tf-sheet { position: absolute; inset: 0; z-index: 10; display: flex; flex-direction: column; justify-content: flex-end; }
 .tf-sheet__scrim { position: absolute; inset: 0; background: var(--scrim); }
-.tf-sheet__panel { position: relative; background: var(--bg); border-top: 1px solid var(--line); max-height: 90%; overflow-y: auto; padding: var(--space-1) var(--space-5) var(--space-5); }
+/* The panel is a fixed top, the handle and title, over a body that scrolls on its own. */
+.tf-sheet__panel { position: relative; display: flex; flex-direction: column; background: var(--bg); border-top: 1px solid var(--line); max-height: 90%; }
+.tf-sheet__top { flex: none; padding: var(--space-1) var(--space-5) var(--space-2); border-bottom: var(--border-hair) solid var(--divider); cursor: grab; }
+.tf-sheet__body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 var(--space-5) var(--space-5); }
 .tf-sheet__inner { max-width: 560px; margin: 0 auto; }
 .tf-sheet__head { display: flex; align-items: center; gap: var(--space-2); padding: 6px 0; }
 .tf-sheet__head h2 { flex: 1; margin: 0; font-size: var(--text-xl); }
@@ -315,7 +318,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-setting__label { font-weight: 650; }
 .tf-setting__help { font-size: var(--text-base); color: var(--muted); }
 .tf-select { width: 100%; min-height: var(--tap); margin-top: var(--space-2); font: inherit; color: var(--text); background: var(--bg); border: var(--border-strong) solid var(--line); padding: 0 10px; }
-.tf-filter { min-height: var(--tap-min); padding: 0 var(--space-4); display: inline-flex; align-items: center; gap: var(--space-2); font-size: 15px; font-weight: 650; border: var(--border-strong) solid var(--line); color: var(--muted); }
+.tf-filter { min-height: var(--tap-min); padding: 0 var(--space-4); display: inline-flex; align-items: center; gap: var(--space-2); font-size: 15px; font-weight: 650; text-align: left; border: var(--border-strong) solid var(--line); color: var(--muted); }
 .tf-filter[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-tint); color: var(--text); }
 /* A single choice reads like the results page's switchers: the chosen option filled dark. */
 .tf-choice[aria-pressed="true"] { border-color: var(--field); background: var(--field); color: var(--on-field); }

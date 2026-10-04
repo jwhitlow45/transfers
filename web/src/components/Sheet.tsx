@@ -10,10 +10,14 @@ const CLOSE_PX = 140;
 const CLOSE_FLING = 0.4;
 
 // Modal bottom sheet: focus moves in on open, Tab stays inside, Escape and the scrim close it,
-// and focus returns to the button that opened it. Dragging down closes it too, but only from
-// the top of its scroll, so scrolling back up through its settings never closes it by surprise.
+// and focus returns to the button that opened it. Dragging down closes it too. Its top, the
+// handle and title, stays put while the settings under it scroll, and a drag down from there
+// closes the sheet however far it is scrolled, like the comments on YouTube Shorts. In the
+// settings, a drag down closes it only from the top of their scroll, so scrolling back up never
+// closes it by surprise.
 export function Sheet({ title, subtitle, footer, onClose, children }: { title: string; subtitle?: string; footer: ComponentChildren; onClose: () => void; children: ComponentChildren }) {
   const panel = useRef<HTMLDivElement>(null);
+  const body = useRef<HTMLDivElement>(null);
   const scrim = useRef<HTMLDivElement>(null);
   // Moves the panel down by offset px and fades the scrim to match. Styles are set directly, as
   // a render per touch event would lag behind the finger.
@@ -27,7 +31,8 @@ export function Sheet({ title, subtitle, footer, onClose, children }: { title: s
   };
   useDrag(() => panel.current, 'y', {
     // A slider's thumb is the slider's to drag.
-    claim: (direction, origin) => direction === 'down' && (panel.current?.scrollTop ?? 1) <= 0 && !origin.closest('input[type="range"]'),
+    claim: (direction, origin) =>
+      direction === 'down' && !origin.closest('input[type="range"]') && (origin.closest('.tf-sheet__top') !== null || (body.current?.scrollTop ?? 1) <= 0),
     move: (dy) => place(Math.max(0, dy), false),
     end: (release) => {
       const height = panel.current?.offsetHeight ?? 0;
@@ -65,20 +70,26 @@ export function Sheet({ title, subtitle, footer, onClose, children }: { title: s
     <div class="tf-sheet">
       <div ref={scrim} class="tf-sheet__scrim" aria-hidden="true" onClick={onClose} />
       <div ref={panel} class="tf-sheet__panel" role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} onKeyDown={onKeyDown}>
-        <div class="tf-grabber" aria-hidden="true" />
-        <div class="tf-sheet__inner">
-          <div class="tf-sheet__head">
-            <h2>{title}</h2>
-            <button type="button" class="tf-btn-icon" onClick={onClose} aria-label="Close">
-              <IconClose />
+        <div class="tf-sheet__top">
+          <div class="tf-grabber" aria-hidden="true" />
+          <div class="tf-sheet__inner">
+            <div class="tf-sheet__head">
+              <h2>{title}</h2>
+              <button type="button" class="tf-btn-icon" onClick={onClose} aria-label="Close">
+                <IconClose />
+              </button>
+            </div>
+            {subtitle && <div class="tf-sheet__subtitle">{subtitle}</div>}
+          </div>
+        </div>
+        <div ref={body} class="tf-sheet__body">
+          <div class="tf-sheet__inner">
+            {children}
+            <div class="tf-sheet__saved">{footer}</div>
+            <button type="button" class="tf-btn-primary tf-sheet__done" onClick={onClose}>
+              Done
             </button>
           </div>
-          {subtitle && <div class="tf-sheet__subtitle">{subtitle}</div>}
-          {children}
-          <div class="tf-sheet__saved">{footer}</div>
-          <button type="button" class="tf-btn-primary tf-sheet__done" onClick={onClose}>
-            Done
-          </button>
         </div>
       </div>
     </div>
