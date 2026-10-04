@@ -1,4 +1,4 @@
-import type { TrackResponse } from '../../shared/api.ts';
+import type { TrackLeg, TrackResponse } from '../../shared/api.ts';
 import { bearingDegrees, distanceMeters, type Point } from '../geo.ts';
 import type { RtStopTime, RtTrip, RtVehicle, TripSnapshot, VehicleSnapshot } from '../realtime/snapshot.ts';
 import type { Schedule, StopRow } from '../schedule.ts';
@@ -15,7 +15,8 @@ const PASS_METERS = 60;
 // they transfer.
 // `span` is the stretch of the trip, by stop position, that an open map already shows: it is
 // drawn again whatever the vehicle has done since, so the stops stay put while the vehicle moves.
-type TrackRequest = { trip: string; stop: string; marks?: string[]; span?: [number, number] };
+// `transfer` is the vehicle the rider changes to, and the stop where they board it.
+type TrackRequest = { trip: string; stop: string; marks?: string[]; span?: [number, number]; transfer?: TrackRequest };
 
 // The trip and where it visits the rider's stop, or a 404 when the trip is not in the schedule or
 // does not stop there. Called before waiting on 511 too, so a bad request is turned away at once.
@@ -67,10 +68,46 @@ function visitsTo(schedule: Schedule, patternStops: number[], stop: StopRow) {
   return patternStops.flatMap((id, index) => (platforms.has(id) ? [index] : []));
 }
 
+type Live = { vehicles: VehicleSnapshot | null; trips?: TripSnapshot | null };
+
 // A vehicle's live map: its trip's line from where the vehicle is to one stop past the rider's,
 // with the stops on the way and the vehicle itself. `trips` gives when it is due at each stop, and
-// places a vehicle that reports no position.
-export function trackVehicle(schedule: Schedule, live: { vehicles: VehicleSnapshot | null; trips?: TripSnapshot | null }, request: TrackRequest, now: number): TrackResponse {
+// places a vehicle that reports no position. With `transfer`, the vehicle the rider changes to is
+// drawn on the same map. A transfer trip the schedule lacks, or that does not stop where asked, is
+// left off rather than failing the map.
+export function trackVehicle(schedule: Schedule, live: Live, request: TrackRequest, now: number): TrackResponse {
+  const leg = placeLeg(schedule, live, request, now);
+  let transfer: Leg | null = null;
+  if (request.transfer) {
+    try {
+      transfer = placeLeg(schedule, live, request.transfer, now);
+    } catch (error) {
+      if (!(error instanceof RequestError)) throw error;
+    }
+  }
+  // The middle of the stops drawn, or of the pinned spans, leaving out the vehicles, so an open map
+  // keeps every stop at the same place on each refresh while only the vehicles move.
+  const centered = [...leg.centered, ...(transfer?.centered ?? [])];
+  const project = projector({
+    lat: (Math.min(...centered.map(({ lat }) => lat)) + Math.max(...centered.map(({ lat }) => lat))) / 2,
+    lon: (Math.min(...centered.map(({ lon }) => lon)) + Math.max(...centered.map(({ lon }) => lon))) / 2,
+  });
+  const tables = new Tables(schedule);
+  return {
+    generatedAt: now,
+    dataAt: (leg.estimate?.source === 'predicted' ? live.trips?.fetchedAt : live.vehicles?.fetchedAt) ?? null,
+    ...drawLeg(schedule, leg, project, tables),
+    ...(transfer ? { transfer: drawLeg(schedule, transfer, project, tables) } : {}),
+    routes: tables.routes,
+    stops: tables.stops,
+  };
+}
+
+type Leg = ReturnType<typeof placeLeg>;
+
+// Where one vehicle is along its trip, where the rider's stops are on it, and which stretch of it
+// to draw, before any of it is placed on the picture.
+function placeLeg(schedule: Schedule, live: Live, request: TrackRequest, now: number) {
   const { trip, pattern, target, visits } = trackTarget(schedule, request);
   const stops = pattern.stops.map((id) => schedule.stop(id));
   // Where the line passes each stop, found in travel order from the trip's start, so a loop, or a
@@ -95,7 +132,6 @@ export function trackVehicle(schedule: Schedule, live: { vehicles: VehicleSnapsh
   const watched = marked[(request.marks ?? []).indexOf(request.stop)];
   const targetAt = watched ?? visits.find((index) => index >= vehicleAt) ?? visits.at(-1)!;
   const coming = vehicleAt !== -1 && vehicleAt <= targetAt;
-  const passed = vehicleAt > targetAt;
   const markedAt = marked.filter((index) => index !== null);
   // From the stop behind the vehicle, so it sits on the line, to one past the rider's, or on to
   // the vehicle when it has gone past, and taking in every marked stop.
@@ -104,15 +140,14 @@ export function trackVehicle(schedule: Schedule, live: { vehicles: VehicleSnapsh
   const from = span ? (vehicleAt === -1 ? span[0] : Math.min(span[0], vehicleAt)) : Math.max(0, Math.min(coming ? Math.min(vehicleAt - 1, estimate?.from ?? vehicleAt) : targetAt - STOPS_BEFORE, ...markedAt));
   const to = span ? Math.max(span[1], vehicleAt) : Math.min(stops.length - 1, Math.max(targetAt + 1, vehicleAt, ...markedAt));
   const shown = stops.slice(from, to + 1);
-
-  // The middle of the stops drawn, or of the pinned span, leaving out the vehicle, so an open map
-  // keeps every stop at the same place on each refresh while only the vehicle moves.
   const centered = span ? stops.slice(span[0], span[1] + 1) : shown;
-  const project = projector({
-    lat: (Math.min(...centered.map(({ lat }) => lat)) + Math.max(...centered.map(({ lat }) => lat))) / 2,
-    lon: (Math.min(...centered.map(({ lon }) => lon)) + Math.max(...centered.map(({ lon }) => lon))) / 2,
-  });
+  return { trip, pattern, target, stops, shape, passes, rt, expected, reported, estimate, vehicle, missing, vehicleAt, targetAt, coming, marked, from, to, shown, centered };
+}
 
+// One leg placed on the picture: its line, its stops with when the vehicle is due at each, and the
+// vehicle.
+function drawLeg(schedule: Schedule, leg: Leg, project: (point: Point) => [number, number], tables: Tables): TrackLeg {
+  const { trip, pattern, target, shape, passes, rt, expected, reported, estimate, missing, vehicleAt, targetAt, coming, marked, from, to, shown } = leg;
   // The stretch of the trip's shape between the first and last stops drawn.
   const stretch = shape.slice(passes[from], passes[to]! + 1).map(project);
   // Thinned to about 300 points across the picture, finer than a phone draws it, so a long ride
@@ -126,13 +161,8 @@ export function trackVehicle(schedule: Schedule, live: { vehicles: VehicleSnapsh
   }
   const final = stretch.at(-1);
   if (final && line.at(-1) !== final) line.push(final);
-
-  const tables = new Tables(schedule);
-  const route = schedule.route(pattern.route);
   return {
-    generatedAt: now,
-    dataAt: (estimate?.source === 'predicted' ? live.trips?.fetchedAt : live.vehicles?.fetchedAt) ?? null,
-    route: tables.route(route),
+    route: tables.route(schedule.route(pattern.route)),
     headsign: trip.headsign || pattern.headsign,
     target: tables.stop(schedule.stationOf(target)),
     path: shown.map((stop, index) => {
@@ -152,9 +182,7 @@ export function trackVehicle(schedule: Schedule, live: { vehicles: VehicleSnapsh
         : null,
     ...(missing ? { missing } : {}),
     stopsAway: coming ? targetAt - vehicleAt : null,
-    passed,
-    routes: tables.routes,
-    stops: tables.stops,
+    passed: vehicleAt > targetAt,
   };
 }
 

@@ -9,7 +9,10 @@ import { Sheet } from './components/Sheet.tsx';
 // tapped it on, where results pick colors that tell routes apart. `marks` are the rider's stops
 // on the way, in the order their journey makes them: where they get on, and where they change.
 export type Mark = { stop: string; kind: 'yours' | 'transfer' };
-export type Tracked = { trip: string; stop: string; title: string; color?: string; marks?: Mark[] };
+// The vehicle the rider changes to, where they board it, its color on the page, and the minutes
+// the rider has to make it.
+export type Transfer = { trip: string; stop: string; color?: string; minutes?: number };
+export type Tracked = { trip: string; stop: string; title: string; color?: string; marks?: Mark[]; transfer?: Transfer };
 
 type MapComponent = FunctionComponent<{ tracked: Tracked }>;
 
@@ -73,11 +76,11 @@ export function TrackProvider({ children }: { children: ComponentChildren }) {
 
 // A vehicle's time at a stop, which opens its live map. For BART and the ferry, which report no
 // positions, the map places the vehicle by when it is due at its stops.
-export function TimeLink({ trip, stop, title, color, marks, children }: { trip: string; stop: Stop | undefined; title: string; color?: string; marks?: Mark[]; children: ComponentChildren }) {
+export function TimeLink({ trip, stop, title, color, marks, transfer, children }: { trip: string; stop: Stop | undefined; title: string; color?: string; marks?: Mark[]; transfer?: Transfer; children: ComponentChildren }) {
   const open = useContext(TrackContext);
   if (!stop) return <>{children}</>;
   return (
-    <button type="button" class="tf-time-link" onClick={() => open({ trip, stop: stop.key, title, ...(color ? { color } : {}), ...(marks ? { marks } : {}) })}>
+    <button type="button" class="tf-time-link" onClick={() => open({ trip, stop: stop.key, title, ...(color ? { color } : {}), ...(marks ? { marks } : {}), ...(transfer ? { transfer } : {}) })}>
       {children}
       <span class="tf-sr">, follow on a map</span>
     </button>

@@ -220,11 +220,20 @@ export type NearbyResponse = {
 
 // One vehicle on its way to the rider's stop, for its live map. Places are whole meters east and
 // north of the middle of the picture, as on Nearby's map.
-export type TrackResponse = {
+export type TrackResponse = TrackLeg & {
   generatedAt: number;
   // When 511 last reported where vehicles are, or for an estimate from predictions, when those
   // arrived. Null when neither has.
   dataAt: number | null;
+  // The vehicle the rider transfers to, on the same picture, when the page asked for it and its
+  // trip stops where they board.
+  transfer?: TrackLeg;
+  routes: Record<string, Route>;
+  stops: Record<string, Stop>;
+};
+
+// One vehicle's part of the map: its line, its stops, and where it is.
+export type TrackLeg = {
   route: string;
   headsign: string;
   // The stop the rider is watching, and the trip's stops drawn around it, in order.
@@ -232,11 +241,11 @@ export type TrackResponse = {
   // `at` is when the vehicle is due there, or for a stop behind it, about when it left. Null for a
   // stop it skips.
   path: { stop: string; x: number; y: number; at: number | null }[];
-  // Where in path the rider's stop is, and the stop the vehicle is at or heading to, which is
-  // null with no position.
   // The stretch of the trip drawn, by stop position, which the page sends back on each refresh so
   // the map's stops stay put.
   span: [number, number];
+  // Where in path the rider's stop is, and the stop the vehicle is at or heading to, which is
+  // null with no position.
   targetIndex: number;
   nextIndex: number | null;
   // Where in path each requested mark is, in the order asked, or null when the trip does not
@@ -254,6 +263,4 @@ export type TrackResponse = {
   // position, or once it has gone past.
   stopsAway: number | null;
   passed: boolean;
-  routes: Record<string, Route>;
-  stops: Record<string, Stop>;
 };

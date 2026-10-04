@@ -15,12 +15,14 @@ const HIDDEN = {
 };
 
 // One first vehicle under a departure. The countdown leads: when it reaches the From stop.
-export function ConnectionRow({ connection, departure, alightName, alight, min, secondColor, context }: {
+export function ConnectionRow({ connection, departure, alightName, alight, board, min, secondColor, context }: {
   connection: Connection;
   departure: Departure;
   alightName: string;
-  // The group's stop key for where riders get off, unless this vehicle names its own.
+  // The group's stop keys for where riders get off, unless this vehicle names its own, and where
+  // they board the second vehicle.
   alight: string;
+  board: string;
   min: number;
   secondColor: string;
   context: CardContext;
@@ -45,6 +47,8 @@ export function ConnectionRow({ connection, departure, alightName, alight, min, 
     { stop: context.data.from, kind: 'yours' as const },
     { stop: offStop, kind: 'transfer' as const },
   ];
+  // The second vehicle this one connects to, drawn on the same map.
+  const transfer = { trip: departure.trip, stop: board, color: secondColor, minutes: connection.transfer };
   return (
     <div role="listitem" class={`tf-row${tight ? ' tf-row--tight' : ''}${hidden ? ' tf-row--hidden' : ''}`}>
       <span class="tf-sr">{spoken}</span>
@@ -58,14 +62,14 @@ export function ConnectionRow({ connection, departure, alightName, alight, min, 
       <div class="tf-row__main">
         <div class="tf-row__line">
           <RouteChip route={route} hidden />
-          <TimeLink trip={connection.trip} stop={context.data.stops[context.data.from]} title={`${route ? chipLabel(route) : 'Vehicle'} at ${clock(connection.departs)}`} marks={marks}>
+          <TimeLink trip={connection.trip} stop={context.data.stops[context.data.from]} title={`${route ? chipLabel(route) : 'Vehicle'} at ${clock(connection.departs)}`} marks={marks} transfer={transfer}>
             {clock(connection.departs)}
           </TimeLink>
         </div>
         <StatusTag status={status} plain hidden />
         <div class="tf-row__off">
           <span aria-hidden="true">Off </span>
-          <TimeLink trip={connection.trip} stop={context.data.stops[offStop]} title={`${route ? chipLabel(route) : 'Vehicle'} at ${clock(connection.arrives)}`} marks={marks}>
+          <TimeLink trip={connection.trip} stop={context.data.stops[offStop]} title={`${route ? chipLabel(route) : 'Vehicle'} at ${clock(connection.arrives)}`} marks={marks} transfer={transfer}>
             {clock(connection.arrives)}
           </TimeLink>
           {offAt && (

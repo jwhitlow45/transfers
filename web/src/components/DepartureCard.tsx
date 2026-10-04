@@ -134,6 +134,7 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
               departure={departure}
               alightName={alightName}
               alight={group.alight}
+              board={group.board}
               min={group.window.min}
               secondColor={color}
               context={context}

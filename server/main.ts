@@ -50,9 +50,14 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
       if (!trip || !stop) throw new RequestError(400, 'Send trip and stop');
       trackTarget(schedule, { trip, stop });
       const [vehicles, { trips }] = await Promise.all([realtime.vehiclePositions(), realtime.current()]);
-      const [from, to] = [numberParam(url.searchParams, 'from'), numberParam(url.searchParams, 'to')];
-      const span: [number, number] | undefined = from !== undefined && to !== undefined ? [Math.floor(from), Math.floor(to)] : undefined;
-      return sendJson(request, response, trackVehicle(schedule, { vehicles, trips }, { trip, stop, marks: url.searchParams.getAll('mark').slice(0, MAX_MARKS), ...(span ? { span } : {}) }, nowSeconds()));
+      // The vehicle the rider transfers to, with its own pinned span, prefixed "t".
+      const transferTrip = url.searchParams.get('ttrip');
+      const transferStop = url.searchParams.get('tstop');
+      const transferSpan = spanParam(url.searchParams, 't');
+      const transfer = transferTrip && transferStop ? { trip: transferTrip, stop: transferStop, ...(transferSpan ? { span: transferSpan } : {}) } : undefined;
+      const span = spanParam(url.searchParams, '');
+      const marks = url.searchParams.getAll('mark').slice(0, MAX_MARKS);
+      return sendJson(request, response, trackVehicle(schedule, { vehicles, trips }, { trip, stop, marks, ...(span ? { span } : {}), ...(transfer ? { transfer } : {}) }, nowSeconds()));
     }
     case '/api/destinations':
       return sendJson(request, response, destinations(schedule, tripRequest(url.searchParams)));
@@ -102,6 +107,12 @@ function tripRequest(params: URLSearchParams, from = params.get('from'), to = pa
   if (fromAgencies.length) request.fromAgencies = fromAgencies;
   if (toAgencies.length) request.toAgencies = toAgencies;
   return request;
+}
+
+// A map's pinned stretch of a trip, as `from` and `to` stop positions, under an optional prefix.
+function spanParam(params: URLSearchParams, prefix: string): [number, number] | undefined {
+  const [from, to] = [numberParam(params, `${prefix}from`), numberParam(params, `${prefix}to`)];
+  return from === undefined || to === undefined ? undefined : [Math.floor(from), Math.floor(to)];
 }
 
 function numberParam(params: URLSearchParams, name: string) {

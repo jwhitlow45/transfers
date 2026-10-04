@@ -250,3 +250,17 @@ test('a map pinned to its span keeps its stops in place as the vehicle moves on'
   deepStrictEqual([later.nextIndex, later.targetIndex], [3, 3]);
   strictEqual(later.vehicle!.x > first.vehicle!.x, true);
 });
+
+test('the vehicle the rider transfers to is drawn on the same picture, and one the schedule lacks is left off', () => {
+  // Riding t1 to stop 2, then boarding the loop trip there.
+  const request = { trip: 'SF:t1', stop: 'SF:101', marks: ['SF:101', 'SF:102'], transfer: { trip: 'SF:l1', stop: 'SF:102' } };
+  const response = trackVehicle(schedule, at({ lon: lon(0.5), stopId: '101' }), request, EIGHT + 30);
+  const transfer = response.transfer!;
+  const placeOf = (leg: typeof transfer, name: string) => leg.path.find(({ stop }) => response.stops[stop]!.name === name)!;
+  // Stop 2 lands on the same spot in both legs, and the transfer leg watches it.
+  deepStrictEqual([placeOf(transfer, 'Market St & Stop 2').x, placeOf(transfer, 'Market St & Stop 2').y], [placeOf(response, 'Market St & Stop 2').x, placeOf(response, 'Market St & Stop 2').y]);
+  strictEqual(response.stops[transfer.path[transfer.targetIndex]!.stop]!.name, 'Market St & Stop 2');
+  strictEqual(response.routes[transfer.route]!.name, 'F');
+  const lost = trackVehicle(schedule, at({ lon: lon(0.5), stopId: '101' }), { ...request, transfer: { trip: 'SF:nope', stop: 'SF:102' } }, EIGHT + 30);
+  strictEqual(lost.transfer, undefined);
+});
