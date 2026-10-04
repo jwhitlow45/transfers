@@ -1,5 +1,6 @@
 import { ScreenHeader } from '../components/ResultsHeader.tsx';
-import { Stepper, Toggle } from '../components/Sheet.tsx';
+import { Toggle } from '../components/Sheet.tsx';
+import { MinutesSlider, WindowSlider } from '../components/Slider.tsx';
 import { navigate } from '../router.ts';
 import { useSettings } from '../settings.tsx';
 import type { DeviceSettings } from '../storage.ts';
@@ -74,11 +75,15 @@ export function SettingsScreen() {
           </div>
           {!automatic && (
             <>
-              <Stepper label="Minimum transfer" help="Time to get between stops" value={settings.min ?? 3} onChange={(value) => update({ min: value, max: Math.max(settings.max ?? 12, value) })} />
-              <Stepper label="Maximum transfer" help="Longest wait you will accept" value={settings.max ?? 12} min={1} onChange={(value) => update({ max: value, min: Math.min(settings.min ?? 3, value) })} />
+              <WindowSlider
+                label="Window for every trip"
+                help="Shortest time to get between stops, and longest wait you will accept"
+                window={{ min: settings.min ?? 3, max: settings.max ?? 12 }}
+                onChange={({ min, max }) => update({ min, max })}
+              />
             </>
           )}
-          <Stepper label="Hide departures leaving in less than" help="Time to reach your first stop" value={settings.hide} onChange={(value) => update({ hide: value })} />
+          <MinutesSlider label="Hide departures leaving in less than" help="Time to reach your first stop" value={settings.hide} onChange={(value) => update({ hide: value })} />
         </section>
 
         <section class="tf-section tf-section--tight" aria-labelledby="look-heading">

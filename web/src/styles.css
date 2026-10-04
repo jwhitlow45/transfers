@@ -306,11 +306,6 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-setting { padding: var(--space-3) 0; border-bottom: var(--border-hair) solid var(--divider); }
 .tf-setting__label { font-weight: 650; }
 .tf-setting__help { font-size: var(--text-base); color: var(--muted); }
-.tf-stepper-row { display: flex; align-items: center; gap: var(--space-3); }
-.tf-stepper-row > div:first-child { flex: 1; min-width: 0; }
-.tf-stepper { display: flex; align-items: center; border: var(--border-strong) solid var(--line); flex: none; }
-.tf-stepper button { width: var(--tap); height: var(--tap); font-size: 22px; }
-.tf-stepper output { min-width: 68px; text-align: center; font-size: 18px; font-weight: var(--weight-bold); line-height: var(--tap); border-inline: 1px solid var(--divider); }
 .tf-select { width: 100%; min-height: var(--tap); margin-top: var(--space-2); font: inherit; color: var(--text); background: var(--bg); border: var(--border-strong) solid var(--line); padding: 0 10px; }
 .tf-filter { min-height: var(--tap-min); padding: 0 var(--space-4); display: inline-flex; align-items: center; gap: var(--space-2); font-size: 15px; font-weight: 650; border: var(--border-strong) solid var(--line); color: var(--muted); }
 .tf-filter[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-tint); color: var(--text); }
@@ -475,3 +470,25 @@ button.tf-band:hover { filter: brightness(1.12); }
 .tf-bottombar__short { display: none; }
 @media (max-width: 429px) { .tf-bottombar__long { display: none; } .tf-bottombar__short { display: inline; } }
 @media (max-width: 359px) { .tf-bottombar__label { display: none; } }
+
+/* ── sliders ───────────────────────────────────────── */
+.tf-slider__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.tf-slider__value { flex: none; font-size: 18px; font-weight: var(--weight-bold); white-space: nowrap; }
+/* The track runs the full width. Its filled part runs between --from and --to, shares of the way
+   along. A thumb's center travels the width less one thumb, so the fill is measured the same. */
+.tf-slider { --thumb: 28px; position: relative; height: var(--tap); margin-top: var(--space-2); }
+.tf-slider::before, .tf-slider::after { content: ""; position: absolute; top: 50%; height: 4px; margin-top: -2px; pointer-events: none; }
+.tf-slider::before { left: calc(var(--thumb) / 2); right: calc(var(--thumb) / 2); background: color-mix(in srgb, var(--line) 35%, transparent); }
+.tf-slider::after { left: calc(var(--thumb) / 2 + (100% - var(--thumb)) * var(--from)); width: calc((100% - var(--thumb)) * (var(--to) - var(--from))); background: var(--primary); }
+.tf-slider input { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; margin: 0; background: none; -webkit-appearance: none; appearance: none; }
+.tf-slider input:focus-visible { outline: none; }
+.tf-slider input::-webkit-slider-runnable-track { height: var(--tap); background: none; }
+.tf-slider input::-moz-range-track { background: none; }
+.tf-slider input::-webkit-slider-thumb { -webkit-appearance: none; width: var(--thumb); height: var(--thumb); margin-top: calc((var(--tap) - var(--thumb)) / 2); background: var(--bg); border: var(--border-strong) solid var(--primary); cursor: grab; }
+.tf-slider input::-moz-range-thumb { box-sizing: border-box; width: var(--thumb); height: var(--thumb); border-radius: 0; background: var(--bg); border: var(--border-strong) solid var(--primary); cursor: grab; }
+.tf-slider input:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tf-slider input:focus-visible::-moz-range-thumb { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Two inputs share the range slider's track, so only their thumbs take touches. */
+.tf-slider--range input { pointer-events: none; }
+.tf-slider--range input::-webkit-slider-thumb { pointer-events: auto; }
+.tf-slider--range input::-moz-range-thumb { pointer-events: auto; }

@@ -1,4 +1,4 @@
-import type { Alert, AlertRelevance, AgencyId, Departure, DestinationsResponse, FeedStatus, Group, Notice, TripResponse } from '../../shared/api.ts';
+import { type Alert, type AlertRelevance, type AgencyId, type Departure, type DestinationsResponse, type FeedStatus, type Group, MAX_MINUTES, type Notice, type TripResponse } from '../../shared/api.ts';
 import type { Agency } from '../config.ts';
 import type { RtAlert, TripSnapshot } from '../realtime/snapshot.ts';
 import { type Schedule, type StopRow, routeKeyOf, stopKeyOf } from '../schedule.ts';
@@ -279,8 +279,7 @@ const connects = (departures: Departure[]) => departures.some(({ canceled, conne
 // The smallest raise of an empty window's maximum that finds a connection, within half an hour.
 // The minimum stays, since it is the time the walk takes.
 function widenWindow(first: FirstLeg[], second: SecondLeg[], pairing: PairingOptions) {
-  for (let step = 1; step <= 30; step++) {
-    const max = pairing.max + step;
+  for (let max = pairing.max + 1; max <= MAX_MINUTES; max++) {
     if (connects(pairConnections(first, second, { ...pairing, max, showHidden: false }))) return { min: pairing.min, max };
   }
   return null;

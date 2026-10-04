@@ -1,3 +1,6 @@
+// The most minutes any time setting allows: the transfer window's ends and hiding departures.
+export const MAX_MINUTES = 30;
+
 // The JSON the server sends. Times are unix seconds and delays are seconds, so the browser keeps
 // countdowns ticking between refreshes. Routes and stops appear once in lookup tables and are
 // referenced by key elsewhere, which keeps each refresh small.

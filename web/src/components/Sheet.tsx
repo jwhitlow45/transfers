@@ -26,7 +26,8 @@ export function Sheet({ title, subtitle, footer, onClose, children }: { title: s
     shade.style.opacity = offset > 0 ? String(Math.max(0, 1 - offset / sheet.offsetHeight)) : '';
   };
   useDrag(() => panel.current, 'y', {
-    claim: (direction) => direction === 'down' && (panel.current?.scrollTop ?? 1) <= 0,
+    // A slider's thumb is the slider's to drag.
+    claim: (direction, origin) => direction === 'down' && (panel.current?.scrollTop ?? 1) <= 0 && !origin.closest('input[type="range"]'),
     move: (dy) => place(Math.max(0, dy), false),
     end: (release) => {
       const height = panel.current?.offsetHeight ?? 0;
@@ -79,36 +80,6 @@ export function Sheet({ title, subtitle, footer, onClose, children }: { title: s
             Done
           </button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-export function Stepper({ label, help, value, min = 0, max = 60, unit = 'min', onChange }: {
-  label: string;
-  help: string;
-  value: number;
-  min?: number;
-  max?: number;
-  unit?: string;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <div class="tf-setting tf-stepper-row" role="group" aria-label={label}>
-      <div>
-        <div class="tf-setting__label">{label}</div>
-        <div class="tf-setting__help">{help}</div>
-      </div>
-      <div class="tf-stepper">
-        <button type="button" onClick={() => onChange(Math.max(min, value - 1))} disabled={value <= min} aria-label={`Less: ${label}`}>
-          −
-        </button>
-        <output aria-live="polite">
-          {value} {unit}
-        </output>
-        <button type="button" onClick={() => onChange(Math.min(max, value + 1))} disabled={value >= max} aria-label={`More: ${label}`}>
-          +
-        </button>
       </div>
     </div>
   );

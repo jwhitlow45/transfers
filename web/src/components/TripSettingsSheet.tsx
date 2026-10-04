@@ -6,28 +6,20 @@ import { routeColor } from '../lib/color.ts';
 import { pointId } from '../lib/results.ts';
 import type { Search } from '../storage.ts';
 import { chipLabel, shortStopName } from '../view.ts';
-import { Sheet, Stepper, Toggle } from './Sheet.tsx';
+import { Sheet, Toggle } from './Sheet.tsx';
+import { MinutesSlider, WindowSlider } from './Slider.tsx';
 
 export type SearchUpdate = (change: (search: Search) => Search) => void;
 type Window = { min: number; max: number };
 
-function WindowSteppers({ window, update }: { window: Window; update: SearchUpdate }) {
+function WindowSetting({ window, update }: { window: Window; update: SearchUpdate }) {
   return (
-    <>
-      <Stepper
-        label="Minimum transfer"
-        help="Time to get between stops"
-        value={window.min}
-        onChange={(value) => update((search) => ({ ...search, min: value, max: Math.max(search.max ?? window.max, value) }))}
-      />
-      <Stepper
-        label="Maximum transfer"
-        help="Longest wait you will accept"
-        value={window.max}
-        min={1}
-        onChange={(value) => update((search) => ({ ...search, max: value, min: Math.min(search.min ?? window.min, value) }))}
-      />
-    </>
+    <WindowSlider
+      label="Transfer window"
+      help="Shortest time to get between stops, and longest wait you will accept"
+      window={window}
+      onChange={({ min, max }) => update((search) => ({ ...search, min, max }))}
+    />
   );
 }
 
@@ -91,9 +83,9 @@ export function TripSettingsSheet({ search, data, window, footer, chain, destina
 
   return (
     <Sheet title="Trip settings" subtitle={chain} footer={footer} onClose={onClose}>
-      <WindowSteppers window={window} update={update} />
+      <WindowSetting window={window} update={update} />
       <ResetWindow search={search} update={update} />
-      <Stepper
+      <MinutesSlider
         label="Hide departures leaving in less than"
         help="Time to reach your first stop"
         value={search.hide ?? deviceHide}
