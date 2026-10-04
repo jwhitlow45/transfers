@@ -8,23 +8,35 @@ export type ViewAlert = { id: string; severity: Severity; kicker: string; title:
 
 const date = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric' });
 
+// The rider's access needs: elevators, escalators, or both.
+export type Needs = { elevators: boolean; escalators: boolean };
+
 // Severe: names a stop the rider boards at. Warning: another stop on the trip, a reroute, or
-// station access. Info: everything else, such as agency-wide notices. For a rider who travels
-// step-free, BART's elevator and escalator outages at their stations come first, and any alert
-// about an elevator or escalator counts as severe.
-export function viewAlerts(data: TripResponse, boardingStops: Set<string>, stepFree = false): ViewAlert[] {
+// station access. Info: everything else, such as agency-wide notices. BART's elevator and
+// escalator outages at the rider's stations, when they asked for them, come first, and an alert
+// about an elevator or escalator the rider relies on counts as severe.
+export function viewAlerts(data: TripResponse, boardingStops: Set<string>, needs: Needs = { elevators: false, escalators: false }): ViewAlert[] {
   const order: Record<Severity, number> = { severe: 0, warning: 1, info: 2 };
-  const alerts = data.alerts.map((alert) => toView(alert, data, boardingStops, stepFree)).sort((a, b) => order[a.severity] - order[b.severity]);
-  return [...(data.access ?? []).map((outage, n) => outageView(outage, data, n)), ...alerts];
+  const alerts = data.alerts.map((alert) => toView(alert, data, boardingStops, needs)).sort((a, b) => order[a.severity] - order[b.severity]);
+  // By what the outage is, not its place in the list, so one the rider opened stays open when
+  // another clears. Two the same in every way are told apart by count.
+  const seen = new Map<string, number>();
+  const outages = (data.access ?? []).map((outage) => {
+    const id = `access-${outage.kind}-${outage.station}-${outage.location}-${outage.reason}-${outage.returns}`;
+    const count = (seen.get(id) ?? 0) + 1;
+    seen.set(id, count);
+    return outageView(outage, data, count > 1 ? `${id}-${count}` : id);
+  });
+  return [...outages, ...alerts];
 }
 
-function outageView(outage: AccessOutage, data: TripResponse, n: number): ViewAlert {
+function outageView(outage: AccessOutage, data: TripResponse, id: string): ViewAlert {
   const station = data.stops[outage.station];
   // "10/23/2026", a date, so read at noon UTC to land on the same day in California.
   const [month, day, year] = (outage.returns ?? '').split('/').map(Number);
   const back = month && day && year ? ` · Back about ${date.format(Date.UTC(year, month - 1, day, 12))}` : '';
   return {
-    id: `access-${n}-${outage.kind}-${outage.station}`,
+    id,
     severity: 'severe',
     kicker: `${outage.kind === 'elevator' ? 'Elevator' : 'Escalator'} out · ${shortStopName(station, 'BART')}`,
     title: outage.location,
@@ -36,7 +48,7 @@ function outageView(outage: AccessOutage, data: TripResponse, n: number): ViewAl
   };
 }
 
-function toView(alert: Alert, data: TripResponse, boardingStops: Set<string>, stepFree: boolean): ViewAlert {
+function toView(alert: Alert, data: TripResponse, boardingStops: Set<string>, needs: Needs): ViewAlert {
   // A platform the page does not know is named by its agency, never by its key.
   const stopName = (key: string | undefined) => shortStopName(key ? data.stops[key] : undefined, agencyOnly(alert.agency));
   const routeNames = alert.routes.map((key) => (data.routes[key] ? chipLabel(data.routes[key]!) : key)).join(', ');
@@ -63,11 +75,12 @@ function toView(alert: Alert, data: TripResponse, boardingStops: Set<string>, st
     const kind = access ? 'Station access' : alert.effect === 'DETOUR' ? 'Reroute' : 'Service change';
     kicker = `${kind}${routeNames ? ` · ${routeNames}` : ''}`;
   }
-  // Raised for a step-free rider, but folded at first like BART's outages.
-  if (access && stepFree) {
+  // Raised for a rider who relies on what it is about, but folded at first like BART's outages.
+  const relied = (needs.elevators && /elevator/i.test(alert.header)) || (needs.escalators && /escalator/i.test(alert.header));
+  if (relied) {
     severity = 'severe';
-    if (alert.lineWide) kicker = `Station access · ${routeNames || agencyOnly(alert.agency)}`;
+    if (kicker.startsWith('Notice')) kicker = `Station access · ${routeNames || agencyOnly(alert.agency)}`;
   }
   const until = alert.activeUntil ? ` · Until ${date.format(alert.activeUntil * 1000)}` : '';
-  return { id: alert.id, severity, kicker, title: alert.header, body: alert.description, meta: `${agencyOnly(alert.agency)}${until}`, url: alert.url, startOpen: severity === 'severe' && !(access && stepFree), kickerOnly: false };
+  return { id: alert.id, severity, kicker, title: alert.header, body: alert.description, meta: `${agencyOnly(alert.agency)}${until}`, url: alert.url, startOpen: severity === 'severe' && !relied, kickerOnly: false };
 }

@@ -41,7 +41,7 @@ export function parseStatusTable(json: unknown, kind: Outage['kind']): Outage[] 
     const station = row!.match(/\/stations\/([A-Za-z0-9]{4})\//)?.[1];
     const cells = [...row!.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map(([, cell]) => text(cell!));
     if (!station || cells.length < 2) continue;
-    outages.push({ station: station.toLowerCase(), kind, location: cells[1]!, reason: cells[2] || null, returns: cells[3] || null });
+    outages.push({ station: station.toLowerCase(), kind, location: cells[1]!.replace(/^[-\s]+/, '') || 'Station', reason: cells[2] || null, returns: cells[3] || null });
   }
   return outages;
 }

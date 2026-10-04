@@ -64,6 +64,8 @@ Checks against transfers J has made:
 
 Overrides, in priority order: the rider's own value for the search, a table of calibrated pairs kept in the repo, and the agency's `transfers.txt` `min_transfer_time` (BART uses it for timed cross-platform transfers).
 
+With step-free travel on (`stepfree=1`), a transfer that gets off or boards at a BART or Muni Metro station gets 3 more minutes on its default minimum, for waiting for and riding elevators. That includes BART's listed transfers, since some change levels (12th St and 19th St) and the list does not say which. A minimum the rider set stays as they set it.
+
 ### Why no buffer, unlike Google Maps
 
 Google Maps does not document its transfer padding, but planners that work from schedules hours ahead have to pad for lateness they cannot see. This app compares live predictions on both legs, shows each vehicle's lateness, and compares whole minutes rounded down: a transfer shown as 3 minutes is at least 3:00 in the feed, so the rounding is already a buffer of 0 to 59 seconds. A transfer within a minute of the minimum is marked tight, as the design specifies.

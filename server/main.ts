@@ -42,9 +42,10 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
     }
     case '/api/trip': {
       const trip = tripRequest(url.searchParams);
-      const view = await realtimeView();
-      // Elevator and escalator outages are fetched only for riders who asked for them.
-      if (trip.stepFree || trip.escalators) view.access = await realtime.accessOutages();
+      // Elevator and escalator outages are fetched only for riders who asked for them, alongside
+      // the rest rather than after.
+      const [view, access] = await Promise.all([realtimeView(), trip.stepFree || trip.escalators ? realtime.accessOutages() : null]);
+      view.access = access;
       return sendJson(request, response, planTrip(schedule, view, trip, nowSeconds()));
     }
     case '/api/vehicle': {

@@ -255,8 +255,12 @@ function stationOutages(schedule: Schedule, tables: Tables, outages: Outage[], r
     const station = stop ? schedule.stationOf(stop) : null;
     const code = station?.agency === 'BA' ? bartStationCode(station) : null;
     if (!station || !code) continue;
+    // At a shared station the rider chose Muni Metro at, as From or To, BART's platform elevators
+    // and escalators are no part of their way. Its street and concourse ones are shared.
+    const metroOnly = (key === request.from && request.fromAgencies && !request.fromAgencies.includes('BA')) || (key === request.to && request.toAgencies && !request.toAgencies.includes('BA'));
     for (const outage of outages) {
       if (outage.station !== code || !kinds.has(outage.kind)) continue;
+      if (metroOnly && /^platform/i.test(outage.location)) continue;
       const entry = found.get(outage) ?? { station: tables.stop(station), stops: [], kind: outage.kind, location: outage.location, reason: outage.reason, returns: outage.returns };
       entry.stops.push(key);
       found.set(outage, entry);

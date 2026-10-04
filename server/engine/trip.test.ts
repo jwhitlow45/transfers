@@ -396,3 +396,14 @@ test('step-free travel allows more time to change at a station and lists elevato
   const both = planTrip(schedule, { ...realtime(), access: outages }, { from: 'BA:901209', to: 'SF:13477', stepFree: true, escalators: true }, NOW);
   deepStrictEqual(both.access?.map(({ station, kind, stops }) => `${kind} ${station} ${stops.join(',')}`), ['escalator BA:901209 BA:901209', 'elevator BA:901609 BA:901609']);
 });
+
+test("a rider who chose Muni Metro at a shared station is not shown BART's platform outages there", () => {
+  const outages = [
+    { station: 'mont', kind: 'elevator' as const, location: 'Platform', reason: null, returns: null },
+    { station: 'mont', kind: 'elevator' as const, location: 'Street to Concourse', reason: null, returns: null },
+  ];
+  const locations = (fromAgencies?: ('BA' | 'SF')[]) =>
+    planTrip(schedule, { ...realtime(), access: outages }, { from: 'BA:901209', to: 'SF:13477', stepFree: true, ...(fromAgencies ? { fromAgencies } : {}) }, NOW).access?.map(({ location }) => location);
+  deepStrictEqual(locations(), ['Platform', 'Street to Concourse']);
+  deepStrictEqual(locations(['SF']), ['Street to Concourse']);
+});

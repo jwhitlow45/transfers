@@ -1,9 +1,9 @@
 import { type ComponentChildren, Fragment } from 'preact';
 import type { Group, Route } from '../../../shared/api.ts';
 import { walkMinutes } from '../format.ts';
+import { IconWarn } from '../icons/ui.tsx';
 import { type CardContext, alightVerb, familyName, firstNoun, firstWord, pointId, visibleDepartures } from '../lib/results.ts';
 import { agencyName, shortStopName, windowText } from '../view.ts';
-import { IconWarn } from '../icons/ui.tsx';
 import { DepartureCard } from './DepartureCard.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import { StopLink } from './StopLink.tsx';
@@ -37,9 +37,11 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
   const place = joined([board?.direction, <>at {boardLink}</>, board?.code ? `stop ${board.code}` : station]);
   const firstOpen = departures.find(({ canceled }) => !canceled)?.trip;
   // By station, so one with both out says so once: "Elevator and escalator out at 24th St Mission".
+  // The group's own stops, and any its rows get off at instead.
+  const groupStops = new Set([group.alight, group.board, ...group.departures.flatMap(({ connections }) => connections.flatMap(({ alight }) => (alight ? [alight] : [])))]);
   const outageKinds = new Map<string, Set<string>>();
   for (const { kind, station, stops } of data.access ?? []) {
-    if (!stops.includes(group.alight) && !stops.includes(group.board)) continue;
+    if (!stops.some((stop) => groupStops.has(stop))) continue;
     outageKinds.set(station, (outageKinds.get(station) ?? new Set()).add(kind));
   }
   const outages = [...outageKinds].map(([station, kinds]) => {

@@ -41,3 +41,13 @@ test("bart.gov's elevator table, answering in an unknown shape, falls back to BA
   const realtime = new Realtime(new KeyPool(['a'], join(mkdtempSync(join(tmpdir(), 'manager-')), 'usage.json'), fake), fake);
   deepStrictEqual(await realtime.accessOutages(), [{ station: 'civc', kind: 'elevator', location: 'Station', reason: null, returns: null }]);
 });
+
+test("an elevator table listing none is not believed over BART's advisory listing some", async () => {
+  const fake = (async (url: string | URL | Request) => {
+    const address = String(url);
+    if (address.includes('bsa.aspx')) return Response.json({ root: { bsa: [{ description: { '#cdata-section': 'There are 1 elevators out of service at this time: 24TH: Station' } }] } });
+    return Response.json({ html: '<div class="alerts-container"><table class="alerts-table"><tbody></tbody></table></div>' });
+  }) as typeof fetch;
+  const realtime = new Realtime(new KeyPool(['a'], join(mkdtempSync(join(tmpdir(), 'manager-')), 'usage.json'), fake), fake);
+  deepStrictEqual(await realtime.accessOutages(), [{ station: '24th', kind: 'elevator', location: 'Station', reason: null, returns: null }]);
+});

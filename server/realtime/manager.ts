@@ -81,11 +81,14 @@ export class Realtime {
   }
 
   // Elevator and escalator outages at BART stations, fetched only when a rider asks for them, at
-  // most every five minutes. Null when none have been fetched.
+  // most every five minutes. The first request waits for them, a bounded wait. Later ones refresh
+  // in the background and answer with the last list, so no request waits on bart.gov. Null when
+  // none have been fetched.
   async accessOutages(): Promise<Outage[] | null> {
     const now = nowSeconds();
     if (now - Math.max(this.access.fetchedAt, this.access.failedAt) >= ACCESS_SECONDS) {
-      await Promise.race([this.refresh('access'), new Promise((resolve) => setTimeout(resolve, 8000))]);
+      const refreshing = this.refresh('access');
+      if (this.access.elevators === null && this.access.escalators === null) await Promise.race([refreshing, new Promise((resolve) => setTimeout(resolve, 8000))]);
     }
     const { elevators, escalators } = this.access;
     return elevators === null && escalators === null ? null : [...(elevators ?? []), ...(escalators ?? [])];
@@ -156,10 +159,16 @@ export class Realtime {
       read(bartStatusTableUrl('elevator'), (json) => parseStatusTable(json, 'elevator')),
       read(bartStatusTableUrl('escalator'), (json) => parseStatusTable(json, 'escalator')),
     ]);
-    const elevators = elevatorTable.status === 'fulfilled' ? elevatorTable.value : advisory.status === 'fulfilled' ? advisory.value : this.access.elevators;
+    for (const [name, result] of [['BART elevator advisory', advisory], ['bart.gov elevator table', elevatorTable], ['bart.gov escalator table', escalatorTable]] as const) {
+      if (result.status === 'rejected') console.error(`${name} failed:`, result.reason);
+    }
+    // BART's advisory is the official word. The table, which adds reasons and dates, is believed
+    // when it lists outages, or lists none while the advisory agrees or did not answer.
+    const listed = advisory.status === 'fulfilled' ? advisory.value : null;
+    const table = elevatorTable.status === 'fulfilled' ? elevatorTable.value : null;
+    const elevators = table && (table.length > 0 || !listed?.length) ? table : (listed ?? this.access.elevators);
     const escalators = escalatorTable.status === 'fulfilled' ? escalatorTable.value : this.access.escalators;
     const failed = advisory.status === 'rejected' && elevatorTable.status === 'rejected';
-    if (failed) console.error('BART elevator status failed:', advisory.reason);
     this.access = { elevators, escalators, fetchedAt: failed ? this.access.fetchedAt : started, failedAt: failed ? started : 0 };
   }
 
