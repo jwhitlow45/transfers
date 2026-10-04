@@ -426,7 +426,8 @@ button.tf-band:hover { filter: brightness(1.12); }
 
 /* The status line under the trip: short items, each with its full sentence on tap. */
 .tf-livestatus { flex-wrap: nowrap; gap: var(--space-1); position: relative; padding: 0 var(--space-5) var(--space-1) 40px; }
-.tf-stat { position: relative; display: inline-flex; flex: none; }
+/* Tips open under the whole line, so one from an item near the right edge stays on screen. */
+.tf-stat { display: inline-flex; flex: none; }
 .tf-stat__button { display: inline-flex; align-items: center; gap: 5px; min-height: 36px; padding: 0 var(--space-2); color: inherit; font-size: var(--text-base); white-space: nowrap; }
 .tf-stat__button:hover { background: color-mix(in srgb, var(--text) 7%, transparent); }
 .tf-stat__icon { display: inline-flex; }
@@ -436,13 +437,11 @@ button.tf-band:hover { filter: brightness(1.12); }
 .tf-livestatus--offline .tf-stat--live .tf-dot { background: transparent; border-color: var(--late); }
 .tf-livestatus--stale .tf-stat--live { color: var(--caution); font-weight: var(--weight-bold); }
 .tf-livestatus--stale .tf-stat--live .tf-dot { background: transparent; border-color: var(--caution); }
-.tf-tip { position: absolute; top: calc(100% + 4px); left: 0; z-index: 6; width: max-content; max-width: min(260px, 80vw); padding: var(--space-2) var(--space-3); background: var(--field); color: var(--on-field); font-size: var(--text-sm); font-weight: var(--weight-regular); line-height: 1.35; white-space: normal; }
-/* Results keep back in the bottom bar, so the title and the status line start at the gutter,
-   and the status items spread across the full width. The end items' tips open inward. */
+.tf-tip { position: absolute; top: calc(100% + 4px); left: var(--space-5); z-index: 6; width: max-content; max-width: min(320px, calc(100% - 2 * var(--space-5))); padding: var(--space-2) var(--space-3); background: var(--field); color: var(--on-field); font-size: var(--text-sm); font-weight: var(--weight-regular); line-height: 1.35; white-space: normal; }
+/* Results keep back in the bottom bar, so the title and the status line start at the gutter. The
+   status items' own padding lines their text up with the title. */
 .tf-header--no-back .tf-header__row { padding-left: var(--space-5); }
-.tf-header--no-back .tf-livestatus { justify-content: space-between; padding-left: var(--space-3); padding-right: var(--space-3); }
-.tf-header--no-back .tf-stat:last-child:not(.tf-sr + .tf-stat) .tf-tip { left: auto; right: 0; }
-.tf-header--no-back .tf-stat:not(.tf-sr + .tf-stat):not(:last-child) .tf-tip { left: 50%; transform: translateX(-50%); }
+.tf-header--no-back .tf-livestatus { padding-left: var(--space-2); }
 
 /* ── gestures ─────────────────────────────────────── */
 /* A handle on whatever drags up or down: the sheet, and the bottom bar that opens it. */
