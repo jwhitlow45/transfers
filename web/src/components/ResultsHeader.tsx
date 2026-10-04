@@ -1,7 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { FeedState } from '../hooks.ts';
-import { ageShort, ageText } from '../lib/freshness.ts';
+import { ageShort } from '../lib/freshness.ts';
 import { IconBack } from '../icons/ui.tsx';
 import { PullToRefresh } from './PullToRefresh.tsx';
 
@@ -65,8 +65,14 @@ export function LiveStatus({ feed, secondsSinceUpdate, stale, items = [] }: { fe
   );
 }
 
+// "1 minute", "12 seconds": spoken and tooltip ages, whole units like ageText.
+function spokenAge(seconds: number) {
+  const [count, unit] = seconds < 60 ? [seconds, 'second'] : seconds < 3600 ? [Math.floor(seconds / 60), 'minute'] : [Math.floor(seconds / 3600), 'hour'];
+  return `${count} ${unit}${count === 1 ? '' : 's'}`;
+}
+
 function liveStatusSentence(feed: FeedState, seconds: number | null, stale: boolean) {
-  const ago = seconds === null ? null : `${ageText(seconds).replace(' s', ' seconds').replace(' min', ' minutes').replace(' h', ' hours')} ago`;
+  const ago = seconds === null ? null : `${spokenAge(seconds)} ago`;
   if (feed === 'loading') return 'Loading live times';
   if (feed === 'offline') return ago ? `Offline. Live times last updated ${ago}` : 'Offline';
   if (stale) return `Live times last updated ${ago}, so they may be out of date`;
