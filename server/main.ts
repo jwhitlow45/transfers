@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { type IncomingMessage, type ServerResponse, createServer } from 'node:http';
 import { join } from 'node:path';
@@ -10,6 +9,7 @@ import { trackTarget, trackVehicle } from './engine/track.ts';
 import { type RealtimeView, RequestError, type TripRequest, destinations, planTrip } from './engine/trip.ts';
 import { KeyPool } from './realtime/keys.ts';
 import { Realtime } from './realtime/manager.ts';
+import { sendJson } from './json.ts';
 import { ScheduleStore } from './schedule-store.ts';
 import { nowSeconds } from './time.ts';
 
@@ -116,35 +116,6 @@ function point(params: URLSearchParams) {
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
-
-// Results change only when a feed refreshes or a vehicle leaves, so most refreshes match the
-// last one and get an empty 304. The tag leaves out when the server answered, which changes every
-// second, and that time goes in a header instead, so the page can still tell how far its own
-// clock is off.
-function sendJson(request: IncomingMessage, response: ServerResponse, body: unknown, status = 200) {
-  const text = JSON.stringify(body);
-  const { generatedAt, ...rest } = body as { generatedAt?: number };
-  const etag = `"${createHash('sha1')
-    .update(generatedAt === undefined ? text : JSON.stringify(rest))
-    .digest('base64url')
-    .slice(0, 16)}"`;
-  response.setHeader('Cache-Control', 'no-cache');
-  response.setHeader('ETag', etag);
-  if (generatedAt !== undefined) response.setHeader('X-Generated-At', String(generatedAt));
-  if (status === 200 && sentTags(request.headers['if-none-match']).includes(etag)) {
-    response.writeHead(304).end();
-    return;
-  }
-  response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' }).end(request.method === 'HEAD' ? undefined : text);
-}
-
-// The tags in If-None-Match as this server made them. Caddy adds its encoding to a tag it
-// compresses ("-gzip") and Cloudflare may mark one weak ("W/"), and the browser sends it back that
-// way.
-const sentTags = (header: string | undefined) =>
-  (header ?? '')
-    .split(',')
-    .map((tag) => tag.trim().replace(/^W\//, '').replace(/-(?:gzip|zstd|br)"$/, '"'));
 
 let shell: string | null = null;
 async function sendShell(response: ServerResponse, data: () => Promise<unknown>) {
