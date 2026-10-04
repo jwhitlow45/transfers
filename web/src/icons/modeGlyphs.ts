@@ -174,7 +174,3 @@ export const MODE_GLYPHS: Record<Mode, Glyph> = {
     ]
   }
 };
-
-export const MODE_LABEL: Record<Mode, string> = {
-  bus: 'Bus', lrv: 'Light rail', streetcar: 'Streetcar', cable: 'Cable car', bart: 'BART', ferry: 'Ferry'
-};

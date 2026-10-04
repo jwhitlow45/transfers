@@ -46,21 +46,22 @@ export function routeColor(route: Route): string {
   return BUS_PALETTE[(Number.isNaN(number) ? route.name.length : number) % BUS_PALETTE.length]!;
 }
 
-// BART line colors carry meaning and never change. Other agencies' colors are arbitrary, and
-// step to the next palette color when they clash with a color already in view. When both legs
-// are arbitrary (bus to bus), the second leg yields.
-export function resolveRouteColor(color: string, inView: string[]): string {
+// How far apart two #rrggbb colors are, as a straight line through RGB.
+function distance(a: string, b: string) {
   const rgb = (hex: string) => {
     const n = parseInt(hex.slice(1), 16);
     return [n >> 16, (n >> 8) & 255, n & 255] as const;
   };
-  const clashes = (candidate: string) => {
-    const [r, g, b] = rgb(candidate);
-    return inView.some((other) => {
-      const [r2, g2, b2] = rgb(other);
-      return Math.hypot(r - r2, g - g2, b - b2) < 90;
-    });
-  };
+  const [r, g, b1] = rgb(a);
+  const [r2, g2, b2] = rgb(b);
+  return Math.hypot(r - r2, g - g2, b1 - b2);
+}
+
+// BART line colors carry meaning and never change. Other agencies' colors are arbitrary, and
+// step to the next palette color when they clash with a color already in view. When both legs
+// are arbitrary (bus to bus), the second leg yields.
+export function resolveRouteColor(color: string, inView: string[]): string {
+  const clashes = (candidate: string) => inView.some((other) => distance(candidate, other) < 90);
   if (!clashes(color)) return color;
   const start = Math.max(0, BUS_PALETTE.indexOf(color));
   for (let step = 1; step <= BUS_PALETTE.length; step++) {
@@ -83,16 +84,6 @@ export const SAVED_COLORS = [
   { color: '#2e8350', name: 'Green' },
   { color: '#7a5f45', name: 'Brown' },
 ];
-
-const distance = (a: string, b: string) => {
-  const rgb = (hex: string) => {
-    const n = parseInt(hex.slice(1), 16);
-    return [n >> 16, (n >> 8) & 255, n & 255] as const;
-  };
-  const [r, g, b1] = rgb(a);
-  const [r2, g2, b2] = rgb(b);
-  return Math.hypot(r - r2, g - g2, b1 - b2);
-};
 
 // A new saved search starts in its route's color, unless another saved search already looks
 // like that, in which case it takes the first picker color that looks like none of them.

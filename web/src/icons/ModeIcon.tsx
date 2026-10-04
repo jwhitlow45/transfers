@@ -12,11 +12,11 @@ const GLYPH_FOR: Record<Mode, Glyph> = {
 };
 
 // Vehicle pictogram with a gerbil driver. Takes the text color of whatever it sits in, and is
-// hidden from screen readers unless given a title, since the route label beside it says the mode.
-export function ModeIcon({ mode, size = 16, title }: { mode: Mode; size?: number; title?: string }) {
+// hidden from screen readers, since the route label beside it says the mode.
+export function ModeIcon({ mode, size = 16 }: { mode: Mode; size?: number }) {
   const glyph = MODE_GLYPHS[GLYPH_FOR[mode]];
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" role={title ? 'img' : undefined} aria-hidden={title ? undefined : 'true'} aria-label={title}>
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
       <g transform={glyph.transform}>
         {glyph.parts.map((part, index) =>
           part.stroke ? (

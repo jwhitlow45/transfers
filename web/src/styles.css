@@ -210,11 +210,8 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-chain { flex: 1; min-width: 0; margin: 0; padding-top: 10px; font-size: var(--text-lg); font-weight: var(--weight-bold); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) 6px; }
 .tf-chain__arrow { color: var(--muted); font-weight: var(--weight-regular); }
 .tf-chain__derived { border: 1px dashed var(--accent); color: var(--accent-ink); padding: 0 6px; font-weight: var(--weight-semibold); font-style: italic; }
-.tf-livestatus { max-width: var(--page-max); margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) 10px; padding: var(--space-1) var(--space-5) 10px 48px; font-size: var(--text-base); color: var(--muted); }
-.tf-livestatus__state { display: inline-flex; align-items: center; gap: 6px; }
-.tf-livestatus__state--offline { color: var(--late); font-weight: var(--weight-bold); }
+.tf-livestatus { max-width: var(--page-max); margin: 0 auto; display: flex; align-items: center; font-size: var(--text-base); color: var(--muted); }
 .tf-dot { width: 8px; height: 8px; border-radius: var(--radius-dot); background: var(--accent); border: 1.5px solid var(--accent); }
-.tf-livestatus__state--offline .tf-dot { background: transparent; border-color: var(--late); }
 .tf-refresh-bar { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; overflow: hidden; }
 .tf-refresh-bar::after { content: ""; display: block; width: 40%; height: 100%; background: var(--accent); animation: tf-indet var(--motion-indeterminate); }
 @keyframes tf-indet { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
@@ -317,7 +314,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-setting { padding: var(--space-3) 0; border-bottom: var(--border-hair) solid var(--divider); }
 .tf-setting__label { font-weight: 650; }
 .tf-setting__help { font-size: var(--text-base); color: var(--muted); }
-.tf-select { width: 100%; min-height: var(--tap); margin-top: var(--space-2); font: inherit; color: var(--text); background: var(--bg); border: var(--border-strong) solid var(--line); padding: 0 10px; }
+.tf-select { width: 100%; min-height: var(--tap); font: inherit; color: var(--text); background: var(--bg); border: var(--border-strong) solid var(--line); }
 .tf-filter { min-height: var(--tap-min); padding: 0 var(--space-4); display: inline-flex; align-items: center; gap: var(--space-2); font-size: 15px; font-weight: 650; text-align: left; border: var(--border-strong) solid var(--line); color: var(--muted); }
 .tf-filter[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-tint); color: var(--text); }
 /* A single choice reads like the results page's switchers: the chosen option filled dark. */
@@ -327,7 +324,6 @@ button:disabled { opacity: .45; cursor: default; }
 
 /* ── additions for this app ──────────────────────────
    Not in the handoff: screens and states it did not cover, built from its tokens. */
-.tf-page:focus { outline: none; }
 .tf-link-button { display: inline-flex; align-items: center; min-height: var(--tap); color: var(--accent-ink); font-weight: 650; text-decoration: underline; text-underline-offset: 3px; }
 .tf-btn-secondary { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); padding: 0 var(--space-4); color: var(--text); text-decoration: none; font-weight: 650; }
 .tf-btn-with-icon { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); }
@@ -413,9 +409,6 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-saved__edit-actions { display: flex; align-items: center; gap: var(--space-4); }
 .tf-saved__edit-actions .tf-btn-primary { width: auto; flex: 1; }
 
-/* Live data over a minute old: the header's status turns to caution, alongside the banner. */
-.tf-livestatus__state--stale { color: var(--caution); font-weight: var(--weight-bold); }
-.tf-livestatus__state--stale .tf-dot { background: transparent; border-color: var(--caution); }
 .tf-saved__stale { display: inline-flex; align-self: flex-start; align-items: center; gap: 6px; margin-top: var(--space-2); padding: 3px var(--space-2); background: var(--caution-tint); color: var(--caution); font-size: var(--text-sm); font-weight: 650; }
 
 /* Dropdowns stay native, so phones show their own picker, but are drawn in the site's style.
@@ -424,7 +417,6 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-select-wrap { position: relative; display: block; margin-top: var(--space-2); }
 .tf-select-wrap > svg { position: absolute; right: var(--space-3); top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
 .tf-select { appearance: none; -webkit-appearance: none; border-radius: var(--radius-none); padding: 0 calc(var(--space-3) + 28px) 0 var(--space-3); font-size: var(--text-md); font-weight: var(--weight-semibold); cursor: pointer; }
-.tf-select-wrap .tf-select { margin-top: 0; }
 .tf-select:hover { background: color-mix(in srgb, var(--text) 5%, var(--bg)); }
 .tf-select option, .tf-select optgroup { background: var(--bg); color: var(--text); }
 

@@ -2,7 +2,7 @@ import { type ComponentChildren, Fragment } from 'preact';
 import type { Group, Route } from '../../../shared/api.ts';
 import { walkMinutes } from '../format.ts';
 import { type CardContext, alightVerb, familyName, firstNoun, firstWord, pointId, visibleDepartures } from '../lib/results.ts';
-import { agencyName, chipLabel, shortStopName, windowText } from '../view.ts';
+import { agencyName, shortStopName, windowText } from '../view.ts';
 import { DepartureCard } from './DepartureCard.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import { StopLink } from './StopLink.tsx';
