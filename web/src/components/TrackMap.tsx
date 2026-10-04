@@ -6,6 +6,7 @@ import { IconChevron } from '../icons/ui.tsx';
 import { routeColor } from '../lib/color.ts';
 import { ageText, clockSkewMs } from '../lib/freshness.ts';
 import type { Mark, Tracked } from '../track.tsx';
+import { useSettings } from '../settings.tsx';
 import { shortStopName } from '../view.ts';
 import { Collapse } from './Collapse.tsx';
 import { RouteChip } from './RouteChip.tsx';
@@ -31,6 +32,7 @@ const MISSING = {
 export function TrackMap({ tracked }: { tracked: Tracked }) {
   const marks = tracked.marks ?? [];
   const { transfer } = tracked;
+  const { settings } = useSettings();
   // The stretches of the trips the first answer drew. Later refreshes ask for the same ones, so
   // the map's stops stay where they are and only the vehicles move.
   const [spans, setSpans] = useState<{ main: [number, number]; transfer?: [number, number] } | null>(null);
@@ -39,7 +41,8 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
     marks.map(({ stop }) => `&mark=${encodeURIComponent(stop)}`).join('') +
     (spans ? `&from=${spans.main[0]}&to=${spans.main[1]}` : '') +
     (transfer ? `&ttrip=${encodeURIComponent(transfer.trip)}&tstop=${encodeURIComponent(transfer.stop)}` : '') +
-    (spans?.transfer ? `&tfrom=${spans.transfer[0]}&tto=${spans.transfer[1]}` : '');
+    (spans?.transfer ? `&tfrom=${spans.transfer[0]}&tto=${spans.transfer[1]}` : '') +
+    (settings.mapFitOnBoard ? '&autofit=1' : '');
   // Not kept in storage: a position from an earlier visit is no use.
   const { data, error, fetchedAt, feed } = usePoll<TrackResponse>(url, REFRESH_MS, null, false);
   // When the rider last asked to fit the map to the trip from here. Only an answer that arrives

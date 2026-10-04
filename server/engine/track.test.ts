@@ -265,8 +265,8 @@ test('the vehicle the rider transfers to is drawn on the same picture, and one t
   strictEqual(lost.transfer, undefined);
 });
 
-test('a pinned map zooms in once, when the vehicle leaves the rider\'s boarding stop', () => {
-  const request = { trip: 'SF:t1', stop: 'SF:104', marks: ['SF:102', 'SF:104'] };
+test('a pinned map zooms in once, when the vehicle leaves the rider\'s boarding stop, if the rider asks', () => {
+  const request = { trip: 'SF:t1', stop: 'SF:104', marks: ['SF:102', 'SF:104'], fitOnBoard: true };
   const first = trackVehicle(schedule, at({ lon: lon(0.5), stopId: '101' }), request, NOW);
   deepStrictEqual(first.span, [0, 5]);
   // Still short of stop 2, where the rider gets on: the picture holds.
@@ -278,4 +278,7 @@ test('a pinned map zooms in once, when the vehicle leaves the rider\'s boarding 
   deepStrictEqual([names(aboard)[0], aboard.span], ['Market St & Stop 2', [2, 5]]);
   deepStrictEqual(later.path, aboard.path);
   strictEqual(aboard.path[0]!.x === first.path[2]!.x, false);
+  // With the setting off, the picture holds the whole way.
+  const held = trackVehicle(schedule, at({ lon: lon(2.5), stopId: '103' }), { ...request, fitOnBoard: false, span: first.span }, NOW);
+  deepStrictEqual(held.path, first.path);
 });

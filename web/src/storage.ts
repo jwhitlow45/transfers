@@ -42,9 +42,11 @@ export type DeviceSettings = {
   // Whether results show the connections they hide, marked with why. A viewing choice kept for
   // every trip, so it holds across page loads.
   showHidden: boolean;
+  // Whether a live map zooms in once the vehicle leaves the rider's stop.
+  mapFitOnBoard: boolean;
 };
 
-export const DEFAULT_SETTINGS: DeviceSettings = { walkSpeed: 1.4, maxWalk: 300, min: null, max: null, hide: 0, theme: 'system', cards: 'expanded', modeIcons: true, motion: 'system', showHidden: false };
+export const DEFAULT_SETTINGS: DeviceSettings = { walkSpeed: 1.4, maxWalk: 300, min: null, max: null, hide: 0, theme: 'system', cards: 'expanded', modeIcons: true, motion: 'system', showHidden: false, mapFitOnBoard: true };
 
 // Minutes as the time settings allow them. Settings and searches saved before the 30 minute cap
 // can hold more, which the server would quietly treat as 30 while the page said otherwise.

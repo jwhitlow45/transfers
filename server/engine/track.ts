@@ -14,10 +14,10 @@ const PASS_METERS = 60;
 // `marks` are other stops of the rider's to show on the way, such as where they get on and where
 // they transfer.
 // `span` is the stretch of the trip, by stop position, that an open map already shows: it is
-// drawn again whatever the vehicle has done since, so the stops stay put while the vehicle moves,
-// until it leaves the rider's boarding stop.
-// `transfer` is the vehicle the rider changes to, and the stop where they board it.
-type TrackRequest = { trip: string; stop: string; marks?: string[]; span?: [number, number]; transfer?: TrackRequest };
+// drawn again whatever the vehicle has done since, so the stops stay put while the vehicle moves.
+// `transfer` is the vehicle the rider changes to, and the stop where they board it. `fitOnBoard`
+// is the rider's setting to zoom a pinned map in once the vehicle leaves where they get on.
+type TrackRequest = { trip: string; stop: string; marks?: string[]; span?: [number, number]; transfer?: TrackRequest; fitOnBoard?: boolean };
 
 // The trip and where it visits the rider's stop, or a 404 when the trip is not in the schedule or
 // does not stop there. Called before waiting on 511 too, so a bad request is turned away at once.
@@ -138,9 +138,10 @@ function placeLeg(schedule: Schedule, live: Live, request: TrackRequest, now: nu
   // the vehicle when it has gone past, and taking in every marked stop.
   const span = request.span && request.span[0] >= 0 && request.span[0] <= request.span[1] && request.span[1] < stops.length ? request.span : null;
   // Once the vehicle has left where the rider gets on, their first marked stop, a pinned picture
-  // drops what came before it, once, so a long ride zooms in on what is left of it.
+  // drops what came before it, once, so a long ride zooms in on what is left of it, when the
+  // rider has that setting on.
   const boardAt = marked.find((index) => index !== null) ?? null;
-  const pinnedFrom = span && boardAt !== null && vehicleAt > boardAt ? Math.max(span[0], boardAt) : span?.[0];
+  const pinnedFrom = span && request.fitOnBoard && boardAt !== null && vehicleAt > boardAt ? Math.max(span[0], boardAt) : span?.[0];
   // A pinned span grows only to take in a vehicle that has left it, so it stays on the line.
   const from = span ? (vehicleAt === -1 ? pinnedFrom! : Math.min(pinnedFrom!, vehicleAt)) : Math.max(0, Math.min(coming ? Math.min(vehicleAt - 1, estimate?.from ?? vehicleAt) : targetAt - STOPS_BEFORE, ...markedAt));
   const to = span ? Math.max(span[1], vehicleAt) : Math.min(stops.length - 1, Math.max(targetAt + 1, vehicleAt, ...markedAt));

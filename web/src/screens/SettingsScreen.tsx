@@ -90,6 +90,19 @@ export function SettingsScreen() {
           <MinutesSlider label="Hide departures leaving in less than" help="Time to reach your first stop" value={settings.hide} onChange={(value) => update({ hide: value })} />
         </section>
 
+        <section class="tf-section tf-section--tight" aria-labelledby="map-heading">
+          <h2 id="map-heading">Live map</h2>
+          <div class="tf-setting">
+            <div class="tf-setting__label">Zoom in once you board</div>
+            <div class="tf-setting__help">When the vehicle leaves your stop, the map drops the ride before it and fits what is left. Fit on the map does this any time.</div>
+            <div class="tf-filters">
+              <Toggle pressed={settings.mapFitOnBoard} onToggle={() => update({ mapFitOnBoard: !settings.mapFitOnBoard })}>
+                Zoom in once you board
+              </Toggle>
+            </div>
+          </div>
+        </section>
+
         <section class="tf-section tf-section--tight" aria-labelledby="look-heading">
           <h2 id="look-heading">Appearance</h2>
           <div class="tf-setting">

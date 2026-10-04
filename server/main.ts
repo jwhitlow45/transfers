@@ -57,7 +57,8 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
       const transfer = transferTrip && transferStop ? { trip: transferTrip, stop: transferStop, ...(transferSpan ? { span: transferSpan } : {}) } : undefined;
       const span = spanParam(url.searchParams, '');
       const marks = url.searchParams.getAll('mark').slice(0, MAX_MARKS);
-      return sendJson(request, response, trackVehicle(schedule, { vehicles, trips }, { trip, stop, marks, ...(span ? { span } : {}), ...(transfer ? { transfer } : {}) }, nowSeconds()));
+      const fitOnBoard = url.searchParams.get('autofit') === '1';
+      return sendJson(request, response, trackVehicle(schedule, { vehicles, trips }, { trip, stop, marks, fitOnBoard, ...(span ? { span } : {}), ...(transfer ? { transfer } : {}) }, nowSeconds()));
     }
     case '/api/destinations':
       return sendJson(request, response, destinations(schedule, tripRequest(url.searchParams)));
