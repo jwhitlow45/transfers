@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import type { SearchResponse, TripResponse } from '../../../shared/api.ts';
 import { getJson } from '../api.ts';
 import { DataCredit } from '../components/DataCredit.tsx';
@@ -11,6 +11,7 @@ import { useNow, usePoll } from '../hooks.ts';
 import { IconGear, IconLocation } from '../icons/ui.tsx';
 import { defaultSavedColor } from '../lib/color.ts';
 import { ageText, clockSkewMs, freshness } from '../lib/freshness.ts';
+import { type LocationProblem, handOver, locate, locationProblemText } from '../lib/location.ts';
 import { summarize } from '../lib/summary.ts';
 import { navigate, tripPath } from '../router.ts';
 import { tripApiUrl, useSettings } from '../settings.tsx';
@@ -49,6 +50,23 @@ export function SearchScreen() {
   const [saved, setSaved] = useState(loadSaved);
   // Bumped when a recent search is removed, so the list reads storage again.
   const [, setRecentVersion] = useState(0);
+  // The browser asks for location permission on this tap, and Nearby opens once the phone has
+  // answered, so the rider never lands on a screen still waiting for them.
+  const [locating, setLocating] = useState<'idle' | 'asking' | LocationProblem>('idle');
+  const here = useRef(true);
+  useEffect(() => () => void (here.current = false), []);
+  const findNearby = () => {
+    setLocating('asking');
+    locate().then(
+      (position) => {
+        // The rider may have opened something else while the phone looked.
+        if (!here.current) return;
+        handOver(position);
+        navigate('/nearby');
+      },
+      (problem: LocationProblem) => setLocating(problem),
+    );
+  };
 
   const active = focus === 'from' ? from : focus === 'to' ? to : null;
   const query = active && !active.picked ? active.query.trim() : '';
@@ -127,10 +145,15 @@ export function SearchScreen() {
           <StopResults query={query} response={response!} onPick={pick} includesRoutes={focus === 'to'} />
         ) : (
           <>
-            <a class="tf-btn-outline tf-btn-secondary tf-nearby-button" href="/nearby" onClick={(event) => (event.preventDefault(), navigate('/nearby'))}>
+            <button type="button" class="tf-btn-outline tf-btn-secondary tf-nearby-button" onClick={findNearby} disabled={locating === 'asking'}>
               <IconLocation />
-              Show nearby routes
-            </a>
+              {locating === 'asking' ? 'Finding you…' : 'Show nearby routes'}
+            </button>
+            {(locating === 'denied' || locating === 'unavailable') && (
+              <div class="tf-near__problem" role="alert">
+                {locationProblemText(locating)}
+              </div>
+            )}
             {saved.length > 0 && (
               <section class="tf-section" aria-labelledby="saved-heading">
                 <h2 id="saved-heading">Saved</h2>

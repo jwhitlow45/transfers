@@ -11,34 +11,45 @@ import { clock, minutesUntil } from '../format.ts';
 import { useNow, usePoll } from '../hooks.ts';
 import { IconLocation } from '../icons/ui.tsx';
 import { ageText, clockSkewMs, freshness } from '../lib/freshness.ts';
+import { type LocationProblem, type Position, locate, locationProblemText, takeHanded } from '../lib/location.ts';
 import { navigate } from '../router.ts';
 import { agencyName, directionText, shortStopName, statusOf } from '../view.ts';
 import type { Picked } from './SearchScreen.tsx';
 
-type Position = { lat: number; lon: number };
-type Located = { state: 'idle' | 'asking' | 'denied' | 'unavailable' } | { state: 'found'; position: Position };
+type Located = { state: 'idle' | 'asking' | LocationProblem } | { state: 'found'; position: Position };
 
-// Location is asked for only when the rider taps the button, never on page load.
+// Search asks for the location when the rider taps "Show nearby routes" and opens this screen
+// with it. Opened any other way, such as by a reload, it asks only when the rider taps the
+// button, never on page load.
 export function NearbyScreen() {
-  const [located, setLocated] = useState<Located>({ state: 'idle' });
+  const [located, setLocated] = useState<Located>(() => {
+    const position = takeHanded();
+    return position ? { state: 'found', position } : { state: 'idle' };
+  });
   const ask = () => {
-    if (!('geolocation' in navigator)) return setLocated({ state: 'unavailable' });
     setLocated({ state: 'asking' });
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => setLocated({ state: 'found', position: { lat: coords.latitude, lon: coords.longitude } }),
-      (error) => setLocated({ state: error.code === error.PERMISSION_DENIED ? 'denied' : 'unavailable' }),
-      { enableHighAccuracy: true, timeout: 15_000, maximumAge: 60_000 },
+    locate().then(
+      (position) => setLocated({ state: 'found', position }),
+      (problem: LocationProblem) => setLocated({ state: problem }),
     );
   };
+  // A pull to refresh looks again in the background, keeping the stops shown meanwhile and if
+  // the phone can no longer tell where it is.
+  const relocate = () =>
+    locate(0).then(
+      (position) => setLocated({ state: 'found', position }),
+      () => {},
+    );
   // Once permission is granted, asking again is silent, so a return visit goes straight to results.
   useEffect(() => {
+    if (located.state !== 'idle') return;
     navigator.permissions
       ?.query({ name: 'geolocation' })
       .then((status) => status.state === 'granted' && ask())
       .catch(() => {});
   }, []);
 
-  if (located.state === 'found') return <NearbyResults position={located.position} />;
+  if (located.state === 'found') return <NearbyResults position={located.position} onRelocate={relocate} />;
   return (
     <div class="tf-scroll">
       <ScreenHeader title="Nearby" onBack={() => navigate('/')} />
@@ -46,14 +57,9 @@ export function NearbyScreen() {
         <div class="tf-empty">
           <div class="tf-empty__title">See the routes around you</div>
           <div class="tf-muted">Your location is used once to find stops within a few blocks. It is not saved or shared.</div>
-          {located.state === 'denied' && (
+          {(located.state === 'denied' || located.state === 'unavailable') && (
             <div class="tf-near__problem" role="alert">
-              Location is turned off for this site. Turn it on in your browser's site settings, or search by stop name or code.
-            </div>
-          )}
-          {located.state === 'unavailable' && (
-            <div class="tf-near__problem" role="alert">
-              Your location could not be found. Try again, or search by stop name or code.
+              {locationProblemText(located.state)}
             </div>
           )}
           <button type="button" class="tf-btn-primary tf-btn-with-icon" onClick={ask} disabled={located.state === 'asking'}>
@@ -69,10 +75,10 @@ export function NearbyScreen() {
   );
 }
 
-function NearbyResults({ position }: { position: Position }) {
+function NearbyResults({ position, onRelocate }: { position: Position; onRelocate: () => void }) {
   // Rounded to about 10 m, so small GPS jitter reuses the same request.
   const url = `/api/nearby?lat=${position.lat.toFixed(4)}&lon=${position.lon.toFixed(4)}`;
-  const { data, error, fetchedAt, feed, settled } = usePoll<NearbyResponse>(url, 30_000);
+  const { data, error, fetchedAt, feed, settled, refresh } = usePoll<NearbyResponse>(url, 30_000);
   const skew = clockSkewMs(data?.generatedAt, fetchedAt);
   const now = useNow() + skew;
   const fresh = freshness(now, fetchedAt === null ? null : fetchedAt + skew, data?.dataAt ?? null);
@@ -89,7 +95,18 @@ function NearbyResults({ position }: { position: Position }) {
 
   return (
     <div class="tf-scroll">
-      <ScreenHeader title="Nearby" feed={feed} secondsSinceUpdate={secondsSinceUpdate} stale={showStale} onBack={() => navigate('/')} />
+      <ScreenHeader
+        title="Nearby"
+        feed={feed}
+        secondsSinceUpdate={secondsSinceUpdate}
+        stale={showStale}
+        onBack={() => navigate('/')}
+        // A move of more than about 10 m makes a new request by itself, through the new position.
+        onRefresh={() => {
+          refresh();
+          onRelocate();
+        }}
+      />
       <main class="tf-page" id="main">
         {feed === 'offline' && <OfflineBanner statusText={liveStatusText(feed, secondsSinceUpdate)} />}
         {feed !== 'offline' && showStale && <StaleBanner ageText={ageText(fresh.ageSeconds!)} cause={fresh.cause!} />}
