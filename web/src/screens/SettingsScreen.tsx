@@ -1,6 +1,7 @@
 import { ScreenHeader } from '../components/ResultsHeader.tsx';
 import { Toggle } from '../components/Sheet.tsx';
 import { MinutesSlider, WindowSlider } from '../components/Slider.tsx';
+import { useSwipeBack } from '../gestures.ts';
 import { navigate } from '../router.ts';
 import { useSettings } from '../settings.tsx';
 import type { DeviceSettings } from '../storage.ts';
@@ -26,6 +27,7 @@ const THEMES: { value: DeviceSettings['theme']; label: string }[] = [
 // Settings stored on this device that apply to every search unless a search sets its own.
 export function SettingsScreen() {
   const { settings, update } = useSettings();
+  useSwipeBack(() => navigate('/'));
   const automatic = settings.min === null && settings.max === null;
   return (
     <div class="tf-scroll">

@@ -12,6 +12,7 @@ import { useNow, usePoll } from '../hooks.ts';
 import { IconLocation } from '../icons/ui.tsx';
 import { ageText, clockSkewMs, freshness } from '../lib/freshness.ts';
 import { type LocationProblem, type Position, locate, locationProblemText, takeHanded } from '../lib/location.ts';
+import { useSwipeBack } from '../gestures.ts';
 import { navigate } from '../router.ts';
 import { agencyName, directionText, shortStopName, statusOf } from '../view.ts';
 import type { Picked } from './SearchScreen.tsx';
@@ -22,6 +23,8 @@ type Located = { state: 'idle' | 'asking' | LocationProblem } | { state: 'found'
 // with it. Opened any other way, such as by a reload, it asks only when the rider taps the
 // button, never on page load.
 export function NearbyScreen() {
+  // Here, not in NearbyResults, so the swipe works before and after the rider is found.
+  useSwipeBack(() => navigate('/'));
   const [located, setLocated] = useState<Located>(() => {
     const position = takeHanded();
     return position ? { state: 'found', position } : { state: 'idle' };

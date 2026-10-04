@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useState } from 'preact/hooks';
 import type { TripResponse } from '../../../shared/api.ts';
 import { takeInitialData } from '../api.ts';
 import { AlertList } from '../components/AlertList.tsx';
@@ -68,8 +68,7 @@ export function ResultsScreen({ search }: { search: Search }) {
     if (data) rememberRecent(search, summary.via ?? undefined);
   }, [Boolean(data), summary.via]);
 
-  const scroller = useRef<HTMLDivElement>(null);
-  useSwipeBack(() => scroller.current, () => navigate('/'));
+  useSwipeBack(() => navigate('/'));
 
   const update: SearchUpdate = (change) => {
     const next = change(search);
@@ -119,7 +118,7 @@ export function ResultsScreen({ search }: { search: Search }) {
 
   return (
     <>
-      <div class="tf-scroll" ref={scroller}>
+      <div class="tf-scroll">
         <ScreenHeader
           title={<TripChain from={summary.from} via={summary.via} to={toChip} />}
           feed={feed}

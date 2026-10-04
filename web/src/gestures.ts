@@ -118,10 +118,10 @@ const BACK_FLING = 0.4;
 
 // Swiping right anywhere on a screen goes back, the screen sliding with the finger. Places that
 // swipe sideways themselves keep their swipe: an open sheet, form fields, and anything that
-// scrolls sideways. `screen` is the screen's scroller, and the shell it sits in is what the
-// drag follows, so the bottom bar slides with the rest.
-export function useSwipeBack(screen: () => HTMLElement | null | undefined, onBack: () => void) {
-  const shell = () => screen()?.parentElement;
+// scrolls sideways. The drag follows the app shell, which holds every screen, so a bottom bar
+// slides with the rest.
+export function useSwipeBack(onBack: () => void) {
+  const shell = () => document.querySelector<HTMLElement>('.tf-app');
   const layers = () => [...(shell()?.children ?? [])].filter((layer): layer is HTMLElement => layer instanceof HTMLElement && !layer.classList.contains('tf-sheet'));
   const slide = (offset: number, animated: boolean) => {
     for (const layer of layers()) {
