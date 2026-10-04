@@ -9,6 +9,8 @@ const BART_ALERTS_URL = 'https://api.bart.gov/gtfsrt/alerts.aspx';
 const ALERT_SECONDS = 60;
 // Elevator and escalator outages change over hours, not minutes.
 const ACCESS_SECONDS = 5 * 60;
+// A list kept through failures is dropped after this, rather than shown as current indefinitely.
+const ACCESS_KEEP_SECONDS = 2 * 3600;
 // Polling stops this long after the last request, so an idle site spends no 511 requests.
 const IDLE_SECONDS = 5 * 60;
 // Checks every second, so each refresh lands on its interval rather than up to 5 seconds late.
@@ -25,7 +27,14 @@ export class Realtime {
   private alerts511: FeedState<RtAlert[]> = { value: null, fetchedAt: 0, failedAt: 0, error: null };
   private alertsBart: FeedState<RtAlert[]> = { value: null, fetchedAt: 0, failedAt: 0, error: null };
   private vehicles: FeedState<VehicleSnapshot> = { value: null, fetchedAt: 0, failedAt: 0, error: null };
-  private access: { elevators: Outage[] | null; escalators: Outage[] | null; fetchedAt: number; failedAt: number } = { elevators: null, escalators: null, fetchedAt: 0, failedAt: 0 };
+  private access: { elevators: Outage[] | null; escalators: Outage[] | null; elevatorsAt: number; escalatorsAt: number; fetchedAt: number; failedAt: number } = {
+    elevators: null,
+    escalators: null,
+    elevatorsAt: 0,
+    escalatorsAt: 0,
+    fetchedAt: 0,
+    failedAt: 0,
+  };
   private lastDemand = 0;
   private timer: NodeJS.Timeout | null = null;
   private inFlight = new Map<string, Promise<void>>();
@@ -162,14 +171,23 @@ export class Realtime {
     for (const [name, result] of [['BART elevator advisory', advisory], ['bart.gov elevator table', elevatorTable], ['bart.gov escalator table', escalatorTable]] as const) {
       if (result.status === 'rejected') console.error(`${name} failed:`, result.reason);
     }
-    // BART's advisory is the official word. The table, which adds reasons and dates, is believed
-    // when it lists outages, or lists none while the advisory agrees or did not answer.
+    // BART's advisory is the official word. The table's rows, which add reasons and dates, are used
+    // where it has them, and the advisory's own for any station the table leaves out.
     const listed = advisory.status === 'fulfilled' ? advisory.value : null;
     const table = elevatorTable.status === 'fulfilled' ? elevatorTable.value : null;
-    const elevators = table && (table.length > 0 || !listed?.length) ? table : (listed ?? this.access.elevators);
-    const escalators = escalatorTable.status === 'fulfilled' ? escalatorTable.value : this.access.escalators;
+    const fresh = table || listed ? [...(table ?? []), ...(listed ?? []).filter(({ station }) => !table?.some((row) => row.station === station))] : null;
+    const kept = (list: Outage[] | null, at: number) => (started - at < ACCESS_KEEP_SECONDS ? list : null);
+    const elevators = fresh ?? kept(this.access.elevators, this.access.elevatorsAt);
+    const escalators = escalatorTable.status === 'fulfilled' ? escalatorTable.value : kept(this.access.escalators, this.access.escalatorsAt);
     const failed = advisory.status === 'rejected' && elevatorTable.status === 'rejected';
-    this.access = { elevators, escalators, fetchedAt: failed ? this.access.fetchedAt : started, failedAt: failed ? started : 0 };
+    this.access = {
+      elevators,
+      escalators,
+      elevatorsAt: fresh ? started : this.access.elevatorsAt,
+      escalatorsAt: escalatorTable.status === 'fulfilled' ? started : this.access.escalatorsAt,
+      fetchedAt: failed ? this.access.fetchedAt : started,
+      failedAt: failed ? started : 0,
+    };
   }
 
   private async fetchAlerts() {

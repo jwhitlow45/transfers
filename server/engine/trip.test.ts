@@ -406,4 +406,7 @@ test("a rider who chose Muni Metro at a shared station is not shown BART's platf
     planTrip(schedule, { ...realtime(), access: outages }, { from: 'BA:901209', to: 'SF:13477', stepFree: true, ...(fromAgencies ? { fromAgencies } : {}) }, NOW).access?.map(({ location }) => location);
   deepStrictEqual(locations(), ['Platform', 'Street to Concourse']);
   deepStrictEqual(locations(['SF']), ['Street to Concourse']);
+  // Riding the N from Montgomery's Muni Metro platform, which the shared station takes in.
+  const metro = planTrip(schedule, { ...realtime(), access: outages }, { from: 'SF:16994', to: 'SF:16998', stepFree: true }, NOW);
+  deepStrictEqual(metro.access?.map(({ location }) => location), ['Street to Concourse']);
 });

@@ -51,3 +51,19 @@ test("an elevator table listing none is not believed over BART's advisory listin
   const realtime = new Realtime(new KeyPool(['a'], join(mkdtempSync(join(tmpdir(), 'manager-')), 'usage.json'), fake), fake);
   deepStrictEqual(await realtime.accessOutages(), [{ station: '24th', kind: 'elevator', location: 'Station', reason: null, returns: null }]);
 });
+
+test("bart.gov's elevator table adds reasons, and BART's advisory fills in a station the table leaves out", async () => {
+  const fake = (async (url: string | URL | Request) => {
+    const address = String(url);
+    if (address.includes('bsa.aspx')) return Response.json({ root: { bsa: [{ description: { '#cdata-section': 'There are 2 elevators out of service at this time: 24TH: Station; CIVC: Station' } }] } });
+    if (address.includes('elevator_service')) {
+      return Response.json({ html: '<div class="alerts-container"><table class="alerts-table"><tbody><tr><td><a href="/stations/24TH/accessible">24th</a></td><td>Station</td><td>Modernization</td><td>10/23/2026</td></tr></tbody></table></div>' });
+    }
+    return Response.json({ html: '<div class="alerts-container"></div>' });
+  }) as typeof fetch;
+  const realtime = new Realtime(new KeyPool(['a'], join(mkdtempSync(join(tmpdir(), 'manager-')), 'usage.json'), fake), fake);
+  deepStrictEqual(await realtime.accessOutages(), [
+    { station: '24th', kind: 'elevator', location: 'Station', reason: 'Modernization', returns: '10/23/2026' },
+    { station: 'civc', kind: 'elevator', location: 'Station', reason: null, returns: null },
+  ]);
+});

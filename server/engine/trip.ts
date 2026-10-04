@@ -136,6 +136,13 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
   const context = { schedule, snapshot: realtime.trips, now };
 
   const groups: Group[] = [];
+  // The stop keys where the rider rides BART: a BART From, To, or destination, unless they chose
+  // Muni Metro there, and the stops of BART legs. A shared station's key outside it is Muni Metro's.
+  const ridesBart = (stop: StopRow, agencies?: Agency[]) => stop.agency === 'BA' && (!agencies || agencies.includes('BA'));
+  const bartAt = new Set<string>();
+  if (ridesBart(from, request.fromAgencies)) bartAt.add(stopKeyOf(from));
+  if (toStop && ridesBart(toStop, request.toAgencies)) bartAt.add(stopKeyOf(toStop));
+  if (destination && ridesBart(destination)) bartAt.add(stopKeyOf(destination));
   const tripStops = new Set<string>([...schedule.boardingStops(from), from].map(stopKeyOf));
   const tripRoutes = new Set<string>();
   // A shared station belongs to both systems, so its own agency says nothing about the trip.
@@ -195,6 +202,10 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
       departures,
     });
     for (const stop of [link.alight, link.board, ...link.alights, ...link.boards]) tripStops.add(stopKeyOf(stop));
+    // Where the rider rides BART, which a shared station's key alone does not say.
+    if (link.alights.some(({ agency }) => agency === 'BA')) bartAt.add(stopKeyOf(link.alight));
+    if (link.boards.some(({ agency }) => agency === 'BA')) bartAt.add(stopKeyOf(link.board));
+    for (const departure of departures) for (const { alight } of departure.connections) if (alight?.startsWith('BA:')) bartAt.add(alight);
     for (const route of routes) tripRoutes.add(routeKeyOf(route));
     for (const { pattern } of link.firstLegs) {
       tripRoutes.add(routeKeyOf(schedule.route(pattern.route)));
@@ -237,6 +248,7 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
             tables,
             realtime.access ?? [],
             request,
+            bartAt,
             [stopKeyOf(from), ...groups.flatMap(({ alight, board, departures }) => [alight, board, ...departures.flatMap(({ connections }) => connections.flatMap(({ alight }) => (alight ? [alight] : [])))]), ...(destination ? [stopKeyOf(destination)] : []), ...(toStop ? [stopKeyOf(toStop)] : [])],
           ),
         }
@@ -247,7 +259,7 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
 
 // The outages the rider asked about at the BART stations behind the given stop keys, each with
 // every key that leads to its station, so the page can mark the groups it touches.
-function stationOutages(schedule: Schedule, tables: Tables, outages: Outage[], request: TripRequest, keys: string[]): AccessOutage[] {
+function stationOutages(schedule: Schedule, tables: Tables, outages: Outage[], request: TripRequest, bartAt: Set<string>, keys: string[]): AccessOutage[] {
   const kinds = new Set<Outage['kind']>([...(request.stepFree ? ['elevator' as const] : []), ...(request.escalators ? ['escalator' as const] : [])]);
   const found = new Map<Outage, AccessOutage>();
   for (const key of new Set(keys)) {
@@ -255,9 +267,9 @@ function stationOutages(schedule: Schedule, tables: Tables, outages: Outage[], r
     const station = stop ? schedule.stationOf(stop) : null;
     const code = station?.agency === 'BA' ? bartStationCode(station) : null;
     if (!station || !code) continue;
-    // At a shared station the rider chose Muni Metro at, as From or To, BART's platform elevators
-    // and escalators are no part of their way. Its street and concourse ones are shared.
-    const metroOnly = (key === request.from && request.fromAgencies && !request.fromAgencies.includes('BA')) || (key === request.to && request.toAgencies && !request.toAgencies.includes('BA'));
+    // At a shared station, BART's platform elevators and escalators are no part of a Muni Metro
+    // rider's way, while its street and concourse ones are shared.
+    const metroOnly = !bartAt.has(key);
     for (const outage of outages) {
       if (outage.station !== code || !kinds.has(outage.kind)) continue;
       if (metroOnly && /^platform/i.test(outage.location)) continue;
