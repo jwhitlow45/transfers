@@ -41,13 +41,13 @@ export function ResultsScreen({ search }: { search: Search }) {
   const [showHidden, setShowHidden] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [saved, setSaved] = useState(() => findSaved(search));
-  // Cards the rider opened or closed, by departure. Others start as the device's setting says:
-  // all open, each group's soonest open, or all closed. Kept across refreshes, which reuse trip
-  // ids.
+  // Cards the rider opened or closed, by group and trip. Others start as the device's setting
+  // says: all open, each group's soonest open, or all closed. Kept across refreshes, which reuse
+  // trip ids.
   const [toggled, setToggled] = useState<Record<string, boolean>>({});
   const openAtFirst = (first: boolean) => settings.cards === 'expanded' || (settings.cards === 'first' && first);
-  const isExpanded = (trip: string, first: boolean) => toggled[trip] ?? openAtFirst(first);
-  const toggleCard = (trip: string, first: boolean) => setToggled((current) => ({ ...current, [trip]: !(current[trip] ?? openAtFirst(first)) }));
+  const isExpanded = (card: string, first: boolean) => toggled[card] ?? openAtFirst(first);
+  const toggleCard = (card: string, first: boolean) => setToggled((current) => ({ ...current, [card]: !(current[card] ?? openAtFirst(first)) }));
   const url = tripApiUrl(search, settings, showHidden);
   // Results the server put in the page answer this request only if nothing differs from its defaults.
   const initial = useMemo(() => {

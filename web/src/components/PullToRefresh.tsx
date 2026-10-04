@@ -1,5 +1,5 @@
 import { useRef } from 'preact/hooks';
-import { SLIDE_MS, prefersReducedMotion, useDrag } from '../gestures.ts';
+import { SLIDE_MS, motionOff, useDrag } from '../gestures.ts';
 import { IconRefresh } from '../icons/ui.tsx';
 
 // The indicator moves half as far as the finger, and a pull this far refreshes when let go.
@@ -25,7 +25,7 @@ export function PullToRefresh({ onRefresh }: { onRefresh: () => void }) {
     track.current.classList.add('tf-pull-track--active');
     if (pull === 0) {
       const hide = () => track.current?.classList.remove('tf-pull-track--active');
-      if (animated && !prefersReducedMotion()) hiding.current = setTimeout(hide, SLIDE_MS);
+      if (animated && !motionOff()) hiding.current = setTimeout(hide, SLIDE_MS);
       else hide();
     }
     element.style.transition = animated ? '' : 'none';

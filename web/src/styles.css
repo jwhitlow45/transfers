@@ -45,6 +45,7 @@
   --group-min: 380px;     /* transfer-point column min width on desktop */
 
   --motion-indeterminate: 1.1s linear infinite;
+  --motion-fast: 150ms;   /* opening and closing */
 }
 
 :root, [data-theme="light"] {
@@ -217,7 +218,6 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-refresh-bar { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; overflow: hidden; }
 .tf-refresh-bar::after { content: ""; display: block; width: 40%; height: 100%; background: var(--accent); animation: tf-indet var(--motion-indeterminate); }
 @keyframes tf-indet { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
-@media (prefers-reduced-motion: reduce) { .tf-refresh-bar::after { animation: none; width: 100%; opacity: .5; } }
 
 /* ── banners & alerts ──────────────────────────────── */
 .tf-banner { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3) var(--space-4); }
@@ -386,7 +386,6 @@ button.tf-band { width: 100%; text-align: left; color: var(--on-field); }
 button.tf-band:hover { filter: brightness(1.12); }
 .tf-band--static { display: flex; }
 .tf-card__summary { padding: 10px var(--space-4); font-size: 15px; font-weight: var(--weight-semibold); }
-@media (prefers-reduced-motion: reduce) { .tf-band__chev { transition: none; } }
 
 /* Group headings lead with the direction, and say once where to get off. */
 .tf-group__off { margin-top: 6px; font-size: var(--text-md); font-weight: 650; }
@@ -433,7 +432,6 @@ button.tf-band:hover { filter: brightness(1.12); }
 /* Shows only for keyboard users, who cannot swipe. */
 .tf-recent-remove { position: absolute; right: 0; top: 0; bottom: 1px; width: var(--tap-min); display: grid; place-items: center; background: var(--late-tint); color: var(--late); opacity: 0; pointer-events: none; }
 .tf-recent-remove:focus-visible { opacity: 1; pointer-events: auto; }
-@media (prefers-reduced-motion: reduce) { .tf-recent-row, .tf-recent-row .tf-recent { transition: none; } }
 
 /* The status line under the trip: short items, each with its full sentence on tap. */
 .tf-livestatus { flex-wrap: nowrap; gap: var(--space-1); position: relative; padding: 0 var(--space-5) var(--space-1) 40px; }
@@ -465,7 +463,6 @@ button.tf-band:hover { filter: brightness(1.12); }
 .tf-pull { width: 40px; height: 40px; margin: -44px auto 0; display: grid; place-items: center; opacity: 0; background: var(--bg); color: var(--text); border: var(--border-hair) solid var(--line); transition: transform 180ms ease-out, opacity 180ms ease-out; }
 .tf-pull svg { transform: rotate(var(--pull-turn, 0deg)); }
 .tf-pull--ready { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
-@media (prefers-reduced-motion: reduce) { .tf-sheet__panel, .tf-sheet__scrim, .tf-pull { transition: none; } }
 
 /* ── route stops in From ──────────────────────────── */
 .tf-results + .tf-results { margin-top: var(--space-3); }
@@ -502,9 +499,23 @@ button.tf-band:hover { filter: brightness(1.12); }
 .tf-slider--range input::-moz-range-thumb { pointer-events: auto; }
 
 /* ── how it works (home) ───────────────────────────── */
-.tf-about summary { display: flex; align-items: center; justify-content: space-between; min-height: var(--tap-min); list-style: none; cursor: pointer; font-size: var(--text-sm); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-kicker); text-transform: uppercase; color: var(--muted); }
-.tf-about summary::-webkit-details-marker { display: none; }
-.tf-about summary svg { transition: transform 150ms; }
-.tf-about[open] summary svg { transform: rotate(180deg); }
+.tf-about__toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: var(--tap-min); font-size: var(--text-sm); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-kicker); text-transform: uppercase; color: var(--muted); }
+.tf-about__toggle svg { transition: transform var(--motion-fast); }
+.tf-about[data-open="true"] .tf-about__toggle svg { transform: rotate(180deg); }
 .tf-about p { margin: 0 0 var(--space-3); font-size: var(--text-base); line-height: 1.45; }
-@media (prefers-reduced-motion: reduce) { .tf-about summary svg { transition: none; } }
+
+/* ── motion ────────────────────────────────────────── */
+/* Opening and closing: the height slides between nothing and the content's own. */
+.tf-collapse { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows var(--motion-fast) ease-out, opacity var(--motion-fast) ease-out; }
+.tf-collapse--open { grid-template-rows: 1fr; opacity: 1; }
+.tf-collapse__inner { min-height: 0; overflow: hidden; }
+/* Things that drop down when they appear: search suggestions and the status line's tips. */
+@keyframes tf-drop-in { from { opacity: 0; transform: translateY(-4px); } }
+.tf-results, .tf-tip { animation: tf-drop-in var(--motion-fast) ease-out; }
+
+/* The Animations setting, or the device's reduce motion when it matches the device, sets
+   data-motion="off" on the root (settings.tsx). This one rule then stops every transition and
+   animation in the site, so new ones need nothing of their own to honor it. */
+:root[data-motion="off"] *, :root[data-motion="off"] *::before, :root[data-motion="off"] *::after { transition: none !important; animation: none !important; }
+/* With its sliding stopped, the refresh bar stays a still, faint bar so refreshing still shows. */
+:root[data-motion="off"] .tf-refresh-bar::after { width: 100%; opacity: .5; }

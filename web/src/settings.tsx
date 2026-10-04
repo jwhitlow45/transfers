@@ -14,6 +14,19 @@ export function SettingsProvider({ children }: { children: ComponentChildren }) 
     if (settings.theme === 'system') document.documentElement.removeAttribute('data-theme');
     else document.documentElement.setAttribute('data-theme', settings.theme);
   }, [settings.theme]);
+  // Every animation in the site checks this one attribute: styles.css turns them all off under
+  // it, and gestures read it through motionOff(). Matching the device follows its reduce motion
+  // setting, including when it changes while the page is open.
+  useEffect(() => {
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+    const apply = () => {
+      const off = settings.motion === 'off' || (settings.motion === 'system' && reduce.matches);
+      document.documentElement.dataset.motion = off ? 'off' : 'on';
+    };
+    apply();
+    reduce.addEventListener('change', apply);
+    return () => reduce.removeEventListener('change', apply);
+  }, [settings.motion]);
   const update = (change: Partial<DeviceSettings>) =>
     setSettings((current) => {
       const next = { ...current, ...change };

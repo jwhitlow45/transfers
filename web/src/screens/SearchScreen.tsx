@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { SearchResponse, TripResponse } from '../../../shared/api.ts';
 import { getJson } from '../api.ts';
+import { Collapse } from '../components/Collapse.tsx';
 import { DataCredit } from '../components/DataCredit.tsx';
 import { RecentList } from '../components/RecentList.tsx';
 import { SavedSearchCard } from '../components/SavedSearchCard.tsx';
@@ -199,24 +200,27 @@ export function SearchScreen() {
 }
 
 // What Transfers is for. Open on a first visit, and folded once the rider has searches of
-// their own.
-function HowItWorks({ open }: { open: boolean }) {
+// their own. A button and Collapse rather than <details>, whose opening Safari cannot animate.
+function HowItWorks({ open: openAtFirst }: { open: boolean }) {
+  const [open, setOpen] = useState(openAtFirst);
   return (
-    <details class="tf-about" open={open}>
-      <summary>
+    <div class="tf-about" data-open={String(open)}>
+      <button type="button" class="tf-about__toggle" aria-expanded={open} aria-controls="how-it-works" onClick={() => setOpen(!open)}>
         How Transfers works
         <IconChevron size={18} />
-      </summary>
-      <p>
-        Pick where you start and the stop or route you are transferring to. Transfers shows the next few departures you can catch, and under each one every vehicle from
-        your stop that makes it within your transfer window, with live times from 511 and how long each transfer is.
-      </p>
-      <p>
-        It helps most going from frequent service to infrequent, such as BART to a bus that comes every 20 minutes, where the train you catch decides whether you make
-        the bus.
-      </p>
-      <p>You set the transfer window, the shortest and longest transfer you will accept, so it shows tight connections a trip planner would leave out.</p>
-    </details>
+      </button>
+      <Collapse open={open} id="how-it-works">
+        <p>
+          Pick where you start and the stop or route you are transferring to. Transfers shows the next few departures you can catch, and under each one every vehicle from
+          your stop that makes it within your transfer window, with live times from 511 and how long each transfer is.
+        </p>
+        <p>
+          It helps most going from frequent service to infrequent, such as BART to a bus that comes every 20 minutes, where the train you catch decides whether you make
+          the bus.
+        </p>
+        <p>You set the transfer window, the shortest and longest transfer you will accept, so it shows tight connections a trip planner would leave out.</p>
+      </Collapse>
+    </div>
   );
 }
 

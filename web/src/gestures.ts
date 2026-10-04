@@ -110,7 +110,8 @@ export function useDrag(element: () => Element | null | undefined, axis: 'x' | '
   }, []);
 }
 
-export const prefersReducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+// Whether the rider's motion setting, or their device's, turns animations off (see settings.tsx).
+export const motionOff = () => document.documentElement.dataset.motion === 'off';
 
 // A swipe right goes back past this share of the screen's width, or when flung this fast.
 const BACK_SHARE = 0.35;
@@ -125,7 +126,7 @@ export function useSwipeBack(onBack: () => void) {
   const layers = () => [...(shell()?.children ?? [])].filter((layer): layer is HTMLElement => layer instanceof HTMLElement && !layer.classList.contains('tf-sheet'));
   const slide = (offset: number, animated: boolean) => {
     for (const layer of layers()) {
-      layer.style.transition = animated && !prefersReducedMotion() ? `transform ${SLIDE_MS}ms ease-out` : 'none';
+      layer.style.transition = animated && !motionOff() ? `transform ${SLIDE_MS}ms ease-out` : 'none';
       layer.style.transform = offset > 0 ? `translateX(${offset}px)` : '';
     }
   };
@@ -136,7 +137,7 @@ export function useSwipeBack(onBack: () => void) {
       const width = shell()?.clientWidth ?? 1;
       if (!release || (release.distance < width * BACK_SHARE && release.velocity < BACK_FLING)) return slide(0, true);
       slide(width, true);
-      setTimeout(onBack, prefersReducedMotion() ? 0 : SLIDE_MS);
+      setTimeout(onBack, motionOff() ? 0 : SLIDE_MS);
     },
   });
 }

@@ -1,6 +1,6 @@
 import type { Group, Route } from '../../../shared/api.ts';
 import { walkMinutes } from '../format.ts';
-import { type CardContext, alightVerb, familyName, firstNoun, firstWord, visibleDepartures } from '../lib/results.ts';
+import { type CardContext, alightVerb, familyName, firstNoun, firstWord, pointId, visibleDepartures } from '../lib/results.ts';
 import { agencyName, chipLabel, shortStopName, windowText } from '../view.ts';
 import { DepartureCard } from './DepartureCard.tsx';
 import { RouteChip } from './RouteChip.tsx';
@@ -9,9 +9,10 @@ import { RouteChip } from './RouteChip.tsx';
 export function TransferPointGroup({ group, context, isExpanded, onToggle, onWiden, onShowHidden }: {
   group: Group;
   context: CardContext;
-  // Whether a departure's card is open, given whether it is the group's first.
-  isExpanded: (trip: string, first: boolean) => boolean;
-  onToggle: (trip: string, first: boolean) => void;
+  // Whether a departure's card is open, given whether it is the group's first. A card is named by
+  // its group and trip, since one trip can show in two groups and each card opens on its own.
+  isExpanded: (card: string, first: boolean) => boolean;
+  onToggle: (card: string, first: boolean) => void;
   onWiden: (window: { min: number; max: number }) => void;
   onShowHidden: () => void;
 }) {
@@ -100,8 +101,8 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
             alightName={alightName}
             noun={noun}
             walk={walk}
-            expanded={isExpanded(departure.trip, departure.trip === firstOpen)}
-            onToggle={() => onToggle(departure.trip, departure.trip === firstOpen)}
+            expanded={isExpanded(`${pointId(group)}|${departure.trip}`, departure.trip === firstOpen)}
+            onToggle={() => onToggle(`${pointId(group)}|${departure.trip}`, departure.trip === firstOpen)}
             colorOf={colorOf}
             context={context}
           />

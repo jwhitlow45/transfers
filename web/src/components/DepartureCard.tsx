@@ -1,8 +1,10 @@
+import { useId } from 'preact/hooks';
 import type { Departure, Group } from '../../../shared/api.ts';
 import { IconChevron } from '../icons/ui.tsx';
 import { clock, minutesUntil } from '../format.ts';
 import type { CardContext } from '../lib/results.ts';
 import { chipLabel, spokenRoute, statusOf } from '../view.ts';
+import { Collapse } from './Collapse.tsx';
 import { ConnectionRow } from './ConnectionRow.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import { StatusTag } from './StatusTag.tsx';
@@ -76,7 +78,8 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
       </span>
     </>
   );
-  const panel = `connections-${departure.trip.replace(/[^\w-]/g, '_')}`;
+  // One trip can appear in two groups, such as BART's and Muni Metro's at a shared station.
+  const panel = useId();
   if (walk) {
     return (
       <article class="tf-card tf-card--walk">
@@ -93,30 +96,29 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
           {band}
         </button>
       </h3>
-      <div id={panel}>
-        {expanded ? (
-          <>
-            <TimeTicks scaleMinutes={context.scaleMinutes} />
-            <div role="list" aria-label={`Connecting ${noun[1]}`}>
-              {departure.connections.map((connection) => (
-                <ConnectionRow
-                  key={connection.trip}
-                  connection={connection}
-                  departure={departure}
-                  alightName={alightName}
-                  min={group.window.min}
-                  secondColor={color}
-                  context={context}
-                />
-              ))}
-            </div>
-          </>
-        ) : (
-          <div class="tf-card__summary" aria-hidden="true">
-            {summary}
-          </div>
-        )}
-      </div>
+      {/* The rows and the closed card's one-line summary each slide, so they trade places
+          smoothly. */}
+      <Collapse open={expanded} id={panel}>
+        <TimeTicks scaleMinutes={context.scaleMinutes} />
+        <div role="list" aria-label={`Connecting ${noun[1]}`}>
+          {departure.connections.map((connection) => (
+            <ConnectionRow
+              key={connection.trip}
+              connection={connection}
+              departure={departure}
+              alightName={alightName}
+              min={group.window.min}
+              secondColor={color}
+              context={context}
+            />
+          ))}
+        </div>
+      </Collapse>
+      <Collapse open={!expanded}>
+        <div class="tf-card__summary" aria-hidden="true">
+          {summary}
+        </div>
+      </Collapse>
     </article>
   );
 }

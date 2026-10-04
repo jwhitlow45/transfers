@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks';
 import { IconChevron, IconInfo, IconWarn } from '../icons/ui.tsx';
 import type { ViewAlert } from '../lib/alerts.ts';
+import { Collapse } from './Collapse.tsx';
 
 // Inline, collapsible, ordered by importance. Alerts on the rider's boarding stop are severe
 // and open by default.
@@ -24,8 +25,8 @@ export function AlertList({ alerts }: { alerts: ViewAlert[] }) {
                 <IconChevron />
               </span>
             </button>
-            {isOpen && (
-              <div id={panel} class="tf-alert__body">
+            <Collapse open={isOpen} id={panel}>
+              <div class="tf-alert__body">
                 {alert.body}
                 <div class="tf-alert__meta">
                   {alert.meta}
@@ -39,7 +40,7 @@ export function AlertList({ alerts }: { alerts: ViewAlert[] }) {
                   )}
                 </div>
               </div>
-            )}
+            </Collapse>
           </div>
         );
       })}

@@ -1,6 +1,6 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef } from 'preact/hooks';
-import { SLIDE_MS, prefersReducedMotion, useDrag } from '../gestures.ts';
+import { SLIDE_MS, motionOff, useDrag } from '../gestures.ts';
 import { IconClose } from '../icons/ui.tsx';
 
 // A drag down closes the sheet past this share of its height, or this far, whichever is less.
@@ -33,7 +33,7 @@ export function Sheet({ title, subtitle, footer, onClose, children }: { title: s
       const height = panel.current?.offsetHeight ?? 0;
       if (!release || (release.distance < Math.min(height * CLOSE_SHARE, CLOSE_PX) && release.velocity < CLOSE_FLING)) return place(0, true);
       place(height, true);
-      setTimeout(onClose, prefersReducedMotion() ? 0 : SLIDE_MS);
+      setTimeout(onClose, motionOff() ? 0 : SLIDE_MS);
     },
   });
   useEffect(() => {

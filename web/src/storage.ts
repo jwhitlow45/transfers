@@ -37,9 +37,11 @@ export type DeviceSettings = {
   cards: 'expanded' | 'first' | 'collapsed';
   // Whether route chips show their vehicle pictogram.
   modeIcons: boolean;
+  // Animations: as the device's reduce motion setting says, always, or never.
+  motion: 'system' | 'on' | 'off';
 };
 
-export const DEFAULT_SETTINGS: DeviceSettings = { walkSpeed: 1.4, maxWalk: 300, min: null, max: null, hide: 0, theme: 'system', cards: 'expanded', modeIcons: true };
+export const DEFAULT_SETTINGS: DeviceSettings = { walkSpeed: 1.4, maxWalk: 300, min: null, max: null, hide: 0, theme: 'system', cards: 'expanded', modeIcons: true, motion: 'system' };
 
 // Minutes as the time settings allow them. Settings and searches saved before the 30 minute cap
 // can hold more, which the server would quietly treat as 30 while the page said otherwise.

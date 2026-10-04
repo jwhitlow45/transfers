@@ -18,6 +18,11 @@ const CARDS: { value: DeviceSettings['cards']; label: string }[] = [
   { value: 'first', label: 'First expanded' },
   { value: 'collapsed', label: 'Collapsed' },
 ];
+const MOTIONS: { value: DeviceSettings['motion']; label: string }[] = [
+  { value: 'system', label: 'Match this device' },
+  { value: 'on', label: 'On' },
+  { value: 'off', label: 'Off' },
+];
 const THEMES: { value: DeviceSettings['theme']; label: string }[] = [
   { value: 'system', label: 'Match this device' },
   { value: 'light', label: 'Light' },
@@ -109,6 +114,11 @@ export function SettingsScreen() {
 
         <section class="tf-section tf-section--tight" aria-labelledby="access-heading">
           <h2 id="access-heading">Accessibility</h2>
+          <div class="tf-setting">
+            <div class="tf-setting__label">Animations</div>
+            <div class="tf-setting__help">Sections opening and closing, sheets sliding, and the refresh bar. Match this device follows its reduce motion setting.</div>
+            <Choices label="Animations" options={MOTIONS.map(({ value, label }) => ({ key: value, text: label }))} selected={settings.motion} onChoose={(motion) => update({ motion })} />
+          </div>
           <div class="tf-setting tf-setting--last">
             <div class="tf-setting__label">Step-free routes</div>
             <div class="tf-setting__help">Coming later: elevator routes through stations, longer transfers, and elevator outages first.</div>
