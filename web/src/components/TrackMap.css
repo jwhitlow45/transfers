@@ -39,7 +39,9 @@
 .tf-track__in--passed { font-weight: 650; color: var(--muted); }
 .tf-track__time { font-size: var(--text-sm); color: var(--muted); }
 .tf-track__stops .tf-track__fold { display: block; padding: 0; }
-.tf-track__stops--between { margin: 0; }
+/* Stops in an opened fold sit indented under it, with the fold's dotted line running on down
+   their left side, lined up with the dotted mark in the fold's own row. */
+.tf-track__stops--between { margin: 0 0 0 4px; padding-left: var(--space-3); border-left: 2px dotted var(--muted); }
 .tf-track__more { display: flex; align-items: center; gap: var(--space-2); width: 100%; min-height: var(--tap-min); padding: var(--space-2) 0; color: var(--muted); font-weight: 650; text-align: left; }
 /* A dotted stretch of line where the stop dots would be, standing for the stops folded away. */
 .tf-track__more-line { flex: none; width: 10px; height: 20px; background: repeating-linear-gradient(var(--muted) 0 2px, transparent 2px 5px) center / 2px 100% no-repeat; }
