@@ -1,5 +1,5 @@
 import { createContext } from 'preact';
-import { useContext, useEffect, useState } from 'preact/hooks';
+import { useContext, useLayoutEffect, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { DEFAULT_SETTINGS, type DeviceSettings, type Search, loadSettings, saveSettings } from './storage.ts';
 
@@ -10,14 +10,16 @@ const SettingsContext = createContext<{ settings: DeviceSettings; update: (chang
 
 export function SettingsProvider({ children }: { children: ComponentChildren }) {
   const [settings, setSettings] = useState(loadSettings);
-  useEffect(() => {
+  // Layout effects, so the theme and motion settings hold from the first paint, before a page
+  // opened from the cache can flash the wrong colors or start an animation.
+  useLayoutEffect(() => {
     if (settings.theme === 'system') document.documentElement.removeAttribute('data-theme');
     else document.documentElement.setAttribute('data-theme', settings.theme);
   }, [settings.theme]);
   // Every animation in the site checks this one attribute: styles.css turns them all off under
   // it, and gestures read it through motionOff(). Matching the device follows its reduce motion
   // setting, including when it changes while the page is open.
-  useEffect(() => {
+  useLayoutEffect(() => {
     const reduce = matchMedia('(prefers-reduced-motion: reduce)');
     const apply = () => {
       const off = settings.motion === 'off' || (settings.motion === 'system' && reduce.matches);

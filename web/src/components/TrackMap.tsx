@@ -10,7 +10,7 @@ import { Collapse } from './Collapse.tsx';
 import './TrackMap.css';
 
 // Vehicles report about every 30 seconds. The server asks 511 no more often than that however
-// often this asks, and an unchanged answer comes back empty.
+// often this asks.
 const REFRESH_MS = 15_000;
 // A position older than this is shown as old: the vehicle has likely moved on since.
 const OLD_SECONDS = 120;

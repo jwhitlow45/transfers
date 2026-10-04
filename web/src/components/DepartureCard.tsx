@@ -31,6 +31,8 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
 }) {
   const route = context.data.routes[departure.route];
   const color = colorOf(departure.route);
+  // One trip can appear in two groups, such as BART's and Muni Metro's at a shared station.
+  const panel = useId();
   if (departure.canceled) {
     return (
       <div class="tf-canceled">
@@ -91,8 +93,6 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
       </span>
     </>
   );
-  // One trip can appear in two groups, such as BART's and Muni Metro's at a shared station.
-  const panel = useId();
   if (walk) {
     return (
       <article class="tf-card tf-card--walk">

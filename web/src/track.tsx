@@ -1,5 +1,5 @@
 import { type ComponentChildren, type FunctionComponent, createContext } from 'preact';
-import { useContext, useState } from 'preact/hooks';
+import { useContext, useEffect, useState } from 'preact/hooks';
 import type { Stop } from '../../shared/api.ts';
 import { Sheet } from './components/Sheet.tsx';
 import { stopPage } from './view.ts';
@@ -24,6 +24,13 @@ export function TrackProvider({ children }: { children: ComponentChildren }) {
   const [tracked, setTracked] = useState<Tracked | null>(null);
   const [map, setMap] = useState<{ Map: MapComponent } | null>(null);
   const [failed, setFailed] = useState(false);
+  // The sheet sits above every screen, so it closes when the rider goes back or moves to another
+  // screen, as a sheet inside the screen would.
+  useEffect(() => {
+    const close = () => setTracked(null);
+    addEventListener('popstate', close);
+    return () => removeEventListener('popstate', close);
+  }, []);
   const open = (next: Tracked) => {
     setTracked(next);
     setFailed(false);
@@ -41,13 +48,14 @@ export function TrackProvider({ children }: { children: ComponentChildren }) {
             <map.Map key={`${tracked.trip}|${tracked.stop}`} tracked={tracked} />
           ) : failed ? (
             // Browsers remember a failed load of a script chunk and refuse it again until the page
-            // reloads, so a reload is the way to retry.
+            // reloads, so a reload is the way to retry. Online, the likely cause is a new version of
+            // the site: this page asked for a map file the server no longer has.
             <p class="tf-muted">
-              The map could not load. Check your connection, then{' '}
+              {navigator.onLine ? 'Transfers has been updated since this page opened. ' : 'The map could not load while offline. Once back online, '}
               <button type="button" class="tf-time-link" onClick={() => location.reload()}>
-                reload the page
+                {navigator.onLine ? 'Reload the page' : 'reload the page'}
               </button>
-              .
+              {navigator.onLine ? ' to open the map.' : '.'}
             </p>
           ) : (
             <p class="tf-muted">Loading the map…</p>
@@ -59,10 +67,11 @@ export function TrackProvider({ children }: { children: ComponentChildren }) {
 }
 
 // A vehicle's time at a stop, which opens its live map. BART reports no train positions, so a
-// BART time opens the station's page on bart.gov instead, which lists its trains.
+// BART time opens the station's page on bart.gov instead, which lists its trains. 511 sends no
+// positions for the ferry either, and it has no page per stop, so a ferry time is plain text.
 export function TimeLink({ trip, stop, title, color, children }: { trip: string; stop: Stop | undefined; title: string; color?: string; children: ComponentChildren }) {
   const open = useContext(TrackContext);
-  if (!stop) return <>{children}</>;
+  if (!stop || trip.startsWith('GF:')) return <>{children}</>;
   if (trip.startsWith('BA:')) {
     const page = stopPage(stop);
     if (!page) return <>{children}</>;
