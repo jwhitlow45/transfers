@@ -2,7 +2,9 @@ import type { AccessOutage, Alert, TripResponse } from '../../../shared/api.ts';
 import { agencyOnly, chipLabel, shortStopName } from '../view.ts';
 
 export type Severity = 'severe' | 'warning' | 'info';
-export type ViewAlert = { id: string; severity: Severity; kicker: string; title: string; body: string | null; meta: string; url: string | null };
+// `startOpen` opens the alert at first. `kickerOnly` folds it to its kicker alone, as an outage's
+// kicker already says what and where.
+export type ViewAlert = { id: string; severity: Severity; kicker: string; title: string; body: string | null; meta: string; url: string | null; startOpen: boolean; kickerOnly: boolean };
 
 const date = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric' });
 
@@ -29,6 +31,8 @@ function outageView(outage: AccessOutage, data: TripResponse, n: number): ViewAl
     body: outage.reason ? `${outage.reason}.` : null,
     meta: `BART${back}`,
     url: station?.bart ? `https://www.bart.gov/stations/${station.bart}/accessible` : null,
+    startOpen: false,
+    kickerOnly: true,
   };
 }
 
@@ -59,10 +63,11 @@ function toView(alert: Alert, data: TripResponse, boardingStops: Set<string>, st
     const kind = access ? 'Station access' : alert.effect === 'DETOUR' ? 'Reroute' : 'Service change';
     kicker = `${kind}${routeNames ? ` · ${routeNames}` : ''}`;
   }
+  // Raised for a step-free rider, but folded at first like BART's outages.
   if (access && stepFree) {
     severity = 'severe';
     if (alert.lineWide) kicker = `Station access · ${routeNames || agencyOnly(alert.agency)}`;
   }
   const until = alert.activeUntil ? ` · Until ${date.format(alert.activeUntil * 1000)}` : '';
-  return { id: alert.id, severity, kicker, title: alert.header, body: alert.description, meta: `${agencyOnly(alert.agency)}${until}`, url: alert.url };
+  return { id: alert.id, severity, kicker, title: alert.header, body: alert.description, meta: `${agencyOnly(alert.agency)}${until}`, url: alert.url, startOpen: severity === 'severe' && !(access && stepFree), kickerOnly: false };
 }
