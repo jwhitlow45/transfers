@@ -1,4 +1,4 @@
-import type { Mode, Route, Stop } from '../../shared/api.ts';
+import type { AgencyId, Mode, Route, Stop } from '../../shared/api.ts';
 import { compassLabel } from '../geo.ts';
 import { type RouteRow, type Schedule, type StopRow, routeKeyOf, stopKeyOf } from '../schedule.ts';
 
@@ -28,6 +28,7 @@ export function stopView(schedule: Schedule, stop: StopRow): Stop {
     lat: stop.lat,
     lon: stop.lon,
     mode: stopMode(schedule, stop),
+    ...(schedule.sharedMembers.has(stop.id) ? { serves: ['BA', 'SF'] as const satisfies AgencyId[] } : {}),
   };
 }
 

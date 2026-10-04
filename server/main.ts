@@ -83,6 +83,12 @@ function tripRequest(params: URLSearchParams, from = params.get('from'), to = pa
   if (first) request.firstRoutes = first.split(',');
   if (second) request.secondRoutes = second.split(',');
   if (params.get('hidden') === '1') request.hidden = true;
+  // BART or Muni Metro at a shared station: "BA", "SF", or both.
+  const agencies = (name: string) => (params.get(name) ?? '').split(',').filter((agency): agency is 'BA' | 'SF' => agency === 'BA' || agency === 'SF');
+  const fromAgencies = agencies('fm');
+  const toAgencies = agencies('tm');
+  if (fromAgencies.length) request.fromAgencies = fromAgencies;
+  if (toAgencies.length) request.toAgencies = toAgencies;
   return request;
 }
 

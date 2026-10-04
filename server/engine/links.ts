@@ -1,4 +1,5 @@
 import { distanceMeters } from '../geo.ts';
+import type { Agency } from '../config.ts';
 import { type PatternRow, type RouteRow, type Schedule, type StopRow, stopKeyOf } from '../schedule.ts';
 import {
   DEFAULT_MAX_WALK_METERS,
@@ -14,17 +15,20 @@ const CALIBRATED_MINUTES: Record<string, number> = {
   'BA:901401>SF:13209': 3, // Civic Center southbound to the 19 at 8th St & Market St
 };
 
-// Where a rider can transfer: get off the first vehicle at `alight`, walk, and board one of
-// `routes` at `board`.
+// Where a rider can transfer: get off the first vehicle at one of `alights`, walk, and board
+// one of `routes` at one of `boards`. Usually there is one of each. At a shared station, BART
+// and Muni Metro platforms pool into one transfer point, and `alight` or `board` is the station.
 export type Link = {
   key: string;
   alight: StopRow;
+  alights: StopRow[];
   board: StopRow;
+  boards: StopRow[];
   routes: RouteRow[];
   direction: number | null;
   headsign: string;
-  // Second-leg patterns that board at `board`, with its position in each.
-  boardPatterns: { pattern: PatternRow; position: number }[];
+  // Second-leg patterns that board at one of `boards`, with the stop and its position in each.
+  boardPatterns: BoardPattern[];
   // First-leg patterns that reach `alight` from the From stop, with both positions.
   firstLegs: { pattern: PatternRow; origin: number; alight: number }[];
   walkMeters: number;
@@ -33,7 +37,15 @@ export type Link = {
   stopsRidden: number;
 };
 
-export type LinkSettings = { maxWalkMeters?: number; walkSpeed?: number };
+export type BoardPattern = { pattern: PatternRow; position: number; stop: StopRow };
+
+export type LinkSettings = {
+  maxWalkMeters?: number;
+  walkSpeed?: number;
+  // At a shared station: ride from or catch BART's platforms, Muni Metro's, or both when empty.
+  fromAgencies?: ReadonlySet<Agency>;
+  toAgencies?: ReadonlySet<Agency>;
+};
 
 type BoardStop = { stop: StopRow; patterns: { pattern: PatternRow; position: number }[] };
 
@@ -44,9 +56,9 @@ type Target = { routes: RouteRow[]; direction: number | null; headsign: string; 
 export function findLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow } | { route: RouteRow }, settings: LinkSettings = {}) {
   const maxWalk = settings.maxWalkMeters ?? DEFAULT_MAX_WALK_METERS;
   const namedStop = 'stop' in to;
-  const targets = namedStop ? stopTargets(schedule, to.stop) : routeTargets(schedule, to.route);
+  const targets = namedStop ? stopTargets(schedule, to.stop, settings.toAgencies ?? null) : routeTargets(schedule, to.route);
   const firstPatterns = schedule
-    .boardingStops(from)
+    .boardingStops(from, settings.fromAgencies ?? null)
     .flatMap((origin) =>
       (schedule.patternsByStop.get(origin.id) ?? [])
         .filter(({ pattern, position }) => position < pattern.stops.length - 1)
@@ -61,23 +73,35 @@ export function findLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow
       if (routes.length === 0) continue;
       const context = { schedule, pattern, origin, originStop, target, namedStop, maxWalk, speed: settings.walkSpeed };
       for (const pick of contactPoints(context)) {
-        const key = `${target.routes.map(({ id }) => id).join(',')}|${target.direction}|${pick.alight.id}|${pick.board.stop.id}`;
+        // Getting off BART or Muni Metro in the same shared station is one transfer point.
+        const alightAt = schedule.sharedStation.get(pick.alight.id) ?? pick.alight.id;
+        const key = `${target.routes.map(({ id }) => id).join(',')}|${target.direction}|${alightAt}|${pick.board.stop.id}`;
         let link = links.get(key);
         if (!link) {
           link = {
             key,
             alight: pick.alight,
+            alights: [pick.alight],
             board: pick.board.stop,
+            boards: [pick.board.stop],
             routes,
             direction: target.direction,
             headsign: target.headsign,
-            boardPatterns: pick.board.patterns.filter(({ pattern: boardPattern }) => boardPattern.route !== pattern.route),
+            boardPatterns: pick.board.patterns
+              .filter(({ pattern: boardPattern }) => boardPattern.route !== pattern.route)
+              .map((entry) => ({ ...entry, stop: pick.board.stop })),
             firstLegs: [],
             walkMeters: Math.round(pick.meters),
             defaultMinutes: pick.minutes,
             stopsRidden: pick.position - origin,
           };
           links.set(key, link);
+        } else if (!link.alights.includes(pick.alight)) {
+          link.alights.push(pick.alight);
+          link.alight = schedule.stationOf(pick.alight);
+          link.walkMeters = Math.min(link.walkMeters, Math.round(pick.meters));
+          // One window has to fit both systems' platforms, so it takes the longer of their minimums.
+          link.defaultMinutes = Math.max(link.defaultMinutes, pick.minutes);
         }
         link.firstLegs.push({ pattern, origin, alight: pick.position });
         link.stopsRidden = Math.min(link.stopsRidden, pick.position - origin);
@@ -142,17 +166,27 @@ function contactPoints({ schedule, pattern, origin, originStop, target, namedSto
   return picks;
 }
 
-// Distance runs from the nearest station entrance when either end is a BART platform, since
-// that is where the walk starts. Two platforms in one station use the agency's own transfer time.
+// Between BART and Muni Metro platforms inside a shared station: up or down a level, through
+// both sets of fare gates.
+const SHARED_STATION_SECONDS = 150;
+
+// Distance runs from the nearest station entrance when either end is a BART platform or a
+// shared station's Muni Metro platform, since that is where the walk starts. Two BART platforms
+// in one station use BART's own transfer time.
 function walkBetween(schedule: Schedule, alight: StopRow, board: StopRow) {
   const involvesStation = alight.access === 'bart' || alight.access === 'subway' || board.access === 'bart' || board.access === 'subway';
   if (alight.parent !== null && alight.parent === board.parent && alight.access === 'bart') {
     const listed = schedule.transfers.get(`${alight.id}>${board.id}`);
     return { meters: distanceMeters(alight, board), involvesStation, fixedSeconds: listed ?? 60 };
   }
+  const sharedAlight = schedule.sharedStation.get(alight.id);
+  if (sharedAlight !== undefined && sharedAlight === schedule.sharedStation.get(board.id)) {
+    return { meters: distanceMeters(alight, board), involvesStation, fixedSeconds: SHARED_STATION_SECONDS };
+  }
   const points = (stop: StopRow) => {
-    if (stop.access !== 'bart' || stop.parent === null) return [stop];
-    const entrances = schedule.entrances.get(stop.parent) ?? [];
+    const station = schedule.sharedStation.get(stop.id) ?? (stop.access === 'bart' ? stop.parent : null);
+    if (station === null) return [stop];
+    const entrances = schedule.entrances.get(station) ?? [];
     return entrances.length > 0 ? entrances : [stop];
   };
   let meters = Infinity;
@@ -160,14 +194,16 @@ function walkBetween(schedule: Schedule, alight: StopRow, board: StopRow) {
   return { meters, involvesStation, fixedSeconds: undefined };
 }
 
-// Every route and direction that boards at a stop. At a BART station, one target per platform.
-function stopTargets(schedule: Schedule, stop: StopRow): Target[] {
+// Every route and direction that boards at a stop. At a rail platform (BART or Muni Metro
+// underground), one target per platform: the next train that way, whatever its line.
+function stopTargets(schedule: Schedule, stop: StopRow, agencies: ReadonlySet<Agency> | null): Target[] {
   const targets = new Map<string, Target>();
-  for (const board of schedule.boardingStops(stop)) {
+  for (const board of schedule.boardingStops(stop, agencies)) {
     for (const { pattern, position } of schedule.patternsByStop.get(board.id) ?? []) {
       if (position >= pattern.stops.length - 1) continue;
       const route = schedule.route(pattern.route);
-      const key = route.agency === 'BA' ? `platform|${board.id}` : `${route.id}|${pattern.direction}|${board.id}`;
+      const byPlatform = route.agency === 'BA' || board.access === 'subway';
+      const key = byPlatform ? `platform|${board.id}` : `${route.id}|${pattern.direction}|${board.id}`;
       let target = targets.get(key);
       if (!target) {
         target = { routes: [], direction: pattern.direction, headsign: '', stops: [{ stop: board, patterns: [] }] };

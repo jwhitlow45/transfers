@@ -30,6 +30,8 @@ export type Stop = {
   lat: number;
   lon: number;
   mode: Mode;
+  // A shared downtown station, where BART and Muni Metro both stop: ["BA", "SF"].
+  serves?: AgencyId[];
 };
 
 export type StopSearchResult = Stop & {

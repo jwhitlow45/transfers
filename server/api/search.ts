@@ -28,7 +28,11 @@ export function search(schedule: Schedule, text: string, options: { routes: bool
     const ids = match
       ? all<{ id: number }>(schedule.db, 'SELECT rowid AS id FROM stop_search WHERE stop_search MATCH ? ORDER BY rank LIMIT 60', match)
       : [];
-    const found = ids.map(({ id }) => schedule.stops.get(id)).filter((stop): stop is StopRow => stop !== undefined);
+    // A shared station's Muni Metro platforms answer to the station by name, and to their own
+    // codes only when searched by number.
+    const found = ids
+      .map(({ id }) => schedule.stops.get(id))
+      .filter((stop): stop is StopRow => stop !== undefined && !(stop.agency === 'SF' && schedule.sharedStation.has(stop.id)));
     // Names that start with what was typed come first, and stations before street stops, so
     // "montgomery" finds the BART and Muni Metro stations before every stop on Montgomery St.
     const typed = searchText(query);
@@ -43,7 +47,8 @@ export function search(schedule: Schedule, text: string, options: { routes: bool
   const routeMatches = options.routes ? routeResults(schedule, query) : { exact: [], byLongName: [] };
   const stopResults: StopSearchResult[] = [];
   for (const stop of stops.slice(0, LIMIT)) {
-    const served = schedule.stopRoutes.get(stop.id) ?? [];
+    const members = schedule.sharedMembers.get(stop.id) ?? [];
+    const served = [stop, ...members].flatMap(({ id }) => schedule.stopRoutes.get(id) ?? []);
     // BART runs each line as two routes, one per direction, and riders know one Yellow line.
     const byName = new Map<string, RouteRow>();
     for (const { route: id } of served) {

@@ -9,6 +9,7 @@ import { type FeedObject, decodeFeed, encodeFeed } from '../realtime/feed.ts';
 import { buildAlerts, buildTripSnapshot } from '../realtime/snapshot.ts';
 import { Schedule } from '../schedule.ts';
 import { serviceDayStart } from '../time.ts';
+import { search } from '../api/search.ts';
 import { destinations, planTrip } from './trip.ts';
 
 // A tiny network shaped like J's commute: BART from Montgomery to 24th St Mission, where the
@@ -33,6 +34,12 @@ function feeds() {
   }
   const muniTrips: string[] = [];
   const muniTimes: string[] = [];
+  // The N runs under Market St through Montgomery, sharing the station with BART, out to Church.
+  for (let n = 0; n < 8; n++) {
+    const leaves = 7.5 * 3600 + 300 + n * 600;
+    muniTrips.push(`N,all,n${n},Ocean Beach,0,,`);
+    muniTimes.push(`n${n},${clock(leaves)},${clock(leaves)},16994,1`, `n${n},${clock(leaves + 540)},${clock(leaves + 540)},16998,2`);
+  }
   for (let n = 0; n < 10; n++) {
     const at = 7.5 * 3600 + 120 + n * 900;
     muniTrips.push(`48,all,m${n},22nd St + Iowa St,1,,`);
@@ -62,12 +69,14 @@ function feeds() {
     [
       'SF',
       files({
-        'routes.txt': 'route_id,route_short_name,route_long_name,route_type\n48,48,QUINTARA/24TH STREET,3\n',
+        'routes.txt': 'route_id,route_short_name,route_long_name,route_type\n48,48,QUINTARA/24TH STREET,3\nN,N,JUDAH,0\n',
         'stops.txt': [
           'stop_id,stop_code,stop_name,stop_lat,stop_lon',
           '13486,13486,24th St & Valencia St,37.752300,-122.420900',
           '13477,13477,24th St & Mission St,37.752178,-122.41855',
           '13500,13500,24th St & Potrero Ave,37.752900,-122.406500',
+          '16994,16994,Metro Montgomery Station/Outbound,37.789200,-122.401700',
+          '16998,16998,Metro Church Station/Outbound,37.767194,-122.429168',
         ].join('\n'),
         'calendar.txt': calendar,
         'trips.txt': `route_id,service_id,trip_id,trip_headsign,direction_id,block_id,shape_id\n${muniTrips.join('\n')}\n`,
@@ -203,4 +212,23 @@ test('a BART station as destination matches its platform', () => {
   const departure = response.groups[0]!.departures.find(({ canceled }) => !canceled)!;
   // Trains reach Glen Park 4 minutes after 24th St.
   strictEqual(departure.destination, departure.at + 240);
+});
+
+test('BART and Muni Metro share Montgomery, and the rider can pick either', () => {
+  const station = schedule.stopsByKey.get('BA:901209')!;
+  deepStrictEqual(schedule.sharedMembers.get(station.id)?.map(({ stopId }) => stopId), ['16994']);
+  deepStrictEqual(schedule.boardingStops(station, new Set(['SF'])).map(({ stopId }) => stopId), ['16994']);
+  deepStrictEqual(schedule.boardingStops(station, new Set(['BA'])).map(({ stopId }) => stopId), ['901201']);
+  // Only BART reaches 24th St & Mission.
+  strictEqual(planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477', fromAgencies: ['SF'] }, NOW).groups.length, 0);
+  strictEqual(planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477', fromAgencies: ['BA'] }, NOW).groups.length, 1);
+  const response = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477' }, NOW);
+  deepStrictEqual(response.stops['BA:901209']?.serves, ['BA', 'SF']);
+});
+
+test('search finds a shared station once, by name', () => {
+  const montgomery = search(schedule, 'montgomery', { routes: false }).results;
+  deepStrictEqual(montgomery.map((result) => (result.type === 'stop' ? result.key : result.route)), ['BA:901209']);
+  // Its Muni Metro platform still answers to its own code.
+  deepStrictEqual(search(schedule, '16994', { routes: false }).results.map((result) => (result.type === 'stop' ? result.key : '')), ['SF:16994']);
 });

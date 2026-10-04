@@ -2,6 +2,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import type { Mode } from '../shared/api.ts';
 import type { Agency } from './config.ts';
 import { all, get, openDatabase } from './db.ts';
+import { distanceMeters } from './geo.ts';
 import type { Access } from './engine/walk.ts';
 import { addDays, serviceDate, serviceDayStart, weekday } from './time.ts';
 
@@ -59,6 +60,11 @@ export class Schedule {
   readonly stopsByKey = new Map<string, StopRow>();
   readonly children = new Map<number, StopRow[]>();
   readonly entrances = new Map<number, StopRow[]>();
+  // Downtown, BART and Muni Metro share four stations (Embarcadero, Montgomery, Powell, Civic
+  // Center). Each shared station is its BART station row, holding its Muni Metro platforms as
+  // well. sharedStation maps every platform in one, BART or Muni, to the BART station's id.
+  readonly sharedMembers = new Map<number, StopRow[]>();
+  readonly sharedStation = new Map<number, number>();
   readonly routes = new Map<number, RouteRow>();
   readonly routesByKey = new Map<string, RouteRow>();
   readonly directionNames = new Map<string, string>();
@@ -92,6 +98,7 @@ export class Schedule {
       if (!list) map.set(stop.parent, (list = []));
       list.push(stop);
     }
+    this.findSharedStations();
 
     for (const row of all<{ id: number; agency: Agency; route_id: string; short_name: string; long_name: string; mode: Mode; color: string | null; text_color: string | null }>(
       this.db,
@@ -188,9 +195,45 @@ export class Schedule {
     return stop;
   }
 
-  // The stops a vehicle actually serves: a BART station's platforms, or the stop itself.
-  boardingStops(stop: StopRow) {
-    return stop.kind === 'station' ? (this.children.get(stop.id) ?? []).filter(({ kind }) => kind === 'platform') : [stop];
+  // A Muni Metro platform belongs to a BART station when it lies this close to the station or
+  // one of its entrances. The shared stations' platforms measure 11 to 40 m. The next closest,
+  // Glen Park's street-level J stops and the T's Union Square platforms, measure 79 m and more.
+  private findSharedStations() {
+    const SHARED_STATION_METERS = 60;
+    const stations = [...this.stops.values()].filter(({ agency, kind }) => agency === 'BA' && kind === 'station');
+    for (const stop of this.stops.values()) {
+      if (stop.agency !== 'SF' || stop.access !== 'subway') continue;
+      for (const station of stations) {
+        const points = [station, ...(this.entrances.get(station.id) ?? [])];
+        if (!points.some((point) => distanceMeters(point, stop) <= SHARED_STATION_METERS)) continue;
+        const members = this.sharedMembers.get(station.id) ?? [];
+        this.sharedMembers.set(station.id, [...members, stop]);
+        this.sharedStation.set(stop.id, station.id);
+        break;
+      }
+    }
+    for (const id of this.sharedMembers.keys()) {
+      for (const platform of this.children.get(id) ?? []) if (platform.kind === 'platform') this.sharedStation.set(platform.id, id);
+    }
+  }
+
+  // The stops a vehicle actually serves: a station's platforms, or the stop itself. At a shared
+  // station, `agencies` picks BART's platforms, Muni Metro's, or both when it is null.
+  boardingStops(stop: StopRow, agencies: ReadonlySet<Agency> | null = null) {
+    if (stop.kind !== 'station') return [stop];
+    const platforms = (this.children.get(stop.id) ?? []).filter(({ kind }) => kind === 'platform');
+    const members = this.sharedMembers.get(stop.id);
+    if (!members) return platforms;
+    const allow = (agency: Agency) => !agencies || agencies.size === 0 || agencies.has(agency);
+    return [...(allow('BA') ? platforms : []), ...(allow('SF') ? members : [])];
+  }
+
+  // The station a rider is in: a shared station for any of its platforms, a BART station for its
+  // platforms, or the stop itself.
+  stationOf(stop: StopRow) {
+    const shared = this.sharedStation.get(stop.id);
+    if (shared !== undefined) return this.stop(shared);
+    return stop.kind === 'platform' && stop.access === 'bart' && stop.parent !== null ? this.stop(stop.parent) : stop;
   }
 
   directionName(route: number, direction: number | null) {

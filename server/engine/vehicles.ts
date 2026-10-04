@@ -25,8 +25,12 @@ export function firstLegs(context: VehicleContext, link: Link, routeFilter: Set<
   const allowed = (routeId: number) => !routeFilter || routeFilter.has(routeKeyOf(schedule.route(routeId)));
 
   const origins = new Map<number, StopRow>();
-  for (const { pattern, origin } of link.firstLegs) {
+  // Where each first-leg pattern lets the rider off. At a shared station, BART and Muni Metro
+  // patterns stop at different platforms of it.
+  const alightFor = new Map<number, StopRow>();
+  for (const { pattern, origin, alight } of link.firstLegs) {
     if (allowed(pattern.route)) origins.set(pattern.stops[origin]!, schedule.stop(pattern.stops[origin]!));
+    alightFor.set(pattern.id, schedule.stop(pattern.stops[alight]!));
   }
 
   if (snapshot) {
@@ -38,7 +42,13 @@ export function firstLegs(context: VehicleContext, link: Link, routeFilter: Set<
         const routeId = pattern?.route ?? schedule.routesByKey.get(`${trip.agency}:${trip.routeId}`)?.id;
         if (routeId === undefined || !allowed(routeId) || link.routes.some(({ id }) => id === routeId)) continue;
         const departs = timeAt(context, trip, index, staticTrip, pattern, origin);
-        const arrives = timeAfter(context, trip, index, staticTrip, pattern, link.alight);
+        // A trip the schedule does not have, such as an added BART train, may stop at any of them.
+        const candidates = pattern && alightFor.has(pattern.id) ? [alightFor.get(pattern.id)!] : link.alights;
+        let arrives: TimeAt | null = null;
+        for (const alight of candidates) {
+          arrives = timeAfter(context, trip, index, staticTrip, pattern, alight);
+          if (arrives) break;
+        }
         if (!departs || !arrives || arrives.at < departs.at) continue;
         legs.set(tripKey(trip.agency, trip.tripId), {
           trip: tripKey(trip.agency, trip.tripId),
@@ -85,18 +95,21 @@ export function secondLegs(context: VehicleContext, link: Link, destination: Sto
   const legs = new Map<string, SecondLeg>();
   const routeIds = new Set(link.routes.map(({ id }) => id));
   const directionMatches = (pattern: PatternRow | undefined) => !pattern || link.direction === null || pattern.direction === link.direction;
+  // Patterns the link boards, which a destination may have narrowed to those that get there.
+  const patternIds = new Set(link.boardPatterns.map(({ pattern }) => pattern.id));
   // A BART station as the destination means whichever of its platforms the trip stops at.
   const destinationStops = destination ? schedule.boardingStops(destination) : [];
 
+  const visits = link.boards.flatMap((board) => (snapshot?.byStop.get(stopKey(board.agency, board.stopId)) ?? []).map((visit) => ({ ...visit, board })));
   if (snapshot) {
-    for (const { trip, index } of snapshot.byStop.get(stopKey(link.board.agency, link.board.stopId)) ?? []) {
+    for (const { trip, index, board } of visits) {
       const staticTrip = schedule.trips.get(tripKey(trip.agency, trip.tripId));
       const pattern = staticTrip ? schedule.patterns.get(staticTrip.pattern) : undefined;
       const routeId = pattern?.route ?? schedule.routesByKey.get(`${trip.agency}:${trip.routeId}`)?.id;
-      if (routeId === undefined || !routeIds.has(routeId) || !directionMatches(pattern)) continue;
+      if (routeId === undefined || !routeIds.has(routeId) || !directionMatches(pattern) || (pattern && !patternIds.has(pattern.id))) continue;
       // A stop the trip ends at lets riders off but not on.
-      if (index === trip.stops.length - 1 && pattern && pattern.stops.at(-1) === link.board.id) continue;
-      const at = timeAt(context, trip, index, staticTrip, pattern, link.board);
+      if (index === trip.stops.length - 1 && pattern && pattern.stops.at(-1) === board.id) continue;
+      const at = timeAt(context, trip, index, staticTrip, pattern, board);
       if (!at) continue;
       const leg: SecondLeg = {
         trip: tripKey(trip.agency, trip.tripId),

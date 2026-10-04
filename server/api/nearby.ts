@@ -55,13 +55,15 @@ export function nearby(schedule: Schedule, realtime: RealtimeView, center: Point
     const link: Link = {
       key: '',
       alight: candidate.stop,
+      alights: [candidate.stop],
       board: candidate.stop,
+      boards: [candidate.stop],
       routes,
       direction: candidate.direction,
       headsign: candidate.headsign,
       boardPatterns: (schedule.patternsByStop.get(candidate.stop.id) ?? []).filter(
         ({ pattern, position }) => routeIds.has(pattern.route) && (candidate.direction === null || pattern.direction === candidate.direction) && position < pattern.stops.length - 1,
-      ),
+      ).map((entry) => ({ ...entry, stop: candidate.stop })),
       firstLegs: [],
       walkMeters: 0,
       defaultMinutes: 0,

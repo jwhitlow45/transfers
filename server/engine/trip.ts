@@ -4,6 +4,7 @@ import type { RtAlert, TripSnapshot } from '../realtime/snapshot.ts';
 import { type Schedule, type StopRow, routeKeyOf, stopKeyOf } from '../schedule.ts';
 import { type FirstLeg, type PairingOptions, type SecondLeg, pairConnections } from './connections.ts';
 import { type Link, findLinks } from './links.ts';
+import type { RouteRow } from '../schedule.ts';
 import { firstLegs, secondLegs } from './vehicles.ts';
 import { Tables } from './views.ts';
 import { defaultMaximum } from './walk.ts';
@@ -21,6 +22,9 @@ export type TripRequest = {
   firstRoutes?: string[];
   secondRoutes?: string[];
   hidden?: boolean;
+  // At a shared station: ride from or catch BART, Muni Metro, or both when absent.
+  fromAgencies?: Agency[];
+  toAgencies?: Agency[];
 };
 
 export type RealtimeView = {
@@ -44,13 +48,19 @@ const DEPARTURES_PER_GROUP = 3;
 // per schedule build and reused by every refresh.
 const linkCache = new WeakMap<Schedule, Map<string, Link[]>>();
 
-function cachedLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow } | { route: import('../schedule.ts').RouteRow }, walk?: number, speed?: number) {
+function cachedLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow } | { route: RouteRow }, request: TripRequest) {
   let cache = linkCache.get(schedule);
   if (!cache) linkCache.set(schedule, (cache = new Map()));
-  const key = `${from.id}|${'stop' in to ? `s${to.stop.id}` : `r${to.route.id}`}|${walk ?? ''}|${speed ?? ''}`;
+  const { walk, speed, fromAgencies, toAgencies } = request;
+  const key = `${from.id}|${'stop' in to ? `s${to.stop.id}` : `r${to.route.id}`}|${walk ?? ''}|${speed ?? ''}|${fromAgencies?.join() ?? ''}|${toAgencies?.join() ?? ''}`;
   let links = cache.get(key);
   if (!links) {
-    links = findLinks(schedule, from, to, { ...(walk ? { maxWalkMeters: walk } : {}), ...(speed ? { walkSpeed: speed } : {}) });
+    links = findLinks(schedule, from, to, {
+      ...(walk ? { maxWalkMeters: walk } : {}),
+      ...(speed ? { walkSpeed: speed } : {}),
+      ...(fromAgencies?.length ? { fromAgencies: new Set(fromAgencies) } : {}),
+      ...(toAgencies?.length ? { toAgencies: new Set(toAgencies) } : {}),
+    });
     if (cache.size > 500) cache.delete(cache.keys().next().value!);
     cache.set(key, links);
   }
@@ -72,7 +82,7 @@ export function destinations(schedule: Schedule, request: TripRequest): Destinat
   const { from, to } = resolveEnds(schedule, request);
   const tables = new Tables(schedule);
   const groups: DestinationsResponse['groups'] = [];
-  for (const link of cachedLinks(schedule, from, to, request.walk, request.speed)) {
+  for (const link of cachedLinks(schedule, from, to, request)) {
     const stops: string[] = [];
     const seen = new Set<number>();
     for (const { pattern, position } of [...link.boardPatterns].sort((a, b) => b.pattern.trips - a.pattern.trips)) {
@@ -96,7 +106,8 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
   const destination = request.dest ? schedule.stopsByKey.get(request.dest) ?? null : null;
 
   const tables = new Tables(schedule);
-  const links = cachedLinks(schedule, from, to, request.walk, request.speed);
+  const allLinks = cachedLinks(schedule, from, to, request);
+  const links = destination ? towardDestination(schedule, allLinks, destination, toStop ?? null) : allLinks;
   const firstFilter = request.firstRoutes?.length ? new Set(request.firstRoutes) : null;
   const secondFilter = request.secondRoutes?.length ? new Set(request.secondRoutes) : null;
   const context = { schedule, snapshot: realtime.trips, now };
@@ -136,7 +147,7 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
       ...(widen ? { widen } : {}),
       departures,
     });
-    tripStops.add(stopKeyOf(link.alight)).add(stopKeyOf(link.board));
+    for (const stop of [link.alight, link.board, ...link.alights, ...link.boards]) tripStops.add(stopKeyOf(stop));
     for (const route of routes) tripRoutes.add(routeKeyOf(route));
     for (const { pattern } of link.firstLegs) tripRoutes.add(routeKeyOf(schedule.route(pattern.route)));
     agencies.add(link.alight.agency).add(link.board.agency);
@@ -159,6 +170,40 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
     alerts: relevantAlerts(realtime.alerts, tripStops, tripRoutes, agencies),
     feeds: [...agencies].map((agency) => ({ agency, state: realtime.status(agency), updatedAt: realtime.updatedAt })),
   };
+}
+
+// With a destination set, only routes that get there count, and a transfer point none of whose
+// routes do drops out. Where the rider catches a train at a shared station, every train that
+// gets there pools into one group, whichever system or platform it leaves from.
+function towardDestination(schedule: Schedule, links: Link[], destination: StopRow, toStop: StopRow | null): Link[] {
+  const targets = new Set(schedule.boardingStops(destination).map(({ id }) => id));
+  const reaching = links.flatMap((link) => {
+    const boardPatterns = link.boardPatterns.filter(({ pattern, position }) => pattern.stops.slice(position + 1).some((id) => targets.has(id)));
+    if (boardPatterns.length === 0) return [];
+    const routeIds = new Set(boardPatterns.map(({ pattern }) => pattern.route));
+    return [{ ...link, boardPatterns, routes: link.routes.filter(({ id }) => routeIds.has(id)) }];
+  });
+  if (!toStop || !schedule.sharedMembers.has(toStop.id)) return reaching;
+  const pooled = new Map<number, Link>();
+  for (const link of reaching) {
+    const current = pooled.get(link.alight.id);
+    if (!current) {
+      pooled.set(link.alight.id, { ...link, key: `${link.alight.id}>${toStop.id}`, board: toStop, direction: null, headsign: destination.name });
+      continue;
+    }
+    const firstLegs = new Map([...current.firstLegs, ...link.firstLegs].map((leg) => [`${leg.pattern.id}|${leg.origin}|${leg.alight}`, leg]));
+    pooled.set(link.alight.id, {
+      ...current,
+      routes: [...new Set([...current.routes, ...link.routes])],
+      boards: [...new Set([...current.boards, ...link.boards])],
+      boardPatterns: [...current.boardPatterns, ...link.boardPatterns],
+      firstLegs: [...firstLegs.values()],
+      walkMeters: Math.min(current.walkMeters, link.walkMeters),
+      defaultMinutes: Math.max(current.defaultMinutes, link.defaultMinutes),
+      stopsRidden: Math.min(current.stopsRidden, link.stopsRidden),
+    });
+  }
+  return [...pooled.values()];
 }
 
 const connects = (departures: Departure[]) => departures.some(({ canceled, connections }) => !canceled && connections.some(({ hidden }) => !hidden));
