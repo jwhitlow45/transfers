@@ -433,6 +433,8 @@ button.tf-band:hover { filter: brightness(1.12); }
 .tf-stat__button { display: inline-flex; align-items: center; gap: 5px; min-height: 36px; padding: 0 var(--space-2); color: inherit; font-size: var(--text-base); white-space: nowrap; }
 .tf-stat__button:hover { background: color-mix(in srgb, var(--text) 7%, transparent); }
 .tf-stat__icon { display: inline-flex; }
+/* The age ticks from "9s" to "12m". A fixed slot keeps the items after it from shifting. */
+.tf-stat--live .tf-stat__value { min-width: 3.5ch; font-variant-numeric: tabular-nums; }
 .tf-livestatus--offline .tf-stat--live { color: var(--late); font-weight: var(--weight-bold); }
 .tf-livestatus--offline .tf-stat--live .tf-dot { background: transparent; border-color: var(--late); }
 .tf-livestatus--stale .tf-stat--live { color: var(--caution); font-weight: var(--weight-bold); }

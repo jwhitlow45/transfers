@@ -51,7 +51,7 @@ export function LiveStatus({ feed, secondsSinceUpdate, stale, items = [] }: { fe
             <span class="tf-stat__icon" aria-hidden="true">
               {item.icon}
             </span>
-            <span aria-hidden="true">{item.short}</span>
+            <span class="tf-stat__value" aria-hidden="true">{item.short}</span>
           </button>
           {open === item.key && (
             <span class="tf-tip" role="tooltip">
