@@ -19,6 +19,9 @@
 .tf-track__mark .tf-track__stop-name { font-weight: var(--weight-bold); }
 .tf-track__mark .tf-track__stop-dot { border-radius: 0; }
 .tf-track__mark--yours .tf-track__stop-dot { background: var(--text); }
+/* The rider's own stop is the row they look for, so it sits on a tinted band with an accent edge,
+   reaching past the list's sides so its text stays in line with the rows around it. */
+.tf-track__stops .tf-track__mark--yours { margin-inline: calc(-1 * var(--space-2)); padding-inline: var(--space-2); background: var(--accent-tint); box-shadow: inset 4px 0 var(--accent); }
 .tf-track__mark--transfer .tf-track__stop-dot { border-width: 3px; }
 .tf-track__tag { font-size: var(--text-sm); font-weight: 650; color: var(--muted); }
 .tf-track__tag--mark { color: var(--text); }
