@@ -39,12 +39,18 @@
 .tf-track__in--passed { font-weight: 650; color: var(--muted); }
 .tf-track__time { font-size: var(--text-sm); color: var(--muted); }
 .tf-track__stops .tf-track__fold { display: block; padding: 0; }
-/* Stops in an opened fold sit indented under it, with the fold's dotted line running on down
-   their left side, lined up with the dotted mark in the fold's own row. */
-.tf-track__stops--between { margin: 0 0 0 4px; padding-left: var(--space-3); border-left: 2px dotted var(--muted); }
+/* Stops in an opened fold sit indented under it. The fold's dotted mark becomes one line running
+   from where its dots start down past the last of them: drawn on the open fold itself, in the
+   same dots, so the two never break apart. */
+.tf-track__stops--between { margin: 0; padding-left: calc(10px + var(--space-3)); }
+.tf-track__fold:has(> .tf-track__more[aria-expanded="true"]) { background: var(--track-dots) 4px var(--track-dots-top) / 2px calc(100% - var(--track-dots-top)) no-repeat; }
+.tf-track__more[aria-expanded="true"] .tf-track__more-line { visibility: hidden; }
 .tf-track__more { display: flex; align-items: center; gap: var(--space-2); width: 100%; min-height: var(--tap-min); padding: var(--space-2) 0; color: var(--muted); font-weight: 650; text-align: left; }
 /* A dotted stretch of line where the stop dots would be, standing for the stops folded away. */
-.tf-track__more-line { flex: none; width: 10px; height: 20px; background: repeating-linear-gradient(var(--muted) 0 2px, transparent 2px 5px) center / 2px 100% no-repeat; }
+/* The dots, and where they start in a fold's row: the row is the tap height, with the 20 px mark
+   centered in it. */
+.tf-track { --track-dots: repeating-linear-gradient(var(--muted) 0 2px, transparent 2px 5px); --track-dots-top: calc((var(--tap-min) - 20px) / 2); }
+.tf-track__more-line { flex: none; width: 10px; height: 20px; background: var(--track-dots) center / 2px 100% no-repeat; }
 .tf-track__more svg { transition: transform var(--motion-fast); }
 .tf-track__more[aria-expanded="true"] svg { transform: rotate(180deg); }
 /* The change of vehicles between the two lists, set off like a new section. */
