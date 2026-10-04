@@ -14,7 +14,7 @@ import { type SearchUpdate, TransferWindowSheet, TripSettingsSheet } from '../co
 import { useNow, usePoll } from '../hooks.ts';
 import { defaultSavedColor } from '../lib/color.ts';
 import { viewAlerts } from '../lib/alerts.ts';
-import { ageText, freshness, nextPollMs } from '../lib/freshness.ts';
+import { ageText, freshness } from '../lib/freshness.ts';
 import { type CardContext, chooseDirection, directionChoices, pageColors, pointId, scaleFor, visibleDepartures } from '../lib/results.ts';
 import { summarize } from '../lib/summary.ts';
 import { navigate, tripPath } from '../router.ts';
@@ -41,8 +41,8 @@ export function ResultsScreen({ search }: { search: Search }) {
     const matches = initialData && initialData.from === search.from && matchesServerDefaults(settings) && !search.firstRoutes && !search.secondRoutes;
     return matches ? initialData : null;
   }, []);
-  const { data, error, fetchedAt, feed } = usePoll<TripResponse>(url, 30_000, initial, (response) => nextPollMs(response.dataAt, Date.now()));
-  const fresh = freshness(now, fetchedAt, data?.dataAt ?? null, feed === 'offline');
+  const { data, error, fetchedAt, feed } = usePoll<TripResponse>(url, 30_000, initial);
+  const fresh = freshness(now, fetchedAt, data?.dataAt ?? null);
   const summary = summarize(search, data, now);
 
   useEffect(() => {

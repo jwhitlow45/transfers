@@ -8,8 +8,7 @@ const BART_ALERTS_URL = 'https://api.bart.gov/gtfsrt/alerts.aspx';
 const ALERT_SECONDS = 60;
 // Polling stops this long after the last request, so an idle site spends no 511 requests.
 const IDLE_SECONDS = 5 * 60;
-// Checks every second, so each refresh lands on its interval. Pages time their own refreshes
-// to just after the server's, which keeps the data they show under about 35 seconds old.
+// Checks every second, so each refresh lands on its interval rather than up to 5 seconds late.
 const TICK_MS = 1000;
 
 type FeedState<T> = { value: T | null; fetchedAt: number; failedAt: number; error: string | null };

@@ -86,6 +86,10 @@ Riders can reveal what the window filtered out: transfers below the minimum, tra
 
 Live predictions reach about 1 to 3 hours ahead (about 67 minutes for SamTrans). Past that, departures come from the static schedule and are labeled as scheduled. A trip the feed knows but has not predicted that far stays, at its scheduled time: it has only passed a stop when the feed's first listed stop comes after it. A scheduled trip that should be on the road but is missing from the feed, within three minutes of a live trip on the same route, is taken as that same bus and dropped.
 
+## Freshness
+
+Pages show how old the live data is, counted from when the server last got it from 511, so it grows when either the rider's device or the server falls behind. The server and each page both refresh every 30 seconds, so data on screen is normally under about 61 seconds old. Past 75 seconds (two and a half refreshes), the page warns, saying whether the device missed a refresh or 511 has not sent new predictions. Pages never refresh faster when data is old: each keeps its own 30 second rhythm from when it opened, so devices never line up into bursts.
+
 ## Where settings live
 
 - Device settings (browser storage): walking speed, longest transfer walk, default window, default for hiding departures.

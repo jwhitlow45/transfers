@@ -29,9 +29,9 @@ const MIN_REFRESH_MS = 800;
 // Fetches `url` now and every `intervalMs` while the page is visible. Shows the last response
 // for the same URL at once (from this session or storage), so returning or going offline
 // never blanks the screen.
-// `nextIn` picks the wait before the next fetch from the data just received, such as timing it
-// to land just after the server's own refresh. Without it, fetches come every `intervalMs`.
-export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: T | null = null, nextIn?: (data: T) => number): Polled<T> {
+// Fetches come every `intervalMs` from when the page opened, and never faster when data is old.
+// Pages opening at different times keep their own rhythm, so devices never line up into bursts.
+export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: T | null = null): Polled<T> {
   const [state, setState] = useState<Omit<Polled<T>, 'refresh'>>(() => {
     const cached = url ? loadCached<T>(url) : null;
     const data = initial ?? cached?.data ?? null;
@@ -67,7 +67,7 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: T |
         const wait = Math.max(0, MIN_REFRESH_MS - (fetchedAt - started));
         clearTimeout(settle);
         settle = setTimeout(() => setState({ data, error: null, fetchedAt, feed: 'live' }), wait);
-        plan(nextIn ? nextIn(data) : intervalMs);
+        plan(intervalMs);
       } catch (error) {
         if ((error as Error).name === 'AbortError') return;
         const offline = !navigator.onLine || error instanceof TypeError;
@@ -78,7 +78,7 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: T |
     tick.current = () => void fetchNow();
     // Data the server put in the page is fresh, so the first fetch waits for the first refresh.
     if (!seeded.current) void fetchNow();
-    else plan(initial && nextIn ? nextIn(initial) : intervalMs);
+    else plan(intervalMs);
     seeded.current = false;
     const onVisible = () => {
       if (document.visibilityState === 'visible') void fetchNow();

@@ -10,7 +10,7 @@ import { clock } from '../format.ts';
 import { useNow, usePoll } from '../hooks.ts';
 import { IconGear, IconLocation } from '../icons/ui.tsx';
 import { defaultSavedColor } from '../lib/color.ts';
-import { ageText, freshness, nextPollMs } from '../lib/freshness.ts';
+import { ageText, freshness } from '../lib/freshness.ts';
 import { summarize } from '../lib/summary.ts';
 import { navigate, tripPath } from '../router.ts';
 import { tripApiUrl, useSettings } from '../settings.tsx';
@@ -181,9 +181,9 @@ function SavedTrip({ search, now, onEdit, onColorless, onRemove }: {
   onRemove: () => void;
 }) {
   const { settings } = useSettings();
-  const { data, feed, fetchedAt } = usePoll<TripResponse>(tripApiUrl(search, settings, false), 30_000, null, (response) => nextPollMs(response.dataAt, Date.now()));
+  const { data, feed, fetchedAt } = usePoll<TripResponse>(tripApiUrl(search, settings, false), 30_000);
   const summary = summarize(search, data, now);
-  const fresh = freshness(now, fetchedAt, data?.dataAt ?? null, feed === 'offline');
+  const fresh = freshness(now, fetchedAt, data?.dataAt ?? null);
   useEffect(() => {
     if (!search.color && data) onColorless(summary.lineColor);
   }, [Boolean(data), search.color]);

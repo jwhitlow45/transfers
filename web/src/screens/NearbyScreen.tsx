@@ -10,7 +10,7 @@ import { StatusTag } from '../components/StatusTag.tsx';
 import { clock, minutesUntil } from '../format.ts';
 import { useNow, usePoll } from '../hooks.ts';
 import { IconLocation } from '../icons/ui.tsx';
-import { ageText, freshness, nextPollMs } from '../lib/freshness.ts';
+import { ageText, freshness } from '../lib/freshness.ts';
 import { navigate } from '../router.ts';
 import { agencyName, directionText, shortStopName, statusOf } from '../view.ts';
 import type { Picked } from './SearchScreen.tsx';
@@ -72,9 +72,9 @@ export function NearbyScreen() {
 function NearbyResults({ position }: { position: Position }) {
   // Rounded to about 10 m, so small GPS jitter reuses the same request.
   const url = `/api/nearby?lat=${position.lat.toFixed(4)}&lon=${position.lon.toFixed(4)}`;
-  const { data, error, fetchedAt, feed } = usePoll<NearbyResponse>(url, 30_000, null, (response) => nextPollMs(response.dataAt, Date.now()));
+  const { data, error, fetchedAt, feed } = usePoll<NearbyResponse>(url, 30_000);
   const now = useNow();
-  const fresh = freshness(now, fetchedAt, data?.dataAt ?? null, feed === 'offline');
+  const fresh = freshness(now, fetchedAt, data?.dataAt ?? null);
   const secondsSinceUpdate = fresh.ageSeconds ?? (fetchedAt === null ? null : Math.max(0, Math.floor((now - fetchedAt) / 1000)));
   const pick = (row: NearbyStop, as: 'from' | 'to') => {
     const stop = data?.stops[row.stop];
