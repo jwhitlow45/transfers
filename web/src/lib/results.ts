@@ -1,4 +1,4 @@
-import type { Connection, Departure, Group, TripResponse } from '../../../shared/api.ts';
+import type { Connection, Departure, Group, Stop, TripResponse } from '../../../shared/api.ts';
 import { minutesUntil } from '../format.ts';
 import { chipLabel } from '../view.ts';
 import { resolveRouteColor, routeColor } from './color.ts';
@@ -14,8 +14,10 @@ export type CardContext = {
   // Unix seconds to a position on the shared time scale, 0 to 100.
   pct: (unixSeconds: number) => number;
   destinationName: string | null;
+  destinationStop: Stop | undefined;
   // The To stop's name, for walk groups that ride straight to it.
   toName: string | null;
+  toStop: Stop | undefined;
   showHidden: boolean;
   colorOf: (routeKey: string) => string;
 };

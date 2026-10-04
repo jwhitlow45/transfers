@@ -9,6 +9,7 @@ import { Collapse } from './Collapse.tsx';
 import { ConnectionRow } from './ConnectionRow.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import { StatusTag } from './StatusTag.tsx';
+import { StopLink } from './StopLink.tsx';
 import { TimeTicks } from './TimeBar.tsx';
 
 // One second-leg departure: a reversed band, then every first vehicle that makes it. The band
@@ -45,6 +46,7 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
   const status = statusOf(departure.delay, departure.live);
   const minutes = minutesUntil(departure.at, context.now);
   const destinationName = context.destinationName ?? (walk ? context.toName : null);
+  const destinationStop = context.destinationName ? context.destinationStop : walk ? context.toStop : undefined;
   const destination = destinationName && departure.destination ? `${destinationName} ${clock(departure.destination)}` : null;
   const toward = departure.toward ? `To ${departure.toward}` : null;
   const count = departure.connections.length;
@@ -72,8 +74,9 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
           {[toward, walk ? null : `Arrives at ${boardName}`].filter(Boolean).join(' · ')}
         </span>
         {destination && (
-          <span class="tf-band__dest" aria-hidden="true">
-            {destination}
+          <span class="tf-band__dest">
+            <StopLink stop={destinationStop}>{destinationName}</StopLink>
+            <span aria-hidden="true"> {clock(departure.destination!)}</span>
           </span>
         )}
       </span>

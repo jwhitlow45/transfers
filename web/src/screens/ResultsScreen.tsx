@@ -93,8 +93,10 @@ export function ResultsScreen({ search }: { search: Search }) {
     scaleMinutes,
     pct: (unixSeconds) => Math.max(0, Math.min(100, ((unixSeconds * 1000 - now) / 60_000 / scaleMinutes) * 100)),
     destinationName: search.dest ? shortStopName(data?.stops[search.dest], search.destLabel ?? '') : null,
+    destinationStop: search.dest ? data?.stops[search.dest] : undefined,
     // Riding straight to a named stop, the arrival there is what the rider is after.
     toName: data && 'stop' in data.to ? shortStopName(data.stops[data.to.stop]) : null,
+    toStop: data && 'stop' in data.to ? data.stops[data.to.stop] : undefined,
     showHidden,
     colorOf: data ? pageColors(groups, data) : () => '#55575a',
   };
