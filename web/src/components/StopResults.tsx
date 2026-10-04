@@ -34,7 +34,9 @@ function hitDirection(hit: StopSearchResult) {
 // arrow-key model to go with one.
 export function StopResults({ query, response, onPick, includesRoutes }: { query: string; response: SearchResponse; onPick: (hit: SearchHit) => void; includesRoutes: boolean }) {
   const hits = response.results;
-  const label = hits.length === 0 ? `Nothing matches “${query}”` : `${hits.length} ${includesRoutes ? 'stops and routes' : 'stops'} match “${query}”`;
+  const noun = includesRoutes ? 'stop or route' : 'stop';
+  const label =
+    hits.length === 0 ? `Nothing matches “${query}”` : hits.length === 1 ? `1 ${noun} matches “${query}”` : `${hits.length} ${includesRoutes ? 'stops and routes' : 'stops'} match “${query}”`;
   return (
     <div class="tf-results" role="region" aria-label={label}>
       <div class="tf-results__label" aria-live="polite">

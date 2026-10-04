@@ -14,6 +14,8 @@ export type CardContext = {
   // Unix seconds to a position on the shared time scale, 0 to 100.
   pct: (unixSeconds: number) => number;
   destinationName: string | null;
+  // The To stop's name, for walk groups that ride straight to it.
+  toName: string | null;
   showHidden: boolean;
   colorOf: (routeKey: string) => string;
 };
@@ -32,7 +34,8 @@ export function visibleDepartures(group: Group, now: number, showHidden: boolean
       continue;
     }
     const connections = departure.connections.filter((connection) => connection.departs * 1000 >= now && (showHidden || !connection.hidden));
-    if (connections.length === 0) continue;
+    // A walk group has no first vehicles: each departure stands on its own.
+    if (connections.length === 0 && group.kind !== 'walk') continue;
     shown.push({ ...departure, connections });
     if (shown.filter(({ canceled }) => !canceled).length === MAX_DEPARTURES) break;
   }
@@ -48,6 +51,7 @@ export const isTight = (connection: Connection, min: number) => !connection.hidd
 export function scaleFor(groups: Group[], now: number) {
   let span = 60;
   for (const group of groups) {
+    if (group.kind === 'walk') continue;
     for (const departure of group.departures) {
       if (departure.canceled) continue;
       const end = departure.destination ?? departure.at + 8 * 60;
@@ -77,8 +81,8 @@ export function pageColors(groups: Group[], data: TripResponse) {
 // "train" when every first vehicle is BART, the route when there is one, else "vehicle".
 export function firstWord(group: Group, data: TripResponse) {
   const routes = group.firstRoutes.map((key) => data.routes[key]).filter((route) => route !== undefined);
-  if (routes.length > 0 && routes.every(({ agency }) => agency === 'BA')) return 'train';
-  return routes.length === 1 ? chipLabel(routes[0]!) : 'vehicle';
+  if (routes.length === 1 && routes[0]!.agency !== 'BA') return chipLabel(routes[0]!);
+  return firstNoun(group, data)[0];
 }
 
 // When one route shows up in two or more directions (both ways on the 48), the rider picks one.
@@ -95,7 +99,8 @@ export function directionChoices(groups: Group[], off: string[], data: TripRespo
   for (const group of groups) {
     const routesKey = [...new Set(group.routes.map((key) => data.routes[key]?.name ?? key))].sort().join(',');
     routesOf.set(routesKey, [...new Set([...(routesOf.get(routesKey) ?? []), ...group.routes])]);
-    const directionKey = `${group.board}|${group.direction ?? group.headsign}`;
+    // One option per direction, however many places the route can be caught going that way.
+    const directionKey = group.direction === null ? group.headsign : String(group.direction);
     let options = byRoutes.get(routesKey);
     if (!options) byRoutes.set(routesKey, (options = new Map()));
     const option = options.get(directionKey) ?? { key: directionKey, headsign: group.headsign, ids: [] };
@@ -120,11 +125,14 @@ export function chooseDirection(choice: DirectionChoice, key: string | null, off
   return [...kept, ...choice.options.filter((option) => option.key !== key).flatMap(({ ids }) => ids)];
 }
 
-// What to call the first vehicles in a summary line: trains, buses, or vehicles.
+// What to call the first vehicles in a summary line.
 export function firstNoun(group: Group, data: TripResponse) {
-  const modes = new Set(group.firstRoutes.map((key) => data.routes[key]?.mode));
-  if ([...modes].every((mode) => mode === 'bart' || mode === 'light-rail')) return ['train', 'trains'] as const;
-  if ([...modes].every((mode) => mode === 'bus' || mode === 'trolleybus')) return ['bus', 'buses'] as const;
+  const modes = [...new Set(group.firstRoutes.map((key) => data.routes[key]?.mode))];
+  const all = (...kinds: (string | undefined)[]) => modes.length > 0 && modes.every((mode) => kinds.includes(mode));
+  if (all('cable-car')) return ['cable car', 'cable cars'] as const;
+  if (all('streetcar')) return ['streetcar', 'streetcars'] as const;
+  if (all('bart', 'light-rail', 'streetcar')) return ['train', 'trains'] as const;
+  if (all('bus', 'trolleybus')) return ['bus', 'buses'] as const;
   return ['vehicle', 'vehicles'] as const;
 }
 

@@ -22,14 +22,17 @@ function toView(alert: Alert, data: TripResponse, boardingStops: Set<string>): V
   const access = /elevator|escalator/i.test(alert.header);
   let severity: Severity = 'info';
   let kicker = `Notice · ${agencyOnly(alert.agency)}`;
-  if (alert.relevance === 'stop') {
+  if (alert.lineWide) {
+    // An alert that names every stop on a line is a notice about the line, not the rider's stops.
+    kicker = `Notice · ${routeNames || agencyOnly(alert.agency)}`;
+  } else if (alert.relevance === 'stop') {
     const boarding = alert.stops.find((stop) => boardingStops.has(stop));
     if (access) {
       severity = 'warning';
       kicker = `Station access · ${stopName(alert.stops[0])}`;
     } else if (boarding) {
       severity = 'severe';
-      kicker = 'Your boarding stop';
+      kicker = `Where you board · ${stopName(boarding)}`;
     } else {
       severity = 'warning';
       kicker = `At ${stopName(alert.stops[0])}`;

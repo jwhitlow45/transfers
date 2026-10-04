@@ -6,8 +6,10 @@ Status: agreed with J on 2026-10-03, except where marked "Open".
 
 A search names a **From** stop, where the rider boards the first vehicle, and a **To**, which is either the stop where they board the second vehicle or a route they want to reach.
 
-- **To is a stop.** Candidate transfer points are the stops after From on each first-leg trip that lie within walking range of the To stop. When several qualify, the one with the shortest estimated transfer is used. Example: Montgomery St BART to Muni 13477 gets off at 24th St Mission.
-- **To is a route.** Candidate transfer points are pairs of a stop after From on a first-leg trip and a stop on the target route within walking range of it. Each pair, per direction of the target route, becomes its own group. Example: 26th St & De Haro (13516) to the 22 rides the 19 inbound to Rhode Island St & 16th St (16189), then boards the 22 at 17770 (toward Fillmore, 39 m away) or 17761 (toward UCSF Mission Bay, 53 m away). The 48 also serves 13516 but never comes within 400 m of the 22, so it drops out.
+- **To is a stop.** The targets are the routes and directions boarding there, or one per platform at a rail station. Example: Montgomery St BART to Muni 13477 gets off at 24th St Mission.
+- **To is a route.** The targets are its directions. Asking for one BART line asks for both of its routes. Example: 26th St & De Haro (13516) to the 22 rides the 19 inbound to 16th St, then boards the 22 toward UCSF Mission Bay or toward Bay Street. The 48 also serves 13516 but never comes near the 22, so it drops out.
+
+Each target gets one group, worked out as below.
 
 ### Longest transfer walk
 
@@ -21,11 +23,18 @@ Straight-line limits, checked on 2026-10-03 against 511's BART station maps and 
 
 Riders set the street limit in device settings, and the station limit scales with it. The analysis scripts are not in the repo; the numbers above are the record.
 
-### Transfer points along the way
+### Choosing the transfer point
 
-Along each first-leg pattern, the stops within range of the target form stretches, and each stretch gives one transfer point: the quickest one in it. Two routes that share a street for a mile meet once, not at every stop. BART stations, a mile apart, each count separately when each sits near the same bus line. A stop only counts if it is closer to the target than the From stop, so a From stop already beside the To stop does not suggest riding away and walking back.
+Reworked on 2026-10-03 after six reviewers walked through live trips and found pages full of points no one would use.
 
-When To is a BART station, its departures are grouped by platform (direction), with every line in one group, since a rider transferring to BART cares which way the train goes.
+1. **Only what runs.** Patterns count only if a trip starts within three hours either side of now. Owl and bus-substitute patterns otherwise crowd the day, and the reverse at night. A target with nothing running gets "isn't running now, runs again Mon 7:15 AM".
+2. **Walk before riding.** If the target route stops within the usual walking range of From (or, for a named stop, anywhere on its way there), the group is a walk: "No transfer needed: the 48 stops here", or "walk 2 min to Van Ness & Sutter", with its departures. No ride is offered for that target. Riding straight to a named stop pools every route that does it into one group, showing when each reaches the stop.
+3. **First meeting place.** Along each first-leg pattern, the first run of stops within walking range of the target gives the point. Within that run, the earliest stop whose transfer is within a minute of the quickest, so the rider is not sent further for a slightly shorter walk. A stop only counts if it is closer to the target than From.
+4. **No pointless boarding.** A board stop is dropped when the target ends within walking range of where the rider got off, when the target later comes back near From or near a stop the rider just rode through (they could have boarded there), or when it comes back much closer to the alight stop than the walk to board it.
+5. **One point per direction.** Of the first-leg patterns' points, the board stop most first-leg trips can use wins, and every pattern that can reach it pools in. At a shared station, BART and Muni Metro each pick their own, and pool when they pick the same stop. A pick needing more than two minutes over the quickest is left out rather than widening everyone's window.
+6. **Stations.** Getting off on any platform of one station is getting off at the station. When To is a rail station, departures group by platform, with every line in one group, since a rider transferring to BART cares which way the train goes.
+
+Directions read as riders say them: BART uses each line's last stop ("Antioch, Richmond"), not its headsigns, which name stations behind the rider. A trip ending early says where it goes.
 
 ## Minimum transfer time
 
@@ -65,7 +74,7 @@ Default: the minimum plus the time between first-leg vehicles, at least 9 and at
 
 Each first vehicle pairs with the first second-leg departure it can make. For any departure, the best vehicle is the last one that still makes it, and its transfer falls within one first-leg headway of the minimum. A window that wide therefore shows every departure's best connection, and drops vehicles that would only wait longer for the same departure.
 
-The 20 minute cap keeps rare feeders (an hourly Golden Gate bus) from stretching the window to an hour. When nothing connects, the empty state offers the smallest wider window that would.
+The 20 minute cap keeps rare feeders (an hourly Golden Gate bus) from stretching the window to an hour. When nothing connects, the empty state offers the smallest raise of the maximum that would. The minimum never drops, since it is the time the walk takes.
 
 An earlier version widened by the second route's headway instead. That made Montgomery to the 48 run 3 to 23 on Saturdays, when the 48 comes every 20 minutes, without showing anything more useful.
 
@@ -75,7 +84,7 @@ Riders can reveal what the window filtered out: transfers below the minimum, tra
 
 ## Past the live predictions
 
-Live predictions reach about 1 to 3 hours ahead (about 67 minutes for SamTrans). Past that, departures come from the static schedule and are labeled as scheduled.
+Live predictions reach about 1 to 3 hours ahead (about 67 minutes for SamTrans). Past that, departures come from the static schedule and are labeled as scheduled. A trip the feed knows but has not predicted that far stays, at its scheduled time: it has only passed a stop when the feed's first listed stop comes after it. A scheduled trip that should be on the road but is missing from the feed, within three minutes of a live trip on the same route, is taken as that same bus and dropped.
 
 ## Where settings live
 

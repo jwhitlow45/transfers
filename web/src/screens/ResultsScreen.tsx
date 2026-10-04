@@ -72,11 +72,17 @@ export function ResultsScreen({ search }: { search: Search }) {
     scaleMinutes,
     pct: (unixSeconds) => Math.max(0, Math.min(100, ((unixSeconds * 1000 - now) / 60_000 / scaleMinutes) * 100)),
     destinationName: search.dest ? shortStopName(data?.stops[search.dest], search.destLabel ?? '') : null,
+    // Riding straight to a named stop, the arrival there is what the rider is after.
+    toName: data && 'stop' in data.to ? shortStopName(data.stops[data.to.stop]) : null,
     showHidden,
     colorOf: data ? pageColors(groups, data) : () => '#55575a',
   };
   const secondsSinceUpdate = fresh.ageSeconds ?? (fetchedAt === null ? null : Math.max(0, Math.floor((now - fetchedAt) / 1000)));
-  const window = { min: search.min ?? groups[0]?.window.min ?? 3, max: search.max ?? groups[0]?.window.max ?? 12 };
+  const window = summary.window ?? { min: search.min ?? 3, max: search.max ?? 12 };
+  const hide = search.hide ?? settings.hide;
+  // Groups with something to catch first, then by the soonest departure.
+  const firstAt = (group: (typeof groups)[number]) => visibleDepartures(group, now, showHidden).find(({ canceled }) => !canceled)?.at ?? Infinity;
+  const ordered = [...groups].sort((a, b) => firstAt(a) - firstAt(b));
   const footer = saved ? `Saved with “${saved.name}”` : 'Applies to this search. Save it to keep these settings.';
   const outages = (data?.feeds ?? []).filter(({ state }) => state === 'down' || state === 'stale');
   const liveAgencies = (data?.feeds ?? []).filter(({ state }) => state === 'live').map(({ agency }) => agencyOnly(agency));
@@ -99,8 +105,18 @@ export function ResultsScreen({ search }: { search: Search }) {
           stale={fresh.stale}
           status={
             <>
-              <span aria-hidden="true">·</span>
-              <span>Transfer {summary.windowText}</span>
+              {summary.windowText && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span>Transfer {summary.windowText}</span>
+                </>
+              )}
+              {hide > 0 && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span>Hiding departures under {hide} min</span>
+                </>
+              )}
             </>
           }
           action={<SaveButton saved={saved !== null} onToggle={toggleSaved} />}
@@ -115,7 +131,10 @@ export function ResultsScreen({ search }: { search: Search }) {
           ))}
           {error && (
             <div class="tf-empty" role="alert">
-              <div class="tf-empty__title">{error}</div>
+              <div class="tf-empty__title">{/^No (stop|route)/.test(error) ? "This stop or route isn't in the schedule anymore" : error}</div>
+              <a class="tf-link-button" href="/" onClick={(event) => (event.preventDefault(), navigate('/'))}>
+                Search again
+              </a>
             </div>
           )}
           {data && <AlertList key={data.from} alerts={viewAlerts(data, summary.boarding)} />}
@@ -148,23 +167,19 @@ export function ResultsScreen({ search }: { search: Search }) {
           {!data && feed === 'loading' ? (
             <SkeletonResults />
           ) : data && groups.length === 0 ? (
-            <div class="tf-empty">
-              <div class="tf-empty__title">No transfer between these stops</div>
-              <div class="tf-muted">They may be too far apart to walk between, or no route links them. A longer walk in Settings may help.</div>
-            </div>
+            <EmptyTrip data={data} search={search} summary={summary} maxWalk={settings.maxWalk} update={update} />
           ) : (
             data && (
               <div class="tf-groups">
-                {/* Groups with something to catch come before empty ones. */}
-                {[...groups].sort((a, b) => Number(visibleDepartures(a, now, showHidden).length === 0) - Number(visibleDepartures(b, now, showHidden).length === 0)).map((group, index) => (
+                {ordered.map((group) => (
                   <TransferPointGroup
                     key={pointId(group)}
                     group={group}
-                    kicker={'route' in data.to && groups.length > 1 ? `Transfer point ${index + 1} of ${groups.length}` : null}
                     context={context}
                     isExpanded={isExpanded}
                     onToggle={toggleCard}
-                    onWiden={(widened) => update((current) => ({ ...current, ...widened }))}
+                    // Widening raises the maximum only. The minimum is the time the walk takes.
+                    onWiden={(widened) => update((current) => ({ ...current, max: widened.max }))}
                     onShowHidden={() => setShowHidden(true)}
                   />
                 ))}
@@ -195,10 +210,46 @@ export function ResultsScreen({ search }: { search: Search }) {
           footer={footer}
           chain={summary.chain}
           destinationsUrl={destinationsUrl}
+          deviceHide={settings.hide}
           update={update}
           onClose={() => setSheet('none')}
         />
       )}
     </>
+  );
+}
+
+const weekdayTime = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', weekday: 'short', hour: 'numeric', minute: '2-digit' });
+
+// Why nothing showed up, in the rider's terms, with the one thing that might help.
+function EmptyTrip({ data, search, summary, maxWalk, update }: { data: TripResponse; search: Search; summary: ReturnType<typeof summarize>; maxWalk: number; update: SearchUpdate }) {
+  const notice = data.notice;
+  const to = summary.toRoute ? `the ${summary.to}` : summary.to;
+  if (notice?.kind === 'idle') {
+    return (
+      <div class="tf-empty">
+        <div class="tf-empty__title">{summary.toRoute ? `The ${summary.to} isn't running now` : `Nothing stops at ${summary.to} for a while`}</div>
+        <div class="tf-muted">{notice.next ? `It runs again ${weekdayTime.format(notice.next * 1000)}.` : 'It does not run in the next few days.'}</div>
+      </div>
+    );
+  }
+  if (notice?.kind === 'destination') {
+    return (
+      <div class="tf-empty">
+        <div class="tf-empty__title">Nothing from here reaches {search.destLabel ?? 'your destination'}</div>
+        <div class="tf-muted">No route you could transfer to goes on to that stop.</div>
+        <button type="button" class="tf-btn-outline tf-btn-secondary" onClick={() => update(({ dest: _dest, destLabel: _label, ...rest }) => rest)}>
+          Clear the destination
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div class="tf-empty">
+      <div class="tf-empty__title">
+        Nothing from {summary.from} gets within a short walk of {to}
+      </div>
+      <div class="tf-muted">{maxWalk < 650 ? 'A longer walk between stops, in Settings, may find one.' : 'Try a stop or route closer to where you start.'}</div>
+    </div>
   );
 }

@@ -8,7 +8,7 @@ import { pageColors, pointId, visibleDepartures } from './results.ts';
 export function summarize(search: Search, data: TripResponse | null, now: number) {
   const groups = (data?.groups ?? []).filter((group) => !search.off?.includes(pointId(group)));
   const from = data ? shortStopName(data.stops[data.from], search.fromLabel) : search.fromLabel;
-  const alights = [...new Set(groups.map(({ alight }) => alight))];
+  const alights = [...new Set(groups.filter(({ kind }) => kind !== 'walk').map(({ alight }) => alight))];
   // With several places to get off, each group says its own, and the header names none.
   const via = alights.length === 1 ? shortStopName(data?.stops[alights[0]!], '') : null;
   const toRoute = data && 'route' in data.to ? data.routes[data.to.route] : undefined;
@@ -16,8 +16,11 @@ export function summarize(search: Search, data: TripResponse | null, now: number
   const onlyRoute = routeSets.length === 1 && groups[0]?.routes.length === 1 ? data?.routes[groups[0].routes[0]!] : undefined;
   const toRouteShown = toRoute ?? onlyRoute;
   const to = toRouteShown ? chipLabel(toRouteShown) : search.toLabel;
-  const windows = groups.map(({ window }) => window);
-  const window = windows.length === 0 ? { min: search.min ?? 3, max: search.max ?? 12 } : { min: Math.min(...windows.map(({ min }) => min)), max: Math.max(...windows.map(({ max }) => max)) };
+  // The window the page talks about: the rider's own, or the first transfer point's that has
+  // something to catch. The header, the bottom bar, and the sheet all show this one.
+  const rides = groups.filter(({ kind }) => kind !== 'walk');
+  const lead = rides.find((group) => visibleDepartures(group, now, false).some(({ canceled }) => !canceled)) ?? rides[0];
+  const window = lead ? { min: search.min ?? lead.window.min, max: search.max ?? lead.window.max } : null;
 
   // The soonest first vehicle that makes a connection, with both legs and their lateness.
   let next: { minutes: number; line: string } | null = null;
@@ -40,11 +43,25 @@ export function summarize(search: Search, data: TripResponse | null, now: number
     }
   }
 
+  // With nothing to connect, a route that already stops here leads with its own next departure.
+  if (!next) {
+    for (const group of groups.filter(({ kind }) => kind === 'walk')) {
+      const departure = visibleDepartures(group, now, false).find(({ canceled }) => !canceled);
+      if (!departure || departure.at >= soonest) continue;
+      soonest = departure.at;
+      const route = data!.routes[departure.route];
+      next = {
+        minutes: Math.floor((departure.at * 1000 - now) / 60_000),
+        line: `${route ? chipLabel(route) : ''} ${clock(departure.at)} (${statusOf(departure.delay, departure.live).label.toLowerCase()}) · no transfer needed`,
+      };
+    }
+  }
+
   const boarding = new Set([data?.from, ...groups.map(({ board }) => board)].filter((key) => key !== undefined));
   const severeAlerts = (data?.alerts ?? []).filter(({ relevance, stops }) => relevance === 'stop' && stops.some((stop) => boarding.has(stop))).length;
 
   // The route a saved search is about: the one transferred to, in the color the results give it.
   const lineColor = data && (toRouteShown ?? (groups[0] ? data.routes[groups[0].routes[0]!] : undefined)) ? pageColors(groups, data)((toRouteShown ?? data.routes[groups[0]!.routes[0]!])!.key) : null;
 
-  return { groups, from, via, to, toRoute: toRouteShown, lineColor, window, windowText: windowText(window), next, boarding, severeAlerts, chain: [from, via, to].filter(Boolean).join(' → ') };
+  return { groups, from, via, to, toRoute: toRouteShown, lineColor, window, windowText: window ? windowText(window) : null, next, boarding, severeAlerts, chain: [from, via, to].filter(Boolean).join(' → ') };
 }

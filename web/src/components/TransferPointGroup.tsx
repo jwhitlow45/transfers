@@ -6,9 +6,8 @@ import { DepartureCard } from './DepartureCard.tsx';
 import { RouteChip } from './RouteChip.tsx';
 
 // One group per connecting route, or per transfer point when To is a route. Up to 3 departures.
-export function TransferPointGroup({ group, kicker, context, isExpanded, onToggle, onWiden, onShowHidden }: {
+export function TransferPointGroup({ group, context, isExpanded, onToggle, onWiden, onShowHidden }: {
   group: Group;
-  kicker: string | null;
   context: CardContext;
   // Whether a departure's card is open, given whether it is the group's first.
   isExpanded: (trip: string, first: boolean) => boolean;
@@ -32,12 +31,20 @@ export function TransferPointGroup({ group, kicker, context, isExpanded, onToggl
   const station = board?.serves ? 'BART and Muni Metro station' : board ? `${agencyName(board)} station` : null;
   const place = [board?.direction, `at ${boardName}`, board?.code ? `stop ${board.code}` : station].filter(Boolean).join(' · ');
   const firstOpen = departures.find(({ canceled }) => !canceled)?.trip;
-  // Where to get off says it once here, so each row only needs the time.
-  const off = sameStop ? `Transfer at ${boardName}` : `${alightVerb(group, data)} ${alightName} · ${walkMinutes(group.walkMeters)} min walk`;
+  const walk = group.kind === 'walk';
+  const routeNames = familyName(group.routes, data);
+  // Where to get off says it once here, so each row only needs the time. A walk group has no
+  // first vehicle: the route is right here, or a short walk away.
+  const off = walk
+    ? group.walkMeters < 15
+      ? `No transfer needed: ${routeNames} ${group.routes.length > 1 && !/^(BART|Muni Metro)/.test(routeNames) ? 'stop' : 'stops'} here`
+      : `No transfer needed: walk ${walkMinutes(group.walkMeters)} min to ${boardName}`
+    : sameStop
+      ? `Transfer at ${boardName}`
+      : `${alightVerb(group, data)} ${alightName} · ${walkMinutes(group.walkMeters)} min walk`;
   return (
     <section class="tf-group">
       <div>
-        {kicker && <div class="tf-kicker">{kicker}</div>}
         <h2 class="tf-group__title">
           {routes.length > 4 ? (
             // A group pooling BART and Muni Metro would carry nine chips. One per system says the
@@ -57,7 +64,11 @@ export function TransferPointGroup({ group, kicker, context, isExpanded, onToggl
         <div class="tf-group__meta">{place}</div>
         <div class="tf-group__off">{off}</div>
       </div>
-      {departures.length === 0 ? (
+      {departures.length === 0 && walk ? (
+        <div class="tf-empty">
+          <div class="tf-empty__title">No {routeLabel.replace(/^the /, '')} coming soon</div>
+        </div>
+      ) : departures.length === 0 ? (
         <div class="tf-empty">
           <div class="tf-empty__title">
             No {firstWord(group, data)} connects to {routeLabel} within {windowText(group.window)}
@@ -84,6 +95,7 @@ export function TransferPointGroup({ group, kicker, context, isExpanded, onToggl
             boardName={boardName}
             alightName={alightName}
             noun={noun}
+            walk={walk}
             expanded={isExpanded(departure.trip, departure.trip === firstOpen)}
             onToggle={() => onToggle(departure.trip, departure.trip === firstOpen)}
             colorOf={colorOf}

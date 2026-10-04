@@ -17,7 +17,8 @@ export function TimeBar({ rideStart, rideEnd, gapEnd, busEnd, busColor }: { ride
 export function TimeTicks({ scaleMinutes }: { scaleMinutes: number }) {
   const step = [15, 30, 60, 120].find((candidate) => scaleMinutes / candidate <= 5) ?? 120;
   const ticks: number[] = [];
-  for (let minute = 0; minute < scaleMinutes; minute += step) ticks.push(minute);
+  // A label past most of the width would run off the card's edge.
+  for (let minute = 0; minute <= scaleMinutes * 0.85; minute += step) ticks.push(minute);
   return (
     <div class="tf-ticks" aria-hidden="true">
       {ticks.map((minute) => (

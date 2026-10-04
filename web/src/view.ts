@@ -19,6 +19,11 @@ export const spokenRoute = (route: Route) => (route.agency === 'BA' ? `BART ${ro
 // BART's station names are long ("24th Street / Mission"). Headers use the short form riders say.
 export function shortStopName(stop: Stop | undefined, fallback = '') {
   if (!stop) return fallback;
+  if (stop.agency === 'SF') {
+    // Muni's platform names: "Metro Civic Center Station/Outbd" is Civic Center Station.
+    const station = stop.name.match(/^(?:Metro )?(.+? Station)(?:\/.*| (?:Outbound|Inbound|Northbound|Southbound|Downtown))?$/);
+    return station ? station[1]! : stop.name;
+  }
   if (stop.agency !== 'BA') return stop.name;
   const name = stop.name.replace(/\bStreet\b/g, 'St');
   const [first, second] = name.split(' / ');

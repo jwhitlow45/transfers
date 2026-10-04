@@ -10,7 +10,7 @@ export function SavedSearchCard({ name, color, chain, windowText, next, loading,
   name: string;
   color: string | undefined;
   chain: string;
-  windowText: string;
+  windowText: string | null;
   next: NextConnection | null;
   loading: boolean;
   severeAlerts: number;
@@ -90,9 +90,7 @@ export function SavedSearchCard({ name, color, chain, windowText, next, loading,
             onOpen();
           }}
         >
-          <span class="tf-saved__chain">
-            {chain} · {windowText}
-          </span>
+          <span class="tf-saved__chain">{windowText ? `${chain} · ${windowText}` : chain}</span>
           <span class="tf-saved__count">
             <span class="tf-saved__lead">{!next ? (loading ? 'Checking' : 'No connection') : now ? 'Arriving' : 'Arrives in'}</span>
             {next && <span class="tf-saved__num">{now ? 'Now' : next.minutes}</span>}

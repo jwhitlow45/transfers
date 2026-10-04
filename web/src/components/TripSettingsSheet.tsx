@@ -70,8 +70,10 @@ export function TransferWindowSheet({ search, window, footer, showHidden, update
   );
 }
 
-export function TripSettingsSheet({ search, data, window, footer, chain, destinationsUrl, update, onClose }: {
+export function TripSettingsSheet({ search, data, window, footer, chain, destinationsUrl, deviceHide, update, onClose }: {
   search: Search;
+  // The device's own default, which this search uses until it sets its own.
+  deviceHide: number;
   data: TripResponse | null;
   window: Window;
   footer: string;
@@ -114,8 +116,8 @@ export function TripSettingsSheet({ search, data, window, footer, chain, destina
       <Stepper
         label="Hide departures leaving in less than"
         help="Time to reach your first stop"
-        value={search.hide ?? 0}
-        onChange={(value) => update((current) => ({ ...current, hide: value || undefined }))}
+        value={search.hide ?? deviceHide}
+        onChange={(value) => update((current) => ({ ...current, hide: value }))}
       />
       <label class="tf-setting tf-setting--block">
         <span class="tf-setting__label">Destination stop</span>

@@ -10,7 +10,7 @@ import { TimeTicks } from './TimeBar.tsx';
 
 // One second-leg departure: a reversed band, then every first vehicle that makes it. The band
 // opens and closes the card. Closed, it keeps one line of countdowns for those vehicles.
-export function DepartureCard({ departure, group, next, boardName, alightName, noun, expanded, onToggle, colorOf, context }: {
+export function DepartureCard({ departure, group, next, boardName, alightName, noun, walk, expanded, onToggle, colorOf, context }: {
   departure: Departure;
   group: Group;
   // The next departure still running, for the canceled note.
@@ -18,6 +18,8 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
   boardName: string;
   alightName: string;
   noun: readonly [string, string];
+  // A route already at or near From: the card is just the departure, with nothing to open.
+  walk: boolean;
   expanded: boolean;
   onToggle: () => void;
   colorOf: (routeKey: string) => string;
@@ -40,36 +42,57 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
   const scheduled = !departure.live;
   const status = statusOf(departure.delay, departure.live);
   const minutes = minutesUntil(departure.at, context.now);
-  const destination = context.destinationName && departure.destination ? `${context.destinationName} ${clock(departure.destination)}` : null;
+  const destinationName = context.destinationName ?? (walk ? context.toName : null);
+  const destination = destinationName && departure.destination ? `${destinationName} ${clock(departure.destination)}` : null;
+  const toward = departure.toward ? `To ${departure.toward}` : null;
   const count = departure.connections.length;
   const countdowns = departure.connections.map(({ departs }) => Math.max(0, minutesUntil(departs, context.now)));
   const summary = `${count} ${noun[count === 1 ? 0 : 1]} · in ${countdowns.join(', ')} min`;
   const spoken =
     `${route ? spokenRoute(route) : 'Departure'} at ${clock(departure.at)}, ${status.label}${scheduled ? ', no live prediction' : ''}, ` +
-    `${minutes} minutes away${destination ? `, reaches ${destination}` : ''}. ${count} connecting ${noun[count === 1 ? 0 : 1]}${expanded ? '' : `, leaving in ${countdowns.join(', ')} minutes`}.`;
+    `${minutes} minutes away${toward ? `, ${toward.toLowerCase()}` : ''}${destination ? `, reaches ${destination}` : ''}.` +
+    (walk ? '' : ` ${count} connecting ${noun[count === 1 ? 0 : 1]}${expanded ? '' : `, leaving in ${countdowns.join(', ')} minutes`}.`);
+  const band = (
+    <>
+      <span class="tf-sr">{spoken}</span>
+      <span class="tf-band__main" aria-hidden="true">
+        <span class="tf-band__line">
+          <RouteChip route={route} size="band" color={color} />
+          {scheduled && <IconClock />}
+          <span class="tf-band__time">{clock(departure.at)}</span>
+          <StatusTag status={status} />
+        </span>
+        <span class="tf-band__sub">
+          {[toward, scheduled ? 'Scheduled time, no live prediction' : walk ? null : `Arrives at ${boardName}`].filter(Boolean).join(' · ')}
+        </span>
+        {destination && <span class="tf-band__dest">{destination}</span>}
+      </span>
+      <span class="tf-band__right" aria-hidden="true">
+        <span class="tf-band__in">{minutes < 1 ? 'Now' : `${scheduled ? '~' : ''}${minutes} min`}</span>
+        <span class="tf-band__inlabel">{scheduled ? 'by schedule' : 'away'}</span>
+        {!walk && (
+          <span class="tf-band__chev">
+            <IconChevron size={18} />
+          </span>
+        )}
+      </span>
+    </>
+  );
   const panel = `connections-${departure.trip.replace(/[^\w-]/g, '_')}`;
+  if (walk) {
+    return (
+      <article class="tf-card tf-card--walk">
+        <h3 class="tf-card__heading">
+          <div class="tf-band">{band}</div>
+        </h3>
+      </article>
+    );
+  }
   return (
     <article class={`tf-card${expanded ? '' : ' tf-card--closed'}`}>
       <h3 class="tf-card__heading">
         <button type="button" class="tf-band" aria-expanded={expanded} aria-controls={panel} onClick={onToggle}>
-          <span class="tf-sr">{spoken}</span>
-          <span class="tf-band__main" aria-hidden="true">
-            <span class="tf-band__line">
-              <RouteChip route={route} size="band" color={color} />
-              {scheduled && <IconClock />}
-              <span class="tf-band__time">{clock(departure.at)}</span>
-              <StatusTag status={status} />
-            </span>
-            <span class="tf-band__sub">{scheduled ? 'Scheduled time, no live prediction' : `Arrives at ${boardName}`}</span>
-            {destination && <span class="tf-band__dest">{destination}</span>}
-          </span>
-          <span class="tf-band__right" aria-hidden="true">
-            <span class="tf-band__in">{minutes < 1 ? 'Now' : `${scheduled ? '~' : ''}${minutes} min`}</span>
-            <span class="tf-band__inlabel">{scheduled ? 'by schedule' : 'away'}</span>
-            <span class="tf-band__chev">
-              <IconChevron size={18} />
-            </span>
-          </span>
+          {band}
         </button>
       </h3>
       <div id={panel}>

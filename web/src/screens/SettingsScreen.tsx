@@ -40,17 +40,17 @@ export function SettingsScreen() {
               ))}
             </div>
           </div>
-          <label class="tf-setting tf-setting--block">
-            <span class="tf-setting__label">Longest walk between stops</span>
-            <span class="tf-setting__help">Walks to and from BART and Muni Metro stations may run half again as far</span>
-            <select class="tf-select" value={String(settings.maxWalk)} onChange={(event) => update({ maxWalk: Number(event.currentTarget.value) })}>
+          <div class="tf-setting">
+            <div class="tf-setting__label">Longest walk between stops</div>
+            <div class="tf-setting__help">Walks to and from BART and Muni Metro stations can be up to 50% longer. 300 m is the default.</div>
+            <div class="tf-filters">
               {WALKS.map((meters) => (
-                <option key={meters} value={String(meters)}>
-                  {meters} m, about {Math.round((meters * 1.3) / settings.walkSpeed / 60)} min{meters === 300 ? ' (default)' : ''}
-                </option>
+                <Toggle key={meters} pressed={settings.maxWalk === meters} onToggle={() => update({ maxWalk: meters })}>
+                  {meters} m · {Math.max(1, Math.round((meters * 1.3) / settings.walkSpeed / 60))} min
+                </Toggle>
               ))}
-            </select>
-          </label>
+            </div>
+          </div>
         </section>
 
         <section class="tf-section tf-section--tight" aria-labelledby="window-heading">
