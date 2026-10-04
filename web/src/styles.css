@@ -499,3 +499,11 @@ button.tf-band:hover { filter: brightness(1.12); }
 .tf-slider--range input { pointer-events: none; }
 .tf-slider--range input::-webkit-slider-thumb { pointer-events: auto; }
 .tf-slider--range input::-moz-range-thumb { pointer-events: auto; }
+
+/* ── how it works (home) ───────────────────────────── */
+.tf-about summary { display: flex; align-items: center; justify-content: space-between; min-height: var(--tap-min); list-style: none; cursor: pointer; font-size: var(--text-sm); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-kicker); text-transform: uppercase; color: var(--muted); }
+.tf-about summary::-webkit-details-marker { display: none; }
+.tf-about summary svg { transition: transform 150ms; }
+.tf-about[open] summary svg { transform: rotate(180deg); }
+.tf-about p { margin: 0 0 var(--space-3); font-size: var(--text-base); line-height: 1.45; }
+@media (prefers-reduced-motion: reduce) { .tf-about summary svg { transition: none; } }

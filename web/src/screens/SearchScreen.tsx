@@ -8,7 +8,7 @@ import { SearchFields } from '../components/SearchFields.tsx';
 import { type SearchHit, StopResults, hitMeta, hitName } from '../components/StopResults.tsx';
 import { clock } from '../format.ts';
 import { useNow, usePoll } from '../hooks.ts';
-import { IconGear, IconLocation } from '../icons/ui.tsx';
+import { IconChevron, IconGear, IconLocation } from '../icons/ui.tsx';
 import { defaultSavedColor } from '../lib/color.ts';
 import { ageText, clockSkewMs, freshness } from '../lib/freshness.ts';
 import { type LocationProblem, handOver, locate, locationProblemText } from '../lib/location.ts';
@@ -187,11 +187,34 @@ export function SearchScreen() {
                 setRecentVersion((version) => version + 1);
               }}
             />
+            <HowItWorks open={saved.length === 0 && recent.length === 0} />
             <DataCredit />
           </>
         )}
       </main>
     </div>
+  );
+}
+
+// What Transfers is for. Open on a first visit, and folded once the rider has searches of
+// their own.
+function HowItWorks({ open }: { open: boolean }) {
+  return (
+    <details class="tf-about" open={open}>
+      <summary>
+        How Transfers works
+        <IconChevron size={18} />
+      </summary>
+      <p>
+        Pick where you start and the stop or route you are transferring to. Transfers pairs each vehicle leaving your stop with the first connection it makes, using live
+        times from 511, and shows how long you have to make each transfer.
+      </p>
+      <p>
+        It helps most going from frequent service to infrequent, such as BART to a bus that comes every 20 minutes, where the train you catch decides whether you make
+        the bus.
+      </p>
+      <p>You set the transfer window, the shortest and longest transfer you will accept, so it shows tight connections a trip planner would leave out.</p>
+    </details>
   );
 }
 
