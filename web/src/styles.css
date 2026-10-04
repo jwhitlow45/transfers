@@ -188,8 +188,8 @@ button:disabled { opacity: .45; cursor: default; }
 /* The next connection, laid out like a results row: countdown on the left, and to its right each
    vehicle with its time and status, and the transfer between them. */
 .tf-saved__row { display: grid; grid-template-columns: var(--countdown-col) minmax(0, 1fr); gap: var(--space-3); align-items: start; margin-top: var(--space-3); }
-.tf-saved__next { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding-top: 2px; font-size: 15px; }
-.tf-saved__leg-wrap { display: contents; }
+.tf-saved__next { min-width: 0; padding-top: 2px; font-size: 15px; }
+.tf-saved__drawn { display: flex; flex-direction: column; gap: 2px; }
 /* A vehicle's status drops under its time on the narrowest screens rather than being cut off. */
 .tf-saved__leg { display: flex; flex-wrap: wrap; align-items: center; column-gap: 6px; }
 .tf-saved__leg > * { white-space: nowrap; }

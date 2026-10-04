@@ -110,7 +110,7 @@ export function SavedSearchCard({ name, color, chain, named, windowText, next, l
           {/* The countdown column of a results row, with the connection to its right: each vehicle
               on a line of its own, and the transfer between them, so nothing wraps. */}
           <span class="tf-saved__row">
-            <span class="tf-saved__count" aria-hidden="true">
+            <span class="tf-saved__count">
               <span class="tf-row__lead">{!next ? (loading ? 'Checking' : 'No connection') : now ? 'Arriving' : 'Arrives in'}</span>
               {next && <span class="tf-row__num">{now ? 'Now' : next.minutes}</span>}
               {next && !now && <span class="tf-row__unit">min</span>}
@@ -118,26 +118,22 @@ export function SavedSearchCard({ name, color, chain, named, windowText, next, l
             {next ? (
               <span class="tf-saved__next">
                 <span class="tf-sr">{next.line}</span>
-                {next.legs.map((leg, index) => (
-                  <span key={index} class="tf-saved__leg-wrap" aria-hidden="true">
-                    {index > 0 && next.transfer !== null && (
-                      <span class="tf-saved__xfer">
+                <span class="tf-saved__drawn" aria-hidden="true">
+                  {next.legs.map((leg, index) => [
+                    index > 0 && next.transfer !== null && (
+                      <span key={`xfer${index}`} class="tf-saved__xfer">
                         <IconTransfer />
                         {next.transfer} min transfer
                       </span>
-                    )}
-                    <span class="tf-saved__leg">
+                    ),
+                    <span key={`leg${index}`} class="tf-saved__leg">
                       <RouteChip route={leg.route} size="sm" />
                       <span class="tf-saved__time">{clock(leg.at)}</span>
                       <StatusTag status={leg.status} plain />
-                    </span>
-                  </span>
-                ))}
-                {next.transfer === null && (
-                  <span class="tf-saved__xfer" aria-hidden="true">
-                    No transfer needed
-                  </span>
-                )}
+                    </span>,
+                  ])}
+                  {next.transfer === null && <span class="tf-saved__xfer">No transfer needed</span>}
+                </span>
               </span>
             ) : (
               <span class="tf-saved__next tf-muted">{loading ? 'Getting live predictions…' : 'Open to widen the window'}</span>

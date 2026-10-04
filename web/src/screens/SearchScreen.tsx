@@ -164,7 +164,7 @@ export function SearchScreen() {
                       search={search}
                       now={now}
                       onEdit={(change) =>
-                        updateSaved(loadSaved().map((item) => (item.id === search.id ? { ...item, ...change, renamed: item.renamed || change.name !== item.name } : item)))
+                        updateSaved(loadSaved().map((item) => (item.id === search.id ? { ...item, ...change, renamed: change.name !== item.name ? true : item.renamed } : item)))
                       }
                       onColorless={(lineColor) => {
                         // Saved before colors existed: take one now, avoiding the rest.

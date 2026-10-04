@@ -111,7 +111,13 @@ export const findSaved = (search: Search) => loadSaved().find((item) => item.id 
 
 // Keeps a saved search's settings in step with the trip screen, which owns them while open.
 export function updateSaved(search: Search) {
-  saveSaved(loadSaved().map((item) => (item.id === searchId(search) ? { ...search, id: item.id, name: item.name, ...(item.color ? { color: item.color } : {}) } : item)));
+  saveSaved(
+    loadSaved().map((item) =>
+      item.id === searchId(search)
+        ? { ...search, id: item.id, name: item.name, ...(item.color ? { color: item.color } : {}), ...(item.renamed !== undefined ? { renamed: item.renamed } : {}) }
+        : item,
+    ),
+  );
 }
 
 // What the search screen's fields held when the rider left it, so coming back restores them.
