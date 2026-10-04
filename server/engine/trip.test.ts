@@ -81,6 +81,8 @@ function feeds() {
           '13486,13486,24th St & Valencia St,37.752300,-122.420900',
           '13477,13477,24th St & Mission St,37.752178,-122.41855',
           '13500,13500,24th St & Potrero Ave,37.752900,-122.406500',
+          // No route stops here. It is a block from Potrero, where the 48 ends.
+          '13501,13501,24th St & Hampshire St,37.752900,-122.407500',
           '16994,16994,Metro Montgomery Station/Outbound,37.789200,-122.401700',
           '16998,16998,Metro Church Station/Outbound,37.767194,-122.429168',
         ].join('\n'),
@@ -281,11 +283,20 @@ test('a walk group with a destination boards where the route still reaches it, a
   const reaches = planTrip(schedule, realtime(), { from: 'SF:13486', to: 'route:SF:48', dest: 'SF:13500' }, NOW);
   deepStrictEqual(reaches.groups.map(({ kind, board }) => `${kind} ${board}`), ['walk SF:13486']);
   strictEqual(reaches.notice, undefined);
-  // Valencia is where the 48 starts here, so nothing reaches it. That is the destination's
-  // doing, not a gap in service.
-  const behind = planTrip(schedule, realtime(), { from: 'SF:13486', to: 'route:SF:48', dest: 'SF:13486' }, NOW);
-  deepStrictEqual(behind.groups, []);
-  deepStrictEqual(behind.notice, { kind: 'destination' });
+  // The 48 here never goes downtown. That is the destination's doing, not a gap in service.
+  const away = planTrip(schedule, realtime(), { from: 'SF:13486', to: 'route:SF:48', dest: 'BA:901209' }, NOW);
+  deepStrictEqual(away.groups, []);
+  deepStrictEqual(away.notice, { kind: 'destination' });
+});
+
+test('a named stop a short walk from From is said to be a walk', () => {
+  // Potrero is a block away, and nothing rides there from here.
+  const response = planTrip(schedule, realtime(), { from: 'SF:13501', to: 'SF:13500' }, NOW);
+  deepStrictEqual(response.groups, []);
+  deepStrictEqual(response.notice, { kind: 'walkable', stop: 'SF:13500', meters: 88 });
+  ok(response.stops['SF:13500']);
+  // The same as a destination.
+  deepStrictEqual(planTrip(schedule, realtime(), { from: 'SF:13501', to: 'route:SF:48', dest: 'SF:13500' }, NOW).notice, { kind: 'walkable', stop: 'SF:13500', meters: 88 });
 });
 
 test('when the route to catch runs but nothing from From does, the notice says so', () => {

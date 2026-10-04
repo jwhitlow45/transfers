@@ -14,6 +14,7 @@ import { type SearchUpdate, TripSettingsSheet } from '../components/TripSettings
 import { useSwipeBack } from '../gestures.ts';
 import { useNow, usePoll } from '../hooks.ts';
 import { defaultSavedColor } from '../lib/color.ts';
+import { walkMinutes } from '../format.ts';
 import { viewAlerts } from '../lib/alerts.ts';
 import { ageText, clockSkewMs, freshness } from '../lib/freshness.ts';
 import { IconHidden, IconTransfer } from '../icons/ui.tsx';
@@ -243,6 +244,16 @@ function EmptyTrip({ data, search, summary, maxWalk, update }: { data: TripRespo
           Nothing from {summary.from} connects to {toName} at this hour
         </div>
         <div class="tf-muted">{again(notice.next, `Service from ${summary.from}`)}</div>
+      </div>
+    );
+  }
+  if (notice?.kind === 'walkable') {
+    return (
+      <div class="tf-empty">
+        <div class="tf-empty__title">
+          {shortStopName(data.stops[notice.stop], notice.stop)} is a {walkMinutes(notice.meters)} min walk from {summary.from}
+        </div>
+        <div class="tf-muted">Walking there is about as quick as any ride.</div>
       </div>
     );
   }

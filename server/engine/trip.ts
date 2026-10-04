@@ -7,7 +7,8 @@ import { type Link, findLinks } from './links.ts';
 import type { RouteRow } from '../schedule.ts';
 import { firstLegs, secondLegs } from './vehicles.ts';
 import { Tables } from './views.ts';
-import { defaultMaximum } from './walk.ts';
+import { DEFAULT_MAX_WALK_METERS, defaultMaximum } from './walk.ts';
+import { distanceMeters } from '../geo.ts';
 
 export type TripRequest = {
   from: string;
@@ -116,6 +117,7 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
   const allLinks = cachedLinks(schedule, from, to, request, now);
   const links = destination ? towardDestination(schedule, allLinks, destination, toStop ?? null) : allLinks;
   const notice = links.length > 0 ? undefined : emptyNotice(schedule, from, to, request, destination, toStop ?? null, now);
+  if (notice?.kind === 'walkable') tables.stop(schedule.stopsByKey.get(notice.stop)!);
   const firstFilter = request.firstRoutes?.length ? new Set(request.firstRoutes) : null;
   const secondFilter = request.secondRoutes?.length ? new Set(request.secondRoutes) : null;
   const context = { schedule, snapshot: realtime.trips, now };
@@ -309,6 +311,14 @@ function walkDepartures(second: SecondLeg[], now: number, walkMinutes: number): 
 // at another hour. When the routes to transfer to are not running, the notice is about them.
 // When they are, it is the routes from From that are not, and the notice says so.
 function emptyNotice(schedule: Schedule, from: StopRow, to: { stop: StopRow } | { route: RouteRow }, request: TripRequest, destination: StopRow | null, toStop: StopRow | null, now: number): Notice {
+  // A named stop a short walk from From is the answer itself, whatever else is running. Routes
+  // that only reach it on their last stops are dropped as rides to somewhere walkable, and J
+  // wants the page to say it is a walk rather than show those buses.
+  const named = destination ?? toStop;
+  if (named) {
+    const meters = Math.round(distanceMeters(from, named));
+    if (meters <= (request.walk ?? DEFAULT_MAX_WALK_METERS)) return { kind: 'walkable', stop: stopKeyOf(named), meters };
+  }
   // The same links as the results would have at any hour, so the reason matches what they show.
   const all = cachedLinks(schedule, from, to, request, null);
   const always = destination ? towardDestination(schedule, all, destination, toStop) : all;

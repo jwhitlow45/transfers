@@ -154,7 +154,14 @@ export type FeedStatus = { agency: AgencyId; state: 'live' | 'stale' | 'schedule
 //   destination: nothing from here reaches the destination.
 //   unreachable: no route from From comes within a walk of To.
 //   filtered: transfers exist, but the rider's route filters hide them all.
-export type Notice = { kind: 'idle'; side: 'to' | 'from'; next: number | null } | { kind: 'destination' } | { kind: 'unreachable' } | { kind: 'filtered' };
+// walkable: the stop the rider named, as To or the destination, is itself a short walk from
+// From (`stop`, `meters` away in a straight line).
+export type Notice =
+  | { kind: 'idle'; side: 'to' | 'from'; next: number | null }
+  | { kind: 'destination' }
+  | { kind: 'unreachable' }
+  | { kind: 'filtered' }
+  | { kind: 'walkable'; stop: string; meters: number };
 
 export type TripResponse = {
   notice?: Notice;
