@@ -22,10 +22,12 @@ function useSettling<T>(value: T, same: (a: T, b: T) => boolean, onChange: (valu
   latest.current = onChange;
   const flush = () => {
     clearTimeout(timer.current);
-    if (!pending.current) return;
-    committed.current = pending.current.value;
-    latest.current(pending.current.value);
+    const waiting = pending.current;
     pending.current = null;
+    // Only a real change commits: a touch that moved nothing must not fix a suggested window.
+    if (!waiting || same(waiting.value, committed.current)) return;
+    committed.current = waiting.value;
+    latest.current(waiting.value);
   };
   useEffect(() => {
     if (same(value, committed.current)) return;
@@ -117,6 +119,11 @@ export function WindowSlider({ label, help, window, onChange }: { label: string;
     drag.current = { pointer: false, meeting: false, moves: null };
     commit(next.current);
   };
+  // A pointer that lifts, or that the page took for a scroll, commits only if it moved a thumb.
+  const release = () => {
+    if (drag.current.pointer && drag.current.moves !== null) end();
+    else drag.current = { pointer: false, meeting: false, moves: null };
+  };
   return (
     <div class="tf-setting" role="group" aria-labelledby={labelId}>
       <div class="tf-slider__head">
@@ -140,8 +147,8 @@ export function WindowSlider({ label, help, window, onChange }: { label: string;
             aria-label={own === 'min' ? 'Shortest transfer' : 'Longest transfer'}
             aria-valuetext={spoken(shown[own])}
             onPointerDown={start}
-            onPointerUp={() => drag.current.pointer && end()}
-            onPointerCancel={() => drag.current.pointer && end()}
+            onPointerUp={release}
+            onPointerCancel={release}
             onBlur={settle.onBlur}
             onInput={(event) => move(own, Number(event.currentTarget.value), event.currentTarget)}
             onChange={() => !drag.current.pointer && end()}
