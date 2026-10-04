@@ -133,18 +133,23 @@ function placeLeg(schedule: Schedule, live: Live, request: TrackRequest, now: nu
   const watched = marked[(request.marks ?? []).indexOf(request.stop)];
   const targetAt = watched ?? visits.find((index) => index >= vehicleAt) ?? visits.at(-1)!;
   const coming = vehicleAt !== -1 && vehicleAt <= targetAt;
-  const markedAt = marked.filter((index) => index !== null);
+  // The rider's marked stops still ahead of the vehicle, or all of them with no position. A fresh
+  // picture leaves out stops the vehicle has passed, so fitting it later zooms in.
+  const markedAt = marked.filter((index): index is number => index !== null && (vehicleAt === -1 || index >= vehicleAt - 1));
   // From the stop behind the vehicle, so it sits on the line, to one past the rider's, or on to
-  // the vehicle when it has gone past, and taking in every marked stop.
+  // the vehicle when it has gone past, and taking in the marked stops ahead.
   const span = request.span && request.span[0] >= 0 && request.span[0] <= request.span[1] && request.span[1] < stops.length ? request.span : null;
   // Once the vehicle has left where the rider gets on, their first marked stop, a pinned picture
   // drops what came before it, once, so a long ride zooms in on what is left of it, when the
   // rider has that setting on.
   const boardAt = marked.find((index) => index !== null) ?? null;
   const pinnedFrom = span && request.fitOnBoard && boardAt !== null && vehicleAt > boardAt ? Math.max(span[0], boardAt) : span?.[0];
-  // A pinned span grows only to take in a vehicle that has left it, so it stays on the line.
-  const from = span ? (vehicleAt === -1 ? pinnedFrom! : Math.min(pinnedFrom!, vehicleAt)) : Math.max(0, Math.min(coming ? Math.min(vehicleAt - 1, estimate?.from ?? vehicleAt) : targetAt - STOPS_BEFORE, ...markedAt));
-  const to = span ? Math.max(span[1], vehicleAt) : Math.min(stops.length - 1, Math.max(targetAt + 1, vehicleAt, ...markedAt));
+  // A pinned span grows only to take in a vehicle that has left it, so it stays on the line, or the
+  // stop watched, when a loop moves it to a visit outside.
+  // The stop behind the vehicle, so it sits on the line rather than off its start.
+  const behind = vehicleAt === -1 ? Infinity : Math.max(0, Math.min(vehicleAt - 1, estimate?.from ?? vehicleAt));
+  const from = span ? Math.min(pinnedFrom!, targetAt, behind) : Math.max(0, Math.min(coming ? behind : targetAt - STOPS_BEFORE, ...markedAt));
+  const to = span ? Math.max(span[1], vehicleAt, targetAt) : Math.min(stops.length - 1, Math.max(targetAt + 1, vehicleAt, ...markedAt));
   const shown = stops.slice(from, to + 1);
   const centered = span ? stops.slice(pinnedFrom!, span[1] + 1) : shown;
   return { trip, pattern, target, stops, shape, passes, rt, expected, reported, estimate, vehicle, missing, vehicleAt, targetAt, coming, marked, from, to, shown, centered };
@@ -178,7 +183,9 @@ function drawLeg(schedule: Schedule, leg: Leg, project: (point: Point) => [numbe
     }),
     span: [from, to],
     targetIndex: targetAt - from,
-    marks: marked.map((index) => (index === null ? null : index - from)),
+    // A marked stop outside what is drawn, such as one passed before the picture was fitted, has
+    // no place in it.
+    marks: marked.map((index) => (index === null || index < from || index > to ? null : index - from)),
     nextIndex: vehicleAt === -1 ? null : vehicleAt - from,
     line,
     vehicle: reported

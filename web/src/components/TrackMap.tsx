@@ -48,8 +48,12 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
   // When the rider last asked to fit the map to the trip from here. Only an answer that arrives
   // after it pins the map again, as the one on screen still shows the old stretch.
   const [refitAt, setRefitAt] = useState(0);
+  // Each answer's spans are pinned in turn: the same ones back, except when the server grew them to
+  // take in a vehicle or zoomed in once the rider boarded, which then stick.
   useEffect(() => {
-    if (!spans && data?.span && fetchedAt !== null && fetchedAt > refitAt) setSpans({ main: data.span, ...(data.transfer ? { transfer: data.transfer.span } : {}) });
+    if (!data?.span || fetchedAt === null || fetchedAt <= refitAt) return;
+    const next = { main: data.span, ...(data.transfer ? { transfer: data.transfer.span } : {}) };
+    if (JSON.stringify(next) !== JSON.stringify(spans)) setSpans(next);
   }, [data, fetchedAt]);
   const refit = () => {
     setRefitAt(Date.now());
@@ -79,6 +83,13 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
   const nextRoute = next ? data.routes[next.route] : undefined;
   const nextColor = transfer?.color ?? (nextRoute ? routeColor(nextRoute) : 'currentColor');
   const nextLabels = next ? new Map<number, Mark['kind'][]>([[next.targetIndex, ['transfer']]]) : null;
+  // The transfer as it stands now: from the first vehicle reaching the stop the rider gets off at
+  // to the second reaching where they board, as the results count it. Without both times, the
+  // figure from when the rider tapped.
+  const offIndex = [...labels].find(([, kinds]) => kinds.includes('transfer'))?.[0];
+  const offAt = offIndex === undefined ? null : (data.path[offIndex]?.at ?? null);
+  const boardAt = next ? (next.path[next.targetIndex]?.at ?? null) : null;
+  const transferMinutes = offAt !== null && boardAt !== null ? Math.floor((boardAt - offAt) / 60) : transfer?.minutes;
   const legs: Drawn[] = [
     ...(next && nextLabels ? [{ leg: next, color: nextColor, labels: nextLabels }] : []),
     { leg: data, color, labels },
@@ -114,7 +125,7 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
             </p>
             <p class="tf-track__change-status">
               {legStatus(next, data.stops, 'the transfer stop')}
-              {transfer?.minutes !== undefined && ` · ${transfer.minutes} min transfer`}
+              {transferMinutes !== undefined && ` · ${transferMinutes} min transfer`}
             </p>
           </div>
           <LegList leg={next} stops={data.stops} labels={nextLabels} color={nextColor} now={now} />
@@ -135,19 +146,31 @@ const passedAt = (leg: TrackLeg, index: number) => (leg.nextIndex === null ? leg
 // stop they get off at and the one they board is a dashed line. Sizes are in meters, scaled to the
 // picture, so a long ride and a short one look alike. North is up.
 function LineMap({ legs, label }: { legs: Drawn[]; label: string }) {
-  const points: [number, number][] = legs.flatMap(({ leg }) => [...leg.line, ...leg.path.map(({ x, y }): [number, number] => [x, y]), ...(leg.vehicle ? [[leg.vehicle.x, leg.vehicle.y] as [number, number]] : [])]);
-  const xs = points.map(([x]) => x);
+  // The frame fits the lines and stops, which stay put on a pinned map, so the picture holds still
+  // as the vehicles move. A vehicle off the padded frame, as before its trip starts, widens it.
+  const route: [number, number][] = legs.flatMap(({ leg }) => [...leg.line, ...leg.path.map(({ x, y }): [number, number] => [x, y])]);
+  const xs = route.map(([x]) => x);
   // SVG's y axis points down.
-  const ys = points.map(([, y]) => -y);
+  const ys = route.map(([, y]) => -y);
   const span = Math.max(300, Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
   const pad = span * 0.12;
-  // At most a little taller than wide, and at most twice as wide as tall, so it fits a phone.
+  for (const { leg } of legs) {
+    if (!leg.vehicle) continue;
+    const [x, y] = [leg.vehicle.x, -leg.vehicle.y];
+    if (x < Math.min(...xs) - pad || x > Math.max(...xs) + pad || y < Math.min(...ys) - pad || y > Math.max(...ys) + pad) {
+      xs.push(x);
+      ys.push(y);
+    }
+  }
+  // At most a little taller than wide, and at most twice as wide as tall, so it fits a phone. A
+  // band along the bottom is left clear for the Fit button.
+  const clear = span * 0.14;
   let width = Math.max(...xs) - Math.min(...xs) + pad * 2;
-  let height = Math.max(...ys) - Math.min(...ys) + pad * 2;
+  let height = Math.max(...ys) - Math.min(...ys) + pad * 2 + clear;
   width = Math.max(width, height / 1.2);
   height = Math.max(height, width / 2);
   const left = (Math.max(...xs) + Math.min(...xs)) / 2 - width / 2;
-  const top = (Math.max(...ys) + Math.min(...ys)) / 2 - height / 2;
+  const top = (Math.max(...ys) + Math.min(...ys)) / 2 - (height - clear) / 2;
   const unit = Math.max(width, height) / 70;
   // Where the rider gets off, and where they board the next vehicle, when those differ.
   const [next, main] = legs.length === 2 ? legs : [null, legs[0]!];
@@ -230,7 +253,7 @@ function LegList({ leg, stops, labels, color, now }: { leg: TrackLeg; stops: Rec
   const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
   const between = useId();
   const { nextIndex } = leg;
-  const ends = [...labels.keys(), nextIndex ?? 0];
+  const ends = [...labels.keys(), nextIndex ?? 0].filter((index) => index >= 0 && index < leg.path.length);
   const rows: (number | number[])[] = [];
   for (let index = Math.min(...ends); index <= Math.max(...ends); index++) {
     const plain = !labels.has(index) && index !== nextIndex;

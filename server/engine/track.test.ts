@@ -282,3 +282,16 @@ test('a pinned map zooms in once, when the vehicle leaves the rider\'s boarding 
   const held = trackVehicle(schedule, at({ lon: lon(2.5), stopId: '103' }), { ...request, fitOnBoard: false, span: first.span }, NOW);
   deepStrictEqual(held.path, first.path);
 });
+
+test('a pinned loop map takes in the visit it watches, and a fresh fit leaves out stops already passed', () => {
+  // Opened approaching the loop's first visit to stop 1, pinned to stops 0 to 2.
+  const opened = trackVehicle(schedule, at({ lon: lon(0.5), stopId: '101', sequence: 2 }, 'SF:l1'), { trip: 'SF:l1', stop: 'SF:101' }, LOOP_NOW);
+  // Past it, the watched visit is the second one, outside the pinned span: the span takes it in.
+  const later = trackVehicle(schedule, at({ lon: lon(2), stopId: '102', sequence: 3 }, 'SF:l1'), { trip: 'SF:l1', stop: 'SF:101', span: opened.span }, LOOP_NOW);
+  strictEqual(later.targetIndex < later.path.length, true);
+  strictEqual(later.path[later.targetIndex]!.stop, 'SF:101');
+  // Fitting afresh after boarding at stop 2, heading to stop 4: the picture starts behind the
+  // vehicle, without stop 2, whose mark has no place in it.
+  const fitted = trackVehicle(schedule, at({ lon: lon(3.5), stopId: '104' }), { trip: 'SF:t1', stop: 'SF:105', marks: ['SF:102', 'SF:105'] }, NOW);
+  deepStrictEqual([names(fitted)[0], fitted.marks[0], fitted.marks[1]], ['Market St & Stop 3', null, 2]);
+});
