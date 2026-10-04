@@ -139,24 +139,25 @@ export class Realtime {
     }
   }
 
-  // Elevators from BART's advisory, or from bart.gov's table when it answers, which adds each
-  // one's reason and return date. Escalators from bart.gov's table alone. A source that fails keeps
-  // its last answer, until the next good one.
+  // Elevators from BART's advisory, or from bart.gov's table when it answers in the shape expected,
+  // which adds each one's reason and return date. Escalators from bart.gov's table alone. A source
+  // that fails, or answers in another shape, keeps its last answer, until the next good one.
   private async fetchAccess() {
     const started = nowSeconds();
-    const json = (url: string) =>
-      this.fetchImpl(url, { signal: AbortSignal.timeout(15_000) }).then((response) => {
-        if (!response.ok) throw new Error(`${new URL(url).host} answered ${response.status}`);
-        return response.json() as Promise<unknown>;
-      });
+    const read = (url: string, parse: (json: unknown) => Outage[] | null) =>
+      this.fetchImpl(url, { signal: AbortSignal.timeout(15_000) })
+        .then((response) => {
+          if (!response.ok) throw new Error(`${new URL(url).host} answered ${response.status}`);
+          return response.json() as Promise<unknown>;
+        })
+        .then((json) => parse(json) ?? Promise.reject(new Error(`${url} answered in an unknown shape`)));
     const [advisory, elevatorTable, escalatorTable] = await Promise.allSettled([
-      json(BART_ELEVATOR_ADVISORY_URL),
-      json(bartStatusTableUrl('elevator')),
-      json(bartStatusTableUrl('escalator')),
+      read(BART_ELEVATOR_ADVISORY_URL, parseElevatorAdvisory),
+      read(bartStatusTableUrl('elevator'), (json) => parseStatusTable(json, 'elevator')),
+      read(bartStatusTableUrl('escalator'), (json) => parseStatusTable(json, 'escalator')),
     ]);
-    const elevators =
-      elevatorTable.status === 'fulfilled' ? parseStatusTable(elevatorTable.value, 'elevator') : advisory.status === 'fulfilled' ? parseElevatorAdvisory(advisory.value) : this.access.elevators;
-    const escalators = escalatorTable.status === 'fulfilled' ? parseStatusTable(escalatorTable.value, 'escalator') : this.access.escalators;
+    const elevators = elevatorTable.status === 'fulfilled' ? elevatorTable.value : advisory.status === 'fulfilled' ? advisory.value : this.access.elevators;
+    const escalators = escalatorTable.status === 'fulfilled' ? escalatorTable.value : this.access.escalators;
     const failed = advisory.status === 'rejected' && elevatorTable.status === 'rejected';
     if (failed) console.error('BART elevator status failed:', advisory.reason);
     this.access = { elevators, escalators, fetchedAt: failed ? this.access.fetchedAt : started, failedAt: failed ? started : 0 };

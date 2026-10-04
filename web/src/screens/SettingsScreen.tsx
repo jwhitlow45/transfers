@@ -134,7 +134,7 @@ export function SettingsScreen() {
           </div>
           <div class="tf-setting">
             <div class="tf-setting__label">Step-free travel</div>
-            <div class="tf-setting__help">Lists elevator outages at your stations first, marks the transfers they affect, and allows 3 more minutes to change at BART and Muni Metro stations. BART outages come by station; Muni's come from its service alerts.</div>
+            <div class="tf-setting__help">Lists elevator outages at your stations first, marks the transfers they affect, and allows 3 more minutes to change at BART and Muni Metro stations, unless you set your own minimum. BART outages come by station; Muni's come from its service alerts.</div>
             <div class="tf-filters">
               <Toggle pressed={settings.stepFree} onToggle={() => update({ stepFree: !settings.stepFree })}>
                 I use elevators

@@ -1,4 +1,4 @@
-import { strictEqual } from 'node:assert/strict';
+import { deepStrictEqual, strictEqual } from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -27,4 +27,17 @@ test('during a 511 outage, page requests retry no sooner than the timer', async 
   } finally {
     mock.timers.reset();
   }
+});
+
+test("bart.gov's elevator table, answering in an unknown shape, falls back to BART's advisory without failing", async () => {
+  const fake = (async (url: string | URL | Request) => {
+    const address = String(url);
+    if (address.includes('bsa.aspx')) {
+      return Response.json({ root: { bsa: [{ description: { '#cdata-section': 'There are 1 elevators out of service at this time: CIVC: Station' } }] } });
+    }
+    if (address.includes('elevator_service')) return Response.json({});
+    return Response.json({ html: 42 });
+  }) as typeof fetch;
+  const realtime = new Realtime(new KeyPool(['a'], join(mkdtempSync(join(tmpdir(), 'manager-')), 'usage.json'), fake), fake);
+  deepStrictEqual(await realtime.accessOutages(), [{ station: 'civc', kind: 'elevator', location: 'Station', reason: null, returns: null }]);
 });

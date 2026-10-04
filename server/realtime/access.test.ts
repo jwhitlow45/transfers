@@ -14,7 +14,8 @@ test("BART's elevator advisory lists each station's outage, by station code", ()
     { station: 'cols', kind: 'elevator', location: 'Terminal/Station', reason: null, returns: null },
   ]);
   deepStrictEqual(parseElevatorAdvisory({ root: { bsa: [{ description: { '#cdata-section': 'There are no elevators out of service at this time.' } }] } }), []);
-  deepStrictEqual(parseElevatorAdvisory(null), []);
+  // Answers of another shape say nothing either way.
+  deepStrictEqual([parseElevatorAdvisory(null), parseElevatorAdvisory({ root: {} })], [null, null]);
 });
 
 test("bart.gov's status table gives each outage's place, reason, and return date", () => {
@@ -27,7 +28,7 @@ test("bart.gov's status table gives each outage's place, reason, and return date
         <td>Repair</td>
         <td>10/07/2026</td>
       </tr>
-      <tr>
+      <tr class="outage">
         <td><a href="/stations/EMBR/accessible">Embarcadero</a></td>
         <td>Street - Beale &amp; Market St - Bi-Directional Direction</td>
         <td>Modernization</td>
@@ -38,5 +39,7 @@ test("bart.gov's status table gives each outage's place, reason, and return date
     { station: '12th', kind: 'escalator', location: 'Street - 14th St & Broadway (Franklin St side) - Up Direction', reason: 'Repair', returns: '10/07/2026' },
     { station: 'embr', kind: 'escalator', location: 'Street - Beale & Market St - Bi-Directional Direction', reason: 'Modernization', returns: null },
   ]);
-  deepStrictEqual(parseStatusTable({ html: '<p>No current alerts</p>' }, 'elevator'), []);
+  // An alert table with no rows is no outages. Anything else, as when bart.gov changes, is unknown.
+  deepStrictEqual(parseStatusTable({ html: '<div class="alerts-container"><p>No current alerts</p></div>' }, 'elevator'), []);
+  deepStrictEqual([parseStatusTable({}, 'elevator'), parseStatusTable({ html: 42 }, 'elevator'), parseStatusTable({ html: '<p>Page moved</p>' }, 'elevator')], [null, null, null]);
 });

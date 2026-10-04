@@ -388,6 +388,10 @@ test('step-free travel allows more time to change at a station and lists elevato
   const stepFree = planTrip(schedule, { ...realtime(), access: outages }, { from: 'BA:901209', to: 'SF:13477', stepFree: true }, NOW);
   strictEqual(stepFree.groups[0]?.window.min, 6);
   deepStrictEqual(stepFree.access, [{ station: 'BA:901609', stops: ['BA:901609'], kind: 'elevator', location: 'Street to Concourse', reason: 'Repair', returns: '10/23/2026' }]);
+  // A minimum the rider set is theirs: the page sends the window back as shown, and editing only
+  // the maximum must not add the allowance again.
+  const own = planTrip(schedule, { ...realtime(), access: outages }, { from: 'BA:901209', to: 'SF:13477', stepFree: true, min: 6, max: 16 }, NOW);
+  deepStrictEqual(own.groups[0]?.window, { min: 6, max: 16 });
   // Escalators too: Montgomery's, where the rider gets on, listed first, in the order of the trip.
   const both = planTrip(schedule, { ...realtime(), access: outages }, { from: 'BA:901209', to: 'SF:13477', stepFree: true, escalators: true }, NOW);
   deepStrictEqual(both.access?.map(({ station, kind, stops }) => `${kind} ${station} ${stops.join(',')}`), ['escalator BA:901209 BA:901209', 'elevator BA:901609 BA:901609']);

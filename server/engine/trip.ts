@@ -43,8 +43,9 @@ export type RealtimeView = {
   access?: Outage[] | null;
 };
 
-// Changing at a station step-free means waiting for and riding elevators, so the rider gets this
-// much more on the transfer minimum.
+// Changing at a station step-free means waiting for and riding elevators, so the default transfer
+// minimum gets this much more. A minimum the rider set is theirs as it is: the page sends the
+// window back as shown, so adding to it would add again on every edit.
 const STEP_FREE_MINUTES = 3;
 
 export class RequestError extends Error {
@@ -144,7 +145,7 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
     if (routes.length === 0) continue;
     const linkForRoutes = routes.length === link.routes.length ? link : { ...link, routes };
     const atStation = [link.alight, link.board].some(({ access }) => access === 'bart' || access === 'subway');
-    const min = Math.min(MAX_MINUTES, (request.min ?? link.defaultMinutes) + (request.stepFree && link.kind === 'ride' && atStation ? STEP_FREE_MINUTES : 0));
+    const min = Math.min(MAX_MINUTES, request.min ?? link.defaultMinutes + (request.stepFree && link.kind === 'ride' && atStation ? STEP_FREE_MINUTES : 0));
     const feeders = link.firstLegs
       .filter(({ pattern }) => !firstFilter || firstFilter.has(routeKeyOf(schedule.route(pattern.route))))
       .map(({ pattern, origin }) => ({ pattern, position: origin }));
