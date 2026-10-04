@@ -110,7 +110,10 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
     if (routes.length === 0) continue;
     const linkForRoutes = routes.length === link.routes.length ? link : { ...link, routes };
     const min = request.min ?? link.defaultMinutes;
-    const headway = request.max === undefined ? schedule.headwayMinutes(link.boardPatterns, now) : null;
+    const feeders = link.firstLegs
+      .filter(({ pattern }) => !firstFilter || firstFilter.has(routeKeyOf(schedule.route(pattern.route))))
+      .map(({ pattern, origin }) => ({ pattern, position: origin }));
+    const headway = request.max === undefined ? schedule.headwayMinutes(feeders, now) : null;
     const max = Math.max(min, request.max ?? defaultMaximum(min, headway));
     const first = firstLegs(context, linkForRoutes, firstFilter);
     const second = secondLegs(context, linkForRoutes, destination);

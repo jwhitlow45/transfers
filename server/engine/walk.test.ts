@@ -23,8 +23,9 @@ test('a slower walking speed lengthens the walk', () => {
   strictEqual(minimumMinutes(slow), 8);
 });
 
-test('the window widens for infrequent routes', () => {
+test('the window widens to the gap between first-leg vehicles, up to 20 minutes', () => {
   strictEqual(defaultMaximum(3, 6), 12);
   strictEqual(defaultMaximum(3, null), 12);
-  strictEqual(defaultMaximum(3, 30), 33);
+  strictEqual(defaultMaximum(3, 15), 18);
+  strictEqual(defaultMaximum(3, 60), 23);
 });

@@ -61,9 +61,13 @@ Google Maps does not document its transfer padding, but planners that work from 
 
 ## Maximum transfer time
 
-Default: minimum + 9 minutes (3 to 12 for J's transfers). Each first vehicle pairs with the first second-leg departure it can make, so the maximum only drops first vehicles that would leave the rider waiting longer than that. A later first vehicle usually makes the same departure with less waiting.
+Default: the minimum plus the time between first-leg vehicles, at least 9 and at most 20 minutes. For Montgomery to the 48, BART's southbound trains come every few minutes, so the window is 3 to 12.
 
-Second routes that run every 20 to 60 minutes (SamTrans, Golden Gate) would leave most first vehicles with no connection in a 9 minute window. So when the second route's scheduled headway at that hour is longer than 9 minutes, the default maximum widens to minimum + headway, and every first vehicle shows the departure it would catch.
+Each first vehicle pairs with the first second-leg departure it can make. For any departure, the best vehicle is the last one that still makes it, and its transfer falls within one first-leg headway of the minimum. A window that wide therefore shows every departure's best connection, and drops vehicles that would only wait longer for the same departure.
+
+The 20 minute cap keeps rare feeders (an hourly Golden Gate bus) from stretching the window to an hour. When nothing connects, the empty state offers the smallest wider window that would.
+
+An earlier version widened by the second route's headway instead. That made Montgomery to the 48 run 3 to 23 on Saturdays, when the 48 comes every 20 minutes, without showing anything more useful.
 
 ## Hidden connections
 

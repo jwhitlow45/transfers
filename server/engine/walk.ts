@@ -43,7 +43,13 @@ export function minimumMinutes(seconds: number) {
 
 // Infrequent routes would leave most first vehicles without a connection in the usual window, so
 // the window widens to the route's headway and every first vehicle shows the departure it catches.
-export function defaultMaximum(minimum: number, headwayMinutes: number | null) {
-  const width = headwayMinutes !== null && headwayMinutes > DEFAULT_WINDOW_MINUTES ? Math.ceil(headwayMinutes) : DEFAULT_WINDOW_MINUTES;
-  return minimum + width;
+// The window is at least as wide as the gap between first-leg vehicles, so every departure of
+// the second leg shows its best connection: the last vehicle that still makes it. Wider than
+// MAX_WIDENING_MINUTES, waits get long enough that the rider should choose them, which the
+// empty state's widen button offers.
+const MAX_WIDENING_MINUTES = 20;
+
+export function defaultMaximum(minimum: number, firstLegHeadwayMinutes: number | null) {
+  const headway = firstLegHeadwayMinutes === null ? 0 : Math.ceil(firstLegHeadwayMinutes);
+  return minimum + Math.min(MAX_WIDENING_MINUTES, Math.max(DEFAULT_WINDOW_MINUTES, headway));
 }

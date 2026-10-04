@@ -129,8 +129,8 @@ test('finds the 48 at 24th St Mission from Montgomery', () => {
   strictEqual(group?.alight, 'BA:901601');
   strictEqual(group?.board, 'SF:13477');
   strictEqual(group?.walkMeters, 36);
-  // The calibrated 3 minutes, and a window widened to the 48's 15 minute headway.
-  deepStrictEqual(group?.window, { min: 3, max: 18 });
+  // The calibrated 3 minutes, and a window as wide as the 10 minutes between trains.
+  deepStrictEqual(group?.window, { min: 3, max: 13 });
   strictEqual(response.routes['BA:Yellow-S']?.name, 'Yellow');
 });
 
@@ -143,13 +143,14 @@ test('pairs live and scheduled trips and shows the canceled bus in place', () =>
     canceled: departure.canceled ?? false,
     trains: departure.connections.map(({ trip, transfer, live }) => `${trip}:${transfer}${live ? '' : ':scheduled'}`),
   }));
-  // Train b6 (reaches 24th St 8:38) would wait 24 minutes for m6, over the maximum, so it is
-  // left out. The canceled m5 falls among the shown buses, so it shows in place.
+  // Trains that would wait longer than 13 minutes (b4 for m4, b6 and b7 for m6) are left out,
+  // and each bus keeps its best train. The canceled m5 falls among the shown buses, so it
+  // shows in place.
   deepStrictEqual(departures, [
     { bus: 'SF:m3', live: false, delay: null, canceled: false, trains: ['BA:b3:9:scheduled'] },
-    { bus: 'SF:m4', live: true, delay: 120, canceled: false, trains: ['BA:b4:16:scheduled', 'BA:b5:6:scheduled'] },
+    { bus: 'SF:m4', live: true, delay: 120, canceled: false, trains: ['BA:b5:6:scheduled'] },
     { bus: 'SF:m5', live: true, delay: null, canceled: true, trains: [] },
-    { bus: 'SF:m6', live: false, delay: null, canceled: false, trains: ['BA:b7:14', 'BA:b8:4'] },
+    { bus: 'SF:m6', live: false, delay: null, canceled: false, trains: ['BA:b8:4'] },
   ]);
 });
 
