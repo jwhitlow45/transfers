@@ -2,14 +2,15 @@ import type { TripResponse } from '../../../shared/api.ts';
 import { clock } from '../format.ts';
 import type { Search } from '../storage.ts';
 import { chipLabel, shortStopName, statusOf, windowText } from '../view.ts';
-import { pointId, visibleDepartures } from './results.ts';
+import { pageColors, pointId, visibleDepartures } from './results.ts';
 
 // The parts of a trip that headers, saved cards, and recent searches all describe.
 export function summarize(search: Search, data: TripResponse | null, now: number) {
   const groups = (data?.groups ?? []).filter((group) => !search.off?.includes(pointId(group)));
   const from = data ? shortStopName(data.stops[data.from], search.fromLabel) : search.fromLabel;
   const alights = [...new Set(groups.map(({ alight }) => alight))];
-  const via = alights.length === 1 ? shortStopName(data?.stops[alights[0]!], '') : alights.length > 1 ? `${alights.length} transfer points` : null;
+  // With several places to get off, each group says its own, and the header names none.
+  const via = alights.length === 1 ? shortStopName(data?.stops[alights[0]!], '') : null;
   const toRoute = data && 'route' in data.to ? data.routes[data.to.route] : undefined;
   const routeSets = [...new Set(groups.map(({ routes }) => routes.join(',')))];
   const onlyRoute = routeSets.length === 1 && groups[0]?.routes.length === 1 ? data?.routes[groups[0].routes[0]!] : undefined;
@@ -42,5 +43,8 @@ export function summarize(search: Search, data: TripResponse | null, now: number
   const boarding = new Set([data?.from, ...groups.map(({ board }) => board)].filter((key) => key !== undefined));
   const severeAlerts = (data?.alerts ?? []).filter(({ relevance, stops }) => relevance === 'stop' && stops.some((stop) => boarding.has(stop))).length;
 
-  return { groups, from, via, to, toRoute: toRouteShown, window, windowText: windowText(window), next, boarding, severeAlerts, chain: [from, via, to].filter(Boolean).join(' → ') };
+  // The route a saved search is about: the one transferred to, in the color the results give it.
+  const lineColor = data && (toRouteShown ?? (groups[0] ? data.routes[groups[0].routes[0]!] : undefined)) ? pageColors(groups, data)((toRouteShown ?? data.routes[groups[0]!.routes[0]!])!.key) : null;
+
+  return { groups, from, via, to, toRoute: toRouteShown, lineColor, window, windowText: windowText(window), next, boarding, severeAlerts, chain: [from, via, to].filter(Boolean).join(' → ') };
 }

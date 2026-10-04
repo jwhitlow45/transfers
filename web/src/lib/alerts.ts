@@ -16,7 +16,8 @@ export function viewAlerts(data: TripResponse, boardingStops: Set<string>): View
 }
 
 function toView(alert: Alert, data: TripResponse, boardingStops: Set<string>): ViewAlert {
-  const stopName = (key: string | undefined) => shortStopName(key ? data.stops[key] : undefined, key ?? '');
+  // A platform the page does not know is named by its agency, never by its key.
+  const stopName = (key: string | undefined) => shortStopName(key ? data.stops[key] : undefined, agencyOnly(alert.agency));
   const routeNames = alert.routes.map((key) => (data.routes[key] ? chipLabel(data.routes[key]!) : key)).join(', ');
   const access = /elevator|escalator/i.test(alert.header);
   let severity: Severity = 'info';
@@ -35,7 +36,8 @@ function toView(alert: Alert, data: TripResponse, boardingStops: Set<string>): V
     }
   } else if (alert.relevance === 'route') {
     severity = 'warning';
-    kicker = `${alert.effect === 'DETOUR' ? 'Reroute' : 'Service change'}${routeNames ? ` · ${routeNames}` : ''}`;
+    const kind = access ? 'Station access' : alert.effect === 'DETOUR' ? 'Reroute' : 'Service change';
+    kicker = `${kind}${routeNames ? ` · ${routeNames}` : ''}`;
   }
   const until = alert.activeUntil ? ` · Until ${date.format(alert.activeUntil * 1000)}` : '';
   return { id: alert.id, severity, kicker, title: alert.header, body: alert.description, meta: `${agencyOnly(alert.agency)}${until}`, url: alert.url };

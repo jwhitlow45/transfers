@@ -21,6 +21,8 @@ export function tripPath(search: Search) {
   if (search.firstRoutes?.length) params.set('r1', search.firstRoutes.join(','));
   if (search.secondRoutes?.length) params.set('r2', search.secondRoutes.join(','));
   if (search.off?.length) params.set('off', search.off.join(','));
+  if (search.fromSystem) params.set('fm', search.fromSystem);
+  if (search.toSystem) params.set('tm', search.toSystem);
   return `/t/${encodeURIComponent(search.from)}/${encodeURIComponent(search.to)}?${params}`;
 }
 
@@ -55,6 +57,11 @@ export function parsePage(location: Location): Page {
     if (second) search.secondRoutes = second.split(',');
     const off = params.get('off');
     if (off) search.off = off.split(',');
+    const system = (value: string | null) => (value === 'BA' || value === 'SF' ? value : undefined);
+    const fromSystem = system(params.get('fm'));
+    const toSystem = system(params.get('tm'));
+    if (fromSystem) search.fromSystem = fromSystem;
+    if (toSystem) search.toSystem = toSystem;
     return { name: 'trip', search };
   }
   if (location.pathname === '/nearby') return { name: 'nearby' };

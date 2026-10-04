@@ -1,6 +1,6 @@
-import type { Group } from '../../../shared/api.ts';
+import type { Group, Route } from '../../../shared/api.ts';
 import { walkMinutes } from '../format.ts';
-import { type CardContext, firstNoun, firstWord, groupColors, visibleDepartures } from '../lib/results.ts';
+import { type CardContext, alightVerb, familyName, firstNoun, firstWord, visibleDepartures } from '../lib/results.ts';
 import { agencyName, chipLabel, shortStopName, windowText } from '../view.ts';
 import { DepartureCard } from './DepartureCard.tsx';
 import { RouteChip } from './RouteChip.tsx';
@@ -20,7 +20,7 @@ export function TransferPointGroup({ group, kicker, context, isExpanded, onToggl
   const board = data.stops[group.board];
   const alight = data.stops[group.alight];
   const routes = group.routes.map((key) => data.routes[key]).filter((route) => route !== undefined);
-  const colorOf = groupColors(group, data);
+  const colorOf = context.colorOf;
   const departures = visibleDepartures(group, context.now, context.showHidden);
   const noun = firstNoun(group, data);
   const boardName = shortStopName(board, group.board);
@@ -28,22 +28,26 @@ export function TransferPointGroup({ group, kicker, context, isExpanded, onToggl
   const sameStop = group.alight === group.board;
   // BART groups hold every line toward one direction, so each chip names its line.
   const many = routes.length > 1;
-  const routeLabel = many ? (routes[0]?.agency === 'BA' ? 'BART' : routes.map(chipLabel).join(' or ')) : routes[0] ? chipLabel(routes[0]) : '';
-  const place = [board?.direction, `at ${boardName}`, board?.code ? `stop ${board.code}` : board ? `${agencyName(board)} station` : null].filter(Boolean).join(' · ');
+  const routeLabel = familyName(group.routes, data);
+  const station = board?.serves ? 'BART and Muni Metro station' : board ? `${agencyName(board)} station` : null;
+  const place = [board?.direction, `at ${boardName}`, board?.code ? `stop ${board.code}` : station].filter(Boolean).join(' · ');
   const firstOpen = departures.find(({ canceled }) => !canceled)?.trip;
-  const firstRoute = group.firstRoutes.length > 0 ? data.routes[group.firstRoutes[0]!] : undefined;
   // Where to get off says it once here, so each row only needs the time.
-  const off = sameStop
-    ? `Transfer at ${boardName}`
-    : `Get off${firstRoute?.agency === 'BA' ? ' BART' : ''} at ${alightName} · ${walkMinutes(group.walkMeters)} min walk`;
+  const off = sameStop ? `Transfer at ${boardName}` : `${alightVerb(group, data)} ${alightName} · ${walkMinutes(group.walkMeters)} min walk`;
   return (
     <section class="tf-group">
       <div>
         {kicker && <div class="tf-kicker">{kicker}</div>}
         <h2 class="tf-group__title">
-          {routes.map((route) => (
-            <RouteChip key={route.key} route={route} iconSize={18} color={colorOf(route.key)} label={many && route.agency === 'BA' ? route.name : undefined} />
-          ))}
+          {routes.length > 4 ? (
+            // A group pooling BART and Muni Metro would carry nine chips. One per system says the
+            // same, and each departure still shows its own line.
+            familyChips(routes)
+          ) : (
+            routes.map((route) => (
+              <RouteChip key={route.key} route={route} iconSize={18} color={colorOf(route.key)} label={many && route.agency === 'BA' ? route.name : undefined} />
+            ))
+          )}
           <span>
             <span aria-hidden="true">→ </span>
             <span class="tf-sr">toward </span>
@@ -56,7 +60,7 @@ export function TransferPointGroup({ group, kicker, context, isExpanded, onToggl
       {departures.length === 0 ? (
         <div class="tf-empty">
           <div class="tf-empty__title">
-            No {firstWord(group, data)} connects to the {routeLabel} within {windowText(group.window)}
+            No {firstWord(group, data)} connects to {routeLabel} within {windowText(group.window)}
           </div>
           <div class="tf-muted">{group.widen ? 'The closest connections fall just outside your window.' : 'Nothing connects in the next few hours.'}</div>
           {group.widen && (
@@ -88,5 +92,22 @@ export function TransferPointGroup({ group, kicker, context, isExpanded, onToggl
         ))
       )}
     </section>
+  );
+}
+
+const SYSTEM_CHIP = '#1d2d3d';
+
+function familyChips(routes: Route[]) {
+  const bart = routes.find(({ agency }) => agency === 'BA');
+  const metro = routes.find(({ mode }) => mode === 'light-rail');
+  const others = routes.filter((route) => route.agency !== 'BA' && route.mode !== 'light-rail');
+  return (
+    <>
+      {bart && <RouteChip route={bart} iconSize={18} color={SYSTEM_CHIP} label="BART" />}
+      {metro && <RouteChip route={metro} iconSize={18} color={SYSTEM_CHIP} label="Muni Metro" />}
+      {others.map((route) => (
+        <RouteChip key={route.key} route={route} iconSize={18} />
+      ))}
+    </>
   );
 }

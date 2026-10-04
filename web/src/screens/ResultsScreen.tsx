@@ -5,19 +5,20 @@ import { AlertList } from '../components/AlertList.tsx';
 import { FeedOutageBanner, OfflineBanner } from '../components/Banners.tsx';
 import { BottomBar } from '../components/BottomBar.tsx';
 import { DataCredit } from '../components/DataCredit.tsx';
-import { DirectionSwitcher } from '../components/DirectionSwitcher.tsx';
+import { DirectionSwitcher, SystemSwitcher } from '../components/DirectionSwitcher.tsx';
 import { ScreenHeader, SaveButton, TripChain, liveStatusText } from '../components/ResultsHeader.tsx';
 import { RouteChip } from '../components/RouteChip.tsx';
 import { SkeletonResults } from '../components/SkeletonResults.tsx';
 import { TransferPointGroup } from '../components/TransferPointGroup.tsx';
 import { type SearchUpdate, TransferWindowSheet, TripSettingsSheet } from '../components/TripSettingsSheet.tsx';
 import { useNow, usePoll } from '../hooks.ts';
+import { defaultSavedColor } from '../lib/color.ts';
 import { viewAlerts } from '../lib/alerts.ts';
-import { type CardContext, chooseDirection, directionChoices, groupColors, scaleFor } from '../lib/results.ts';
+import { type CardContext, chooseDirection, directionChoices, pageColors, pointId, scaleFor, visibleDepartures } from '../lib/results.ts';
 import { summarize } from '../lib/summary.ts';
 import { navigate, tripPath } from '../router.ts';
 import { matchesServerDefaults, tripApiUrl, useSettings } from '../settings.tsx';
-import { type Search, findSaved, rememberRecent, removeSaved, saveSearch, updateSaved } from '../storage.ts';
+import { type Search, findSaved, loadSaved, rememberRecent, removeSaved, saveSearch, updateSaved } from '../storage.ts';
 import { agencyOnly, chipLabel, shortStopName } from '../view.ts';
 
 const initialData = takeInitialData<TripResponse>();
@@ -56,7 +57,8 @@ export function ResultsScreen({ search }: { search: Search }) {
       removeSaved(saved.id);
       setSaved(null);
     } else {
-      setSaved(saveSearch(search, `${summary.from} to ${summary.to}`));
+      const taken = loadSaved().map(({ color }) => color).filter((color) => color !== undefined);
+      setSaved(saveSearch(search, `${summary.from} to ${summary.to}`, defaultSavedColor(summary.lineColor, taken)));
     }
   };
 
@@ -69,6 +71,7 @@ export function ResultsScreen({ search }: { search: Search }) {
     pct: (unixSeconds) => Math.max(0, Math.min(100, ((unixSeconds * 1000 - now) / 60_000 / scaleMinutes) * 100)),
     destinationName: search.dest ? shortStopName(data?.stops[search.dest], search.destLabel ?? '') : null,
     showHidden,
+    colorOf: data ? pageColors(groups, data) : () => '#55575a',
   };
   const secondsSinceUpdate = fetchedAt === null ? null : Math.max(0, Math.floor((now - fetchedAt) / 1000));
   const window = { min: search.min ?? groups[0]?.window.min ?? 3, max: search.max ?? groups[0]?.window.max ?? 12 };
@@ -78,7 +81,7 @@ export function ResultsScreen({ search }: { search: Search }) {
   const routesOf = (agency: string) =>
     [...new Set(groups.flatMap(({ routes }) => routes).filter((key) => key.startsWith(`${agency}:`)).map((key) => (data?.routes[key] ? chipLabel(data.routes[key]!) : key)))].join(', ');
   // The header chip takes the same color its group gives it, which may have stepped away from a clash.
-  const toColor = summary.toRoute && groups[0] ? groupColors(groups[0], data!)(summary.toRoute.key) : undefined;
+  const toColor = summary.toRoute && data ? context.colorOf(summary.toRoute.key) : undefined;
   const toChip = summary.toRoute ? <RouteChip route={summary.toRoute} {...(toColor ? { color: toColor } : {})} /> : <span>{summary.to}</span>;
   const params = new URLSearchParams(url.split('?')[1]);
   params.delete('hidden');
@@ -98,6 +101,7 @@ export function ResultsScreen({ search }: { search: Search }) {
             </>
           }
           action={<SaveButton saved={saved !== null} onToggle={toggleSaved} />}
+          accent={saved?.color}
           onBack={() => navigate('/')}
         />
         <main class="tf-page" id="main">
@@ -111,8 +115,22 @@ export function ResultsScreen({ search }: { search: Search }) {
             </div>
           )}
           {data && <AlertList key={data.from} alerts={viewAlerts(data, summary.boarding)} />}
+          {data?.stops[data.from]?.serves && (
+            <SystemSwitcher
+              label={`From ${shortStopName(data.stops[data.from])}, ride`}
+              selected={search.fromSystem}
+              onChoose={(system) => update(({ fromSystem: _system, ...rest }) => (system ? { ...rest, fromSystem: system } : rest))}
+            />
+          )}
+          {data && 'stop' in data.to && data.stops[data.to.stop]?.serves && (
+            <SystemSwitcher
+              label={`At ${shortStopName(data.stops[data.to.stop])}, catch`}
+              selected={search.toSystem}
+              onChoose={(system) => update(({ toSystem: _system, ...rest }) => (system ? { ...rest, toSystem: system } : rest))}
+            />
+          )}
           {data &&
-            directionChoices(data.groups, search.off ?? []).map((choice) => (
+            directionChoices(data.groups, search.off ?? [], data).map((choice) => (
               <DirectionSwitcher
                 key={choice.routes.join(',')}
                 choice={choice}
@@ -133,9 +151,10 @@ export function ResultsScreen({ search }: { search: Search }) {
           ) : (
             data && (
               <div class="tf-groups">
-                {groups.map((group, index) => (
+                {/* Groups with something to catch come before empty ones. */}
+                {[...groups].sort((a, b) => Number(visibleDepartures(a, now, showHidden).length === 0) - Number(visibleDepartures(b, now, showHidden).length === 0)).map((group, index) => (
                   <TransferPointGroup
-                    key={`${group.alight}>${group.board}>${group.direction}`}
+                    key={pointId(group)}
                     group={group}
                     kicker={'route' in data.to && groups.length > 1 ? `Transfer point ${index + 1} of ${groups.length}` : null}
                     context={context}

@@ -4,7 +4,7 @@ import { chipLabel } from '../view.ts';
 import { resolveRouteColor, routeColor } from './color.ts';
 
 // A transfer point's identity, for the rider's on and off filter.
-export const pointId = (group: Group) => `${group.alight}>${group.board}>${group.direction ?? ''}`;
+export const pointId = (group: Group) => `${group.alight}>${group.board}>${group.direction ?? ''}>${group.routes.join('+')}`;
 
 // Shared by every card on the results screen.
 export type CardContext = {
@@ -15,6 +15,7 @@ export type CardContext = {
   pct: (unixSeconds: number) => number;
   destinationName: string | null;
   showHidden: boolean;
+  colorOf: (routeKey: string) => string;
 };
 
 const MAX_DEPARTURES = 3;
@@ -56,14 +57,20 @@ export function scaleFor(groups: Group[], now: number) {
   return Math.ceil(span / 15) * 15;
 }
 
-// Colors for a group: first-leg routes keep theirs, and a second-leg bus yields if it clashes.
-export function groupColors(group: Group, data: TripResponse) {
-  const firstColors = group.firstRoutes.map((key) => data.routes[key]).filter((route) => route !== undefined).map(routeColor);
+// Colors for the whole page, so a route keeps one color in every group and the header. First-leg
+// routes keep theirs, and a second-leg route yields if it clashes with any of them. BART never yields.
+export function pageColors(groups: Group[], data: TripResponse) {
+  const firstKeys = new Set(groups.flatMap(({ firstRoutes }) => firstRoutes));
+  const firstColors = [...firstKeys].map((key) => data.routes[key]).filter((route) => route !== undefined).map(routeColor);
+  const cache = new Map<string, string>();
   return (routeKey: string) => {
+    let color = cache.get(routeKey);
+    if (color) return color;
     const route = data.routes[routeKey];
     if (!route) return '#55575a';
-    const color = routeColor(route);
-    return route.agency === 'BA' || group.firstRoutes.includes(routeKey) ? color : resolveRouteColor(color, firstColors);
+    color = route.agency === 'BA' || firstKeys.has(routeKey) ? routeColor(route) : resolveRouteColor(routeColor(route), firstColors);
+    cache.set(routeKey, color);
+    return color;
   };
 }
 
@@ -80,11 +87,15 @@ export function firstWord(group: Group, data: TripResponse) {
 export type DirectionOption = { key: string; headsign: string; ids: string[] };
 export type DirectionChoice = { routes: string[]; options: DirectionOption[]; selected: string | null };
 
-export function directionChoices(groups: Group[], off: string[]): DirectionChoice[] {
+// BART runs each line as two routes, one per direction, so groups are compared by the line
+// names riders know: both of BART's platforms are the same family, and so are Muni Metro's.
+export function directionChoices(groups: Group[], off: string[], data: TripResponse): DirectionChoice[] {
   const byRoutes = new Map<string, Map<string, DirectionOption>>();
+  const routesOf = new Map<string, string[]>();
   for (const group of groups) {
-    const routesKey = group.routes.join(',');
-    const directionKey = group.direction === null ? group.headsign : String(group.direction);
+    const routesKey = [...new Set(group.routes.map((key) => data.routes[key]?.name ?? key))].sort().join(',');
+    routesOf.set(routesKey, [...new Set([...(routesOf.get(routesKey) ?? []), ...group.routes])]);
+    const directionKey = `${group.board}|${group.direction ?? group.headsign}`;
     let options = byRoutes.get(routesKey);
     if (!options) byRoutes.set(routesKey, (options = new Map()));
     const option = options.get(directionKey) ?? { key: directionKey, headsign: group.headsign, ids: [] };
@@ -96,7 +107,7 @@ export function directionChoices(groups: Group[], off: string[]): DirectionChoic
     if (options.size < 2) continue;
     const list = [...options.values()];
     const shown = list.filter(({ ids }) => ids.some((id) => !off.includes(id)));
-    choices.push({ routes: routesKey.split(','), options: list, selected: shown.length === 1 ? shown[0]!.key : null });
+    choices.push({ routes: routesOf.get(routesKey) ?? [], options: list, selected: shown.length === 1 ? shown[0]!.key : null });
   }
   return choices;
 }
@@ -115,4 +126,24 @@ export function firstNoun(group: Group, data: TripResponse) {
   if ([...modes].every((mode) => mode === 'bart' || mode === 'light-rail')) return ['train', 'trains'] as const;
   if ([...modes].every((mode) => mode === 'bus' || mode === 'trolleybus')) return ['bus', 'buses'] as const;
   return ['vehicle', 'vehicles'] as const;
+}
+
+// A set of routes as a phrase: "BART", "Muni Metro", "BART or Muni Metro", or "the 48".
+export function familyName(routeKeys: string[], data: TripResponse) {
+  const routes = routeKeys.map((key) => data.routes[key]).filter((route) => route !== undefined);
+  const bart = routes.some(({ agency }) => agency === 'BA');
+  const metro = routes.length > 1 && routes.filter(({ agency }) => agency !== 'BA').every(({ mode }) => mode === 'light-rail');
+  if (bart && routes.every(({ agency }) => agency === 'BA')) return 'BART';
+  if (bart && metro) return 'BART or Muni Metro';
+  if (metro) return 'Muni Metro';
+  return `the ${[...new Set(routes.map(chipLabel))].join(' or ')}`;
+}
+
+// How a group says where to get off: "Get off BART at", "Get off Muni Metro at", or both pooled.
+export function alightVerb(group: Group, data: TripResponse) {
+  const routes = group.firstRoutes.map((key) => data.routes[key]).filter((route) => route !== undefined);
+  if (routes.length > 0 && routes.every(({ agency }) => agency === 'BA')) return 'Get off BART at';
+  if (routes.length > 0 && routes.every(({ mode }) => mode === 'light-rail')) return 'Get off Muni Metro at';
+  if (routes.some(({ agency }) => agency === 'BA') && routes.some(({ mode }) => mode === 'light-rail')) return 'Get off BART or Muni Metro at';
+  return 'Get off at';
 }

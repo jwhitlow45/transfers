@@ -58,9 +58,13 @@ export type Search = {
   secondRoutes?: string[];
   // Transfer points the rider turned off, by pointId.
   off?: string[];
+  // At a shared downtown station: ride from, or catch, only BART ("BA") or only Muni Metro ("SF").
+  fromSystem?: 'BA' | 'SF';
+  toSystem?: 'BA' | 'SF';
 };
 
-export type SavedSearch = Search & { id: string; name: string };
+// color tells saved searches apart at a glance. Older saves lack one until their lines are known.
+export type SavedSearch = Search & { id: string; name: string; color?: string };
 export type RecentSearch = Search & { at: number; via?: string };
 
 export const searchId = (search: Search) => `${search.from}>${search.to}`;
@@ -73,9 +77,9 @@ export function saveSaved(saved: SavedSearch[]) {
   write('saved', saved);
 }
 
-export function saveSearch(search: Search, name: string) {
+export function saveSearch(search: Search, name: string, color?: string) {
   const saved = loadSaved().filter((item) => item.id !== searchId(search));
-  const entry = { ...search, id: searchId(search), name };
+  const entry: SavedSearch = { ...search, id: searchId(search), name, ...(color ? { color } : {}) };
   saveSaved([...saved, entry]);
   return entry;
 }
@@ -88,7 +92,25 @@ export const findSaved = (search: Search) => loadSaved().find((item) => item.id 
 
 // Keeps a saved search's settings in step with the trip screen, which owns them while open.
 export function updateSaved(search: Search) {
-  saveSaved(loadSaved().map((item) => (item.id === searchId(search) ? { ...search, id: item.id, name: item.name } : item)));
+  saveSaved(loadSaved().map((item) => (item.id === searchId(search) ? { ...search, id: item.id, name: item.name, ...(item.color ? { color: item.color } : {}) } : item)));
+}
+
+// What the search screen's fields held when the rider left it, so coming back restores them.
+export function loadFields<T>() {
+  try {
+    const text = sessionStorage.getItem(`${PREFIX}fields`);
+    return text ? (JSON.parse(text) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveFields(fields: unknown) {
+  try {
+    sessionStorage.setItem(`${PREFIX}fields`, JSON.stringify(fields));
+  } catch {
+    // Without session storage the fields start empty, nothing more.
+  }
 }
 
 export function loadRecent(): RecentSearch[] {

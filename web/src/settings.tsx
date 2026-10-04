@@ -39,6 +39,8 @@ export function tripApiUrl(search: Search, settings: DeviceSettings, showHidden:
   if (search.dest) params.set('dest', search.dest);
   if (search.firstRoutes?.length) params.set('r1', search.firstRoutes.join(','));
   if (search.secondRoutes?.length) params.set('r2', search.secondRoutes.join(','));
+  if (search.fromSystem) params.set('fm', search.fromSystem);
+  if (search.toSystem) params.set('tm', search.toSystem);
   if (showHidden) params.set('hidden', '1');
   return `/api/trip?${params}`;
 }

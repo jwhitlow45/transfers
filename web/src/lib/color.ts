@@ -69,3 +69,35 @@ export function resolveRouteColor(color: string, inView: string[]): string {
   }
   return color;
 }
+
+// Colors a saved search can wear, named for the picker's labels.
+export const SAVED_COLORS = [
+  { color: '#00858a', name: 'Teal' },
+  { color: '#2b6fa8', name: 'Blue' },
+  { color: '#4c55a8', name: 'Indigo' },
+  { color: '#9a3b6d', name: 'Plum' },
+  { color: '#c4122f', name: 'Red' },
+  { color: '#b8602a', name: 'Orange' },
+  { color: '#f2c500', name: 'Yellow' },
+  { color: '#6f8226', name: 'Olive' },
+  { color: '#2e8350', name: 'Green' },
+  { color: '#7a5f45', name: 'Brown' },
+];
+
+const distance = (a: string, b: string) => {
+  const rgb = (hex: string) => {
+    const n = parseInt(hex.slice(1), 16);
+    return [n >> 16, (n >> 8) & 255, n & 255] as const;
+  };
+  const [r, g, b1] = rgb(a);
+  const [r2, g2, b2] = rgb(b);
+  return Math.hypot(r - r2, g - g2, b1 - b2);
+};
+
+// A new saved search starts in its route's color, unless another saved search already looks
+// like that, in which case it takes the first picker color that looks like none of them.
+export function defaultSavedColor(routeColorHex: string | null, taken: string[]) {
+  const free = (color: string) => taken.every((other) => distance(color, other) >= 90);
+  if (routeColorHex && free(routeColorHex)) return routeColorHex;
+  return SAVED_COLORS.find(({ color }) => free(color))?.color ?? SAVED_COLORS.find(({ color }) => !taken.includes(color))?.color ?? SAVED_COLORS[0]!.color;
+}

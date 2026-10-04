@@ -23,8 +23,10 @@ export function LiveStatus({ feed, secondsSinceUpdate, children }: { feed: FeedS
 }
 
 // Sticky header for every screen but search: back, a title, and the live status.
-export function ScreenHeader({ title, feed, secondsSinceUpdate, status, action, onBack }: {
+export function ScreenHeader({ title, feed, secondsSinceUpdate, status, action, accent, onBack }: {
   title: ComponentChildren;
+  // A saved search's color, as a stripe along the top.
+  accent?: string | undefined;
   feed?: FeedState;
   secondsSinceUpdate?: number | null;
   status?: ComponentChildren;
@@ -32,7 +34,7 @@ export function ScreenHeader({ title, feed, secondsSinceUpdate, status, action, 
   onBack: () => void;
 }) {
   return (
-    <header class="tf-header">
+    <header class="tf-header" style={accent ? { '--saved-color': accent } : undefined} data-accent={accent ? 'true' : undefined}>
       <div class="tf-header__row">
         <button type="button" class="tf-btn-icon" onClick={onBack} aria-label="Back to search">
           <IconBack />

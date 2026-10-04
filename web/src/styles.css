@@ -389,3 +389,13 @@ button.tf-band { width: 100%; text-align: left; color: var(--on-field); }
 .tf-seg__option + .tf-seg__option { border-left: var(--border-hair) solid var(--divider); }
 .tf-seg__option:hover { background: color-mix(in srgb, var(--text) 7%, transparent); }
 .tf-seg__option[aria-pressed="true"] { background: var(--field); color: var(--on-field); }
+
+/* Saved search colors: a stripe down the card, and across the top of its results. */
+.tf-saved { border-left: 8px solid var(--saved-color, var(--line)); }
+.tf-header[data-accent="true"] { border-top: 6px solid var(--saved-color); }
+.tf-saved__edit { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-2) var(--space-4) var(--space-4); }
+.tf-saved__swatches { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.tf-swatch { width: var(--tap-min); height: var(--tap-min); border: 2px solid transparent; outline-offset: 2px; }
+.tf-swatch[aria-pressed="true"] { border-color: var(--bg); outline: 3px solid var(--text); }
+.tf-saved__edit-actions { display: flex; align-items: center; gap: var(--space-4); }
+.tf-saved__edit-actions .tf-btn-primary { width: auto; flex: 1; }

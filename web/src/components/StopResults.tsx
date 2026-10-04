@@ -19,8 +19,11 @@ export function hitMeta(hit: SearchHit, response: SearchResponse) {
     const route = response.routes[hit.route];
     return `${route ? agencyName(route) : ''} route`;
   }
-  return [agencyName(hit), hit.code ? `Stop ${hit.code}` : 'Station', hitDirection(hit)].filter(Boolean).join(' · ');
+  return [hitAgency(hit), hit.code ? `Stop ${hit.code}` : 'Station', hitDirection(hit)].filter(Boolean).join(' · ');
 }
+
+// A shared downtown station serves both systems.
+const hitAgency = (hit: StopSearchResult) => (hit.serves ? 'BART and Muni Metro' : agencyName(hit));
 
 function hitDirection(hit: StopSearchResult) {
   if (hit.agency === 'BA') return 'Trains in both directions';
@@ -44,7 +47,7 @@ export function StopResults({ query, response, onPick, includesRoutes }: { query
           const code = isRoute ? 'Route' : hit.code ? `Stop ${hit.code}` : 'Station';
           const detail = isRoute
             ? `${route ? agencyName(route) : ''} · ${hit.directions.map(({ headsign }) => headsign).join(' ↔ ')}`
-            : `${agencyName(hit)} · ${hitDirection(hit)}`;
+            : `${hitAgency(hit)} · ${hitDirection(hit)}`;
           const chips = isRoute ? [hit.route] : hit.routes;
           return (
             <div role="listitem" key={isRoute ? hit.route : hit.key}>

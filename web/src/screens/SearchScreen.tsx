@@ -9,10 +9,11 @@ import { type SearchHit, StopResults, hitMeta, hitName } from '../components/Sto
 import { clock } from '../format.ts';
 import { useNow, usePoll } from '../hooks.ts';
 import { IconGear, IconLocation } from '../icons/ui.tsx';
+import { defaultSavedColor } from '../lib/color.ts';
 import { summarize } from '../lib/summary.ts';
 import { navigate, tripPath } from '../router.ts';
 import { tripApiUrl, useSettings } from '../settings.tsx';
-import { type SavedSearch, loadRecent, loadSaved, removeSaved, saveSaved, searchId } from '../storage.ts';
+import { type SavedSearch, loadFields, loadRecent, loadSaved, removeSaved, saveFields, saveSaved, searchId } from '../storage.ts';
 import { chipLabel, dayLabel, shortStopName } from '../view.ts';
 
 // A picked stop or route. `short` is what headers and lists call it.
@@ -29,10 +30,19 @@ function pickedFrom(hit: SearchHit, response: SearchResponse): Picked {
 
 export function SearchScreen() {
   const now = useNow();
-  // Nearby hands a picked stop over through history state.
-  const prefill = (history.state ?? {}) as { from?: Picked; to?: Picked };
-  const [from, setFrom] = useState<FieldState>(prefill.from ? { query: prefill.from.label, picked: prefill.from } : { query: '' });
-  const [to, setTo] = useState<FieldState>(prefill.to ? { query: prefill.to.label, picked: prefill.to } : { query: '' });
+  // Nearby hands a picked stop over through history state. Otherwise the fields come back as the
+  // rider left them, such as on returning from results.
+  const [initial] = useState(() => {
+    const kept = loadFields<{ from: FieldState; to: FieldState }>() ?? { from: { query: '' }, to: { query: '' } };
+    const prefill = (history.state ?? {}) as { from?: Picked; to?: Picked };
+    return {
+      from: prefill.from ? { query: prefill.from.label, picked: prefill.from } : kept.from,
+      to: prefill.to ? { query: prefill.to.label, picked: prefill.to } : kept.to,
+    };
+  });
+  const [from, setFrom] = useState<FieldState>(initial.from);
+  const [to, setTo] = useState<FieldState>(initial.to);
+  useEffect(() => saveFields({ from, to }), [from, to]);
   const [focus, setFocus] = useState<'from' | 'to' | null>(null);
   const [response, setResponse] = useState<SearchResponse | null>(null);
   const [saved, setSaved] = useState(loadSaved);
@@ -127,7 +137,13 @@ export function SearchScreen() {
                       key={search.id}
                       search={search}
                       now={now}
-                      onRename={(name) => updateSaved(loadSaved().map((item) => (item.id === search.id ? { ...item, name } : item)))}
+                      onEdit={(change) => updateSaved(loadSaved().map((item) => (item.id === search.id ? { ...item, ...change } : item)))}
+                      onColorless={(lineColor) => {
+                        // Saved before colors existed: take one now, avoiding the rest.
+                        const all = loadSaved();
+                        const taken = all.filter(({ id, color }) => id !== search.id && color).map(({ color }) => color!);
+                        updateSaved(all.map((item) => (item.id === search.id && !item.color ? { ...item, color: defaultSavedColor(lineColor, taken) } : item)));
+                      }}
                       onRemove={() => {
                         removeSaved(search.id);
                         setSaved(loadSaved());
@@ -147,13 +163,23 @@ export function SearchScreen() {
 }
 
 // Polls its own trip, so the card counts down live and opening it shows cached results at once.
-function SavedTrip({ search, now, onRename, onRemove }: { search: SavedSearch; now: number; onRename: (name: string) => void; onRemove: () => void }) {
+function SavedTrip({ search, now, onEdit, onColorless, onRemove }: {
+  search: SavedSearch;
+  now: number;
+  onEdit: (change: { name: string; color: string | undefined }) => void;
+  onColorless: (lineColor: string | null) => void;
+  onRemove: () => void;
+}) {
   const { settings } = useSettings();
   const { data, feed } = usePoll<TripResponse>(tripApiUrl(search, settings, false), 30_000);
   const summary = summarize(search, data, now);
+  useEffect(() => {
+    if (!search.color && data) onColorless(summary.lineColor);
+  }, [Boolean(data), search.color]);
   return (
     <SavedSearchCard
       name={search.name}
+      color={search.color}
       chain={summary.chain}
       windowText={summary.windowText}
       next={summary.next}
@@ -161,7 +187,7 @@ function SavedTrip({ search, now, onRename, onRemove }: { search: SavedSearch; n
       severeAlerts={summary.severeAlerts}
       href={tripPath(search)}
       onOpen={() => navigate(tripPath(search))}
-      onRename={onRename}
+      onEdit={onEdit}
       onRemove={onRemove}
     />
   );
