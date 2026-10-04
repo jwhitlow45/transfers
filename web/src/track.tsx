@@ -1,6 +1,7 @@
 import { type ComponentChildren, type FunctionComponent, createContext } from 'preact';
 import { useContext, useEffect, useState } from 'preact/hooks';
 import type { Stop } from '../../shared/api.ts';
+import { DataCredit } from './components/DataCredit.tsx';
 import { Sheet } from './components/Sheet.tsx';
 import { stopPage } from './view.ts';
 
@@ -43,7 +44,9 @@ export function TrackProvider({ children }: { children: ComponentChildren }) {
     <TrackContext.Provider value={open}>
       {children}
       {tracked && (
-        <Sheet title={tracked.title} onClose={() => setTracked(null)}>
+        // 511's agreement asks for its credit beside its data, and the page's own credit is under
+        // the sheet.
+        <Sheet title={tracked.title} footer={<DataCredit />} onClose={() => setTracked(null)}>
           {map ? (
             <map.Map key={`${tracked.trip}|${tracked.stop}`} tracked={tracked} />
           ) : failed ? (
