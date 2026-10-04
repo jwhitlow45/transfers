@@ -208,8 +208,8 @@ function HowItWorks({ open }: { open: boolean }) {
         <IconChevron size={18} />
       </summary>
       <p>
-        Pick where you start and the stop or route you are transferring to. Transfers pairs each vehicle leaving your stop with the first connection it makes, using live
-        times from 511, and shows how long you have to make each transfer.
+        Pick where you start and the stop or route you are transferring to. Transfers shows the next few departures you can catch, and under each one every vehicle from
+        your stop that makes it within your transfer window, with live times from 511 and how long each transfer is.
       </p>
       <p>
         It helps most going from frequent service to infrequent, such as BART to a bus that comes every 20 minutes, where the train you catch decides whether you make
