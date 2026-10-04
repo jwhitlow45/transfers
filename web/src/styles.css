@@ -184,15 +184,17 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-saved__name-input { flex: 1; min-width: 0; font: inherit; font-size: var(--text-xl); font-weight: var(--weight-bold); color: var(--text); background: transparent; border: 0; border-bottom: 1px solid var(--accent); padding: 6px 0; }
 .tf-saved__body { display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left; padding: 0 var(--space-4) var(--space-4); }
 .tf-saved__chain { font-size: var(--text-base); color: var(--muted); }
-.tf-saved__count { display: flex; align-items: baseline; gap: var(--space-2); margin-top: 10px; }
-.tf-saved__lead { font-size: var(--text-sm); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--muted); }
-.tf-saved__num { font-size: var(--text-num); font-weight: var(--weight-heavy); line-height: 1; }
-.tf-saved__unit { font-size: var(--text-md); font-weight: var(--weight-semibold); }
-.tf-saved__next { font-size: 15px; margin-top: var(--space-1); }
-/* The next connection drawn as the results page draws it: chip, time, and status per vehicle. */
-.tf-saved__legs { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); }
-.tf-saved__leg { display: inline-flex; align-items: center; gap: 6px; }
-.tf-saved__time { font-weight: var(--weight-bold); }
+.tf-saved__count { display: flex; flex-direction: column; }
+/* The next connection, laid out like a results row: countdown on the left, and to its right each
+   vehicle with its time and status, and the transfer between them. */
+.tf-saved__row { display: grid; grid-template-columns: var(--countdown-col) minmax(0, 1fr); gap: var(--space-3); align-items: start; margin-top: var(--space-3); }
+.tf-saved__next { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding-top: 2px; font-size: 15px; }
+.tf-saved__leg-wrap { display: contents; }
+/* A vehicle's status drops under its time on the narrowest screens rather than being cut off. */
+.tf-saved__leg { display: flex; flex-wrap: wrap; align-items: center; column-gap: 6px; }
+.tf-saved__leg > * { white-space: nowrap; }
+.tf-saved__time { font-size: var(--text-md); font-weight: var(--weight-bold); }
+.tf-saved__xfer { display: flex; align-items: center; gap: 5px; font-size: var(--text-sm); color: var(--muted); }
 .tf-saved__chain { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); }
 .tf-saved__window { display: inline-flex; align-items: center; gap: 5px; }
 .tf-saved__alert { display: inline-flex; align-self: flex-start; align-items: center; gap: 6px; margin-top: var(--space-2); padding: 3px var(--space-2); background: var(--late-tint); color: var(--late); font-size: var(--text-sm); font-weight: 650; }

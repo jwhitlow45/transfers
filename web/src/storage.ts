@@ -82,7 +82,8 @@ export type Search = {
 };
 
 // color tells saved searches apart at a glance. Older saves lack one until their lines are known.
-export type SavedSearch = Search & { id: string; name: string; color?: string };
+// renamed: the rider gave it a name of their own. Saved before this was kept, it is unknown.
+export type SavedSearch = Search & { id: string; name: string; color?: string; renamed?: boolean };
 export type RecentSearch = Search & { at: number; via?: string };
 
 export const searchId = (search: Search) => `${search.from}>${search.to}`;
@@ -97,7 +98,7 @@ export function saveSaved(saved: SavedSearch[]) {
 
 export function saveSearch(search: Search, name: string, color?: string) {
   const saved = loadSaved().filter((item) => item.id !== searchId(search));
-  const entry: SavedSearch = { ...search, id: searchId(search), name, ...(color ? { color } : {}) };
+  const entry: SavedSearch = { ...search, id: searchId(search), name, renamed: false, ...(color ? { color } : {}) };
   saveSaved([...saved, entry]);
   return entry;
 }

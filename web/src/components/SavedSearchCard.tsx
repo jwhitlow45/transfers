@@ -12,7 +12,8 @@ export function SavedSearchCard({ name, color, chain, named, windowText, next, l
   name: string;
   color: string | undefined;
   chain: string;
-  // Whether the rider gave the search its own name. Otherwise the name already is the trip.
+  // Whether to show the trip under the name: when the rider renamed the search, or when the trip
+  // names a stop to get off at that the default name leaves out.
   named: boolean;
   windowText: string | null;
   next: NextConnection | null;
@@ -106,29 +107,42 @@ export function SavedSearchCard({ name, color, chain, named, windowText, next, l
               )}
             </span>
           )}
-          <span class="tf-saved__count">
-            <span class="tf-saved__lead">{!next ? (loading ? 'Checking' : 'No connection') : now ? 'Arriving' : 'Arrives in'}</span>
-            {next && <span class="tf-saved__num">{now ? 'Now' : next.minutes}</span>}
-            {next && !now && <span class="tf-saved__unit">min</span>}
-          </span>
-          {next ? (
-            <span class="tf-saved__next">
-              <span class="tf-sr">{next.line}</span>
-              <span class="tf-saved__legs" aria-hidden="true">
+          {/* The countdown column of a results row, with the connection to its right: each vehicle
+              on a line of its own, and the transfer between them, so nothing wraps. */}
+          <span class="tf-saved__row">
+            <span class="tf-saved__count" aria-hidden="true">
+              <span class="tf-row__lead">{!next ? (loading ? 'Checking' : 'No connection') : now ? 'Arriving' : 'Arrives in'}</span>
+              {next && <span class="tf-row__num">{now ? 'Now' : next.minutes}</span>}
+              {next && !now && <span class="tf-row__unit">min</span>}
+            </span>
+            {next ? (
+              <span class="tf-saved__next">
+                <span class="tf-sr">{next.line}</span>
                 {next.legs.map((leg, index) => (
-                  <span key={index} class="tf-saved__leg">
-                    {index > 0 && <span class="tf-chain__arrow">→</span>}
-                    <RouteChip route={leg.route} size="sm" />
-                    <span class="tf-saved__time">{clock(leg.at)}</span>
-                    <StatusTag status={leg.status} plain />
+                  <span key={index} class="tf-saved__leg-wrap" aria-hidden="true">
+                    {index > 0 && next.transfer !== null && (
+                      <span class="tf-saved__xfer">
+                        <IconTransfer />
+                        {next.transfer} min transfer
+                      </span>
+                    )}
+                    <span class="tf-saved__leg">
+                      <RouteChip route={leg.route} size="sm" />
+                      <span class="tf-saved__time">{clock(leg.at)}</span>
+                      <StatusTag status={leg.status} plain />
+                    </span>
                   </span>
                 ))}
-                {next.walk && <span class="tf-muted">No transfer needed</span>}
+                {next.transfer === null && (
+                  <span class="tf-saved__xfer" aria-hidden="true">
+                    No transfer needed
+                  </span>
+                )}
               </span>
-            </span>
-          ) : (
-            <span class="tf-saved__next tf-muted">{loading ? 'Getting live predictions…' : 'Open to widen the window'}</span>
-          )}
+            ) : (
+              <span class="tf-saved__next tf-muted">{loading ? 'Getting live predictions…' : 'Open to widen the window'}</span>
+            )}
+          </span>
           {staleText && (
             <span class="tf-saved__stale">
               <IconWarn size={14} />

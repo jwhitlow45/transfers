@@ -163,7 +163,9 @@ export function SearchScreen() {
                       key={search.id}
                       search={search}
                       now={now}
-                      onEdit={(change) => updateSaved(loadSaved().map((item) => (item.id === search.id ? { ...item, ...change } : item)))}
+                      onEdit={(change) =>
+                        updateSaved(loadSaved().map((item) => (item.id === search.id ? { ...item, ...change, renamed: item.renamed || change.name !== item.name } : item)))
+                      }
                       onColorless={(lineColor) => {
                         // Saved before colors existed: take one now, avoiding the rest.
                         const all = loadSaved();
@@ -239,7 +241,9 @@ function SavedTrip({ search, now, onEdit, onColorless, onRemove }: {
       name={search.name}
       color={search.color}
       chain={summary.chain}
-      named={search.name !== `${summary.from} to ${summary.to}`}
+      // A name the rider chose says nothing of the trip, and the default leaves out where to get
+      // off. Searches saved before renames were kept compare against the default name.
+      named={(search.renamed ?? search.name !== `${summary.from} to ${summary.to}`) || summary.via !== null}
       windowText={summary.windowText}
       next={summary.next}
       loading={!data && feed === 'loading'}

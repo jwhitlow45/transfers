@@ -6,9 +6,10 @@ import { pageColors, pointId, visibleDepartures } from './results.ts';
 
 // One vehicle of the next connection, for a saved card to draw as the results page does.
 export type Leg = { route: Route | undefined; at: number; status: Status };
-// The soonest connection: minutes until it leaves, its vehicles, whether the route already stops
-// at From so there is no transfer, and the same in one line for screen readers.
-export type NextConnection = { minutes: number; legs: Leg[]; walk: boolean; line: string };
+// The soonest connection: minutes until it leaves, its vehicles, the minutes to make the
+// transfer (null when the route already stops at From, so there is none), and the same in one
+// line for screen readers.
+export type NextConnection = { minutes: number; legs: Leg[]; transfer: number | null; line: string };
 
 // The parts of a trip that headers, saved cards, and recent searches all describe.
 export function summarize(search: Search, data: TripResponse | null, now: number) {
@@ -47,8 +48,8 @@ export function summarize(search: Search, data: TripResponse | null, now: number
             { route: first, at: connection.departs, status: firstStatus },
             { route: second, at: departure.at, status: secondStatus },
           ],
-          walk: false,
-          line: `${first ? chipLabel(first) : ''} ${clock(connection.departs)} (${firstStatus.label.toLowerCase()}) → ${second ? chipLabel(second) : ''} ${clock(departure.at)} (${secondStatus.label.toLowerCase()})`,
+          transfer: connection.transfer,
+          line: `${first ? chipLabel(first) : ''} ${clock(connection.departs)} (${firstStatus.label.toLowerCase()}), ${connection.transfer} minute transfer, ${second ? chipLabel(second) : ''} ${clock(departure.at)} (${secondStatus.label.toLowerCase()})`,
         };
       }
     }
@@ -65,7 +66,7 @@ export function summarize(search: Search, data: TripResponse | null, now: number
       next = {
         minutes: Math.floor((departure.at * 1000 - now) / 60_000),
         legs: [{ route, at: departure.at, status }],
-        walk: true,
+        transfer: null,
         line: `${route ? chipLabel(route) : ''} ${clock(departure.at)} (${status.label.toLowerCase()}) · no transfer needed`,
       };
     }
