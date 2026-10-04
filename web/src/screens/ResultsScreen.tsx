@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { TripResponse } from '../../../shared/api.ts';
 import { takeInitialData } from '../api.ts';
 import { AlertList } from '../components/AlertList.tsx';
@@ -11,6 +11,7 @@ import { RouteChip } from '../components/RouteChip.tsx';
 import { SkeletonResults } from '../components/SkeletonResults.tsx';
 import { TransferPointGroup } from '../components/TransferPointGroup.tsx';
 import { type SearchUpdate, TripSettingsSheet } from '../components/TripSettingsSheet.tsx';
+import { useSwipeBack } from '../gestures.ts';
 import { useNow, usePoll } from '../hooks.ts';
 import { defaultSavedColor } from '../lib/color.ts';
 import { viewAlerts } from '../lib/alerts.ts';
@@ -55,6 +56,9 @@ export function ResultsScreen({ search }: { search: Search }) {
   useEffect(() => {
     if (data) rememberRecent(search, summary.via ?? undefined);
   }, [Boolean(data), summary.via]);
+
+  const scroller = useRef<HTMLDivElement>(null);
+  useSwipeBack(() => scroller.current, () => navigate('/'));
 
   const update: SearchUpdate = (change) => {
     const next = change(search);
@@ -104,7 +108,7 @@ export function ResultsScreen({ search }: { search: Search }) {
 
   return (
     <>
-      <div class="tf-scroll">
+      <div class="tf-scroll" ref={scroller}>
         <ScreenHeader
           title={<TripChain from={summary.from} via={summary.via} to={toChip} />}
           feed={feed}

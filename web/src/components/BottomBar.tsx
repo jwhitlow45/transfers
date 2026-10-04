@@ -1,5 +1,5 @@
 import { useRef } from 'preact/hooks';
-import { useVerticalDrag } from '../gestures.ts';
+import { useDrag } from '../gestures.ts';
 import { IconSliders } from '../icons/ui.tsx';
 
 // How far up a swipe on the bar goes before it opens the settings, or how fast, in px per ms.
@@ -18,7 +18,7 @@ export function BottomBar({ windowText, onOpen }: { windowText: string | null; o
     opened.current = true;
     onOpen();
   };
-  useVerticalDrag(() => bar.current, {
+  useDrag(() => bar.current, 'y', {
     claim: (direction) => {
       opened.current = false;
       return direction === 'up';

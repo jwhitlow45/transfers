@@ -1,6 +1,6 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef } from 'preact/hooks';
-import { prefersReducedMotion, useVerticalDrag } from '../gestures.ts';
+import { SLIDE_MS, prefersReducedMotion, useDrag } from '../gestures.ts';
 import { IconClose } from '../icons/ui.tsx';
 
 // A drag down closes the sheet past this share of its height, or this far, whichever is less.
@@ -8,8 +8,6 @@ const CLOSE_SHARE = 1 / 3;
 const CLOSE_PX = 140;
 // Or when flung down at least this fast, in px per ms.
 const CLOSE_FLING = 0.4;
-// Matches the sheet's transition in styles.css.
-const SLIDE_MS = 180;
 
 // Modal bottom sheet: focus moves in on open, Tab stays inside, Escape and the scrim close it,
 // and focus returns to the button that opened it. Dragging down closes it too, but only from
@@ -27,12 +25,12 @@ export function Sheet({ title, subtitle, footer, onClose, children }: { title: s
     sheet.style.transform = offset > 0 ? `translateY(${offset}px)` : '';
     shade.style.opacity = offset > 0 ? String(Math.max(0, 1 - offset / sheet.offsetHeight)) : '';
   };
-  useVerticalDrag(() => panel.current, {
+  useDrag(() => panel.current, 'y', {
     claim: (direction) => direction === 'down' && (panel.current?.scrollTop ?? 1) <= 0,
     move: (dy) => place(Math.max(0, dy), false),
     end: (release) => {
       const height = panel.current?.offsetHeight ?? 0;
-      if (!release || (release.dy < Math.min(height * CLOSE_SHARE, CLOSE_PX) && release.velocity < CLOSE_FLING)) return place(0, true);
+      if (!release || (release.distance < Math.min(height * CLOSE_SHARE, CLOSE_PX) && release.velocity < CLOSE_FLING)) return place(0, true);
       place(height, true);
       setTimeout(onClose, prefersReducedMotion() ? 0 : SLIDE_MS);
     },
