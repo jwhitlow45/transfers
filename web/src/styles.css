@@ -455,3 +455,9 @@ button.tf-band:hover { filter: brightness(1.12); }
 .tf-pull svg { transform: rotate(var(--pull-turn, 0deg)); }
 .tf-pull--ready { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
 @media (prefers-reduced-motion: reduce) { .tf-sheet__panel, .tf-sheet__scrim, .tf-pull { transition: none; } }
+
+/* ── route stops in From ──────────────────────────── */
+.tf-results + .tf-results { margin-top: var(--space-3); }
+.tf-along__head { display: flex; align-items: center; gap: var(--space-2); }
+.tf-along__way { padding: var(--space-3) var(--space-4); border-bottom: var(--border-hair) solid var(--divider); }
+.tf-result--compact { min-height: var(--tap); padding-block: var(--space-2); gap: 2px; }

@@ -1,5 +1,7 @@
-import type { RouteSearchResult, SearchResponse, StopSearchResult } from '../../../shared/api.ts';
-import { agencyName } from '../view.ts';
+import { useState } from 'preact/hooks';
+import type { RouteSearchResult, RouteStops, SearchResponse, StopSearchResult } from '../../../shared/api.ts';
+import { agencyName, spokenRoute } from '../view.ts';
+import { Segmented } from './DirectionSwitcher.tsx';
 import { RouteChip } from './RouteChip.tsx';
 
 export type SearchHit = StopSearchResult | RouteSearchResult;
@@ -34,9 +36,63 @@ function hitDirection(hit: StopSearchResult) {
 // arrow-key model to go with one.
 export function StopResults({ query, response, onPick, includesRoutes }: { query: string; response: SearchResponse; onPick: (hit: SearchHit) => void; includesRoutes: boolean }) {
   const hits = response.results;
+  const along = response.along ?? [];
   const noun = includesRoutes ? 'stop or route' : 'stop';
   const label =
     hits.length === 0 ? `Nothing matches “${query}”` : hits.length === 1 ? `1 ${noun} matches “${query}”` : `${hits.length} ${includesRoutes ? 'stops and routes' : 'stops'} match “${query}”`;
+  return (
+    <>
+      {along.map((route) => (
+        <RouteStopList key={route.route} along={route} response={response} onPick={onPick} />
+      ))}
+      {(hits.length > 0 || along.length === 0) && <HitList label={label} hits={hits} response={response} onPick={onPick} />}
+    </>
+  );
+}
+
+// The stops of a route named in From, one direction at a time, since which side of the street
+// the rider stands on decides the stop.
+function RouteStopList({ along, response, onPick }: { along: RouteStops; response: SearchResponse; onPick: (hit: SearchHit) => void }) {
+  const [shown, setShown] = useState(String(along.directions[0]?.id ?? 0));
+  const route = response.routes[along.route];
+  const direction = along.directions.find(({ id }) => String(id) === shown) ?? along.directions[0];
+  if (!route || !direction) return null;
+  const bart = route.agency === 'BA';
+  const label = `${bart ? 'Stations' : 'Stops'} on the ${spokenRoute(route)}`;
+  return (
+    <div class="tf-results" role="region" aria-label={label}>
+      <div class="tf-results__label tf-along__head">
+        <RouteChip route={route} size="sm" label={bart ? route.name : undefined} />
+        {bart ? 'Stations' : 'Stops'} in riding order
+      </div>
+      {along.directions.length > 1 && (
+        <div class="tf-along__way">
+          <Segmented
+            label={`Which way on the ${bart ? `${route.name} line` : route.name}`}
+            options={along.directions.map(({ id, headsign }) => ({ key: String(id), text: headsign, toward: true }))}
+            selected={shown}
+            onChoose={setShown}
+          />
+        </div>
+      )}
+      <div role="list">
+        {direction.stops.map((stop) => (
+          <div role="listitem" key={stop.key}>
+            <button type="button" class="tf-result tf-result--compact" onClick={() => onPick(stop)}>
+              <span class="tf-result__top">
+                <span class="tf-result__name">{stop.name}</span>
+                <span class="tf-result__code">{stop.code ? `Stop ${stop.code}` : 'Station'}</span>
+              </span>
+              {!bart && stop.direction && <span class="tf-result__dir">{stop.direction}</span>}
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function HitList({ label, hits, response, onPick }: { label: string; hits: SearchHit[]; response: SearchResponse; onPick: (hit: SearchHit) => void }) {
   return (
     <div class="tf-results" role="region" aria-label={label}>
       <div class="tf-results__label" aria-live="polite">

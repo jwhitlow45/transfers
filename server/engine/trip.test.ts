@@ -9,7 +9,7 @@ import { type FeedObject, decodeFeed, encodeFeed } from '../realtime/feed.ts';
 import { buildAlerts, buildTripSnapshot } from '../realtime/snapshot.ts';
 import { Schedule } from '../schedule.ts';
 import { serviceDayStart } from '../time.ts';
-import { search } from '../api/search.ts';
+import { mergeOrder, search } from '../api/search.ts';
 import { destinations, planTrip } from './trip.ts';
 
 // A tiny network shaped like J's commute: BART from Montgomery to 24th St Mission, where the
@@ -255,6 +255,25 @@ test('search finds a shared station once, by name', () => {
   deepStrictEqual(montgomery.map((result) => (result.type === 'stop' ? result.key : result.route)), ['BA:901209']);
   // Its Muni Metro platform still answers to its own code.
   deepStrictEqual(search(schedule, '16994', { routes: false }).results.map((result) => (result.type === 'stop' ? result.key : '')), ['SF:16994']);
+});
+
+test('naming a route exactly where only a stop will do lists the stops it makes, in order', () => {
+  const along = (query: string, routes = false) =>
+    search(schedule, query, { routes }).along?.map(({ route, directions }) => ({ route, stops: directions.map(({ stops }) => stops.map(({ key }) => key)) }));
+  deepStrictEqual(along('48'), [{ route: 'SF:48', stops: [['SF:13486', 'SF:13477', 'SF:13500']] }]);
+  // A Muni Metro platform in a shared station stands for the station.
+  deepStrictEqual(along('n'), [{ route: 'SF:N', stops: [['BA:901209', 'SF:16998']] }]);
+  deepStrictEqual(along('Yellow'), [{ route: 'BA:Yellow-S', stops: [['BA:901209', 'BA:901609', 'BA:902109']] }]);
+  deepStrictEqual(along('4'), undefined);
+  // To can be the route itself.
+  deepStrictEqual(along('48', true), undefined);
+});
+
+test('stop orders merge with short runs placed where they join', () => {
+  // The second run starts at 9 before joining at 3 and adds 6. The third loops back to 3.
+  deepStrictEqual(mergeOrder([[1, 2, 3, 4, 5], [9, 3, 4, 6, 5], [3, 4, 3]]), [1, 2, 9, 3, 4, 6, 5]);
+  // A run sharing no stop goes at the end.
+  deepStrictEqual(mergeOrder([[1, 2], [7, 8]]), [1, 2, 7, 8]);
 });
 
 test('when the route to catch runs but nothing from From does, the notice says so', () => {

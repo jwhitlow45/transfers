@@ -47,9 +47,17 @@ export type RouteSearchResult = {
   directions: { id: number; name: string | null; headsign: string }[];
 };
 
+// A route named exactly in a search for a stop (From cannot be a route), with the stops it makes
+// in riding order, one list per direction. A BART line lists its stations once.
+export type RouteStops = {
+  route: string;
+  directions: { id: number; name: string | null; headsign: string; stops: StopSearchResult[] }[];
+};
+
 export type SearchResponse = {
   results: (StopSearchResult | RouteSearchResult)[];
   routes: Record<string, Route>;
+  along?: RouteStops[];
 };
 
 // Why a connection the rider asked to see was filtered out.

@@ -1,9 +1,9 @@
-import type { RouteSearchResult, SearchResponse, StopSearchResult } from '../../shared/api.ts';
+import type { RouteSearchResult, RouteStops, SearchResponse, StopSearchResult } from '../../shared/api.ts';
 import { destinationOf } from '../engine/links.ts';
 import { routeView, stopView } from '../engine/views.ts';
 import { distanceMeters, type Point } from '../geo.ts';
 import { searchQuery, searchText } from '../gtfs/search-text.ts';
-import { type RouteRow, type Schedule, type StopRow, routeKeyOf } from '../schedule.ts';
+import { type PatternRow, type RouteRow, type Schedule, type StopRow, routeKeyOf } from '../schedule.ts';
 import { all } from '../db.ts';
 
 const LIMIT = 12;
@@ -81,7 +81,81 @@ export function search(schedule: Schedule, text: string, options: { routes: bool
     if (result.type === 'route') response.routes[result.route] ??= routeView(schedule.routesByKey.get(result.route)!);
   }
   response.results = results;
+  // From has to be a stop, so naming a route there lists the stops it makes.
+  if (!options.routes) {
+    const along = namedRoutes(schedule, query).map((route) => routeStops(schedule, route));
+    if (along.length > 0) response.along = along;
+    for (const { route } of along) response.routes[route] ??= routeView(schedule.routesByKey.get(route)!);
+  }
   return response;
+}
+
+// Routes named exactly what was typed ("22", "N", "Yellow"). BART runs each line as two routes,
+// one per direction, and one stands for both.
+function namedRoutes(schedule: Schedule, query: string) {
+  const lower = query.toLowerCase();
+  const seen = new Set<string>();
+  const named: RouteRow[] = [];
+  for (const route of schedule.routes.values()) {
+    const name = routeView(route).name;
+    if (name.toLowerCase() !== lower || (route.agency === 'BA' && seen.has(name))) continue;
+    named.push(route);
+    if (route.agency === 'BA') seen.add(name);
+  }
+  return sortRoutes(named).slice(0, 4);
+}
+
+const bartLine = (schedule: Schedule, route: RouteRow) =>
+  route.agency === 'BA' ? [...schedule.routes.values()].filter((other) => other.agency === 'BA' && routeView(other).name === routeView(route).name) : [route];
+
+// The stops a route makes, in riding order, for each direction. Every pattern adds its stops
+// to the order of the busiest one, so short runs, branches and late-night variants all show.
+// A rider boards at a BART station, not a platform, so a line lists its stations once.
+function routeStops(schedule: Schedule, route: RouteRow): RouteStops {
+  const byDirection = new Map<number, PatternRow[]>();
+  for (const member of bartLine(schedule, route)) {
+    for (const pattern of schedule.patternsByRoute.get(member.id) ?? []) {
+      const id = pattern.direction ?? 0;
+      byDirection.set(id, [...(byDirection.get(id) ?? []), pattern]);
+    }
+  }
+  const directions = [...byDirection]
+    .sort(([a], [b]) => a - b)
+    .map(([id, patterns]) => {
+      const busiest = [...patterns].sort((a, b) => b.trips - a.trips);
+      const top = busiest[0]!;
+      const headsign = destinationOf(schedule, top);
+      const stations = new Set(mergeOrder(busiest.map(({ stops }) => stops)).map((stop) => schedule.stationOf(schedule.stop(stop))));
+      const stops = [...stations].filter(isSearchable).map(
+        (stop): StopSearchResult => ({ type: 'stop', ...stopView(schedule, stop), routes: [], toward: route.agency === 'BA' ? [] : [headsign] }),
+      );
+      return { id, name: schedule.directionName(top.route, top.direction), headsign, stops };
+    });
+  return { route: routeKeyOf(route), directions: route.agency === 'BA' ? directions.slice(0, 1) : directions };
+}
+
+// Merges stop sequences into one order: each stop not yet placed goes right after the stop
+// before it in its own sequence. Stops before a sequence's first known stop, such as where a
+// short run starts, go just before that stop. A stop seen again, as on a loop, keeps its first
+// place.
+export function mergeOrder(sequences: number[][]) {
+  const order: number[] = [];
+  for (const sequence of sequences) {
+    let at = -1;
+    let leading: number[] = [];
+    for (const stop of sequence) {
+      const found = order.indexOf(stop);
+      if (found === -1 && at === -1) leading.push(stop);
+      else if (found === -1) order.splice(++at, 0, stop);
+      else if (at === -1) {
+        order.splice(found, 0, ...leading);
+        at = found + leading.length;
+        leading = [];
+      } else if (found > at) at = found;
+    }
+    order.push(...leading);
+  }
+  return order;
 }
 
 // Routes whose name matches exactly ("22", "N", "Yellow"), and routes whose long name contains
@@ -89,27 +163,18 @@ export function search(schedule: Schedule, text: string, options: { routes: bool
 function routeResults(schedule: Schedule, query: string) {
   const lower = query.toLowerCase();
   const words = lower.split(/\s+/).filter(Boolean);
-  const exact: RouteRow[] = [];
-  const byLongName: RouteRow[] = [];
-  // BART runs each line as two routes, one per direction. One result stands for both.
-  const seen = new Set<string>();
-  for (const route of schedule.routes.values()) {
-    const name = routeView(route).name;
-    if (route.agency === 'BA' && seen.has(name)) continue;
-    if (name.toLowerCase() === lower) exact.push(route);
-    // BART's long names list stations ("Millbrae/SF Int'l SFO to Antioch"), so a station search
-    // would turn up lines, not the station.
-    else if (route.agency !== 'BA' && lower.length >= 3 && words.every((word) => route.longName.toLowerCase().includes(word))) byLongName.push(route);
-    else continue;
-    if (route.agency === 'BA') seen.add(name);
-  }
-  return { exact: routeSummaries(schedule, sortRoutes(exact).slice(0, 4)), byLongName: routeSummaries(schedule, sortRoutes(byLongName).slice(0, 3)) };
+  // BART's long names list stations ("Millbrae/SF Int'l SFO to Antioch"), so a station search
+  // would turn up lines, not the station.
+  const byLongName = [...schedule.routes.values()].filter(
+    (route) => route.agency !== 'BA' && lower.length >= 3 && routeView(route).name.toLowerCase() !== lower && words.every((word) => route.longName.toLowerCase().includes(word)),
+  );
+  return { exact: routeSummaries(schedule, namedRoutes(schedule, query)), byLongName: routeSummaries(schedule, sortRoutes(byLongName).slice(0, 3)) };
 }
 
 function routeSummaries(schedule: Schedule, routes: RouteRow[]): RouteSearchResult[] {
   return routes.map((route) => {
       // A BART line's two routes are its two directions.
-      const members = route.agency === 'BA' ? [...schedule.routes.values()].filter((other) => other.agency === 'BA' && routeView(other).name === routeView(route).name) : [route];
+      const members = bartLine(schedule, route);
       const directions = new Map<number, { id: number; name: string | null; headsign: string; trips: number }>();
       for (const member of members) {
         for (const pattern of schedule.patternsByRoute.get(member.id) ?? []) {
