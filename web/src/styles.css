@@ -188,7 +188,13 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-saved__lead { font-size: var(--text-sm); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--muted); }
 .tf-saved__num { font-size: var(--text-num); font-weight: var(--weight-heavy); line-height: 1; }
 .tf-saved__unit { font-size: var(--text-md); font-weight: var(--weight-semibold); }
-.tf-saved__next { font-size: 15px; }
+.tf-saved__next { font-size: 15px; margin-top: var(--space-1); }
+/* The next connection drawn as the results page draws it: chip, time, and status per vehicle. */
+.tf-saved__legs { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); }
+.tf-saved__leg { display: inline-flex; align-items: center; gap: 6px; }
+.tf-saved__time { font-weight: var(--weight-bold); }
+.tf-saved__chain { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); }
+.tf-saved__window { display: inline-flex; align-items: center; gap: 5px; }
 .tf-saved__alert { display: inline-flex; align-self: flex-start; align-items: center; gap: 6px; margin-top: var(--space-2); padding: 3px var(--space-2); background: var(--late-tint); color: var(--late); font-size: var(--text-sm); font-weight: 650; }
 .tf-recent { display: flex; align-items: center; gap: var(--space-3); width: 100%; min-height: 60px; padding: var(--space-2) 0; text-align: left; border-bottom: var(--border-hair) solid var(--divider); }
 .tf-recent__text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -309,6 +315,8 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-select { width: 100%; min-height: var(--tap); margin-top: var(--space-2); font: inherit; color: var(--text); background: var(--bg); border: var(--border-strong) solid var(--line); padding: 0 10px; }
 .tf-filter { min-height: var(--tap-min); padding: 0 var(--space-4); display: inline-flex; align-items: center; gap: var(--space-2); font-size: 15px; font-weight: 650; border: var(--border-strong) solid var(--line); color: var(--muted); }
 .tf-filter[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-tint); color: var(--text); }
+/* A single choice reads like the results page's switchers: the chosen option filled dark. */
+.tf-choice[aria-pressed="true"] { border-color: var(--field); background: var(--field); color: var(--on-field); }
 .tf-filter__swatch { width: 9px; height: 9px; }
 .tf-filters { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }
 

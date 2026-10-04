@@ -1,5 +1,5 @@
 import { ScreenHeader } from '../components/ResultsHeader.tsx';
-import { Toggle } from '../components/Sheet.tsx';
+import { Choices, Toggle } from '../components/Sheet.tsx';
 import { MinutesSlider, WindowSlider } from '../components/Slider.tsx';
 import { useSwipeBack } from '../gestures.ts';
 import { navigate } from '../router.ts';
@@ -40,24 +40,17 @@ export function SettingsScreen() {
           <div class="tf-setting">
             <div class="tf-setting__label">Walking speed</div>
             <div class="tf-setting__help">Sets how long the walk between stops takes, and so the shortest transfer</div>
-            <div class="tf-filters">
-              {SPEEDS.map(({ value, label }) => (
-                <Toggle key={value} pressed={settings.walkSpeed === value} onToggle={() => update({ walkSpeed: value })}>
-                  {label}
-                </Toggle>
-              ))}
-            </div>
+            <Choices label="Walking speed" options={SPEEDS.map(({ value, label }) => ({ key: value, text: label }))} selected={settings.walkSpeed} onChoose={(walkSpeed) => update({ walkSpeed })} />
           </div>
           <div class="tf-setting">
             <div class="tf-setting__label">Longest walk between stops</div>
             <div class="tf-setting__help">Walks to and from BART and Muni Metro stations can be up to 50% longer. 300 m is the default.</div>
-            <div class="tf-filters">
-              {WALKS.map((meters) => (
-                <Toggle key={meters} pressed={settings.maxWalk === meters} onToggle={() => update({ maxWalk: meters })}>
-                  {meters} m · {Math.max(1, Math.round((meters * 1.3) / settings.walkSpeed / 60))} min
-                </Toggle>
-              ))}
-            </div>
+            <Choices
+              label="Longest walk between stops"
+              options={WALKS.map((meters) => ({ key: meters, text: `${meters} m · ${Math.max(1, Math.round((meters * 1.3) / settings.walkSpeed / 60))} min` }))}
+              selected={settings.maxWalk}
+              onChoose={(maxWalk) => update({ maxWalk })}
+            />
           </div>
         </section>
 
@@ -66,24 +59,23 @@ export function SettingsScreen() {
           <div class="tf-setting">
             <div class="tf-setting__label">Default window</div>
             <div class="tf-setting__help">Suggested works out each transfer from the walk, and widens it for routes that come rarely</div>
-            <div class="tf-filters">
-              <Toggle pressed={automatic} onToggle={() => update({ min: null, max: null })}>
-                Suggested
-              </Toggle>
-              <Toggle pressed={!automatic} onToggle={() => update({ min: settings.min ?? 3, max: settings.max ?? 12 })}>
-                Same for every trip
-              </Toggle>
-            </div>
+            <Choices
+              label="Default window"
+              options={[
+                { key: 'suggested', text: 'Suggested' },
+                { key: 'fixed', text: 'Same for every trip' },
+              ]}
+              selected={automatic ? 'suggested' : 'fixed'}
+              onChoose={(choice) => update(choice === 'suggested' ? { min: null, max: null } : { min: settings.min ?? 3, max: settings.max ?? 12 })}
+            />
           </div>
           {!automatic && (
-            <>
-              <WindowSlider
-                label="Window for every trip"
-                help="Shortest time to get between stops, and longest wait you will accept"
-                window={{ min: settings.min ?? 3, max: settings.max ?? 12 }}
-                onChange={({ min, max }) => update({ min, max })}
-              />
-            </>
+            <WindowSlider
+              label="Window for every trip"
+              help="Shortest time to get between stops, and longest wait you will accept"
+              window={{ min: settings.min ?? 3, max: settings.max ?? 12 }}
+              onChange={({ min, max }) => update({ min, max })}
+            />
           )}
           <MinutesSlider label="Hide departures leaving in less than" help="Time to reach your first stop" value={settings.hide} onChange={(value) => update({ hide: value })} />
         </section>
@@ -92,13 +84,7 @@ export function SettingsScreen() {
           <h2 id="look-heading">Appearance</h2>
           <div class="tf-setting">
             <div class="tf-setting__label">Theme</div>
-            <div class="tf-filters">
-              {THEMES.map(({ value, label }) => (
-                <Toggle key={value} pressed={settings.theme === value} onToggle={() => update({ theme: value })}>
-                  {label}
-                </Toggle>
-              ))}
-            </div>
+            <Choices label="Theme" options={THEMES.map(({ value, label }) => ({ key: value, text: label }))} selected={settings.theme} onChoose={(theme) => update({ theme })} />
           </div>
           <div class="tf-setting">
             <div class="tf-setting__label">Transit icons</div>
@@ -112,13 +98,7 @@ export function SettingsScreen() {
           <div class="tf-setting">
             <div class="tf-setting__label">Departure cards</div>
             <div class="tf-setting__help">How cards start out on results. First expanded opens each group's soonest departure. Tap any card to open or close it.</div>
-            <div class="tf-filters">
-              {CARDS.map(({ value, label }) => (
-                <Toggle key={value} pressed={settings.cards === value} onToggle={() => update({ cards: value })}>
-                  {label}
-                </Toggle>
-              ))}
-            </div>
+            <Choices label="Departure cards" options={CARDS.map(({ value, label }) => ({ key: value, text: label }))} selected={settings.cards} onChoose={(cards) => update({ cards })} />
           </div>
         </section>
 

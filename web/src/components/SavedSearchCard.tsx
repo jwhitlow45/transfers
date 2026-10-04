@@ -1,15 +1,19 @@
 import { useState } from 'preact/hooks';
-import { IconPencil, IconWarn } from '../icons/ui.tsx';
+import { clock } from '../format.ts';
+import { IconPencil, IconTransfer, IconWarn } from '../icons/ui.tsx';
 import { SAVED_COLORS } from '../lib/color.ts';
-
-export type NextConnection = { minutes: number; line: string };
+import type { NextConnection } from '../lib/summary.ts';
+import { RouteChip } from './RouteChip.tsx';
+import { StatusTag } from './StatusTag.tsx';
 
 // The main daily entry point: one tap opens results, and it leads with a live countdown. The
 // color stripe tells saved searches apart at a glance, and the pencil edits name and color.
-export function SavedSearchCard({ name, color, chain, windowText, next, loading, severeAlerts, staleText, href, onOpen, onEdit, onRemove }: {
+export function SavedSearchCard({ name, color, chain, named, windowText, next, loading, severeAlerts, staleText, href, onOpen, onEdit, onRemove }: {
   name: string;
   color: string | undefined;
   chain: string;
+  // Whether the rider gave the search its own name. Otherwise the name already is the trip.
+  named: boolean;
   windowText: string | null;
   next: NextConnection | null;
   loading: boolean;
@@ -90,13 +94,41 @@ export function SavedSearchCard({ name, color, chain, windowText, next, loading,
             onOpen();
           }}
         >
-          <span class="tf-saved__chain">{windowText ? `${chain} · ${windowText}` : chain}</span>
+          {(named || windowText) && (
+            <span class="tf-saved__chain">
+              {named && <span>{chain}</span>}
+              {windowText && (
+                <span class="tf-saved__window">
+                  <span class="tf-sr">Transfer window </span>
+                  <IconTransfer />
+                  {windowText}
+                </span>
+              )}
+            </span>
+          )}
           <span class="tf-saved__count">
             <span class="tf-saved__lead">{!next ? (loading ? 'Checking' : 'No connection') : now ? 'Arriving' : 'Arrives in'}</span>
             {next && <span class="tf-saved__num">{now ? 'Now' : next.minutes}</span>}
             {next && !now && <span class="tf-saved__unit">min</span>}
           </span>
-          <span class="tf-saved__next">{next ? next.line : loading ? 'Getting live predictions…' : 'Open to widen the window'}</span>
+          {next ? (
+            <span class="tf-saved__next">
+              <span class="tf-sr">{next.line}</span>
+              <span class="tf-saved__legs" aria-hidden="true">
+                {next.legs.map((leg, index) => (
+                  <span key={index} class="tf-saved__leg">
+                    {index > 0 && <span class="tf-chain__arrow">→</span>}
+                    <RouteChip route={leg.route} size="sm" />
+                    <span class="tf-saved__time">{clock(leg.at)}</span>
+                    <StatusTag status={leg.status} plain />
+                  </span>
+                ))}
+                {next.walk && <span class="tf-muted">No transfer needed</span>}
+              </span>
+            </span>
+          ) : (
+            <span class="tf-saved__next tf-muted">{loading ? 'Getting live predictions…' : 'Open to widen the window'}</span>
+          )}
           {staleText && (
             <span class="tf-saved__stale">
               <IconWarn size={14} />

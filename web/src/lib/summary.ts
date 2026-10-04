@@ -1,8 +1,14 @@
-import type { TripResponse } from '../../../shared/api.ts';
+import type { Route, TripResponse } from '../../../shared/api.ts';
 import { clock } from '../format.ts';
 import type { Search } from '../storage.ts';
-import { chipLabel, shortStopName, statusOf, windowText } from '../view.ts';
+import { type Status, chipLabel, shortStopName, statusOf, windowText } from '../view.ts';
 import { pageColors, pointId, visibleDepartures } from './results.ts';
+
+// One vehicle of the next connection, for a saved card to draw as the results page does.
+export type Leg = { route: Route | undefined; at: number; status: Status };
+// The soonest connection: minutes until it leaves, its vehicles, whether the route already stops
+// at From so there is no transfer, and the same in one line for screen readers.
+export type NextConnection = { minutes: number; legs: Leg[]; walk: boolean; line: string };
 
 // The parts of a trip that headers, saved cards, and recent searches all describe.
 export function summarize(search: Search, data: TripResponse | null, now: number) {
@@ -23,7 +29,7 @@ export function summarize(search: Search, data: TripResponse | null, now: number
   const window = lead ? { min: search.min ?? lead.window.min, max: search.max ?? lead.window.max } : null;
 
   // The soonest first vehicle that makes a connection, with both legs and their lateness.
-  let next: { minutes: number; line: string } | null = null;
+  let next: NextConnection | null = null;
   let soonest = Infinity;
   for (const group of groups) {
     for (const departure of visibleDepartures(group, now, false)) {
@@ -33,11 +39,16 @@ export function summarize(search: Search, data: TripResponse | null, now: number
         soonest = connection.departs;
         const first = data!.routes[connection.route];
         const second = data!.routes[departure.route];
-        const firstStatus = statusOf(connection.departDelay, connection.live).label.toLowerCase();
-        const secondStatus = statusOf(departure.delay, departure.live).label.toLowerCase();
+        const firstStatus = statusOf(connection.departDelay, connection.live);
+        const secondStatus = statusOf(departure.delay, departure.live);
         next = {
           minutes: Math.floor((connection.departs * 1000 - now) / 60_000),
-          line: `${first ? chipLabel(first) : ''} ${clock(connection.departs)} (${firstStatus}) → ${second ? chipLabel(second) : ''} ${clock(departure.at)} (${secondStatus})`,
+          legs: [
+            { route: first, at: connection.departs, status: firstStatus },
+            { route: second, at: departure.at, status: secondStatus },
+          ],
+          walk: false,
+          line: `${first ? chipLabel(first) : ''} ${clock(connection.departs)} (${firstStatus.label.toLowerCase()}) → ${second ? chipLabel(second) : ''} ${clock(departure.at)} (${secondStatus.label.toLowerCase()})`,
         };
       }
     }
@@ -50,9 +61,12 @@ export function summarize(search: Search, data: TripResponse | null, now: number
       if (!departure || departure.at >= soonest) continue;
       soonest = departure.at;
       const route = data!.routes[departure.route];
+      const status = statusOf(departure.delay, departure.live);
       next = {
         minutes: Math.floor((departure.at * 1000 - now) / 60_000),
-        line: `${route ? chipLabel(route) : ''} ${clock(departure.at)} (${statusOf(departure.delay, departure.live).label.toLowerCase()}) · no transfer needed`,
+        legs: [{ route, at: departure.at, status }],
+        walk: true,
+        line: `${route ? chipLabel(route) : ''} ${clock(departure.at)} (${status.label.toLowerCase()}) · no transfer needed`,
       };
     }
   }

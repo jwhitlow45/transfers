@@ -94,3 +94,17 @@ export function Toggle({ pressed, swatch, onToggle, children }: { pressed: boole
     </button>
   );
 }
+
+// One of a few options, the chosen one filled like the results page's switchers. Unlike a
+// switcher the options wrap, for long labels or many choices.
+export function Choices<K extends string | number>({ label, options, selected, onChoose }: { label: string; options: { key: K; text: ComponentChildren }[]; selected: K; onChoose: (key: K) => void }) {
+  return (
+    <div class="tf-filters" role="group" aria-label={label}>
+      {options.map(({ key, text }) => (
+        <button key={key} type="button" class="tf-filter tf-choice" aria-pressed={selected === key} onClick={() => onChoose(key)}>
+          {text}
+        </button>
+      ))}
+    </div>
+  );
+}

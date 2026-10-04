@@ -216,6 +216,7 @@ function SavedTrip({ search, now, onEdit, onColorless, onRemove }: {
       name={search.name}
       color={search.color}
       chain={summary.chain}
+      named={search.name !== `${summary.from} to ${summary.to}`}
       windowText={summary.windowText}
       next={summary.next}
       loading={!data && feed === 'loading'}
