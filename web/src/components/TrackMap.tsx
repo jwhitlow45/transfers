@@ -95,7 +95,7 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
             </p>
             <p class="tf-track__change-status">
               {legStatus(next, data.stops, 'the transfer stop')}
-              {transfer?.minutes !== undefined && ` · ${transfer.minutes} min to transfer`}
+              {transfer?.minutes !== undefined && ` · ${transfer.minutes} min transfer`}
             </p>
           </div>
           <LegList leg={next} stops={data.stops} labels={nextLabels} color={nextColor} now={now} />
