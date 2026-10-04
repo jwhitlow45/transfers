@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import type { Search } from './storage.ts';
+import { type Search, clampMinutes } from './storage.ts';
 
 export type Page =
   | { name: 'home' }
@@ -43,9 +43,9 @@ export function parsePage(location: Location): Page {
     const min = number('min');
     const max = number('max');
     const hide = number('hide');
-    if (min !== undefined) search.min = min;
-    if (max !== undefined) search.max = max;
-    if (hide !== undefined) search.hide = hide;
+    if (min !== undefined) search.min = clampMinutes(min);
+    if (max !== undefined) search.max = clampMinutes(max);
+    if (hide !== undefined) search.hide = clampMinutes(hide);
     const dest = params.get('dest');
     if (dest) {
       search.dest = dest;

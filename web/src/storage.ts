@@ -2,6 +2,8 @@
 // (private windows, cleared site data), so every read falls back to defaults and every write
 // may fail quietly. Values are plain objects so they could move to an account later.
 
+import { MAX_MINUTES } from '../../shared/api.ts';
+
 const PREFIX = 'transfers:';
 
 function read<T>(key: string, fallback: T): T {
@@ -39,8 +41,20 @@ export type DeviceSettings = {
 
 export const DEFAULT_SETTINGS: DeviceSettings = { walkSpeed: 1.4, maxWalk: 300, min: null, max: null, hide: 0, theme: 'system', cards: 'expanded', modeIcons: true };
 
+// Minutes as the time settings allow them. Settings and searches saved before the 30 minute cap
+// can hold more, which the server would quietly treat as 30 while the page said otherwise.
+export const clampMinutes = (minutes: number) => Math.min(MAX_MINUTES, Math.max(0, Math.round(minutes)));
+
+function clampTimes<T extends { min?: number | null; max?: number | null; hide?: number }>(item: T): T {
+  const clamped = { ...item };
+  if (typeof clamped.min === 'number') clamped.min = clampMinutes(clamped.min);
+  if (typeof clamped.max === 'number') clamped.max = clampMinutes(clamped.max);
+  if (typeof clamped.hide === 'number') clamped.hide = clampMinutes(clamped.hide);
+  return clamped;
+}
+
 export function loadSettings(): DeviceSettings {
-  return { ...DEFAULT_SETTINGS, ...read<Partial<DeviceSettings>>('settings', {}) };
+  return clampTimes({ ...DEFAULT_SETTINGS, ...read<Partial<DeviceSettings>>('settings', {}) });
 }
 
 export function saveSettings(settings: DeviceSettings) {
@@ -74,7 +88,7 @@ export type RecentSearch = Search & { at: number; via?: string };
 export const searchId = (search: Search) => `${search.from}>${search.to}`;
 
 export function loadSaved(): SavedSearch[] {
-  return read<SavedSearch[]>('saved', []);
+  return read<SavedSearch[]>('saved', []).map(clampTimes);
 }
 
 export function saveSaved(saved: SavedSearch[]) {
