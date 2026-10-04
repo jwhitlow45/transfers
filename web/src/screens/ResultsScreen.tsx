@@ -6,7 +6,7 @@ import { FeedOutageBanner, OfflineBanner, StaleBanner } from '../components/Bann
 import { BottomBar } from '../components/BottomBar.tsx';
 import { DataCredit } from '../components/DataCredit.tsx';
 import { DirectionSwitcher, SystemSwitcher } from '../components/DirectionSwitcher.tsx';
-import { ScreenHeader, SaveButton, TripChain, liveStatusText } from '../components/ResultsHeader.tsx';
+import { ScreenHeader, TripChain, liveStatusText } from '../components/ResultsHeader.tsx';
 import { RouteChip } from '../components/RouteChip.tsx';
 import { SkeletonResults } from '../components/SkeletonResults.tsx';
 import { TransferPointGroup } from '../components/TransferPointGroup.tsx';
@@ -120,7 +120,6 @@ export function ResultsScreen({ search }: { search: Search }) {
               : []),
             ...(hide > 0 ? [{ key: 'hide', icon: <IconHidden />, short: `<${hide}m`, full: `Hiding departures that leave in under ${hide} minutes` }] : []),
           ]}
-          action={<SaveButton saved={saved !== null} onToggle={toggleSaved} />}
           accent={saved?.color}
           onBack={() => navigate('/')}
           onRefresh={refresh}
@@ -191,7 +190,7 @@ export function ResultsScreen({ search }: { search: Search }) {
           <DataCredit />
         </main>
       </div>
-      <BottomBar windowText={summary.windowText} onOpen={() => setSettingsOpen(true)} />
+      <BottomBar windowText={summary.windowText} saved={saved !== null} onOpen={() => setSettingsOpen(true)} onToggleSaved={toggleSaved} />
       {settingsOpen && (
         <TripSettingsSheet
           search={search}

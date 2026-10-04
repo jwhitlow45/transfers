@@ -2,7 +2,7 @@ import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { FeedState } from '../hooks.ts';
 import { ageShort, ageText } from '../lib/freshness.ts';
-import { IconBack, IconBookmark } from '../icons/ui.tsx';
+import { IconBack } from '../icons/ui.tsx';
 import { PullToRefresh } from './PullToRefresh.tsx';
 
 // secondsSinceUpdate counts from when the server got the data from 511, not when this page
@@ -76,7 +76,7 @@ function liveStatusSentence(feed: FeedState, seconds: number | null, stale: bool
 
 // Sticky header for every screen but search: back, a title, and the live status. Screens with
 // live data pass onRefresh to be refreshed by pulling down.
-export function ScreenHeader({ title, feed, secondsSinceUpdate, stale, items, action, accent, onBack, onRefresh }: {
+export function ScreenHeader({ title, feed, secondsSinceUpdate, stale, items, accent, onBack, onRefresh }: {
   title: ComponentChildren;
   stale?: boolean;
   items?: StatusItem[];
@@ -84,7 +84,6 @@ export function ScreenHeader({ title, feed, secondsSinceUpdate, stale, items, ac
   accent?: string | undefined;
   feed?: FeedState;
   secondsSinceUpdate?: number | null;
-  action?: ComponentChildren;
   onBack: () => void;
   onRefresh?: () => void;
 }) {
@@ -95,7 +94,6 @@ export function ScreenHeader({ title, feed, secondsSinceUpdate, stale, items, ac
           <IconBack />
         </button>
         <h1 class="tf-chain">{title}</h1>
-        {action}
       </div>
       {feed && (
         <LiveStatus feed={feed} secondsSinceUpdate={secondsSinceUpdate ?? null} stale={stale ?? false} items={items ?? []} />
@@ -127,13 +125,5 @@ export function TripChain({ from, via, to }: { from: string; via: string | null;
       )}
       {to}
     </>
-  );
-}
-
-export function SaveButton({ saved, onToggle }: { saved: boolean; onToggle: () => void }) {
-  return (
-    <button type="button" class="tf-btn-icon tf-header__action" aria-pressed={saved} aria-label={saved ? 'Saved. Remove from saved searches' : 'Save this search'} onClick={onToggle}>
-      <IconBookmark filled={saved} />
-    </button>
   );
 }
