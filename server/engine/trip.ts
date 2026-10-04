@@ -131,12 +131,12 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
     const routes = link.routes.filter((route) => !secondFilter || secondFilter.has(routeKeyOf(route)));
     if (routes.length === 0) continue;
     const linkForRoutes = routes.length === link.routes.length ? link : { ...link, routes };
-    const min = request.min ?? link.defaultMinutes;
+    const min = Math.min(MAX_MINUTES, request.min ?? link.defaultMinutes);
     const feeders = link.firstLegs
       .filter(({ pattern }) => !firstFilter || firstFilter.has(routeKeyOf(schedule.route(pattern.route))))
       .map(({ pattern, origin }) => ({ pattern, position: origin }));
     const headway = request.max === undefined ? schedule.headwayMinutes(feeders, now) : null;
-    const max = Math.max(min, request.max ?? defaultMaximum(min, headway));
+    const max = Math.min(MAX_MINUTES, Math.max(min, request.max ?? defaultMaximum(min, headway)));
     // Riding straight to a named stop, the time each departure reaches it is the point.
     const reaching = link.kind === 'walk' && toStop && !schedule.boardingStops(toStop).includes(link.board) ? toStop : null;
     const second = secondLegs(context, linkForRoutes, destination ?? reaching);
@@ -310,18 +310,17 @@ function walkDepartures(second: SecondLeg[], now: number, walkMinutes: number): 
 // at another hour. When the routes to transfer to are not running, the notice is about them.
 // When they are, it is the routes from From that are not, and the notice says so.
 function emptyNotice(schedule: Schedule, from: StopRow, to: { stop: StopRow } | { route: RouteRow }, request: TripRequest, destination: StopRow | null, toStop: StopRow | null, now: number): Notice {
-  // A named stop a short walk from From is the answer itself, whatever else is running. Routes
-  // that only reach it on their last stops are dropped as rides to somewhere walkable, and J
-  // wants the page to say it is a walk rather than show those buses.
-  const named = destination ?? toStop;
-  if (named) {
-    const meters = Math.round(distanceMeters(from, named));
-    if (meters <= (request.walk ?? DEFAULT_MAX_WALK_METERS)) return { kind: 'walkable', stop: stopKeyOf(named), meters };
-  }
   // The same links as the results would have at any hour, so the reason matches what they show.
   const all = cachedLinks(schedule, from, to, request, null);
   const always = destination ? towardDestination(schedule, all, destination, toStop) : all;
   if (always.length === 0) {
+    // No hour has a way there. When the named stop is a short walk, that is why: routes that
+    // only reach it on their last stops are dropped as rides to somewhere walkable, and J wants
+    // the page to say it is a walk rather than show those buses. When something does go there
+    // but is not running now, the idle notice below says so instead.
+    const named = destination ?? toStop;
+    const meters = named ? Math.round(distanceMeters(from, named)) : Infinity;
+    if (named && meters <= (request.walk ?? DEFAULT_MAX_WALK_METERS)) return { kind: 'walkable', stop: stopKeyOf(named), meters };
     const { dest: _dest, ...withoutDestination } = request;
     return request.dest && cachedLinks(schedule, from, to, withoutDestination, null).length > 0 ? { kind: 'destination' } : { kind: 'unreachable' };
   }

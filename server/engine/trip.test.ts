@@ -83,6 +83,8 @@ function feeds() {
           '13500,13500,24th St & Potrero Ave,37.752900,-122.406500',
           // No route stops here. It is a block from Potrero, where the 48 ends.
           '13501,13501,24th St & Hampshire St,37.752900,-122.407500',
+          // No route stops here either. It is 92 m east of 24th & Mission.
+          '13478,13478,24th St & Capp St,37.752178,-122.417500',
           '16994,16994,Metro Montgomery Station/Outbound,37.789200,-122.401700',
           '16998,16998,Metro Church Station/Outbound,37.767194,-122.429168',
         ].join('\n'),
@@ -297,6 +299,13 @@ test('a named stop a short walk from From is said to be a walk', () => {
   ok(response.stops['SF:13500']);
   // The same as a destination.
   deepStrictEqual(planTrip(schedule, realtime(), { from: 'SF:13501', to: 'route:SF:48', dest: 'SF:13500' }, NOW).notice, { kind: 'walkable', stop: 'SF:13500', meters: 88 });
+});
+
+test('a named stop a short walk away whose route is not running says so, not that it is a walk', () => {
+  // At 3 AM no 48 runs. Walking to 24th & Mission would mean waiting there for hours.
+  const response = planTrip(schedule, realtime(), { from: 'SF:13478', to: 'SF:13477' }, DAY + 3 * 3600);
+  deepStrictEqual(response.groups, []);
+  strictEqual(response.notice?.kind, 'idle');
 });
 
 test('when the route to catch runs but nothing from From does, the notice says so', () => {
