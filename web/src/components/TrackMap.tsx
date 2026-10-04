@@ -86,12 +86,8 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
       <p class="tf-track__headline" aria-live="polite">
         {headline}
       </p>
-      <LineMap legs={legs} label={headline} />
-      <div class="tf-track__under">
-        <div>
-          {ageLine && <p class={`tf-track__age${age !== null && age > OLD_SECONDS ? ' tf-track__age--old' : ''}`}>{ageLine}</p>}
-          {feed === 'offline' && <p class="tf-track__age tf-track__age--old">Offline. This is the last update received.</p>}
-        </div>
+      <div class="tf-track__frame">
+        <LineMap legs={legs} label={headline} />
         {/* Drops the stops behind the vehicle and fits the map to the trip from where it is now. */}
         <button type="button" class="tf-track__fit" onClick={refit} disabled={!spans} aria-label="Fit the map to the trip from here">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
@@ -100,6 +96,8 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
           Fit
         </button>
       </div>
+      {ageLine && <p class={`tf-track__age${age !== null && age > OLD_SECONDS ? ' tf-track__age--old' : ''}`}>{ageLine}</p>}
+      {feed === 'offline' && <p class="tf-track__age tf-track__age--old">Offline. This is the last update received.</p>}
       <LegList leg={data} stops={data.stops} labels={labels} color={color} now={now} />
       {next && nextLabels && (
         <>

@@ -3,9 +3,10 @@
 .tf-track p { margin: 0; }
 .tf-track__toward { font-size: var(--text-base); color: var(--muted); }
 .tf-track__headline { margin-top: 2px; font-size: var(--text-lg); font-weight: var(--weight-bold); }
-/* Under the map: how old the position is, and the Fit button at the right. */
-.tf-track__under { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-2); }
-.tf-track__fit { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 36px; margin-top: var(--space-1); padding: 0 var(--space-3); color: var(--text); border: var(--border-hair) solid var(--line); font-size: var(--text-sm); font-weight: 650; }
+/* The map, with its Fit button over the bottom right corner, inside the map's border. */
+.tf-track__frame { position: relative; margin-top: var(--space-3); }
+.tf-track__frame .tf-track__map { margin-top: 0; }
+.tf-track__fit { position: absolute; right: calc(var(--border-strong) + var(--space-2)); bottom: calc(var(--border-strong) + var(--space-2)); display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 var(--space-3); background: var(--bg); color: var(--text); border: var(--border-hair) solid var(--line); font-size: var(--text-sm); font-weight: 650; }
 .tf-track__map { display: block; width: 100%; height: auto; max-height: 50vh; margin-top: var(--space-3); border: var(--border-strong) solid var(--line); background: var(--bg); }
 .tf-track__stop { fill: var(--bg); stroke: var(--text); }
 .tf-track__square--yours { fill: var(--text); stroke: var(--bg); }
