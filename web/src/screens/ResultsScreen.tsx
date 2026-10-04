@@ -28,7 +28,10 @@ import { agencyOnly, chipLabel, shortStopName } from '../view.ts';
 // when the page arrived: shown again on a later visit, even to the same trip, they would pass
 // for new.
 let initialData = takeInitialData<TripResponse>();
-const initialAt = Date.now();
+// When the page, and so the results in it, arrived. The scripts load after, which on a slow
+// first visit takes seconds that would otherwise read as clock skew.
+const navigation = performance.getEntriesByType?.('navigation')[0] as PerformanceNavigationTiming | undefined;
+const initialAt = navigation?.responseEnd ? performance.timeOrigin + navigation.responseEnd : Date.now();
 const tripTo = (to: TripResponse['to']) => ('route' in to ? `route:${to.route}` : to.stop);
 
 export function ResultsScreen({ search }: { search: Search }) {
