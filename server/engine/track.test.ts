@@ -78,9 +78,12 @@ test('a vehicle on its way draws from the stop behind it to one past the rider, 
   strictEqual(Math.abs(response.vehicle!.y) <= 1 && response.vehicle!.x > first.x && response.vehicle!.x < response.path[1]!.x, true);
 });
 
-test('with no stop reported, the nearest stop places the vehicle, and past the rider it has passed', () => {
+test('with no stop reported, the vehicle heads to the first stop past it on the line, and past the rider it has passed', () => {
   const coming = trackVehicle(schedule, at({ lon: lon(3) }), { trip: 'SF:t1', stop: 'SF:104' }, NOW);
   strictEqual(coming.stopsAway, 1);
+  // Just past stop 3, nearest to it, but heading to 4.
+  const justPast = trackVehicle(schedule, at({ lon: lon(3.3) }), { trip: 'SF:t1', stop: 'SF:104' }, NOW);
+  deepStrictEqual([justPast.stopsAway, justPast.nextIndex], [0, justPast.targetIndex]);
   const gone = trackVehicle(schedule, at({ lon: lon(5) }), { trip: 'SF:t1', stop: 'SF:103' }, NOW);
   deepStrictEqual([gone.stopsAway, gone.passed, gone.targetIndex, gone.nextIndex], [null, true, 3, 5]);
   deepStrictEqual(names(gone), ['Market St & Stop 0', 'Market St & Stop 1', 'Market St & Stop 2', 'Market St & Stop 3', 'Market St & Stop 4', 'Market St & Stop 5']);

@@ -6,7 +6,7 @@ import { MAX_MINUTES } from '../shared/api.ts';
 import { DEFAULT_NEARBY_METERS, nearby } from './api/nearby.ts';
 import { search } from './api/search.ts';
 import { config, requireApiKeys } from './config.ts';
-import { trackVehicle } from './engine/track.ts';
+import { trackTarget, trackVehicle } from './engine/track.ts';
 import { type RealtimeView, RequestError, type TripRequest, destinations, planTrip } from './engine/trip.ts';
 import { KeyPool } from './realtime/keys.ts';
 import { Realtime } from './realtime/manager.ts';
@@ -48,6 +48,7 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
       const trip = url.searchParams.get('trip');
       const stop = url.searchParams.get('stop');
       if (!trip || !stop) throw new RequestError(400, 'Send trip and stop');
+      trackTarget(schedule, { trip, stop });
       return sendJson(request, response, trackVehicle(schedule, await realtime.vehiclePositions(), { trip, stop }, nowSeconds()));
     }
     case '/api/destinations':
