@@ -16,6 +16,7 @@ export type FirstLeg = {
 export type SecondLeg = {
   trip: string;
   route: string;
+  toward?: string;
   at: number;
   delay: number | null;
   live: boolean;
@@ -103,6 +104,7 @@ export function pairConnections(firstLegs: FirstLeg[], secondLegs: SecondLeg[], 
     const result: Departure = {
       trip: departure.trip,
       route: departure.route,
+      ...(departure.toward ? { toward: departure.toward } : {}),
       at: departure.at,
       delay: departure.delay,
       live: departure.live,

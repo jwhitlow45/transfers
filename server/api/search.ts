@@ -1,4 +1,5 @@
 import type { RouteSearchResult, SearchResponse, StopSearchResult } from '../../shared/api.ts';
+import { destinationOf } from '../engine/links.ts';
 import { routeView, stopView } from '../engine/views.ts';
 import { distanceMeters, type Point } from '../geo.ts';
 import { searchQuery, searchText } from '../gtfs/search-text.ts';
@@ -24,7 +25,9 @@ export function search(schedule: Schedule, text: string, options: { routes: bool
       .filter((stop) => isSearchable(stop) && stop.agency !== 'BA' && stop.code?.startsWith(query) && schedule.stopRoutes.has(stop.id))
       .sort((a, b) => (a.code?.length ?? 0) - (b.code?.length ?? 0) || (a.code ?? '').localeCompare(b.code ?? ''));
   } else {
-    const match = searchQuery(query);
+    // One or two letters ("N") match stop names only, or every stop a route by that letter
+    // serves would match through its route list.
+    const match = searchQuery(query, query.trim().length <= 2 ? ['name', 'code'] : undefined);
     const ids = match
       ? all<{ id: number }>(schedule.db, 'SELECT rowid AS id FROM stop_search WHERE stop_search MATCH ? ORDER BY rank LIMIT 60', match)
       : [];
@@ -35,8 +38,11 @@ export function search(schedule: Schedule, text: string, options: { routes: bool
       .filter((stop): stop is StopRow => stop !== undefined && !(stop.agency === 'SF' && schedule.sharedStation.has(stop.id)));
     // Names that start with what was typed come first, and stations before street stops, so
     // "montgomery" finds the BART and Muni Metro stations before every stop on Montgomery St.
+    // Muni names its underground stations "Metro Castro Station/Downtown", so "castro" should
+    // find them as if the name began with it.
     const typed = searchText(query);
-    const rank = (stop: StopRow) => (searchText(stop.name).startsWith(typed) ? 0 : 2) + (stop.access === 'street' ? 1 : 0);
+    const starts = (stop: StopRow) => searchText(stop.name).replace(/^metro /, '').startsWith(typed);
+    const rank = (stop: StopRow) => (starts(stop) ? 0 : 2) + (stop.access === 'street' ? 1 : 0);
     stops = found.map((stop, index) => ({ stop, index, rank: rank(stop) })).sort((a, b) => a.rank - b.rank || a.index - b.index).map(({ stop }) => stop);
   }
   if (options.near) {
@@ -67,12 +73,10 @@ export function search(schedule: Schedule, text: string, options: { routes: bool
     });
   }
   // A route named exactly ("22") is almost surely what was meant. Place names also appear in
-  // long route names ("Daly City BART - Terra Nova HS"), so those routes come after the stops.
-  const results = [
-    ...routeMatches.exact,
-    ...stopResults.slice(0, LIMIT - routeMatches.exact.length),
-    ...routeMatches.byLongName.slice(0, 3),
-  ];
+  // long route names ("Daly City BART - Terra Nova HS"), so those routes come after the best
+  // few stops, where "fillmore" still finds the 22 near the top.
+  const room = LIMIT - routeMatches.exact.length - routeMatches.byLongName.length;
+  const results = [...routeMatches.exact, ...stopResults.slice(0, 3), ...routeMatches.byLongName, ...stopResults.slice(3, Math.max(3, room))];
   for (const result of results) {
     if (result.type === 'route') response.routes[result.route] ??= routeView(schedule.routesByKey.get(result.route)!);
   }
@@ -87,21 +91,33 @@ function routeResults(schedule: Schedule, query: string) {
   const words = lower.split(/\s+/).filter(Boolean);
   const exact: RouteRow[] = [];
   const byLongName: RouteRow[] = [];
+  // BART runs each line as two routes, one per direction. One result stands for both.
+  const seen = new Set<string>();
   for (const route of schedule.routes.values()) {
-    if (routeView(route).name.toLowerCase() === lower) exact.push(route);
-    else if (lower.length >= 3 && words.every((word) => route.longName.toLowerCase().includes(word))) byLongName.push(route);
+    const name = routeView(route).name;
+    if (route.agency === 'BA' && seen.has(name)) continue;
+    if (name.toLowerCase() === lower) exact.push(route);
+    // BART's long names list stations ("Millbrae/SF Int'l SFO to Antioch"), so a station search
+    // would turn up lines, not the station.
+    else if (route.agency !== 'BA' && lower.length >= 3 && words.every((word) => route.longName.toLowerCase().includes(word))) byLongName.push(route);
+    else continue;
+    if (route.agency === 'BA') seen.add(name);
   }
   return { exact: routeSummaries(schedule, sortRoutes(exact).slice(0, 4)), byLongName: routeSummaries(schedule, sortRoutes(byLongName).slice(0, 3)) };
 }
 
 function routeSummaries(schedule: Schedule, routes: RouteRow[]): RouteSearchResult[] {
   return routes.map((route) => {
+      // A BART line's two routes are its two directions.
+      const members = route.agency === 'BA' ? [...schedule.routes.values()].filter((other) => other.agency === 'BA' && routeView(other).name === routeView(route).name) : [route];
       const directions = new Map<number, { id: number; name: string | null; headsign: string; trips: number }>();
-      for (const pattern of schedule.patternsByRoute.get(route.id) ?? []) {
-        const id = pattern.direction ?? 0;
-        const current = directions.get(id);
-        if (!current || pattern.trips > current.trips) {
-          directions.set(id, { id, name: schedule.directionName(route.id, pattern.direction), headsign: pattern.headsign, trips: pattern.trips });
+      for (const member of members) {
+        for (const pattern of schedule.patternsByRoute.get(member.id) ?? []) {
+          const id = pattern.direction ?? 0;
+          const current = directions.get(id);
+          if (!current || pattern.trips > current.trips) {
+            directions.set(id, { id, name: schedule.directionName(member.id, pattern.direction), headsign: destinationOf(schedule, pattern), trips: pattern.trips });
+          }
         }
       }
       return {

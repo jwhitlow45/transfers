@@ -19,8 +19,9 @@ export function searchText(text: string) {
 }
 
 // An FTS5 query matching every word, the last one as a prefix so results appear while typing.
-export function searchQuery(text: string) {
+export function searchQuery(text: string, columns?: string[]) {
   const words = searchText(text).split(' ').filter(Boolean);
   if (words.length === 0) return null;
-  return words.map((word, index) => `"${word}"${index === words.length - 1 ? '*' : ''}`).join(' ');
+  const query = words.map((word, index) => `"${word}"${index === words.length - 1 ? '*' : ''}`).join(' ');
+  return columns ? `{${columns.join(' ')}} : (${query})` : query;
 }

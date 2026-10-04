@@ -78,6 +78,8 @@ export type Connection = {
 export type Departure = {
   trip: string;
   route: string;
+  // Where this trip goes, when it is not the group's usual destination (a trip that ends early).
+  toward?: string;
   at: number;
   delay: number | null;
   live: boolean;
@@ -88,6 +90,9 @@ export type Departure = {
 };
 
 export type Group = {
+  // walk: the route already stops at or near From, so there is no first vehicle. alight is then
+  // From, and departures have no connections.
+  kind?: 'walk';
   // Stop keys: where the rider gets off the first vehicle and boards the second.
   alight: string;
   board: string;
@@ -120,13 +125,22 @@ export type Alert = {
   activeUntil: number | null;
   routes: string[];
   stops: string[];
+  // Names every stop on a line, as Muni does for one elevator outage, so it is a notice about
+  // the line rather than about any stop of the trip.
+  lineWide?: boolean;
 };
 
 // live: predictions are current. stale: the last fetch failed, so predictions are aging.
 // schedule: this agency publishes no predictions, so times are scheduled. down: no data.
 export type FeedStatus = { agency: AgencyId; state: 'live' | 'stale' | 'schedule' | 'down'; updatedAt: number | null };
 
+// Why a trip found nothing. idle: the routes are not running for a while; next is when they
+// start again, if within three days. destination: nothing from here reaches the destination.
+// unreachable: no route from From comes within a walk of To.
+export type Notice = { kind: 'idle'; next: number | null } | { kind: 'destination' } | { kind: 'unreachable' };
+
 export type TripResponse = {
+  notice?: Notice;
   generatedAt: number;
   // When the server last got live data from 511, in unix seconds, or null when it has none.
   // How stale a page is counts from here, so it covers both the server and the rider's link.

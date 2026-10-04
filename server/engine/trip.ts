@@ -1,4 +1,4 @@
-import type { Alert, AlertRelevance, AgencyId, Departure, DestinationsResponse, FeedStatus, Group, TripResponse } from '../../shared/api.ts';
+import type { Alert, AlertRelevance, AgencyId, Departure, DestinationsResponse, FeedStatus, Group, Notice, TripResponse } from '../../shared/api.ts';
 import type { Agency } from '../config.ts';
 import type { RtAlert, TripSnapshot } from '../realtime/snapshot.ts';
 import { type Schedule, type StopRow, routeKeyOf, stopKeyOf } from '../schedule.ts';
@@ -44,15 +44,17 @@ export class RequestError extends Error {
 
 const DEPARTURES_PER_GROUP = 3;
 
-// Transfer points depend only on the schedule and walking settings, so they are worked out once
-// per schedule build and reused by every refresh.
+// Transfer points depend on the schedule, walking settings, and which patterns are running, so
+// they are worked out once per quarter hour and reused by every refresh in it. With `now` null,
+// every pattern counts, which tells an idle route from one that never comes near.
 const linkCache = new WeakMap<Schedule, Map<string, Link[]>>();
 
-function cachedLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow } | { route: RouteRow }, request: TripRequest) {
+function cachedLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow } | { route: RouteRow }, request: TripRequest, now: number | null) {
   let cache = linkCache.get(schedule);
   if (!cache) linkCache.set(schedule, (cache = new Map()));
   const { walk, speed, fromAgencies, toAgencies } = request;
-  const key = `${from.id}|${'stop' in to ? `s${to.stop.id}` : `r${to.route.id}`}|${walk ?? ''}|${speed ?? ''}|${fromAgencies?.join() ?? ''}|${toAgencies?.join() ?? ''}`;
+  const when = now === null ? 'all' : Math.floor(now / 900);
+  const key = `${from.id}|${'stop' in to ? `s${to.stop.id}` : `r${to.route.id}`}|${walk ?? ''}|${speed ?? ''}|${fromAgencies?.join() ?? ''}|${toAgencies?.join() ?? ''}|${when}`;
   let links = cache.get(key);
   if (!links) {
     links = findLinks(schedule, from, to, {
@@ -60,6 +62,7 @@ function cachedLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow } | 
       ...(speed ? { walkSpeed: speed } : {}),
       ...(fromAgencies?.length ? { fromAgencies: new Set(fromAgencies) } : {}),
       ...(toAgencies?.length ? { toAgencies: new Set(toAgencies) } : {}),
+      ...(now === null ? {} : { running: schedule.runningPatterns(now) }),
     });
     if (cache.size > 500) cache.delete(cache.keys().next().value!);
     cache.set(key, links);
@@ -82,7 +85,7 @@ export function destinations(schedule: Schedule, request: TripRequest): Destinat
   const { from, to } = resolveEnds(schedule, request);
   const tables = new Tables(schedule);
   const groups: DestinationsResponse['groups'] = [];
-  for (const link of cachedLinks(schedule, from, to, request)) {
+  for (const link of cachedLinks(schedule, from, to, request, null)) {
     const stops: string[] = [];
     const seen = new Set<number>();
     for (const { pattern, position } of [...link.boardPatterns].sort((a, b) => b.pattern.trips - a.pattern.trips)) {
@@ -106,8 +109,9 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
   const destination = request.dest ? schedule.stopsByKey.get(request.dest) ?? null : null;
 
   const tables = new Tables(schedule);
-  const allLinks = cachedLinks(schedule, from, to, request);
+  const allLinks = cachedLinks(schedule, from, to, request, now);
   const links = destination ? towardDestination(schedule, allLinks, destination, toStop ?? null) : allLinks;
+  const notice = links.length > 0 ? undefined : emptyNotice(schedule, from, to, request, allLinks.length > 0 && destination !== null, now);
   const firstFilter = request.firstRoutes?.length ? new Set(request.firstRoutes) : null;
   const secondFilter = request.secondRoutes?.length ? new Set(request.secondRoutes) : null;
   const context = { schedule, snapshot: realtime.trips, now };
@@ -115,7 +119,8 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
   const groups: Group[] = [];
   const tripStops = new Set<string>([...schedule.boardingStops(from), from].map(stopKeyOf));
   const tripRoutes = new Set<string>();
-  const agencies = new Set<AgencyId>([from.agency]);
+  // A shared station belongs to both systems, so its own agency says nothing about the trip.
+  const agencies = new Set<AgencyId>(schedule.sharedMembers.has(from.id) ? [] : [from.agency]);
   for (const link of links) {
     const routes = link.routes.filter((route) => !secondFilter || secondFilter.has(routeKeyOf(route)));
     if (routes.length === 0) continue;
@@ -126,16 +131,27 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
       .map(({ pattern, origin }) => ({ pattern, position: origin }));
     const headway = request.max === undefined ? schedule.headwayMinutes(feeders, now) : null;
     const max = Math.max(min, request.max ?? defaultMaximum(min, headway));
-    const first = firstLegs(context, linkForRoutes, firstFilter);
-    const second = secondLegs(context, linkForRoutes, destination);
-    const pairing = { now, min, max, hide: request.hide ?? 0, count: DEPARTURES_PER_GROUP, showHidden: request.hidden ?? false };
-    const departures = pairConnections(first, second, pairing);
-    const widen = connects(departures) ? undefined : widenWindow(first, second, pairing);
+    // Riding straight to a named stop, the time each departure reaches it is the point.
+    const reaching = link.kind === 'walk' && toStop && !schedule.boardingStops(toStop).includes(link.board) ? toStop : null;
+    const second = secondLegs(context, linkForRoutes, destination ?? reaching);
+    let departures: Departure[];
+    let widen: { min: number; max: number } | null = null;
+    if (link.kind === 'walk') {
+      departures = walkDepartures(second, now, link.defaultMinutes);
+    } else {
+      const first = firstLegs(context, linkForRoutes, firstFilter);
+      const pairing = { now, min, max, hide: request.hide ?? 0, count: DEPARTURES_PER_GROUP, showHidden: request.hidden ?? false };
+      departures = pairConnections(first, second, pairing);
+      widen = connects(departures) ? null : widenWindow(first, second, pairing);
+    }
+    // A trip going somewhere other than the group's usual destination says where.
+    for (const departure of departures) if (departure.toward === link.headsign) delete departure.toward;
     for (const departure of departures) {
       tables.route(departure.route);
       for (const connection of departure.connections) tables.route(connection.route);
     }
     groups.push({
+      ...(link.kind === 'walk' ? { kind: 'walk' as const } : {}),
       alight: tables.stop(link.alight),
       board: tables.stop(link.board),
       routes: routes.map((route) => tables.route(route)),
@@ -149,8 +165,11 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
     });
     for (const stop of [link.alight, link.board, ...link.alights, ...link.boards]) tripStops.add(stopKeyOf(stop));
     for (const route of routes) tripRoutes.add(routeKeyOf(route));
-    for (const { pattern } of link.firstLegs) tripRoutes.add(routeKeyOf(schedule.route(pattern.route)));
-    agencies.add(link.alight.agency).add(link.board.agency);
+    for (const { pattern } of link.firstLegs) {
+      tripRoutes.add(routeKeyOf(schedule.route(pattern.route)));
+      agencies.add(schedule.route(pattern.route).agency);
+    }
+    agencies.add(link.board.agency);
   }
   tables.stop(from);
   if (toStop) tables.stop(toStop);
@@ -163,7 +182,8 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
   return {
     generatedAt: now,
     dataAt: realtime.updatedAt,
-    systems: feasibleSystems(schedule, from, to, request),
+    systems: feasibleSystems(schedule, from, to, request, destination, now),
+    ...(notice ? { notice } : {}),
     from: stopKeyOf(from),
     to: toStop ? { stop: stopKeyOf(toStop) } : { route: routeKeyOf(toRoute!) },
     groups,
@@ -194,15 +214,16 @@ function towardDestination(schedule: Schedule, links: Link[], destination: StopR
     return [{ ...link, boardPatterns, routes: link.routes.filter(({ id }) => routeIds.has(id)) }];
   });
   if (!toStop || !schedule.sharedMembers.has(toStop.id)) return reaching;
-  const pooled = new Map<number, Link>();
+  const pooled = new Map<string, Link>();
   for (const link of reaching) {
-    const current = pooled.get(link.alight.id);
+    const key = `${link.kind}|${link.alight.id}`;
+    const current = pooled.get(key);
     if (!current) {
-      pooled.set(link.alight.id, { ...link, key: `${link.alight.id}>${toStop.id}`, board: toStop, direction: null, headsign: destination.name });
+      pooled.set(key, { ...link, key: `${key}>${toStop.id}`, board: toStop, direction: null, headsign: destination.name });
       continue;
     }
     const firstLegs = new Map([...current.firstLegs, ...link.firstLegs].map((leg) => [`${leg.pattern.id}|${leg.origin}|${leg.alight}`, leg]));
-    pooled.set(link.alight.id, {
+    pooled.set(key, {
       ...current,
       routes: [...new Set([...current.routes, ...link.routes])],
       boards: [...new Set([...current.boards, ...link.boards])],
@@ -219,9 +240,13 @@ function towardDestination(schedule: Schedule, links: Link[], destination: StopR
 // At a shared station, which systems give a transfer within the usual walk, tried one at a
 // time. The page offers the BART or Muni Metro choice only when both do: Muni Metro from
 // Montgomery reaches the 48 only by a long walk from Church St, so it is no real option there.
-function feasibleSystems(schedule: Schedule, from: StopRow, to: { stop: StopRow } | { route: RouteRow }, request: TripRequest) {
+function feasibleSystems(schedule: Schedule, from: StopRow, to: { stop: StopRow } | { route: RouteRow }, request: TripRequest, destination: StopRow | null, now: number) {
   const systems: { from?: AgencyId[]; to?: AgencyId[] } = {};
-  const works = (change: Partial<TripRequest>) => cachedLinks(schedule, from, to, { ...request, ...change }).some(({ long }) => !long);
+  const works = (change: Partial<TripRequest>) => {
+    const links = cachedLinks(schedule, from, to, { ...request, ...change }, now);
+    const toStop = 'stop' in to ? to.stop : null;
+    return (destination ? towardDestination(schedule, links, destination, toStop) : links).some(({ long }) => !long);
+  };
   if (schedule.sharedMembers.has(from.id)) systems.from = (['BA', 'SF'] as const).filter((agency) => works({ fromAgencies: [agency] }));
   if ('stop' in to && schedule.sharedMembers.has(to.stop.id)) systems.to = (['BA', 'SF'] as const).filter((agency) => works({ toAgencies: [agency] }));
   return systems;
@@ -229,14 +254,47 @@ function feasibleSystems(schedule: Schedule, from: StopRow, to: { stop: StopRow 
 
 const connects = (departures: Departure[]) => departures.some(({ canceled, connections }) => !canceled && connections.some(({ hidden }) => !hidden));
 
-// The smallest symmetric widening of an empty window that finds a connection, within half an hour.
+// The smallest raise of an empty window's maximum that finds a connection, within half an hour.
+// The minimum stays, since it is the time the walk takes.
 function widenWindow(first: FirstLeg[], second: SecondLeg[], pairing: PairingOptions) {
   for (let step = 1; step <= 30; step++) {
-    const min = Math.max(0, pairing.min - step);
     const max = pairing.max + step;
-    if (connects(pairConnections(first, second, { ...pairing, min, max, showHidden: false }))) return { min, max };
+    if (connects(pairConnections(first, second, { ...pairing, max, showHidden: false }))) return { min: pairing.min, max };
   }
   return null;
+}
+
+// Departures the rider can walk to in time, for a route that already stops at or near From.
+function walkDepartures(second: SecondLeg[], now: number, walkMinutes: number): Departure[] {
+  const sorted = [...second].filter(({ at }) => at >= now + walkMinutes * 60).sort((a, b) => a.at - b.at);
+  const running = sorted.filter(({ canceled }) => !canceled).slice(0, DEPARTURES_PER_GROUP);
+  const last = running.at(-1)?.at ?? -Infinity;
+  return sorted
+    .filter((leg) => !leg.canceled || leg.at <= last)
+    .filter((leg) => running.includes(leg) || leg.canceled)
+    .map(({ trip, route, at, delay, live, canceled, destination, toward }) => ({
+      trip,
+      route,
+      at,
+      delay,
+      live,
+      connections: [],
+      ...(canceled ? { canceled: true } : {}),
+      ...(destination !== undefined && destination > at ? { destination } : {}),
+      ...(toward ? { toward } : {}),
+    }));
+}
+
+// Why a trip has no groups: the routes are not running for a while (and when they next start),
+// nothing reaches the destination, or nothing comes within a walk at all.
+function emptyNotice(schedule: Schedule, from: StopRow, to: { stop: StopRow } | { route: RouteRow }, request: TripRequest, destinationOnly: boolean, now: number): Notice {
+  if (destinationOnly) return { kind: 'destination' };
+  if (cachedLinks(schedule, from, to, request, null).length === 0) return { kind: 'unreachable' };
+  const patterns =
+    'route' in to
+      ? [...schedule.patterns.values()].filter(({ route }) => route === to.route.id || schedule.route(route).shortName.replace(/-[NS]$/, '') === to.route.shortName.replace(/-[NS]$/, '') && to.route.agency === 'BA').map(({ id }) => id)
+      : schedule.boardingStops(to.stop).flatMap(({ id }) => (schedule.patternsByStop.get(id) ?? []).map(({ pattern }) => pattern.id));
+  return { kind: 'idle', next: schedule.nextStart(patterns, now) };
 }
 
 // Alerts that name a stop on the trip (for a route on the trip, or for every route there),
@@ -268,7 +326,7 @@ export function relevantAlerts(alerts: RtAlert[], stops: Set<string>, routes: Se
     const lineWide = alert.stops.length > LINE_WIDE_STOPS;
     if (lineWide) {
       const coversRoute = alert.routes.some((route) => routes.has(route));
-      if (coversRoute) results.push(alertView(alert, 'route', routes, new Set()));
+      if (coversRoute) results.push({ ...alertView(alert, 'route', routes, new Set()), lineWide: true });
       continue;
     }
     const pairedStops = new Set(alert.routeStops.map((pair) => pair.split('|')[1]));

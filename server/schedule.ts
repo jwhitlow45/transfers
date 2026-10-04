@@ -77,6 +77,7 @@ export class Schedule {
   private readonly services = new Map<number, { days: number; start: number | null; end: number | null }>();
   private readonly serviceDates = new Map<number, Map<number, boolean>>();
   private readonly activeByDate = new Map<number, number[]>();
+  private readonly runningCache = new Map<number, Set<number>>();
 
   constructor(path: string) {
     this.db = openDatabase(path, { readOnly: true });
@@ -319,6 +320,56 @@ export class Schedule {
       if (best === null || Math.abs(at - nearTime) < Math.abs(best - nearTime)) best = at;
     }
     return best;
+  }
+
+  // Patterns with a trip that starts within three hours either side of `now`, so it may be on
+  // the road now or soon. Transfer points come from these only: owl and bus-substitute patterns
+  // otherwise crowd the day's results with groups that never have a departure, and the reverse
+  // at night. Cached in 15 minute steps.
+  runningPatterns(now: number) {
+    const step = Math.floor(now / 900);
+    let running = this.runningCache.get(step);
+    if (running) return running;
+    running = new Set();
+    const today = serviceDate(now);
+    for (const date of [addDays(today, -1), today, addDays(today, 1)]) {
+      const dayStart = serviceDayStart(date);
+      const services = this.activeServices(date);
+      if (services.length === 0) continue;
+      for (const { pattern } of all<{ pattern: number }>(
+        this.db,
+        `SELECT DISTINCT t.pattern FROM trips t JOIN stop_times st ON st.trip = t.id AND st.position = 0
+         WHERE t.service IN (SELECT value FROM json_each(?)) AND st.departure BETWEEN ? AND ?`,
+        JSON.stringify(services),
+        now - 3 * 3600 - dayStart,
+        now + 3 * 3600 - dayStart,
+      )) {
+        running.add(pattern);
+      }
+    }
+    if (this.runningCache.size > 8) this.runningCache.clear();
+    this.runningCache.set(step, running);
+    return running;
+  }
+
+  // When the first trip of any of these patterns next starts, within three days, or null.
+  nextStart(patterns: number[], now: number) {
+    const today = serviceDate(now);
+    for (const date of [today, addDays(today, 1), addDays(today, 2), addDays(today, 3)]) {
+      const dayStart = serviceDayStart(date);
+      const services = this.activeServices(date);
+      if (services.length === 0) continue;
+      const row = get<{ first: number | null }>(
+        this.db,
+        `SELECT MIN(st.departure) AS first FROM trips t JOIN stop_times st ON st.trip = t.id AND st.position = 0
+         WHERE t.pattern IN (SELECT value FROM json_each(?)) AND t.service IN (SELECT value FROM json_each(?)) AND st.departure > ?`,
+        JSON.stringify(patterns),
+        JSON.stringify(services),
+        now - dayStart,
+      );
+      if (row?.first !== null && row?.first !== undefined) return dayStart + row.first;
+    }
+    return null;
   }
 
   // The median minutes between scheduled departures at a stop for a set of patterns, around a

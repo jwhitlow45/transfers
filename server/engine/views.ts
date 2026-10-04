@@ -8,12 +8,21 @@ export function routeView(route: RouteRow): Route {
   return {
     key: routeKeyOf(route),
     agency: route.agency,
-    name: route.agency === 'BA' ? route.shortName.replace(/-[NS]$/, '') : route.shortName,
+    name: routeName(route),
     longName: route.longName,
     mode: route.mode,
     color: route.color,
     textColor: route.textColor,
   };
+}
+
+// Muni's owl and bus-substitute routes are "NOWL" and "NBUS" in its feed, and the California
+// cable car is "CA", which reads as the state. Riders say "N Owl", "N Bus", and "C".
+function routeName(route: RouteRow) {
+  if (route.agency === 'BA') return route.shortName.replace(/-[NS]$/, '');
+  if (route.agency !== 'SF') return route.shortName;
+  if (route.shortName === 'CA') return 'C';
+  return route.shortName.replace(/^(\w+?)(OWL|BUS)$/, (_, line: string, kind: string) => `${line} ${kind === 'OWL' ? 'Owl' : 'Bus'}`);
 }
 
 export function stopView(schedule: Schedule, stop: StopRow): Stop {
@@ -23,7 +32,7 @@ export function stopView(schedule: Schedule, stop: StopRow): Stop {
     // BART's codes are 511's internal ids, printed nowhere. Golden Gate's stations use
     // abbreviations, also not on any sign.
     code: stop.agency === 'BA' || !/^\d+$/.test(stop.code ?? '') ? null : stop.code,
-    name: stop.name,
+    name: stop.name.replace(/`/g, '’'),
     direction: stop.kind === 'station' || stop.bearing === null ? null : compassLabel(stop.bearing),
     lat: stop.lat,
     lon: stop.lon,

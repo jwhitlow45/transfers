@@ -54,6 +54,7 @@ export function nearby(schedule: Schedule, realtime: RealtimeView, center: Point
     const routeIds = new Set(candidate.routes);
     const link: Link = {
       key: '',
+      kind: 'walk',
       alight: candidate.stop,
       alights: [candidate.stop],
       board: candidate.stop,

@@ -145,7 +145,10 @@ export function buildAlerts(feed: FeedObject, now: number, agencies: ReadonlySet
       if (!routeKey && !stopKeyValue && !informed.trip) agencyWide = true;
     }
     if (alertAgencies.size === 0) continue;
-    const header = translated(alert.headerText) ?? translated(alert.descriptionText);
+    // BART titles every alert "BART.gov Alert", so its description says what happened.
+    const generic = (text: string | null) => !text || /^BART\.gov Alert$/i.test(text);
+    const firstLine = (text: string | null) => text?.split(/(?<=[.!?])\s+|\n/)[0]?.slice(0, 160) ?? null;
+    const header = generic(translated(alert.headerText)) ? firstLine(translated(alert.descriptionText)) : translated(alert.headerText);
     if (!header) continue;
     const description = translated(alert.descriptionText);
     alerts.push({
