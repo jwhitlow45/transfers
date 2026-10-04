@@ -160,6 +160,19 @@ test('with no place for it, the map says why: not started, ended, or canceled', 
   strictEqual(track(EIGHT + 600).missing, 'ended');
   strictEqual(track(EIGHT + 150, feed({ canceled: true })).missing, 'canceled');
   strictEqual(track(EIGHT + 150).missing, undefined);
+  // A canceled trip is due nowhere, and an ended one keeps its times.
+  deepStrictEqual(track(EIGHT + 150, feed({ canceled: true })).path.map(({ at }) => at), [null, null, null, null, null]);
+  strictEqual(track(EIGHT + 600).path.every(({ at }) => at !== null && at < EIGHT + 600), true);
+});
+
+test('each stop drawn carries when the vehicle is due there', () => {
+  const times = (response: ReturnType<typeof trackVehicle>) => Object.fromEntries(response.path.map(({ stop, at }) => [response.stops[stop]!.name.slice(-6), at === null ? null : at - EIGHT]));
+  // A bus reporting its position with no trip update runs to the schedule, a minute a stop.
+  deepStrictEqual(times(trackVehicle(schedule, at({ lon: lon(1.5), stopId: '102' }), { trip: 'SF:t1', stop: 'SF:104' }, EIGHT + 90)), { 'Stop 1': 60, 'Stop 2': 120, 'Stop 3': 180, 'Stop 4': 240, 'Stop 5': 300 });
+  // Two minutes late from stop 3: stops before the first one listed are left by now at the latest,
+  // and a skipped stop has no time.
+  const late = feed({ stops: [update('103', { delay: 120 }), update('104', { skipped: true })] });
+  deepStrictEqual(times(trackVehicle(schedule, { vehicles: null, trips: late }, { trip: 'SF:t1', stop: 'SF:105' }, EIGHT + 270)), { 'Stop 2': 240, 'Stop 3': 300, 'Stop 4': null, 'Stop 5': 420 });
 });
 
 test('a prediction with only a time carries the delay it implies to the stops after it', () => {

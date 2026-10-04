@@ -66,8 +66,8 @@ function visitsTo(schedule: Schedule, patternStops: number[], stop: StopRow) {
 }
 
 // A vehicle's live map: its trip's line from where the vehicle is to one stop past the rider's,
-// with the stops on the way and the vehicle itself. `trips` places a vehicle that reports no
-// position.
+// with the stops on the way and the vehicle itself. `trips` gives when it is due at each stop, and
+// places a vehicle that reports no position.
 export function trackVehicle(schedule: Schedule, live: { vehicles: VehicleSnapshot | null; trips?: TripSnapshot | null }, request: TrackRequest, now: number): TrackResponse {
   const { trip, pattern, target, visits } = trackTarget(schedule, request);
   const stops = pattern.stops.map((id) => schedule.stop(id));
@@ -132,7 +132,8 @@ export function trackVehicle(schedule: Schedule, live: { vehicles: VehicleSnapsh
     target: tables.stop(schedule.stationOf(target)),
     path: shown.map((stop, index) => {
       const [x, y] = project(stop);
-      return { stop: tables.stop(stop), x, y, at: expected.times[from + index] ?? null };
+      // A canceled trip is due nowhere.
+      return { stop: tables.stop(stop), x, y, at: rt?.canceled ? null : (expected.times[from + index] ?? null) };
     }),
     targetIndex: targetAt - from,
     marks: marked.map((index) => (index === null ? null : index - from)),

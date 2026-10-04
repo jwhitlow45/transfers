@@ -33,8 +33,8 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
   // Not kept in storage: a position from an earlier visit is no use.
   const { data, error, fetchedAt, feed } = usePoll<TrackResponse>(url, REFRESH_MS, null, false);
   const now = useNow() + clockSkewMs(data?.generatedAt, fetchedAt);
-  // Folded runs the rider opened, by their last stop's key, which stays put as the vehicle moves
-  // and the picture's positions shift.
+  // Folded runs the rider opened, by a stop key, which stays put as the vehicle moves and the
+  // picture's positions shift.
   const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
   const between = useId();
   if (!data) {
@@ -80,18 +80,22 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
     <li key={index} class={labels.has(index) ? `tf-track__mark tf-track__mark--${labels.get(index)![0]}` : ''}>
       <span class="tf-track__stop-dot" aria-hidden="true" style={index === nextIndex ? { background: color } : undefined} />
       <span class="tf-track__stop-name">{shortStopName(data.stops[data.path[index]!.stop], data.path[index]!.stop)}</span>
-      {labels.get(index)?.map((kind) => (
+      {/* One tag says both when the rider's stop is also where the vehicle stops next. */}
+      {labels.get(index)?.map((kind, n) => (
         <span key={kind} class="tf-track__tag tf-track__tag--mark">
           {MARK_LABEL[kind]}
+          {index === nextIndex && n === 0 && ' is next'}
         </span>
       ))}
-      {index === nextIndex && <span class="tf-track__tag">Next stop</span>}
-      <When at={data.path[index]!.at ?? null} passed={nextIndex !== null && index < nextIndex} now={now} />
+      {index === nextIndex && !labels.has(index) && <span class="tf-track__tag">Next stop</span>}
+      {/* An ended trip has passed every stop. A canceled one comes with no times. */}
+      <When at={data.path[index]!.at ?? null} passed={nextIndex === null ? data.missing === 'ended' : index < nextIndex} now={now} />
     </li>
   );
   const fold = (run: number[]) => {
-    // Its last stop, just before a labeled one, which stays put as the vehicle moves along.
-    const key = data.path[run.at(-1)!]!.stop;
+    // Its end beside a labeled stop, which stays put as the vehicle moves along. The other end
+    // can be beside the vehicle's next stop, which moves.
+    const key = data.path[labels.has(run.at(-1)! + 1) ? run.at(-1)! : run[0]!]!.stop;
     const isOpen = opened.has(key);
     const toggle = () =>
       setOpened((current) => {
@@ -176,14 +180,17 @@ function LineMap({ data, color, label, labels }: { data: TrackResponse; color: s
 }
 
 // When the vehicle is due at a stop: minutes from now, as the results count down, over the clock
-// time. A stop behind the vehicle says it has passed, with about when it left.
+// time. A stop behind the vehicle says it has passed, with about when it left. Positions and
+// predictions arrive apart, so the clock is kept on the right side of now: a stop passed early
+// never shows a time to come, nor a stop ahead a time gone.
 function When({ at, passed, now }: { at: number | null; passed: boolean; now: number }) {
   if (at === null) return null;
   const minutes = minutesUntil(at, now);
+  const shown = passed ? Math.min(at, now / 1000) : Math.max(at, now / 1000);
   return (
     <span class="tf-track__when">
       <span class={`tf-track__in${passed ? ' tf-track__in--passed' : ''}`}>{passed ? 'Passed' : minutes < 1 ? 'Now' : `${minutes} min`}</span>
-      <span class="tf-track__time">{clock(at)}</span>
+      <span class="tf-track__time">{clock(shown)}</span>
     </span>
   );
 }
