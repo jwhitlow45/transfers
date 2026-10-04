@@ -118,18 +118,33 @@ function point(params: URLSearchParams) {
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 // Results change only when a feed refreshes or a vehicle leaves, so most refreshes match the
-// last one and get an empty 304.
+// last one and get an empty 304. The tag leaves out when the server answered, which changes every
+// second, and that time goes in a header instead, so the page can still tell how far its own
+// clock is off.
 function sendJson(request: IncomingMessage, response: ServerResponse, body: unknown, status = 200) {
   const text = JSON.stringify(body);
-  const etag = `"${createHash('sha1').update(text).digest('base64url').slice(0, 16)}"`;
+  const { generatedAt, ...rest } = body as { generatedAt?: number };
+  const etag = `"${createHash('sha1')
+    .update(generatedAt === undefined ? text : JSON.stringify(rest))
+    .digest('base64url')
+    .slice(0, 16)}"`;
   response.setHeader('Cache-Control', 'no-cache');
   response.setHeader('ETag', etag);
-  if (status === 200 && request.headers['if-none-match'] === etag) {
+  if (generatedAt !== undefined) response.setHeader('X-Generated-At', String(generatedAt));
+  if (status === 200 && sentTags(request.headers['if-none-match']).includes(etag)) {
     response.writeHead(304).end();
     return;
   }
   response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' }).end(request.method === 'HEAD' ? undefined : text);
 }
+
+// The tags in If-None-Match as this server made them. Caddy adds its encoding to a tag it
+// compresses ("-gzip") and Cloudflare may mark one weak ("W/"), and the browser sends it back that
+// way.
+const sentTags = (header: string | undefined) =>
+  (header ?? '')
+    .split(',')
+    .map((tag) => tag.trim().replace(/^W\//, '').replace(/-(?:gzip|zstd|br)"$/, '"'));
 
 let shell: string | null = null;
 async function sendShell(response: ServerResponse, data: () => Promise<unknown>) {

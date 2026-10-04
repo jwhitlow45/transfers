@@ -18,7 +18,12 @@ export async function getJson<T>(url: string, options: { signal?: AbortSignal; r
     ...(options.signal ? { signal: options.signal } : {}),
     headers: known ? { 'If-None-Match': known.etag } : {},
   });
-  if (response.status === 304 && known) return known.data as T;
+  if (response.status === 304 && known) {
+    // An unchanged answer carries when the server sent it in a header, for working out how far
+    // this device's clock is off.
+    const generatedAt = Number(response.headers.get('X-Generated-At'));
+    return (generatedAt ? { ...(known.data as object), generatedAt } : known.data) as T;
+  }
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as { error?: string } | null;
     throw new HttpError(response.status, body?.error ?? `The server answered ${response.status}`);
