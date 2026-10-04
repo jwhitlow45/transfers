@@ -40,8 +40,8 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
     `${route ? spokenRoute(route) : 'Vehicle'}, ${now ? 'arriving now' : `arrives in ${minutes} minute${minutes === 1 ? '' : 's'}`}, ${clock(connection.departs)}, ${status.label}. ` +
     `Off at ${offAt ?? alightName} ${clock(connection.arrives)}. ${connection.transfer} minute transfer${tight ? ', tight' : ''}${hidden ? `, hidden because it is ${hidden.spoken}` : ''}.`;
   const secondEnd = departure.destination ?? departure.at + 8 * 60;
-  // Both of this vehicle's times open its map with where the rider gets on and where they get off
-  // to transfer marked.
+  // The vehicle's time opens its map with where the rider gets on and where they get off to
+  // transfer marked.
   const offStop = connection.alight ?? alight;
   const marks = [
     { stop: context.data.from, kind: 'yours' as const },
@@ -68,10 +68,8 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
         </div>
         <StatusTag status={status} plain hidden />
         <div class="tf-row__off">
-          <span aria-hidden="true">Off </span>
-          <TimeLink trip={connection.trip} stop={context.data.stops[offStop]} title={`${route ? chipLabel(route) : 'Vehicle'} at ${clock(connection.arrives)}`} marks={marks} transfer={transfer}>
-            {clock(connection.arrives)}
-          </TimeLink>
+          {/* Plain, to keep the row simple: the time above opens the same vehicle's map. */}
+          <span aria-hidden="true">Off {clock(connection.arrives)}</span>
           {offAt && (
             <>
               <span aria-hidden="true"> at </span>
