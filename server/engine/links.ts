@@ -108,13 +108,23 @@ export function findLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow
       }
     }
   }
-  return [...links.values()].sort(
+  let found = [...links.values()];
+  // A named stop allows a long walk so that a stop with no close transfer still finds one. When
+  // some transfer point is within the usual range, the long walks (the J to Church St when BART
+  // stops beside the bus) only crowd it out.
+  if (namedStop) {
+    const usual = (link: Link) => link.walkMeters <= (isStation(link.alight) || isStation(link.board) ? maxWalk * STATION_WALK_FACTOR : maxWalk);
+    if (found.some(usual)) found = found.filter(usual);
+  }
+  return found.sort(
     (a, b) =>
       a.stopsRidden - b.stopsRidden ||
       (a.routes[0]?.shortName ?? '').localeCompare(b.routes[0]?.shortName ?? '', 'en', { numeric: true }) ||
       (a.direction ?? 0) - (b.direction ?? 0),
   );
 }
+
+const isStation = (stop: StopRow) => stop.access === 'bart' || stop.access === 'subway' || stop.kind === 'station';
 
 type Context = {
   schedule: Schedule;
