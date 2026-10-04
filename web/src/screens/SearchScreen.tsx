@@ -10,6 +10,7 @@ import { clock } from '../format.ts';
 import { useNow, usePoll } from '../hooks.ts';
 import { IconGear, IconLocation } from '../icons/ui.tsx';
 import { defaultSavedColor } from '../lib/color.ts';
+import { ageText, freshness, nextPollMs } from '../lib/freshness.ts';
 import { summarize } from '../lib/summary.ts';
 import { navigate, tripPath } from '../router.ts';
 import { tripApiUrl, useSettings } from '../settings.tsx';
@@ -171,8 +172,9 @@ function SavedTrip({ search, now, onEdit, onColorless, onRemove }: {
   onRemove: () => void;
 }) {
   const { settings } = useSettings();
-  const { data, feed } = usePoll<TripResponse>(tripApiUrl(search, settings, false), 30_000);
+  const { data, feed, fetchedAt } = usePoll<TripResponse>(tripApiUrl(search, settings, false), 30_000, null, (response) => nextPollMs(response.dataAt, Date.now()));
   const summary = summarize(search, data, now);
+  const fresh = freshness(now, fetchedAt, data?.dataAt ?? null, feed === 'offline');
   useEffect(() => {
     if (!search.color && data) onColorless(summary.lineColor);
   }, [Boolean(data), search.color]);
@@ -185,6 +187,7 @@ function SavedTrip({ search, now, onEdit, onColorless, onRemove }: {
       next={summary.next}
       loading={!data && feed === 'loading'}
       severeAlerts={summary.severeAlerts}
+      staleText={fresh.stale ? `Live times ${ageText(fresh.ageSeconds!)} old` : null}
       href={tripPath(search)}
       onOpen={() => navigate(tripPath(search))}
       onEdit={onEdit}

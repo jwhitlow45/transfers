@@ -6,7 +6,7 @@ export type NextConnection = { minutes: number; line: string };
 
 // The main daily entry point: one tap opens results, and it leads with a live countdown. The
 // color stripe tells saved searches apart at a glance, and the pencil edits name and color.
-export function SavedSearchCard({ name, color, chain, windowText, next, loading, severeAlerts, href, onOpen, onEdit, onRemove }: {
+export function SavedSearchCard({ name, color, chain, windowText, next, loading, severeAlerts, staleText, href, onOpen, onEdit, onRemove }: {
   name: string;
   color: string | undefined;
   chain: string;
@@ -14,6 +14,8 @@ export function SavedSearchCard({ name, color, chain, windowText, next, loading,
   next: NextConnection | null;
   loading: boolean;
   severeAlerts: number;
+  // Set when the live times behind the countdown are over a minute old.
+  staleText: string | null;
   href: string;
   onOpen: () => void;
   onEdit: (change: { name: string; color: string | undefined }) => void;
@@ -97,6 +99,12 @@ export function SavedSearchCard({ name, color, chain, windowText, next, loading,
             {next && !now && <span class="tf-saved__unit">min</span>}
           </span>
           <span class="tf-saved__next">{next ? next.line : loading ? 'Getting live predictions…' : 'Open to widen the window'}</span>
+          {staleText && (
+            <span class="tf-saved__stale">
+              <IconWarn size={14} />
+              {staleText}
+            </span>
+          )}
           {severeAlerts > 0 && (
             <span class="tf-saved__alert">
               <IconWarn size={14} />

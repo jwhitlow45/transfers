@@ -2,6 +2,8 @@ import type { ComponentChildren } from 'preact';
 import type { FeedState } from '../hooks.ts';
 import { IconBack, IconBookmark } from '../icons/ui.tsx';
 
+// secondsSinceUpdate counts from when the server got the data from 511, not when this page
+// fetched it, so it says how old the times on screen really are.
 export function liveStatusText(feed: FeedState, secondsSinceUpdate: number | null) {
   const ago = (seconds: number) => (seconds < 60 ? `${seconds} s ago` : `${Math.floor(seconds / 60)} min ago`);
   if (feed === 'offline') return secondsSinceUpdate === null ? 'Offline' : `Offline, updated ${ago(secondsSinceUpdate)}`;
@@ -10,10 +12,11 @@ export function liveStatusText(feed: FeedState, secondsSinceUpdate: number | nul
   return secondsSinceUpdate === null ? 'Live' : `Updated ${ago(secondsSinceUpdate)}`;
 }
 
-export function LiveStatus({ feed, secondsSinceUpdate, children }: { feed: FeedState; secondsSinceUpdate: number | null; children?: ComponentChildren }) {
+export function LiveStatus({ feed, secondsSinceUpdate, stale, children }: { feed: FeedState; secondsSinceUpdate: number | null; stale?: boolean; children?: ComponentChildren }) {
+  const state = feed === 'offline' ? ' tf-livestatus__state--offline' : stale ? ' tf-livestatus__state--stale' : '';
   return (
     <div class="tf-livestatus" role="status">
-      <span class={`tf-livestatus__state${feed === 'offline' ? ' tf-livestatus__state--offline' : ''}`}>
+      <span class={`tf-livestatus__state${state}`}>
         <span class="tf-dot" />
         {liveStatusText(feed, secondsSinceUpdate)}
       </span>
@@ -23,8 +26,9 @@ export function LiveStatus({ feed, secondsSinceUpdate, children }: { feed: FeedS
 }
 
 // Sticky header for every screen but search: back, a title, and the live status.
-export function ScreenHeader({ title, feed, secondsSinceUpdate, status, action, accent, onBack }: {
+export function ScreenHeader({ title, feed, secondsSinceUpdate, stale, status, action, accent, onBack }: {
   title: ComponentChildren;
+  stale?: boolean;
   // A saved search's color, as a stripe along the top.
   accent?: string | undefined;
   feed?: FeedState;
@@ -43,7 +47,7 @@ export function ScreenHeader({ title, feed, secondsSinceUpdate, status, action, 
         {action}
       </div>
       {feed && (
-        <LiveStatus feed={feed} secondsSinceUpdate={secondsSinceUpdate ?? null}>
+        <LiveStatus feed={feed} secondsSinceUpdate={secondsSinceUpdate ?? null} stale={stale ?? false}>
           {status}
         </LiveStatus>
       )}

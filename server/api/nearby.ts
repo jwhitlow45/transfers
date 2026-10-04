@@ -85,7 +85,8 @@ export function nearby(schedule: Schedule, realtime: RealtimeView, center: Point
   }
 
   return {
-    generatedAt: realtime.updatedAt ?? now,
+    generatedAt: now,
+    dataAt: realtime.updatedAt,
     nearby: groups,
     routes: tables.routes,
     stops: tables.stops,

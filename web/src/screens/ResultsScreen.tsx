@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'preact/hooks';
 import type { TripResponse } from '../../../shared/api.ts';
 import { takeInitialData } from '../api.ts';
 import { AlertList } from '../components/AlertList.tsx';
-import { FeedOutageBanner, OfflineBanner } from '../components/Banners.tsx';
+import { FeedOutageBanner, OfflineBanner, StaleBanner } from '../components/Banners.tsx';
 import { BottomBar } from '../components/BottomBar.tsx';
 import { DataCredit } from '../components/DataCredit.tsx';
 import { DirectionSwitcher, SystemSwitcher } from '../components/DirectionSwitcher.tsx';
@@ -14,6 +14,7 @@ import { type SearchUpdate, TransferWindowSheet, TripSettingsSheet } from '../co
 import { useNow, usePoll } from '../hooks.ts';
 import { defaultSavedColor } from '../lib/color.ts';
 import { viewAlerts } from '../lib/alerts.ts';
+import { ageText, freshness, nextPollMs } from '../lib/freshness.ts';
 import { type CardContext, chooseDirection, directionChoices, pageColors, pointId, scaleFor, visibleDepartures } from '../lib/results.ts';
 import { summarize } from '../lib/summary.ts';
 import { navigate, tripPath } from '../router.ts';
@@ -40,7 +41,8 @@ export function ResultsScreen({ search }: { search: Search }) {
     const matches = initialData && initialData.from === search.from && matchesServerDefaults(settings) && !search.firstRoutes && !search.secondRoutes;
     return matches ? initialData : null;
   }, []);
-  const { data, error, fetchedAt, feed } = usePoll<TripResponse>(url, 30_000, initial);
+  const { data, error, fetchedAt, feed } = usePoll<TripResponse>(url, 30_000, initial, (response) => nextPollMs(response.dataAt, Date.now()));
+  const fresh = freshness(now, fetchedAt, data?.dataAt ?? null, feed === 'offline');
   const summary = summarize(search, data, now);
 
   useEffect(() => {
@@ -73,7 +75,7 @@ export function ResultsScreen({ search }: { search: Search }) {
     showHidden,
     colorOf: data ? pageColors(groups, data) : () => '#55575a',
   };
-  const secondsSinceUpdate = fetchedAt === null ? null : Math.max(0, Math.floor((now - fetchedAt) / 1000));
+  const secondsSinceUpdate = fresh.ageSeconds ?? (fetchedAt === null ? null : Math.max(0, Math.floor((now - fetchedAt) / 1000)));
   const window = { min: search.min ?? groups[0]?.window.min ?? 3, max: search.max ?? groups[0]?.window.max ?? 12 };
   const footer = saved ? `Saved with “${saved.name}”` : 'Applies to this search. Save it to keep these settings.';
   const outages = (data?.feeds ?? []).filter(({ state }) => state === 'down' || state === 'stale');
@@ -94,6 +96,7 @@ export function ResultsScreen({ search }: { search: Search }) {
           title={<TripChain from={summary.from} via={summary.via} to={toChip} />}
           feed={feed}
           secondsSinceUpdate={secondsSinceUpdate}
+          stale={fresh.stale}
           status={
             <>
               <span aria-hidden="true">·</span>
@@ -106,6 +109,7 @@ export function ResultsScreen({ search }: { search: Search }) {
         />
         <main class="tf-page" id="main">
           {feed === 'offline' && <OfflineBanner statusText={liveStatusText(feed, secondsSinceUpdate)} />}
+          {feed !== 'offline' && fresh.stale && <StaleBanner ageText={ageText(fresh.ageSeconds!)} cause={fresh.cause!} />}
           {outages.map(({ agency }) => (
             <FeedOutageBanner key={agency} agency={agencyOnly(agency)} routes={routesOf(agency)} liveAgencies={liveAgencies.join(' and ')} />
           ))}

@@ -29,7 +29,9 @@ const MIN_REFRESH_MS = 800;
 // Fetches `url` now and every `intervalMs` while the page is visible. Shows the last response
 // for the same URL at once (from this session or storage), so returning or going offline
 // never blanks the screen.
-export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: T | null = null): Polled<T> {
+// `nextIn` picks the wait before the next fetch from the data just received, such as timing it
+// to land just after the server's own refresh. Without it, fetches come every `intervalMs`.
+export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: T | null = null, nextIn?: (data: T) => number): Polled<T> {
   const [state, setState] = useState<Omit<Polled<T>, 'refresh'>>(() => {
     const cached = url ? loadCached<T>(url) : null;
     const data = initial ?? cached?.data ?? null;
@@ -42,6 +44,11 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: T |
     if (!url) return;
     let controller: AbortController | null = null;
     let settle: ReturnType<typeof setTimeout> | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const plan = (delay: number) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => (document.visibilityState === 'visible' ? void fetchNow() : plan(intervalMs)), delay);
+    };
     if (!seeded.current) {
       // A changed setting is a new URL. Until its answer arrives, the previous results stay up
       // as refreshing, which beats flashing an empty screen.
@@ -56,23 +63,23 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: T |
       setState((current) => ({ ...current, feed: current.data ? 'refreshing' : 'loading' }));
       try {
         const data = await getJson<T>(url, { signal: controller.signal, remember: true });
-        const wait = Math.max(0, MIN_REFRESH_MS - (Date.now() - started));
+        const fetchedAt = Date.now();
+        const wait = Math.max(0, MIN_REFRESH_MS - (fetchedAt - started));
         clearTimeout(settle);
-        settle = setTimeout(() => setState({ data, error: null, fetchedAt: Date.now(), feed: 'live' }), wait);
+        settle = setTimeout(() => setState({ data, error: null, fetchedAt, feed: 'live' }), wait);
+        plan(nextIn ? nextIn(data) : intervalMs);
       } catch (error) {
         if ((error as Error).name === 'AbortError') return;
         const offline = !navigator.onLine || error instanceof TypeError;
         setState((current) => ({ ...current, error: offline ? null : (error as Error).message, feed: offline ? 'offline' : 'live' }));
+        plan(intervalMs);
       }
     };
     tick.current = () => void fetchNow();
     // Data the server put in the page is fresh, so the first fetch waits for the first refresh.
     if (!seeded.current) void fetchNow();
+    else plan(initial && nextIn ? nextIn(initial) : intervalMs);
     seeded.current = false;
-
-    const timer = setInterval(() => {
-      if (document.visibilityState === 'visible') void fetchNow();
-    }, intervalMs);
     const onVisible = () => {
       if (document.visibilityState === 'visible') void fetchNow();
     };
@@ -83,7 +90,7 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: T |
     return () => {
       controller?.abort();
       clearTimeout(settle);
-      clearInterval(timer);
+      clearTimeout(timer);
       document.removeEventListener('visibilitychange', onVisible);
       removeEventListener('online', onVisible);
       removeEventListener('offline', onOffline);

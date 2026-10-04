@@ -128,6 +128,9 @@ export type FeedStatus = { agency: AgencyId; state: 'live' | 'stale' | 'schedule
 
 export type TripResponse = {
   generatedAt: number;
+  // When the server last got live data from 511, in unix seconds, or null when it has none.
+  // How stale a page is counts from here, so it covers both the server and the rider's link.
+  dataAt: number | null;
   // At a shared downtown station, the systems (BART "BA", Muni Metro "SF") that give a
   // transfer within the usual walk. Absent when From or To is not a shared station.
   systems: { from?: AgencyId[]; to?: AgencyId[] };
@@ -167,6 +170,7 @@ export type DestinationsResponse = {
 
 export type NearbyResponse = {
   generatedAt: number;
+  dataAt: number | null;
   nearby: NearbyStop[];
   routes: Record<string, Route>;
   stops: Record<string, Stop>;

@@ -8,6 +8,9 @@ const BART_ALERTS_URL = 'https://api.bart.gov/gtfsrt/alerts.aspx';
 const ALERT_SECONDS = 60;
 // Polling stops this long after the last request, so an idle site spends no 511 requests.
 const IDLE_SECONDS = 5 * 60;
+// Checks every second, so each refresh lands on its interval. Pages time their own refreshes
+// to just after the server's, which keeps the data they show under about 35 seconds old.
+const TICK_MS = 1000;
 
 type FeedState<T> = { value: T | null; fetchedAt: number; failedAt: number; error: string | null };
 
@@ -66,12 +69,12 @@ export class Realtime {
       this.timer = null;
       const now = nowSeconds();
       if (now - this.lastDemand > IDLE_SECONDS) return;
-      if (now - this.trips.fetchedAt >= this.tripSeconds - 1) void this.refresh('trips');
-      if (now - this.alerts511.fetchedAt >= ALERT_SECONDS - 1) void this.refresh('alerts');
-      this.timer = setTimeout(tick, 5000);
+      if (now - this.trips.fetchedAt >= this.tripSeconds) void this.refresh('trips');
+      if (now - this.alerts511.fetchedAt >= ALERT_SECONDS) void this.refresh('alerts');
+      this.timer = setTimeout(tick, TICK_MS);
       this.timer.unref();
     };
-    this.timer = setTimeout(tick, 5000);
+    this.timer = setTimeout(tick, TICK_MS);
     this.timer.unref();
   }
 

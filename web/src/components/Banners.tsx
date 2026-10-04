@@ -27,3 +27,21 @@ export function FeedOutageBanner({ agency, routes, liveAgencies }: { agency: str
     </div>
   );
 }
+
+// Live data more than a minute old. Says whose end the problem is on, since the rider can fix
+// one (their connection) and only wait out the other (511).
+export function StaleBanner({ ageText, cause }: { ageText: string; cause: 'connection' | 'source' }) {
+  return (
+    <div class="tf-banner tf-banner--outage" role="alert">
+      <IconWarn size={22} />
+      <div>
+        <div class="tf-banner__title">Live times are {ageText} old</div>
+        <div class="tf-banner__body">
+          {cause === 'connection'
+            ? "This phone hasn't reached Transfers lately. Countdowns keep running and will correct when you reconnect."
+            : "511 hasn't sent fresh predictions lately, so vehicles may be earlier or later than shown."}
+        </div>
+      </div>
+    </div>
+  );
+}

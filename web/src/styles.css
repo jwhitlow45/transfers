@@ -399,3 +399,8 @@ button.tf-band { width: 100%; text-align: left; color: var(--on-field); }
 .tf-swatch[aria-pressed="true"] { border-color: var(--bg); outline: 3px solid var(--text); }
 .tf-saved__edit-actions { display: flex; align-items: center; gap: var(--space-4); }
 .tf-saved__edit-actions .tf-btn-primary { width: auto; flex: 1; }
+
+/* Live data over a minute old: the header's status turns to caution, alongside the banner. */
+.tf-livestatus__state--stale { color: var(--caution); font-weight: var(--weight-bold); }
+.tf-livestatus__state--stale .tf-dot { background: transparent; border-color: var(--caution); }
+.tf-saved__stale { display: inline-flex; align-self: flex-start; align-items: center; gap: 6px; margin-top: var(--space-2); padding: 3px var(--space-2); background: var(--caution-tint); color: var(--caution); font-size: var(--text-sm); font-weight: 650; }

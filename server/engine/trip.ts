@@ -162,6 +162,7 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
 
   return {
     generatedAt: now,
+    dataAt: realtime.updatedAt,
     systems: feasibleSystems(schedule, from, to, request),
     from: stopKeyOf(from),
     to: toStop ? { stop: stopKeyOf(toStop) } : { route: routeKeyOf(toRoute!) },
