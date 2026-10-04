@@ -10,10 +10,16 @@ The internal networks use Docker's `isolated` gateway mode, which needs Docker 2
 
 ## First deploy
 
-1. Clone the repo on the server:
+1. Clone the repo on the server with its own read-only deploy key, as screamr.ai and the blog have. The key is `~/.ssh/transfers-read-only`, added to the GitHub repo as the deploy key "server (read-only)". The clone keeps the key in `core.sshCommand`, so `git pull` needs nothing extra.
 
    ```sh
-   cd ~/docker_compose && git clone git@github.com:jwhitlow45/transfers.git && cd transfers
+   ssh-keygen -t ed25519 -N "" -C "server read-only transfers" -f ~/.ssh/transfers-read-only
+   ```
+
+   Add `~/.ssh/transfers-read-only.pub` to the repo as a read-only deploy key (`gh repo deploy-key add <file> --repo jwhitlow45/transfers --title "server (read-only)"` from a machine signed in to GitHub). Then:
+
+   ```sh
+   cd ~/docker_compose && GIT_SSH_COMMAND="ssh -i ~/.ssh/transfers-read-only -o IdentitiesOnly=yes" git clone git@github.com:jwhitlow45/transfers.git transfers && cd transfers && git config core.sshCommand "ssh -i ~/.ssh/transfers-read-only -o IdentitiesOnly=yes"
    ```
 
 2. Create `~/docker_compose/transfers/.env` with the 511 keys, comma separated, on one line: `API_KEYS_511=<key1>,<key2>,<key3>`. Use keys no other tool uses.
@@ -36,10 +42,10 @@ The internal networks use Docker's `isolated` gateway mode, which needs Docker 2
      external: true
    ```
 
-   Then recreate the tunnel container:
+   Then attach the running tunnel to the network. This takes effect at once without restarting the tunnel, which would briefly drop every other site it carries. The compose change keeps the network on the tunnel's next recreate.
 
    ```sh
-   cd ~/docker_compose/cloudflared && docker compose up -d
+   docker network connect transfers-edge cloudflared
    ```
 
 5. In the Cloudflare dashboard, open Zero Trust, then Networks, Tunnels, this server's tunnel, Public Hostnames. Add `transfers.gerbil-porgy.cc` with service type HTTP and URL `transfers_web:8080`.
