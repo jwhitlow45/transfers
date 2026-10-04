@@ -115,14 +115,14 @@ export function ResultsScreen({ search }: { search: Search }) {
             </div>
           )}
           {data && <AlertList key={data.from} alerts={viewAlerts(data, summary.boarding)} />}
-          {data?.stops[data.from]?.serves && (
+          {data && ((data.systems?.from?.length ?? 0) > 1 || search.fromSystem) && (
             <SystemSwitcher
               label={`From ${shortStopName(data.stops[data.from])}, ride`}
               selected={search.fromSystem}
               onChoose={(system) => update(({ fromSystem: _system, ...rest }) => (system ? { ...rest, fromSystem: system } : rest))}
             />
           )}
-          {data && 'stop' in data.to && data.stops[data.to.stop]?.serves && (
+          {data && 'stop' in data.to && ((data.systems?.to?.length ?? 0) > 1 || search.toSystem) && (
             <SystemSwitcher
               label={`At ${shortStopName(data.stops[data.to.stop])}, catch`}
               selected={search.toSystem}

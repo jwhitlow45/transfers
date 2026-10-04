@@ -139,11 +139,11 @@ export function familyName(routeKeys: string[], data: TripResponse) {
   return `the ${[...new Set(routes.map(chipLabel))].join(' or ')}`;
 }
 
-// How a group says where to get off: "Get off BART at", "Get off Muni Metro at", or both pooled.
+// How a group says where to get off: "Get off BART at", "Get off Muni Metro at", or plain
+// "Get off at" when either system gets there.
 export function alightVerb(group: Group, data: TripResponse) {
   const routes = group.firstRoutes.map((key) => data.routes[key]).filter((route) => route !== undefined);
   if (routes.length > 0 && routes.every(({ agency }) => agency === 'BA')) return 'Get off BART at';
   if (routes.length > 0 && routes.every(({ mode }) => mode === 'light-rail')) return 'Get off Muni Metro at';
-  if (routes.some(({ agency }) => agency === 'BA') && routes.some(({ mode }) => mode === 'light-rail')) return 'Get off BART or Muni Metro at';
   return 'Get off at';
 }

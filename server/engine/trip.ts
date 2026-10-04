@@ -162,6 +162,7 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
 
   return {
     generatedAt: now,
+    systems: feasibleSystems(schedule, from, to, request),
     from: stopKeyOf(from),
     to: toStop ? { stop: stopKeyOf(toStop) } : { route: routeKeyOf(toRoute!) },
     groups,
@@ -212,6 +213,17 @@ function towardDestination(schedule: Schedule, links: Link[], destination: StopR
     });
   }
   return [...pooled.values()];
+}
+
+// At a shared station, which systems give a transfer within the usual walk, tried one at a
+// time. The page offers the BART or Muni Metro choice only when both do: Muni Metro from
+// Montgomery reaches the 48 only by a long walk from Church St, so it is no real option there.
+function feasibleSystems(schedule: Schedule, from: StopRow, to: { stop: StopRow } | { route: RouteRow }, request: TripRequest) {
+  const systems: { from?: AgencyId[]; to?: AgencyId[] } = {};
+  const works = (change: Partial<TripRequest>) => cachedLinks(schedule, from, to, { ...request, ...change }).some(({ long }) => !long);
+  if (schedule.sharedMembers.has(from.id)) systems.from = (['BA', 'SF'] as const).filter((agency) => works({ fromAgencies: [agency] }));
+  if ('stop' in to && schedule.sharedMembers.has(to.stop.id)) systems.to = (['BA', 'SF'] as const).filter((agency) => works({ toAgencies: [agency] }));
+  return systems;
 }
 
 const connects = (departures: Departure[]) => departures.some(({ canceled, connections }) => !canceled && connections.some(({ hidden }) => !hidden));

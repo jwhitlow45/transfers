@@ -35,6 +35,8 @@ export type Link = {
   defaultMinutes: number;
   // Fewest stops ridden on the first leg, for ordering transfer points along the way.
   stopsRidden: number;
+  // A walk longer than the usual range, kept only because nothing closer reaches the named stop.
+  long?: boolean;
 };
 
 export type BoardPattern = { pattern: PatternRow; position: number; stop: StopRow };
@@ -115,6 +117,7 @@ export function findLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow
   if (namedStop) {
     const usual = (link: Link) => link.walkMeters <= (isStation(link.alight) || isStation(link.board) ? maxWalk * STATION_WALK_FACTOR : maxWalk);
     if (found.some(usual)) found = found.filter(usual);
+    else for (const link of found) link.long = true;
   }
   return found.sort(
     (a, b) =>
