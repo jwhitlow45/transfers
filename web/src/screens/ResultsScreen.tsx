@@ -36,9 +36,10 @@ const initialAt = navigation?.responseEnd ? performance.timeOrigin + navigation.
 const tripTo = (to: TripResponse['to']) => ('route' in to ? `route:${to.route}` : to.stop);
 
 export function ResultsScreen({ search }: { search: Search }) {
-  const { settings } = useSettings();
+  const { settings, update: updateSettings } = useSettings();
   const deviceNow = useNow();
-  const [showHidden, setShowHidden] = useState(false);
+  const { showHidden } = settings;
+  const setShowHidden = (shown: boolean) => updateSettings({ showHidden: shown });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [saved, setSaved] = useState(() => findSaved(search));
   // Cards the rider opened or closed, by group and trip. Others start as the device's setting

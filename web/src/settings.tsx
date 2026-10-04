@@ -62,5 +62,5 @@ export function tripApiUrl(search: Search, settings: DeviceSettings, showHidden:
 
 // Whether the server's inlined results answer the same question this device would ask.
 export function matchesServerDefaults(settings: DeviceSettings) {
-  return settings.maxWalk === DEFAULT_SETTINGS.maxWalk && settings.walkSpeed === DEFAULT_SETTINGS.walkSpeed && settings.min === null && settings.max === null && settings.hide === 0;
+  return settings.maxWalk === DEFAULT_SETTINGS.maxWalk && settings.walkSpeed === DEFAULT_SETTINGS.walkSpeed && settings.min === null && settings.max === null && settings.hide === 0 && !settings.showHidden;
 }
