@@ -48,11 +48,15 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
   // When the rider last asked to fit the map to the trip from here. Only an answer that arrives
   // after it pins the map again, as the one on screen still shows the old stretch.
   const [refitAt, setRefitAt] = useState(0);
-  // Each answer's spans are pinned in turn: the same ones back, except when the server grew them to
-  // take in a vehicle or zoomed in once the rider boarded, which then stick.
+  // The first answer's spans are pinned, and later ones only where the server zoomed in after the
+  // rider boarded, which then sticks. A span the server grew to take in a vehicle past it is not
+  // pinned: the picture stays centered where it was, and the server grows it again as needed.
   useEffect(() => {
     if (!data?.span || fetchedAt === null || fetchedAt <= refitAt) return;
-    const next = { main: data.span, ...(data.transfer ? { transfer: data.transfer.span } : {}) };
+    const zoomed = (now: [number, number] | undefined, pinned: [number, number] | undefined) => (now && (!pinned || now[0] > pinned[0]) ? now : pinned);
+    const main = zoomed(data.span, spans?.main)!;
+    const transfer = zoomed(data.transfer?.span, spans?.transfer);
+    const next = { main, ...(transfer ? { transfer } : {}) };
     if (JSON.stringify(next) !== JSON.stringify(spans)) setSpans(next);
   }, [data, fetchedAt]);
   const refit = () => {
@@ -82,13 +86,13 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
   const next = data.transfer;
   const nextRoute = next ? data.routes[next.route] : undefined;
   const nextColor = transfer?.color ?? (nextRoute ? routeColor(nextRoute) : 'currentColor');
-  const nextLabels = next ? new Map<number, Mark['kind'][]>([[next.targetIndex, ['transfer']]]) : null;
+  const nextLabels = next ? new Map<number, Mark['kind'][]>(next.targetIndex === null ? [] : [[next.targetIndex, ['transfer']]]) : null;
   // The transfer as it stands now: from the first vehicle reaching the stop the rider gets off at
   // to the second reaching where they board, as the results count it. Without both times, the
   // figure from when the rider tapped.
   const offIndex = [...labels].find(([, kinds]) => kinds.includes('transfer'))?.[0];
   const offAt = offIndex === undefined ? null : (data.path[offIndex]?.at ?? null);
-  const boardAt = next ? (next.path[next.targetIndex]?.at ?? null) : null;
+  const boardAt = next && next.targetIndex !== null ? (next.path[next.targetIndex]?.at ?? null) : null;
   const transferMinutes = offAt !== null && boardAt !== null ? Math.floor((boardAt - offAt) / 60) : transfer?.minutes;
   const legs: Drawn[] = [
     ...(next && nextLabels ? [{ leg: next, color: nextColor, labels: nextLabels }] : []),
@@ -125,7 +129,7 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
             </p>
             <p class="tf-track__change-status">
               {legStatus(next, data.stops, 'the transfer stop')}
-              {transferMinutes !== undefined && ` · ${transferMinutes} min transfer`}
+              {transferMinutes !== undefined && (transferMinutes < 0 ? ' · transfer missed' : ` · ${transferMinutes} min transfer`)}
             </p>
           </div>
           <LegList leg={next} stops={data.stops} labels={nextLabels} color={nextColor} now={now} />
@@ -176,7 +180,7 @@ function LineMap({ legs, label }: { legs: Drawn[]; label: string }) {
   const [next, main] = legs.length === 2 ? legs : [null, legs[0]!];
   const off = main && [...main.labels].find(([, kinds]) => kinds.includes('transfer'))?.[0];
   const getOff = off === undefined ? undefined : main!.leg.path[off];
-  const board = next ? next.leg.path[next.leg.targetIndex] : undefined;
+  const board = next && next.leg.targetIndex !== null ? next.leg.path[next.leg.targetIndex] : undefined;
   return (
     <svg class="tf-track__map" viewBox={`${left} ${top} ${width} ${height}`} role="img" aria-label={label}>
       {legs.map(({ leg, color }, n) => (
@@ -330,6 +334,6 @@ function markedStops(data: TrackResponse, marks: Mark[]) {
     if (index !== null && index !== undefined) labels.set(index, [...(labels.get(index) ?? []), kind]);
   };
   marks.forEach(({ kind }, n) => mark(data.marks?.[n], kind));
-  if (!labels.has(data.targetIndex)) mark(data.targetIndex, 'yours');
+  if (data.targetIndex !== null && !labels.has(data.targetIndex)) mark(data.targetIndex, 'yours');
   return labels;
 }

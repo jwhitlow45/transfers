@@ -148,8 +148,15 @@ function placeLeg(schedule: Schedule, live: Live, request: TrackRequest, now: nu
   // stop watched, when a loop moves it to a visit outside.
   // The stop behind the vehicle, so it sits on the line rather than off its start.
   const behind = vehicleAt === -1 ? Infinity : Math.max(0, Math.min(vehicleAt - 1, estimate?.from ?? vehicleAt));
-  const from = span ? Math.min(pinnedFrom!, targetAt, behind) : Math.max(0, Math.min(coming ? behind : targetAt - STOPS_BEFORE, ...markedAt));
-  const to = span ? Math.max(span[1], vehicleAt, targetAt) : Math.min(stops.length - 1, Math.max(targetAt + 1, vehicleAt, ...markedAt));
+  // Past the stop watched with more of the rider's stops ahead, as when they have boarded and
+  // watch where they got on, the picture follows the ride on from the vehicle, and the stop
+  // watched is drawn only if it falls within.
+  const aboard = vehicleAt > targetAt && markedAt.some((index) => index >= vehicleAt);
+  const keep = aboard ? [] : [targetAt];
+  const from = span
+    ? Math.min(pinnedFrom!, behind, ...keep)
+    : Math.max(0, Math.min(coming || aboard ? behind : targetAt - STOPS_BEFORE, ...markedAt));
+  const to = span ? Math.max(span[1], vehicleAt, ...keep) : Math.min(stops.length - 1, Math.max(aboard ? -1 : targetAt + 1, vehicleAt, ...markedAt));
   const shown = stops.slice(from, to + 1);
   const centered = span ? stops.slice(pinnedFrom!, span[1] + 1) : shown;
   return { trip, pattern, target, stops, shape, passes, rt, expected, reported, estimate, vehicle, missing, vehicleAt, targetAt, coming, marked, from, to, shown, centered };
@@ -182,7 +189,7 @@ function drawLeg(schedule: Schedule, leg: Leg, project: (point: Point) => [numbe
       return { stop: tables.stop(stop), x, y, at: rt?.canceled ? null : (expected.times[from + index] ?? null) };
     }),
     span: [from, to],
-    targetIndex: targetAt - from,
+    targetIndex: targetAt >= from && targetAt <= to ? targetAt - from : null,
     // A marked stop outside what is drawn, such as one passed before the picture was fitted, has
     // no place in it.
     marks: marked.map((index) => (index === null || index < from || index > to ? null : index - from)),

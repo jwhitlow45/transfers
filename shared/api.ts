@@ -244,9 +244,9 @@ export type TrackLeg = {
   // The stretch of the trip drawn, by stop position, which the page sends back on each refresh so
   // the map's stops stay put.
   span: [number, number];
-  // Where in path the rider's stop is, and the stop the vehicle is at or heading to, which is
-  // null with no position.
-  targetIndex: number;
+  // Where in path the rider's stop is, null when the picture follows the ride on past it, and the
+  // stop the vehicle is at or heading to, which is null with no position.
+  targetIndex: number | null;
   nextIndex: number | null;
   // Where in path each requested mark is, in the order asked, or null when the trip does not
   // stop there.

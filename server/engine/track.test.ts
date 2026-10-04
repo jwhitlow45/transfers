@@ -259,7 +259,7 @@ test('the vehicle the rider transfers to is drawn on the same picture, and one t
   const placeOf = (leg: typeof transfer, name: string) => leg.path.find(({ stop }) => response.stops[stop]!.name === name)!;
   // Stop 2 lands on the same spot in both legs, and the transfer leg watches it.
   deepStrictEqual([placeOf(transfer, 'Market St & Stop 2').x, placeOf(transfer, 'Market St & Stop 2').y], [placeOf(response, 'Market St & Stop 2').x, placeOf(response, 'Market St & Stop 2').y]);
-  strictEqual(response.stops[transfer.path[transfer.targetIndex]!.stop]!.name, 'Market St & Stop 2');
+  strictEqual(response.stops[transfer.path[transfer.targetIndex!]!.stop]!.name, 'Market St & Stop 2');
   strictEqual(response.routes[transfer.route]!.name, 'F');
   const lost = trackVehicle(schedule, at({ lon: lon(0.5), stopId: '101' }), { ...request, transfer: { trip: 'SF:nope', stop: 'SF:102' } }, EIGHT + 30);
   strictEqual(lost.transfer, undefined);
@@ -288,10 +288,23 @@ test('a pinned loop map takes in the visit it watches, and a fresh fit leaves ou
   const opened = trackVehicle(schedule, at({ lon: lon(0.5), stopId: '101', sequence: 2 }, 'SF:l1'), { trip: 'SF:l1', stop: 'SF:101' }, LOOP_NOW);
   // Past it, the watched visit is the second one, outside the pinned span: the span takes it in.
   const later = trackVehicle(schedule, at({ lon: lon(2), stopId: '102', sequence: 3 }, 'SF:l1'), { trip: 'SF:l1', stop: 'SF:101', span: opened.span }, LOOP_NOW);
-  strictEqual(later.targetIndex < later.path.length, true);
-  strictEqual(later.path[later.targetIndex]!.stop, 'SF:101');
+  strictEqual(later.targetIndex! < later.path.length, true);
+  strictEqual(later.path[later.targetIndex!]!.stop, 'SF:101');
   // Fitting afresh after boarding at stop 2, heading to stop 4: the picture starts behind the
   // vehicle, without stop 2, whose mark has no place in it.
   const fitted = trackVehicle(schedule, at({ lon: lon(3.5), stopId: '104' }), { trip: 'SF:t1', stop: 'SF:105', marks: ['SF:102', 'SF:105'] }, NOW);
   deepStrictEqual([names(fitted)[0], fitted.marks[0], fitted.marks[1]], ['Market St & Stop 3', null, 2]);
+});
+
+test('opened from the boarding time, a map fitted after boarding follows the ride on from the vehicle', () => {
+  // Boarded at stop 2, transferring at stop 5, heading to stop 4, watching where they got on.
+  const request = { trip: 'SF:t1', stop: 'SF:102', marks: ['SF:102', 'SF:105'] };
+  const vehicle = at({ lon: lon(3.5), stopId: '104' });
+  for (const fitOnBoard of [true, false]) {
+    const fitted = trackVehicle(schedule, vehicle, { ...request, fitOnBoard }, NOW);
+    deepStrictEqual([fitted.span, fitted.targetIndex, fitted.marks, fitted.passed], [[3, 5], null, [null, 2], true]);
+    // Pinned to that, it holds rather than reaching back for the stop watched.
+    const pinned = trackVehicle(schedule, vehicle, { ...request, fitOnBoard, span: fitted.span }, NOW);
+    deepStrictEqual(pinned.span, [3, 5]);
+  }
 });
