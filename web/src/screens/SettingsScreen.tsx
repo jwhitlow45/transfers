@@ -11,6 +11,11 @@ const SPEEDS = [
   { value: 1.7, label: 'Fast' },
 ];
 const WALKS = [200, 300, 400, 500, 650];
+const CARDS: { value: DeviceSettings['cards']; label: string }[] = [
+  { value: 'expanded', label: 'Expanded' },
+  { value: 'first', label: 'First expanded' },
+  { value: 'collapsed', label: 'Collapsed' },
+];
 const THEMES: { value: DeviceSettings['theme']; label: string }[] = [
   { value: 'system', label: 'Match this device' },
   { value: 'light', label: 'Light' },
@@ -83,6 +88,17 @@ export function SettingsScreen() {
             <div class="tf-filters">
               {THEMES.map(({ value, label }) => (
                 <Toggle key={value} pressed={settings.theme === value} onToggle={() => update({ theme: value })}>
+                  {label}
+                </Toggle>
+              ))}
+            </div>
+          </div>
+          <div class="tf-setting">
+            <div class="tf-setting__label">Departure cards</div>
+            <div class="tf-setting__help">How cards start out on results. First expanded opens each group's soonest departure. Tap any card to open or close it.</div>
+            <div class="tf-filters">
+              {CARDS.map(({ value, label }) => (
+                <Toggle key={value} pressed={settings.cards === value} onToggle={() => update({ cards: value })}>
                   {label}
                 </Toggle>
               ))}

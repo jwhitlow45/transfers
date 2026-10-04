@@ -31,9 +31,11 @@ export type DeviceSettings = {
   max: number | null;
   hide: number;
   theme: 'system' | 'light' | 'dark';
+  // How departure cards start out: all open, each group's soonest open, or all closed.
+  cards: 'expanded' | 'first' | 'collapsed';
 };
 
-export const DEFAULT_SETTINGS: DeviceSettings = { walkSpeed: 1.4, maxWalk: 300, min: null, max: null, hide: 0, theme: 'system' };
+export const DEFAULT_SETTINGS: DeviceSettings = { walkSpeed: 1.4, maxWalk: 300, min: null, max: null, hide: 0, theme: 'system', cards: 'expanded' };
 
 export function loadSettings(): DeviceSettings {
   return { ...DEFAULT_SETTINGS, ...read<Partial<DeviceSettings>>('settings', {}) };
