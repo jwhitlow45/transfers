@@ -229,7 +229,9 @@ export type TrackResponse = {
   headsign: string;
   // The stop the rider is watching, and the trip's stops drawn around it, in order.
   target: string;
-  path: { stop: string; x: number; y: number }[];
+  // `at` is when the vehicle is due there, or for a stop behind it, about when it left. Null for a
+  // stop it skips.
+  path: { stop: string; x: number; y: number; at: number | null }[];
   // Where in path the rider's stop is, and the stop the vehicle is at or heading to, which is
   // null with no position.
   targetIndex: number;

@@ -78,9 +78,11 @@ export function trackVehicle(schedule: Schedule, live: { vehicles: VehicleSnapsh
   for (const stop of stops) passes.push(passAt(shape, stop, passes.at(-1) ?? 0));
 
   const reported = live.vehicles?.byTrip.get(request.trip) ?? null;
-  // BART and the ferry report no positions, nor does a bus whose GPS is off, so those vehicles
-  // are placed by when they are due at their stops.
-  const estimate = reported ? null : estimatePlace(schedule, trip.row, stops, { shape, passes }, live.trips?.trips.get(request.trip), now);
+  // When the vehicle is due at each stop, for the list and for placing a vehicle that reports no
+  // position: BART and the ferry report none, nor does a bus whose GPS is off.
+  const rt = live.trips?.trips.get(request.trip);
+  const expected = expectedTimes(schedule, trip.row, stops, rt, now);
+  const estimate = reported ? null : estimatePlace(stops, { shape, passes }, expected, rt?.canceled ?? false, now);
   const vehicle: Point | null = reported ?? estimate?.point ?? null;
   const missing = vehicle ? undefined : estimate?.missing;
   const vehicleAt = reported ? placeOf(schedule, trip.row, stops, { shape, passes }, reported, now) : (estimate?.next ?? -1);
@@ -128,9 +130,9 @@ export function trackVehicle(schedule: Schedule, live: { vehicles: VehicleSnapsh
     route: tables.route(route),
     headsign: trip.headsign || pattern.headsign,
     target: tables.stop(schedule.stationOf(target)),
-    path: shown.map((stop) => {
+    path: shown.map((stop, index) => {
       const [x, y] = project(stop);
-      return { stop: tables.stop(stop), x, y };
+      return { stop: tables.stop(stop), x, y, at: expected.times[from + index] ?? null };
     }),
     targetIndex: targetAt - from,
     marks: marked.map((index) => (index === null ? null : index - from)),
@@ -177,9 +179,8 @@ function placeOf(schedule: Schedule, tripRow: number, stops: StopRow[], line: { 
 // Where a vehicle that reports no position should be: between the last stop it was due to leave
 // and the next, as far along the line as the time between them has run. Without a place, why
 // not: it is canceled, its trip has yet to start, or its trip has ended.
-function estimatePlace(schedule: Schedule, tripRow: number, stops: StopRow[], line: { shape: Point[]; passes: number[] }, rt: RtTrip | undefined, now: number): Estimate {
-  if (rt?.canceled) return { missing: 'canceled' };
-  const { times, predicted } = expectedTimes(schedule, tripRow, stops, rt, now);
+function estimatePlace(stops: StopRow[], line: { shape: Point[]; passes: number[] }, { times, predicted }: ReturnType<typeof expectedTimes>, canceled: boolean, now: number): Estimate {
+  if (canceled) return { missing: 'canceled' };
   const next = times.findIndex((time) => time !== null && time > now);
   if (next === 0) return { missing: 'not-started' };
   if (next === -1) return times.some((time) => time !== null) ? { missing: 'ended' } : {};

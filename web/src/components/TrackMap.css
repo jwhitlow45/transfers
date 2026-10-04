@@ -21,7 +21,11 @@
 .tf-track__mark--yours .tf-track__stop-dot { background: var(--text); }
 .tf-track__mark--transfer .tf-track__stop-dot { border-width: 3px; }
 .tf-track__tag { font-size: var(--text-sm); font-weight: 650; color: var(--muted); }
-.tf-track__tag--yours { color: var(--text); }
+.tf-track__tag--mark { color: var(--text); }
+.tf-track__when { flex: none; min-width: 4.5em; display: flex; flex-direction: column; align-items: flex-end; font-variant-numeric: tabular-nums; }
+.tf-track__in { font-weight: var(--weight-bold); }
+.tf-track__in--passed { font-weight: 650; color: var(--muted); }
+.tf-track__time { font-size: var(--text-sm); color: var(--muted); }
 .tf-track__stops .tf-track__fold { display: block; padding: 0; }
 .tf-track__stops--between { margin: 0; }
 .tf-track__more { display: flex; align-items: center; gap: var(--space-2); width: 100%; min-height: var(--tap-min); padding: var(--space-2) 0; color: var(--muted); font-weight: 650; text-align: left; }

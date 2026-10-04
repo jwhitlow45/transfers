@@ -1,5 +1,6 @@
 import { useId, useState } from 'preact/hooks';
 import type { TrackResponse } from '../../../shared/api.ts';
+import { clock, minutesUntil } from '../format.ts';
 import { useNow, usePoll } from '../hooks.ts';
 import { IconChevron } from '../icons/ui.tsx';
 import { routeColor } from '../lib/color.ts';
@@ -32,7 +33,7 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
   // Not kept in storage: a position from an earlier visit is no use.
   const { data, error, fetchedAt, feed } = usePoll<TrackResponse>(url, REFRESH_MS, null, false);
   const now = useNow() + clockSkewMs(data?.generatedAt, fetchedAt);
-  // Folded runs the rider opened, by their first stop's key, which stays put as the vehicle moves
+  // Folded runs the rider opened, by their last stop's key, which stays put as the vehicle moves
   // and the picture's positions shift.
   const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
   const between = useId();
@@ -62,14 +63,13 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
         : `Position ${data.vehicle?.at ? 'from' : 'received'} ${ageText(age)} ago`;
   const { targetIndex, nextIndex } = data;
   const labels = markedStops(data, marks);
-  // The list runs against the direction of travel, from the farthest stop down: the stops the
-  // vehicle has yet to reach first and its next stop below them, so the rider scrolls down toward
-  // the vehicle. A labeled stop it has already passed comes below it. Runs of stops between the
-  // labeled ones fold into one row that opens on a tap, since one stop takes no more room than a
-  // row saying so. With no position, it reaches down to the first stop drawn.
+  // The list runs the way the vehicle travels, from its next stop, or a labeled stop it has passed,
+  // down to the farthest labeled stop, each with when the vehicle is due there. Runs of stops
+  // between the labeled ones fold into one row that opens on a tap, since one stop takes no more
+  // room than a row saying so. With no position, it starts at the first stop drawn.
   const ends = [...labels.keys(), nextIndex ?? 0];
   const rows: (number | number[])[] = [];
-  for (let index = Math.max(...ends); index >= Math.min(...ends); index--) {
+  for (let index = Math.min(...ends); index <= Math.max(...ends); index++) {
     const plain = !labels.has(index) && index !== nextIndex;
     const run = rows.at(-1);
     if (plain && Array.isArray(run)) run.push(index);
@@ -81,15 +81,17 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
       <span class="tf-track__stop-dot" aria-hidden="true" style={index === nextIndex ? { background: color } : undefined} />
       <span class="tf-track__stop-name">{shortStopName(data.stops[data.path[index]!.stop], data.path[index]!.stop)}</span>
       {labels.get(index)?.map((kind) => (
-        <span key={kind} class="tf-track__tag tf-track__tag--yours">
+        <span key={kind} class="tf-track__tag tf-track__tag--mark">
           {MARK_LABEL[kind]}
         </span>
       ))}
       {index === nextIndex && <span class="tf-track__tag">Next stop</span>}
+      <When at={data.path[index]!.at ?? null} passed={nextIndex !== null && index < nextIndex} now={now} />
     </li>
   );
   const fold = (run: number[]) => {
-    const key = data.path[run[0]!]!.stop;
+    // Its last stop, just before a labeled one, which stays put as the vehicle moves along.
+    const key = data.path[run.at(-1)!]!.stop;
     const isOpen = opened.has(key);
     const toggle = () =>
       setOpened((current) => {
@@ -170,6 +172,19 @@ function LineMap({ data, color, label, labels }: { data: TrackResponse; color: s
         </g>
       )}
     </svg>
+  );
+}
+
+// When the vehicle is due at a stop: minutes from now, as the results count down, over the clock
+// time. A stop behind the vehicle says it has passed, with about when it left.
+function When({ at, passed, now }: { at: number | null; passed: boolean; now: number }) {
+  if (at === null) return null;
+  const minutes = minutesUntil(at, now);
+  return (
+    <span class="tf-track__when">
+      <span class={`tf-track__in${passed ? ' tf-track__in--passed' : ''}`}>{passed ? 'Passed' : minutes < 1 ? 'Now' : `${minutes} min`}</span>
+      <span class="tf-track__time">{clock(at)}</span>
+    </span>
   );
 }
 
