@@ -135,6 +135,6 @@ export function loadCached<T>(url: string) {
   return read<{ data: T; fetchedAt: number } | null>(`cache:${url}`, null);
 }
 
-export function saveCached(url: string, data: unknown) {
-  write(`cache:${url}`, { data, fetchedAt: Date.now() });
+export function saveCached(url: string, data: unknown, fetchedAt = Date.now()) {
+  write(`cache:${url}`, { data, fetchedAt });
 }

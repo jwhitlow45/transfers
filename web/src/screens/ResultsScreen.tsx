@@ -24,7 +24,12 @@ import { matchesServerDefaults, tripApiUrl, useSettings } from '../settings.tsx'
 import { type Search, findSaved, loadSaved, rememberRecent, removeSaved, saveSearch, updateSaved } from '../storage.ts';
 import { agencyOnly, chipLabel, shortStopName } from '../view.ts';
 
-const initialData = takeInitialData<TripResponse>();
+// The server puts the first trip's results in the page. They seed only the first visit, as of
+// when the page arrived: shown again on a later visit, even to the same trip, they would pass
+// for new.
+let initialData = takeInitialData<TripResponse>();
+const initialAt = Date.now();
+const tripTo = (to: TripResponse['to']) => ('route' in to ? `route:${to.route}` : to.stop);
 
 export function ResultsScreen({ search }: { search: Search }) {
   const { settings } = useSettings();
@@ -42,8 +47,10 @@ export function ResultsScreen({ search }: { search: Search }) {
   const url = tripApiUrl(search, settings, showHidden);
   // Results the server put in the page answer this request only if nothing differs from its defaults.
   const initial = useMemo(() => {
-    const matches = initialData && initialData.from === search.from && matchesServerDefaults(settings) && !search.firstRoutes && !search.secondRoutes;
-    return matches ? initialData : null;
+    const page = initialData;
+    initialData = null;
+    const matches = page && page.from === search.from && tripTo(page.to) === search.to && matchesServerDefaults(settings) && !search.firstRoutes && !search.secondRoutes;
+    return matches ? { data: page, fetchedAt: initialAt } : null;
   }, []);
   const { data, error, fetchedAt, feed, settled, refresh } = usePoll<TripResponse>(url, 30_000, initial);
   // Every time on the page is the server's, so the clock is too.
@@ -88,7 +95,7 @@ export function ResultsScreen({ search }: { search: Search }) {
     showHidden,
     colorOf: data ? pageColors(groups, data) : () => '#55575a',
   };
-  const secondsSinceUpdate = fresh.ageSeconds ?? (fetchedAt === null ? null : Math.max(0, Math.floor((now - fetchedAt) / 1000)));
+  const secondsSinceUpdate = fresh.ageSeconds ?? (fetchedAt === null ? null : Math.max(0, Math.floor((now - (fetchedAt + skew)) / 1000)));
   const window = summary.window ?? { min: search.min ?? 3, max: search.max ?? 12 };
   const hide = search.hide ?? settings.hide;
   // Groups with something to catch first, then by the soonest departure.

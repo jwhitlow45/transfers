@@ -83,7 +83,7 @@ function NearbyResults({ position, onRelocate }: { position: Position; onRelocat
   const now = useNow() + skew;
   const fresh = freshness(now, fetchedAt === null ? null : fetchedAt + skew, data?.dataAt ?? null);
   const showStale = fresh.stale && settled;
-  const secondsSinceUpdate = fresh.ageSeconds ?? (fetchedAt === null ? null : Math.max(0, Math.floor((now - fetchedAt) / 1000)));
+  const secondsSinceUpdate = fresh.ageSeconds ?? (fetchedAt === null ? null : Math.max(0, Math.floor((now - (fetchedAt + skew)) / 1000)));
   const pick = (row: NearbyStop, as: 'from' | 'to') => {
     const stop = data?.stops[row.stop];
     if (!stop) return;

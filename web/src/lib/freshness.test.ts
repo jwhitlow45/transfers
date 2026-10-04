@@ -33,3 +33,9 @@ test('a phone clock two minutes fast is corrected by the server timestamp', () =
   strictEqual(clockSkewMs(1000, 1_120_000), -120_000);
   strictEqual(clockSkewMs(undefined, 1_120_000), 0);
 });
+
+test('a few seconds between server and phone is the trip over the network, not the clock', () => {
+  // Made at 1000 s, arrived at 1001.8 s on a phone whose clock is right.
+  strictEqual(clockSkewMs(1000, 1_001_800), 0);
+  strictEqual(clockSkewMs(1000, 1_006_000), -6000);
+});

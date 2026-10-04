@@ -39,7 +39,12 @@ export const ageShort = (seconds: number) => ageText(seconds).replace(/ (\w)\w*$
 // How far the server's clock is ahead of this device's, in milliseconds, from a response's
 // own timestamp and when it arrived. Every time on the page is a server timestamp, so a phone
 // clock a minute fast would otherwise show every countdown a minute short and data a minute
-// older than it is.
+// older than it is. The timestamp is in whole seconds and the response takes time to arrive, so
+// a few seconds' difference is that, not the clock, and is left alone.
+const SKEW_FLOOR_MS = 5000;
+
 export function clockSkewMs(generatedAt: number | undefined, fetchedAtMs: number | null) {
-  return generatedAt === undefined || fetchedAtMs === null ? 0 : generatedAt * 1000 - fetchedAtMs;
+  if (generatedAt === undefined || fetchedAtMs === null) return 0;
+  const skew = generatedAt * 1000 - fetchedAtMs;
+  return Math.abs(skew) < SKEW_FLOOR_MS ? 0 : skew;
 }

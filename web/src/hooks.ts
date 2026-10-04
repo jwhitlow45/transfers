@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { getJson } from './api.ts';
-import { loadCached } from './storage.ts';
+import { loadCached, saveCached } from './storage.ts';
 
 // The device clock, ticking every second so countdowns move offline too.
 export function useNow(intervalMs = 1000) {
@@ -20,9 +20,9 @@ export type Polled<T> = {
   // When the shown data arrived, in milliseconds on this device's clock.
   fetchedAt: number | null;
   feed: FeedState;
-  // False until the first refresh after opening has finished or had five seconds. Cached data
-  // shown on open is usually old, and a warning about it would flash for the second it takes
-  // to refresh, so warnings wait for this.
+  // False until the refresh after opening, or after coming back into view, has finished or had
+  // five seconds. Data shown then is usually old, and a warning about it would flash for the
+  // second the refresh takes, so warnings wait for this.
   settled: boolean;
   refresh: () => void;
 };
@@ -39,19 +39,29 @@ const SETTLE_MS = 5000;
 // never blanks the screen. Fetches come every `intervalMs` from when the page opened, and
 // never faster when data is old. Pages opening at different times keep their own rhythm, so
 // devices never line up into bursts.
-export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: T | null = null): Polled<T> {
+// `initial` is a response that arrived with the page, and when it arrived.
+export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { data: T; fetchedAt: number } | null = null): Polled<T> {
   const [state, setState] = useState<Omit<Polled<T>, 'refresh' | 'settled'>>(() => {
     const cached = url ? loadCached<T>(url) : null;
-    const data = initial ?? cached?.data ?? null;
-    return { data, error: null, fetchedAt: initial ? Date.now() : (cached?.fetchedAt ?? null), feed: initial ? 'live' : data ? 'refreshing' : 'loading' };
+    const data = initial?.data ?? cached?.data ?? null;
+    return { data, error: null, fetchedAt: initial?.fetchedAt ?? cached?.fetchedAt ?? null, feed: initial ? 'live' : data ? 'refreshing' : 'loading' };
   });
   const [settled, setSettled] = useState(Boolean(initial));
   const tick = useRef<() => void>(() => {});
-  const seeded = useRef(Boolean(initial));
+  // When the page's own response arrived, until the first refresh is planned from it.
+  const seeded = useRef(initial?.fetchedAt ?? null);
+  const hold = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const unsettle = () => {
+    setSettled(false);
+    clearTimeout(hold.current);
+    hold.current = setTimeout(() => setSettled(true), SETTLE_MS);
+  };
 
   useEffect(() => {
-    const hold = setTimeout(() => setSettled(true), SETTLE_MS);
-    return () => clearTimeout(hold);
+    // The page's own response is used once, so a later visit finds it with the rest.
+    if (initial && url) saveCached(url, initial.data, initial.fetchedAt);
+    if (!initial) hold.current = setTimeout(() => setSettled(true), SETTLE_MS);
+    return () => clearTimeout(hold.current);
   }, []);
 
   useEffect(() => {
@@ -63,7 +73,7 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: T |
       clearTimeout(timer);
       timer = setTimeout(() => (document.visibilityState === 'visible' ? void fetchNow() : plan(intervalMs)), delay);
     };
-    if (!seeded.current) {
+    if (seeded.current === null) {
       // A changed setting is a new URL. Until its answer arrives, the previous results stay up
       // as refreshing, which beats flashing an empty screen.
       const cached = loadCached<T>(url);
@@ -103,12 +113,15 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: T |
       }
     };
     tick.current = () => void fetchNow();
-    // Data the server put in the page is fresh, so the first fetch waits for the first refresh.
-    if (!seeded.current) void fetchNow();
-    else plan(intervalMs);
-    seeded.current = false;
+    // Data the server put in the page is fresh, so the first fetch waits a full refresh from
+    // when it arrived.
+    if (seeded.current === null) void fetchNow();
+    else plan(Math.max(0, intervalMs - (Date.now() - seeded.current)));
+    seeded.current = null;
     const onVisible = () => {
-      if (document.visibilityState === 'visible') void fetchNow();
+      if (document.visibilityState !== 'visible') return;
+      unsettle();
+      void fetchNow();
     };
     const onOffline = () => setState((current) => ({ ...current, feed: 'offline' }));
     document.addEventListener('visibilitychange', onVisible);
