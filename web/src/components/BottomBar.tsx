@@ -42,9 +42,12 @@ export function BottomBar({ windowText, saved, onBack, onOpen, onToggleSaved }: 
           <IconBack />
         </button>
         <button type="button" class="tf-btn-outline tf-bottombar__open" onClick={onOpen}>
-          {windowText !== null && <span class="tf-sr">Trip settings: </span>}
+          {/* The name stays when the narrowest screens hide the visible label. */}
+          <span class="tf-sr">{windowText === null ? 'Trip settings' : 'Trip settings: '}</span>
           {windowText === null ? (
-            <span class="tf-muted tf-bottombar__label">Trip settings</span>
+            <span class="tf-muted tf-bottombar__label" aria-hidden="true">
+              Trip settings
+            </span>
           ) : (
             // Phones have room beside back and save only for the short label.
             <span class="tf-muted tf-bottombar__label">

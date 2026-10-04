@@ -250,9 +250,11 @@ function EmptyTrip({ data, search, summary, maxWalk, update }: { data: TripRespo
     return (
       <div class="tf-empty">
         <div class="tf-empty__title">
-          {shortStopName(data.stops[notice.stop], notice.stop)} is a {walkMinutes(notice.meters)} min walk from {summary.from}
+          {notice.meters < 15
+            ? `${shortStopName(data.stops[notice.stop], notice.stop)} is where you start`
+            : `${shortStopName(data.stops[notice.stop], notice.stop)} is a ${walkMinutes(notice.meters)} min walk from ${summary.from}`}
         </div>
-        <div class="tf-muted">Walking there is about as quick as any ride.</div>
+        {notice.meters >= 15 && <div class="tf-muted">Walking there is about as quick as any ride.</div>}
       </div>
     );
   }
