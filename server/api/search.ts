@@ -1,5 +1,5 @@
 import type { RouteSearchResult, RouteStops, SearchResponse, StopSearchResult } from '../../shared/api.ts';
-import { destinationOf } from '../engine/links.ts';
+import { bartSiblings, destinationOf } from '../engine/links.ts';
 import { routeView, stopView } from '../engine/views.ts';
 import { distanceMeters, type Point } from '../geo.ts';
 import { searchQuery, searchText } from '../gtfs/search-text.ts';
@@ -105,8 +105,7 @@ function namedRoutes(schedule: Schedule, query: string) {
   return sortRoutes(named).slice(0, 4);
 }
 
-const bartLine = (schedule: Schedule, route: RouteRow) =>
-  route.agency === 'BA' ? [...schedule.routes.values()].filter((other) => other.agency === 'BA' && routeView(other).name === routeView(route).name) : [route];
+const bartLine = (schedule: Schedule, route: RouteRow) => (route.agency === 'BA' ? bartSiblings(schedule, route) : [route]);
 
 // The stops a route makes, in riding order, for each direction. Every pattern adds its stops
 // to the order of the busiest one, so short runs, branches and late-night variants all show.
