@@ -74,7 +74,7 @@ export function buildTripSnapshot(
       // A trip's first stop often has only a departure.
       const event = stopUpdate.arrival?.time !== undefined || stopUpdate.arrival?.delay !== undefined ? stopUpdate.arrival : stopUpdate.departure;
       const time = event?.time ?? null;
-      const delay = event?.delay ?? null;
+      const delay = event?.delay === undefined || event.delay === null ? null : withinADay(event.delay);
       const skipped = stopUpdate.scheduleRelationship === 'SKIPPED';
       if (time === null && delay === null && !skipped) continue;
       trip.stops.push({ stopId: stopUpdate.stopId, time, delay, skipped });
@@ -188,3 +188,12 @@ function translated(text: TranslatedString | undefined) {
   const value = english?.text.split(/\r?\n---\r?\n/)[0]?.trim();
   return value || null;
 }
+
+// 511 reports trips that start after midnight a whole day late or early: the 1 due at 12:27 AM
+// came with a delay of 86,478 seconds, its predicted time right. No vehicle runs half a day off
+// schedule, so whole days are taken out, leaving 78 seconds.
+export function withinADay(delaySeconds: number) {
+  return delaySeconds - DAY_SECONDS * Math.round(delaySeconds / DAY_SECONDS);
+}
+
+const DAY_SECONDS = 86_400;
