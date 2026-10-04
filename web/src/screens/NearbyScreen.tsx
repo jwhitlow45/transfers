@@ -160,7 +160,7 @@ function NearbyResults({ position, onRelocate }: { position: Position; onRelocat
                         <li key={arrival.trip}>
                           {routes.length > 1 && <RouteChip route={route} size="sm" label={route?.agency === 'BA' ? route.name : undefined} />}
                           <span class="tf-near__time">
-                            <TimeLink trip={arrival.trip} stop={stop} title={`${route ? chipLabel(route) : 'Vehicle'} at ${clock(arrival.at)}`}>
+                            <TimeLink trip={arrival.trip} stop={stop} title={`${route ? chipLabel(route) : 'Vehicle'} at ${clock(arrival.at)}`} marks={[{ stop: row.stop, label: 'Your stop' }]}>
                               {clock(arrival.at)}
                             </TimeLink>
                           </span>

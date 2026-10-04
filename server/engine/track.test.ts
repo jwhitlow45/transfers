@@ -128,13 +128,14 @@ test('a loop that ends where it began is drawn the whole way round', () => {
 
 // 8:00 on the day the trips run, when t1 leaves stop 0, a minute between stops.
 const EIGHT = serviceDayStart(20261005) + 8 * 3600;
-const feed = (trip: Partial<RtTrip>): TripSnapshot => ({
+const feed = (trip: Partial<RtTrip>, key = 'SF:t1'): TripSnapshot => ({
   fetchedAt: EIGHT + 250,
   feedTime: null,
-  trips: new Map([['SF:t1', { agency: 'SF', tripId: 't1', routeId: null, canceled: false, added: false, vehicle: null, stops: [], ...trip }]]),
+  trips: new Map([[key, { agency: 'SF', tripId: key.slice(3), routeId: null, canceled: false, added: false, vehicle: null, stops: [], ...trip }]]),
   byStop: new Map(),
   horizon: new Map(),
 });
+const update = (stopId: string, fields: { time?: number; delay?: number; skipped?: boolean; sequence?: number }) => ({ stopId, time: fields.time ?? null, delay: fields.delay ?? null, skipped: fields.skipped ?? false, ...(fields.sequence ? { sequence: fields.sequence } : {}) });
 const xOf = (response: ReturnType<typeof trackVehicle>, stop: string) => response.path.find(({ stop: key }) => response.stops[key]!.name === `Market St & Stop ${stop}`)!.x;
 
 test('a vehicle that reports no position is placed by the schedule, between the stops it is due at', () => {
@@ -153,7 +154,45 @@ test('with predictions, the delay carries forward and the stops before the first
   strictEqual(Math.abs(response.vehicle!.x - (xOf(response, '2') + xOf(response, '3')) / 2) <= 1, true);
 });
 
-test('before its trip starts, a vehicle that reports no position is not shown', () => {
-  const response = trackVehicle(schedule, { vehicles: null }, { trip: 'SF:t1', stop: 'SF:104' }, EIGHT - 600);
-  deepStrictEqual([response.vehicle, response.stopsAway], [null, null]);
+test('with no place for it, the map says why: not started, ended, or canceled', () => {
+  const track = (now: number, trips?: TripSnapshot) => trackVehicle(schedule, { vehicles: null, trips: trips ?? null }, { trip: 'SF:t1', stop: 'SF:104' }, now);
+  deepStrictEqual([track(EIGHT - 600).vehicle, track(EIGHT - 600).stopsAway, track(EIGHT - 600).missing], [null, null, 'not-started']);
+  strictEqual(track(EIGHT + 600).missing, 'ended');
+  strictEqual(track(EIGHT + 150, feed({ canceled: true })).missing, 'canceled');
+  strictEqual(track(EIGHT + 150).missing, undefined);
+});
+
+test('a prediction with only a time carries the delay it implies to the stops after it', () => {
+  // Due at stop 3 at 8:05, two minutes late, with no delay sent. At 8:05:30 it is halfway to
+  // stop 4, due 8:06, rather than past the end of a trip running on time.
+  const late = feed({ stops: [update('103', { time: EIGHT + 300 })] });
+  const response = trackVehicle(schedule, { vehicles: null, trips: late }, { trip: 'SF:t1', stop: 'SF:105' }, EIGHT + 330);
+  deepStrictEqual([response.vehicle?.estimate, response.stopsAway], ['predicted', 1]);
+  strictEqual(Math.abs(response.vehicle!.x - (xOf(response, '3') + xOf(response, '4')) / 2) <= 1, true);
+});
+
+test('on a loop, a prediction for the second visit is matched to it, by sequence or by time', () => {
+  // Only the last stop, the loop's second visit to stop 1 (due 8:04), is still ahead.
+  for (const last of [update('101', { time: EIGHT + 270 }), update('101', { delay: 30, sequence: 5 })]) {
+    const response = trackVehicle(schedule, { vehicles: null, trips: feed({ stops: [last] }, 'SF:l1') }, { trip: 'SF:l1', stop: 'SF:102' }, LOOP_NOW - 20);
+    deepStrictEqual([response.passed, response.vehicle?.estimate], [true, 'predicted']);
+  }
+});
+
+test('a trip in the feed with no stop on its pattern is placed by the schedule, and a skipped stop is passed over', () => {
+  const elsewhere = feed({ stops: [update('999', { time: EIGHT + 400 })] });
+  strictEqual(trackVehicle(schedule, { vehicles: null, trips: elsewhere }, { trip: 'SF:t1', stop: 'SF:104' }, EIGHT + 150).vehicle?.estimate, 'scheduled');
+  // Stop 2 skipped: at 8:01:30, a quarter of the way from stop 1 (8:01) to stop 3 (8:03), which is
+  // halfway to stop 2, rather than standing at stop 2.
+  const skipping = feed({ stops: [update('102', { skipped: true }), update('103', { delay: 0 })] });
+  const response = trackVehicle(schedule, { vehicles: null, trips: skipping }, { trip: 'SF:t1', stop: 'SF:104' }, EIGHT + 90);
+  strictEqual(Math.abs(response.vehicle!.x - (xOf(response, '1') + xOf(response, '2')) / 2) <= 1, true);
+  strictEqual(response.nextIndex, response.path.findIndex(({ stop }) => response.stops[stop]!.name === 'Market St & Stop 3'));
+});
+
+test("the rider's other stops on the trip are marked and drawn, and one it does not make is left out", () => {
+  // Heading to stop 2, where the rider gets on, and on to stop 5, where they transfer.
+  const response = trackVehicle(schedule, at({ lon: lon(1.5), stopId: '102' }), { trip: 'SF:t1', stop: 'SF:102', marks: ['SF:102', 'SF:105', 'SF:106'] }, NOW);
+  deepStrictEqual(names(response), ['Market St & Stop 1', 'Market St & Stop 2', 'Market St & Stop 3', 'Market St & Stop 4', 'Market St & Stop 5']);
+  deepStrictEqual([response.targetIndex, response.marks], [1, [1, 4, null]]);
 });

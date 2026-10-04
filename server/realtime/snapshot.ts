@@ -8,6 +8,9 @@ export type RtStopTime = {
   // Seconds, or null when the feed sent none.
   delay: number | null;
   skipped: boolean;
+  // The stop's GTFS stop_sequence in the trip, when the feed sends it, which tells apart two
+  // visits to one stop on a loop.
+  sequence?: number;
 };
 
 export type RtTrip = {
@@ -77,7 +80,7 @@ export function buildTripSnapshot(
       const delay = event?.delay === undefined || event.delay === null ? null : withinADay(event.delay);
       const skipped = stopUpdate.scheduleRelationship === 'SKIPPED';
       if (time === null && delay === null && !skipped) continue;
-      trip.stops.push({ stopId: stopUpdate.stopId, time, delay, skipped });
+      trip.stops.push({ stopId: stopUpdate.stopId, time, delay, skipped, ...(stopUpdate.stopSequence !== undefined ? { sequence: stopUpdate.stopSequence } : {}) });
       if (time !== null) horizon.set(agency, Math.max(horizon.get(agency) ?? 0, time));
     }
     trips.set(tripKey(agency, tripId), trip);

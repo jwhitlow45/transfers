@@ -6,8 +6,10 @@ import { Sheet } from './components/Sheet.tsx';
 
 // A vehicle the rider asked to follow to a stop. The title is what they tapped, such as "49 at
 // 8:12", so the sheet names it before the map arrives. The color is the route's on the page they
-// tapped it on, where results pick colors that tell routes apart.
-export type Tracked = { trip: string; stop: string; title: string; color?: string };
+// tapped it on, where results pick colors that tell routes apart. `marks` name the rider's stops
+// on the way, such as "Your stop" where they get on and "Transfer stop" where they change.
+export type Mark = { stop: string; label: string };
+export type Tracked = { trip: string; stop: string; title: string; color?: string; marks?: Mark[] };
 
 type MapComponent = FunctionComponent<{ tracked: Tracked }>;
 
@@ -71,11 +73,11 @@ export function TrackProvider({ children }: { children: ComponentChildren }) {
 
 // A vehicle's time at a stop, which opens its live map. For BART and the ferry, which report no
 // positions, the map places the vehicle by when it is due at its stops.
-export function TimeLink({ trip, stop, title, color, children }: { trip: string; stop: Stop | undefined; title: string; color?: string; children: ComponentChildren }) {
+export function TimeLink({ trip, stop, title, color, marks, children }: { trip: string; stop: Stop | undefined; title: string; color?: string; marks?: Mark[]; children: ComponentChildren }) {
   const open = useContext(TrackContext);
   if (!stop) return <>{children}</>;
   return (
-    <button type="button" class="tf-time-link" onClick={() => open({ trip, stop: stop.key, title, ...(color ? { color } : {}) })}>
+    <button type="button" class="tf-time-link" onClick={() => open({ trip, stop: stop.key, title, ...(color ? { color } : {}), ...(marks ? { marks } : {}) })}>
       {children}
       <span class="tf-sr">, follow on a map</span>
     </button>

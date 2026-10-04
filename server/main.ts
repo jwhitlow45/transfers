@@ -50,7 +50,7 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
       if (!trip || !stop) throw new RequestError(400, 'Send trip and stop');
       trackTarget(schedule, { trip, stop });
       const [vehicles, { trips }] = await Promise.all([realtime.vehiclePositions(), realtime.current()]);
-      return sendJson(request, response, trackVehicle(schedule, { vehicles, trips }, { trip, stop }, nowSeconds()));
+      return sendJson(request, response, trackVehicle(schedule, { vehicles, trips }, { trip, stop, marks: url.searchParams.getAll('mark') }, nowSeconds()));
     }
     case '/api/destinations':
       return sendJson(request, response, destinations(schedule, tripRequest(url.searchParams)));

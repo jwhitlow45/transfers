@@ -15,14 +15,23 @@ const REFRESH_MS = 15_000;
 // A position older than this is shown as old: the vehicle has likely moved on since.
 const OLD_SECONDS = 120;
 
+const MISSING = {
+  'not-started': 'Not under way yet. It shows here once its trip starts.',
+  ended: 'This trip has ended.',
+  canceled: 'This trip is canceled.',
+  unknown: 'There is no position for this vehicle right now.',
+};
+
 // The tracking sheet's content: where the vehicle is on its way to the rider's stop, drawn from
 // our own data like Nearby's map, with the stops in between.
 export function TrackMap({ tracked }: { tracked: Tracked }) {
-  const url = `/api/vehicle?trip=${encodeURIComponent(tracked.trip)}&stop=${encodeURIComponent(tracked.stop)}`;
+  const marks = tracked.marks ?? [];
+  const url = `/api/vehicle?trip=${encodeURIComponent(tracked.trip)}&stop=${encodeURIComponent(tracked.stop)}${marks.map(({ stop }) => `&mark=${encodeURIComponent(stop)}`).join('')}`;
   // Not kept in storage: a position from an earlier visit is no use.
   const { data, error, fetchedAt, feed } = usePoll<TrackResponse>(url, REFRESH_MS, null, false);
   const now = useNow() + clockSkewMs(data?.generatedAt, fetchedAt);
-  const [showBetween, setShowBetween] = useState(false);
+  // Folded runs the rider opened, by the position of their first stop.
+  const [opened, setOpened] = useState<ReadonlySet<number>>(new Set());
   const between = useId();
   if (!data) {
     return <p class="tf-muted">{error ?? (feed === 'offline' ? 'Offline. The map shows once you are back online.' : 'Finding the vehicle…')}</p>;
@@ -34,7 +43,7 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
   const headline = data.passed
     ? `It has gone past ${target}`
     : data.stopsAway === null
-      ? 'Not under way yet. It shows here once its trip starts.'
+      ? MISSING[data.missing ?? 'unknown']
       : data.stopsAway === 0
         ? `${target} is its next stop`
         : `${estimate ? 'About ' : ''}${data.stopsAway} stop${data.stopsAway === 1 ? '' : 's'} before ${target}`;
@@ -48,62 +57,81 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
       : estimate === 'predicted'
         ? `Estimated from arrival times predicted ${ageText(age)} ago`
         : `Position ${data.vehicle?.at ? 'from' : 'received'} ${ageText(age)} ago`;
-  // The stops listed from the rider's toward the vehicle: the rider's first and the vehicle's next
-  // stop last, with the stops between folded into one row that opens on a tap. With no position,
-  // the stops before the rider's, nearest first.
+  // Each stop's labels: the rider's stops as the page named them, such as where they get on and
+  // where they transfer. The stop watched is "Your stop" unless the page named it.
   const { targetIndex, nextIndex } = data;
-  const step = nextIndex !== null && nextIndex > targetIndex ? 1 : -1;
-  const order: number[] = [];
-  for (let index = targetIndex; step === 1 ? index <= nextIndex! : index >= (nextIndex ?? 0); index += step) order.push(index);
-  const middle = nextIndex === null ? order.slice(1) : order.slice(1, -1);
-  const last = nextIndex !== null && order.length > 1 ? order.at(-1) : undefined;
-  // One stop takes no more room than a row saying so.
-  const fold = nextIndex !== null && middle.length > 1;
+  const labels = new Map<number, string[]>();
+  const label = (index: number | null | undefined, text: string) => {
+    if (index !== null && index !== undefined) labels.set(index, [...(labels.get(index) ?? []), text]);
+  };
+  marks.forEach(({ label: text }, n) => label(data.marks[n], text));
+  if (!labels.has(targetIndex)) label(targetIndex, 'Your stop');
+  // The list runs against the direction of travel: the stops the vehicle has yet to reach first,
+  // its next stop below them, so the rider scrolls down toward the vehicle. Runs of stops between
+  // the labeled ones fold into one row that opens on a tap, since one stop takes no more room
+  // than a row saying so. With no position, it reaches down to the first stop drawn.
+  const ends = [...labels.keys(), nextIndex ?? 0];
+  const rows: (number | number[])[] = [];
+  for (let index = Math.max(...ends); index >= Math.min(...ends); index--) {
+    const plain = !labels.has(index) && index !== nextIndex;
+    const run = rows.at(-1);
+    if (plain && Array.isArray(run)) run.push(index);
+    else rows.push(plain ? [index] : index);
+  }
   // By position, since a loop's path can hold one stop twice.
   const item = (index: number) => (
-    <li key={index} class={index === targetIndex ? 'tf-track__yours' : ''}>
+    <li key={index} class={labels.has(index) ? 'tf-track__yours' : ''}>
       <span class="tf-track__stop-dot" aria-hidden="true" style={index === nextIndex ? { background: color } : undefined} />
       <span class="tf-track__stop-name">{shortStopName(data.stops[data.path[index]!.stop], data.path[index]!.stop)}</span>
+      {labels.get(index)?.map((text) => (
+        <span key={text} class="tf-track__tag tf-track__tag--yours">
+          {text}
+        </span>
+      ))}
       {index === nextIndex && <span class="tf-track__tag">Next stop</span>}
-      {index === targetIndex && <span class="tf-track__tag tf-track__tag--yours">Your stop</span>}
     </li>
   );
+  const fold = (run: number[]) => {
+    const isOpen = opened.has(run[0]!);
+    const toggle = () =>
+      setOpened((current) => {
+        const next = new Set(current);
+        if (isOpen) next.delete(run[0]!);
+        else next.add(run[0]!);
+        return next;
+      });
+    return (
+      <li key={`fold-${run[0]}`} class="tf-track__fold">
+        <button type="button" class="tf-track__more" aria-expanded={isOpen} aria-controls={`${between}-${run[0]}`} onClick={toggle}>
+          <span class="tf-track__more-line" aria-hidden="true" />
+          {run.length} stops
+          <IconChevron size={16} />
+        </button>
+        <Collapse open={isOpen} id={`${between}-${run[0]}`}>
+          <ol class="tf-track__stops tf-track__stops--between">{run.map(item)}</ol>
+        </Collapse>
+      </li>
+    );
+  };
   return (
     <div class="tf-track">
       <p class="tf-track__toward">Toward {data.headsign}</p>
       <p class="tf-track__headline" aria-live="polite">
         {headline}
       </p>
-      <Map data={data} color={color} label={headline} />
+      <LineMap data={data} color={color} label={headline} />
       {ageLine && <p class={`tf-track__age${age !== null && age > OLD_SECONDS ? ' tf-track__age--old' : ''}`}>{ageLine}</p>}
-      {feed === 'offline' && <p class="tf-track__age tf-track__age--old">Offline. This is the last position received.</p>}
-      <ol class="tf-track__stops">
-        {item(order[0]!)}
-        {fold ? (
-          <li class="tf-track__fold">
-            <button type="button" class="tf-track__more" aria-expanded={showBetween} aria-controls={between} onClick={() => setShowBetween(!showBetween)}>
-              <span class="tf-track__more-line" aria-hidden="true" />
-              {middle.length} stops
-              <IconChevron size={16} />
-            </button>
-            <Collapse open={showBetween} id={between}>
-              <ol class="tf-track__stops tf-track__stops--between">{middle.map(item)}</ol>
-            </Collapse>
-          </li>
-        ) : (
-          middle.map(item)
-        )}
-        {last !== undefined && item(last)}
-      </ol>
+      {feed === 'offline' && <p class="tf-track__age tf-track__age--old">Offline. This is the last update received.</p>}
+      <ol class="tf-track__stops">{rows.map((row) => (Array.isArray(row) ? (row.length > 1 ? fold(row) : item(row[0]!)) : item(row)))}</ol>
       {error && <p class="tf-muted">{error}</p>}
     </div>
   );
 }
 
-// The line, its stops, the rider's stop as a square, and the vehicle pointing the way it heads.
+// The line, its stops, the rider's stops as squares, and the vehicle pointing the way it heads.
 // Sizes are in meters, scaled to the picture, so a long ride and a short one look alike. North is
 // up.
-function Map({ data, color, label }: { data: TrackResponse; color: string; label: string }) {
+function LineMap({ data, color, label }: { data: TrackResponse; color: string; label: string }) {
   const points: [number, number][] = [...data.line, ...data.path.map(({ x, y }): [number, number] => [x, y]), ...(data.vehicle ? [[data.vehicle.x, data.vehicle.y] as [number, number]] : [])];
   const xs = points.map(([x]) => x);
   // SVG's y axis points down.
@@ -118,14 +146,16 @@ function Map({ data, color, label }: { data: TrackResponse; color: string; label
   const left = (Math.max(...xs) + Math.min(...xs)) / 2 - width / 2;
   const top = (Math.max(...ys) + Math.min(...ys)) / 2 - height / 2;
   const unit = Math.max(width, height) / 70;
-  const target = data.path[data.targetIndex];
   return (
     <svg class="tf-track__map" viewBox={`${left} ${top} ${width} ${height}`} role="img" aria-label={label}>
       <polyline points={data.line.map(([x, y]) => `${x},${-y}`).join(' ')} fill="none" stroke={color} stroke-width={unit * 0.9} stroke-linecap="round" stroke-linejoin="round" />
       {data.path.map(({ stop, x, y }) => (
         <circle key={stop} cx={x} cy={-y} r={unit * 0.8} class="tf-track__stop" stroke-width={unit * 0.35} />
       ))}
-      {target && <rect x={target.x - unit * 1.4} y={-target.y - unit * 1.4} width={unit * 2.8} height={unit * 2.8} class="tf-track__target" stroke-width={unit * 0.45} />}
+      {[...new Set([data.targetIndex, ...data.marks])].map((index) => {
+        const place = index === null ? undefined : data.path[index];
+        return place && <rect key={index} x={place.x - unit * 1.4} y={-place.y - unit * 1.4} width={unit * 2.8} height={unit * 2.8} class="tf-track__target" stroke-width={unit * 0.45} />;
+      })}
       {data.vehicle && (
         <g transform={`translate(${data.vehicle.x} ${-data.vehicle.y})`}>
           {/* Bearing is clockwise from north, as SVG rotates. The arrow is in the text color, outlined,

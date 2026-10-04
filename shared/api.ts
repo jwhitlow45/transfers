@@ -222,7 +222,8 @@ export type NearbyResponse = {
 // north of the middle of the picture, as on Nearby's map.
 export type TrackResponse = {
   generatedAt: number;
-  // When 511 last reported where vehicles are, or null when it has not.
+  // When 511 last reported where vehicles are, or for an estimate from predictions, when those
+  // arrived. Null when neither has.
   dataAt: number | null;
   route: string;
   headsign: string;
@@ -233,12 +234,17 @@ export type TrackResponse = {
   // null with no position.
   targetIndex: number;
   nextIndex: number | null;
+  // Where in path each requested mark is, in the order asked, or null when the trip does not
+  // stop there.
+  marks: (number | null)[];
   // The route's line through those stops.
   line: [number, number][];
   // Null before the trip starts. `estimate` marks a vehicle that reports no position, as no BART
   // train or ferry does, placed by when it is due at its stops: from live predictions, or from the
   // schedule when the trip has none.
   vehicle: { x: number; y: number; bearing: number | null; at: number | null; estimate?: 'predicted' | 'scheduled' } | null;
+  // Why there is no vehicle, when that is known.
+  missing?: 'canceled' | 'not-started' | 'ended';
   // Stops the vehicle makes before the rider's: 0 when the rider's is next. Null with no
   // position, or once it has gone past.
   stopsAway: number | null;

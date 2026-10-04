@@ -11,7 +11,9 @@ const STOPS_BEFORE = 3;
 // A route's line passes its stops within this distance, as stops sit at the curb beside it.
 const PASS_METERS = 60;
 
-type TrackRequest = { trip: string; stop: string };
+// `marks` are other stops of the rider's to show on the way, such as where they get on and where
+// they transfer.
+type TrackRequest = { trip: string; stop: string; marks?: string[] };
 
 // The trip and where it visits the rider's stop, or a 404 when the trip is not in the schedule or
 // does not stop there. Called before waiting on 511 too, so a bad request is turned away at once.
@@ -22,11 +24,15 @@ export function trackTarget(schedule: Schedule, request: TrackRequest) {
   if (!trip || !pattern) throw new RequestError(404, 'This trip is not in the published schedule, so there is no map for it');
   const target = schedule.stopsByKey.get(request.stop);
   if (!target) throw new RequestError(404, 'Unknown stop');
-  // A station is boarded at one of its platforms.
-  const boarding = new Set(schedule.boardingStops(target).map(({ id }) => id));
-  const visits = pattern.stops.flatMap((id, index) => (boarding.has(id) ? [index] : []));
+  const visits = visitsTo(schedule, pattern.stops, target);
   if (visits.length === 0) throw new RequestError(404, 'That trip does not stop there');
   return { trip, pattern, target, visits };
+}
+
+// Where along its stops a trip calls at a stop. A station is called at by its platforms.
+function visitsTo(schedule: Schedule, patternStops: number[], stop: StopRow) {
+  const platforms = new Set(schedule.boardingStops(stop).map(({ id }) => id));
+  return patternStops.flatMap((id, index) => (platforms.has(id) ? [index] : []));
 }
 
 // A vehicle's live map: its trip's line from where the vehicle is to one stop past the rider's,
@@ -46,16 +52,25 @@ export function trackVehicle(schedule: Schedule, live: { vehicles: VehicleSnapsh
   // are placed by when they are due at their stops.
   const estimate = reported ? null : estimatePlace(schedule, trip.row, stops, { shape, passes }, live.trips?.trips.get(request.trip), now);
   const vehicle: Point | null = reported ?? estimate?.point ?? null;
+  const missing = vehicle ? undefined : estimate?.missing;
   const vehicleAt = reported ? placeOf(schedule, trip.row, stops, { shape, passes }, reported, now) : (estimate?.next ?? -1);
   // A trip that makes the rider's stop twice, as on a loop, is watched to the visit it reaches
   // next, or the last once it has made them all.
   const targetAt = visits.find((index) => index >= vehicleAt) ?? visits.at(-1)!;
   const coming = vehicleAt !== -1 && vehicleAt <= targetAt;
   const passed = vehicleAt > targetAt;
+  // The rider's other stops on this trip, at the visit nearest the one watched. A stop the trip
+  // does not make is left out.
+  const marked = (request.marks ?? []).map((key) => {
+    const stop = schedule.stopsByKey.get(key);
+    const markVisits = stop ? visitsTo(schedule, pattern.stops, stop) : [];
+    return markVisits.length === 0 ? null : markVisits.reduce((best, index) => (Math.abs(index - targetAt) < Math.abs(best - targetAt) ? index : best));
+  });
+  const markedAt = marked.filter((index) => index !== null);
   // From the stop behind the vehicle, so it sits on the line, to one past the rider's, or on to
-  // the vehicle when it has gone past.
-  const from = Math.max(0, coming ? vehicleAt - 1 : targetAt - STOPS_BEFORE);
-  const to = Math.min(stops.length - 1, Math.max(targetAt + 1, vehicleAt));
+  // the vehicle when it has gone past, and taking in every marked stop.
+  const from = Math.max(0, Math.min(coming ? Math.min(vehicleAt - 1, estimate?.from ?? vehicleAt) : targetAt - STOPS_BEFORE, ...markedAt));
+  const to = Math.min(stops.length - 1, Math.max(targetAt + 1, vehicleAt, ...markedAt));
   const shown = stops.slice(from, to + 1);
 
   // The middle of everything drawn, so the picture centers on the trip from vehicle to stop.
@@ -92,13 +107,15 @@ export function trackVehicle(schedule: Schedule, live: { vehicles: VehicleSnapsh
       return { stop: tables.stop(stop), x, y };
     }),
     targetIndex: targetAt - from,
+    marks: marked.map((index) => (index === null ? null : index - from)),
     nextIndex: vehicleAt === -1 ? null : vehicleAt - from,
     line,
     vehicle: reported
       ? { ...pointOf(project(reported)), bearing: reported.bearing, at: reported.at }
-      : estimate
+      : estimate?.point
         ? { ...pointOf(project(estimate.point)), bearing: estimate.point.bearing, at: null, estimate: estimate.source }
         : null,
+    ...(missing ? { missing } : {}),
     stopsAway: coming ? targetAt - vehicleAt : null,
     passed,
     routes: tables.routes,
@@ -132,46 +149,62 @@ function placeOf(schedule: Schedule, tripRow: number, stops: StopRow[], line: { 
 }
 
 // Where a vehicle that reports no position should be: between the last stop it was due to leave
-// and the next, as far along the line as the time between them has run. Null before its trip
-// starts and after it ends.
-function estimatePlace(schedule: Schedule, tripRow: number, stops: StopRow[], line: { shape: Point[]; passes: number[] }, rt: RtTrip | undefined, now: number) {
-  if (rt?.canceled) return null;
-  const times = expectedTimes(schedule, tripRow, stops, rt, now);
+// and the next, as far along the line as the time between them has run. Without a place, why
+// not: it is canceled, its trip has yet to start, or its trip has ended.
+function estimatePlace(schedule: Schedule, tripRow: number, stops: StopRow[], line: { shape: Point[]; passes: number[] }, rt: RtTrip | undefined, now: number): Estimate {
+  if (rt?.canceled) return { missing: 'canceled' };
+  const { times, predicted } = expectedTimes(schedule, tripRow, stops, rt, now);
   const next = times.findIndex((time) => time !== null && time > now);
-  if (next <= 0) return null;
-  const left = times[next - 1];
+  if (next === 0) return { missing: 'not-started' };
+  if (next === -1) return times.some((time) => time !== null) ? { missing: 'ended' } : {};
+  // From the last stop it was due at, passing over a skipped one, which has no time.
+  const left = times.findLastIndex((time, index) => index < next && time !== null);
+  const from = left === -1 ? next - 1 : left;
   const arrives = times[next]!;
-  const share = left === null || left === undefined ? 0 : Math.min(1, Math.max(0, (now - left) / (arrives - left)));
-  const point = alongLine(line.shape, line.passes[next - 1]!, line.passes[next]!, share, stops[next - 1]!, stops[next]!);
-  return { next, point, source: rt ? ('predicted' as const) : ('scheduled' as const) };
+  const share = left === -1 ? 0 : Math.min(1, Math.max(0, (now - times[left]!) / (arrives - times[left]!)));
+  const point = alongLine(line.shape, line.passes[from]!, line.passes[next]!, share, stops[from]!, stops[next]!);
+  return { next, from, point, source: predicted ? 'predicted' : 'scheduled' };
 }
 
+type Estimate =
+  | { next: number; from: number; point: Point & { bearing: number | null }; source: 'predicted' | 'scheduled'; missing?: undefined }
+  | { missing?: 'canceled' | 'not-started' | 'ended'; next?: undefined; from?: undefined; point?: undefined; source?: undefined };
+
 // When the trip is due at each stop: the feed's predicted time where it lists the stop, or else
-// the schedule plus the latest delay before it, as GTFS-realtime says delays carry forward.
-// Without the trip in the feed, the schedule alone.
+// the schedule plus the latest delay before it, as GTFS-realtime says delays carry forward. A
+// prediction with only a time carries the delay it implies. Without the trip in the feed, the
+// schedule alone.
 function expectedTimes(schedule: Schedule, tripRow: number, stops: StopRow[], rt: RtTrip | undefined, now: number) {
   const scheduled = stops.map((_, index) => schedule.scheduledTimeAt(tripRow, index, now));
-  // The feed's stops matched to positions in order, so a loop's two visits stay apart.
+  // The feed's stops matched to positions in order. The feed drops visits already made, so a stop
+  // a loop makes twice is told apart by the update's stop sequence, counted from 1 along the trip,
+  // or else by which visit is scheduled nearest its predicted time.
   const listed = new Map<number, RtStopTime>();
   let from = 0;
-  for (const stopTime of rt?.stops ?? []) {
-    const at = stops.findIndex((stop, index) => index >= from && stop.stopId === stopTime.stopId);
-    if (at === -1) continue;
-    listed.set(at, stopTime);
+  for (const update of rt?.stops ?? []) {
+    const visits = stops.flatMap((stop, index) => (index >= from && stop.stopId === update.stopId ? [index] : []));
+    if (visits.length === 0) continue;
+    const offBy = (index: number) => (update.time === null || scheduled[index] === null ? Infinity : Math.abs(update.time - scheduled[index]!));
+    const bySequence = update.sequence !== undefined && visits.includes(update.sequence - 1) ? update.sequence - 1 : null;
+    const at = bySequence ?? visits.reduce((best, index) => (offBy(index) < offBy(best) ? index : best));
+    listed.set(at, update);
     from = at + 1;
   }
-  if (listed.size === 0) return scheduled;
+  if (listed.size === 0) return { times: scheduled, predicted: false };
+  const delayAt = (index: number, update: RtStopTime) => update.delay ?? (update.time !== null && scheduled[index] !== null ? update.time - scheduled[index]! : null);
   const first = Math.min(...listed.keys());
-  let delay = listed.get(first)!.delay ?? 0;
-  return scheduled.map((time, index) => {
+  let delay = delayAt(first, listed.get(first)!) ?? 0;
+  const times = scheduled.map((time, index) => {
     // The feed lists only stops still ahead, so the trip has left every stop before its first.
     if (index < first) return time === null ? null : Math.min(time + delay, now);
     const update = listed.get(index);
     if (update?.skipped) return null;
-    if (update?.delay !== null && update?.delay !== undefined) delay = update.delay;
+    const known = update ? delayAt(index, update) : null;
+    if (known !== null) delay = known;
     if (update?.time !== null && update?.time !== undefined) return update.time;
     return time === null ? null : time + delay;
   });
+  return { times, predicted: true };
 }
 
 // The point a share of the way along the line from one shape point to another, and the way the

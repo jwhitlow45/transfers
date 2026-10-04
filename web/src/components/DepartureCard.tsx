@@ -64,7 +64,15 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
         <span class="tf-band__line">
           <RouteChip route={route} size="band" color={color} hidden />
           <span class="tf-band__time">
-            <TimeLink trip={departure.trip} stop={context.data.stops[group.board]} title={`${route ? chipLabel(route) : 'Vehicle'} at ${clock(departure.at)}`} color={color}>
+            <TimeLink
+              trip={departure.trip}
+              stop={context.data.stops[group.board]}
+              title={`${route ? chipLabel(route) : 'Vehicle'} at ${clock(departure.at)}`}
+              color={color}
+              // A route already at From is boarded there. Otherwise the rider boards it where they
+              // transfer, and From shows only if this route passes it too.
+              marks={walk ? [{ stop: group.board, label: 'Your stop' }] : [{ stop: context.data.from, label: 'Your stop' }, { stop: group.board, label: 'Transfer stop' }]}
+            >
               {clock(departure.at)}
             </TimeLink>
           </span>

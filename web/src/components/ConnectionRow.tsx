@@ -38,6 +38,13 @@ export function ConnectionRow({ connection, departure, alightName, alight, min, 
     `${route ? spokenRoute(route) : 'Vehicle'}, ${now ? 'arriving now' : `arrives in ${minutes} minute${minutes === 1 ? '' : 's'}`}, ${clock(connection.departs)}, ${status.label}. ` +
     `Off at ${offAt ?? alightName} ${clock(connection.arrives)}. ${connection.transfer} minute transfer${tight ? ', tight' : ''}${hidden ? `, hidden because it is ${hidden.spoken}` : ''}.`;
   const secondEnd = departure.destination ?? departure.at + 8 * 60;
+  // Both of this vehicle's times open its map with where the rider gets on and where they get off
+  // to transfer marked.
+  const offStop = connection.alight ?? alight;
+  const marks = [
+    { stop: context.data.from, label: 'Your stop' },
+    { stop: offStop, label: 'Transfer stop' },
+  ];
   return (
     <div role="listitem" class={`tf-row${tight ? ' tf-row--tight' : ''}${hidden ? ' tf-row--hidden' : ''}`}>
       <span class="tf-sr">{spoken}</span>
@@ -51,14 +58,14 @@ export function ConnectionRow({ connection, departure, alightName, alight, min, 
       <div class="tf-row__main">
         <div class="tf-row__line">
           <RouteChip route={route} hidden />
-          <TimeLink trip={connection.trip} stop={context.data.stops[context.data.from]} title={`${route ? chipLabel(route) : 'Vehicle'} at ${clock(connection.departs)}`}>
+          <TimeLink trip={connection.trip} stop={context.data.stops[context.data.from]} title={`${route ? chipLabel(route) : 'Vehicle'} at ${clock(connection.departs)}`} marks={marks}>
             {clock(connection.departs)}
           </TimeLink>
         </div>
         <StatusTag status={status} plain hidden />
         <div class="tf-row__off">
           <span aria-hidden="true">Off </span>
-          <TimeLink trip={connection.trip} stop={context.data.stops[connection.alight ?? alight]} title={`${route ? chipLabel(route) : 'Vehicle'} at ${clock(connection.arrives)}`}>
+          <TimeLink trip={connection.trip} stop={context.data.stops[offStop]} title={`${route ? chipLabel(route) : 'Vehicle'} at ${clock(connection.arrives)}`} marks={marks}>
             {clock(connection.arrives)}
           </TimeLink>
           {offAt && (
