@@ -1,46 +1,29 @@
 import { render } from 'preact';
-import { Home } from './components/Home.tsx';
-import { Nearby } from './components/Nearby.tsx';
-import { Settings } from './components/Settings.tsx';
-import { Trip } from './components/Trip.tsx';
-import { navigate, usePage } from './router.ts';
+import { useEffect } from 'preact/hooks';
+import { usePage } from './router.ts';
+import { NearbyScreen } from './screens/NearbyScreen.tsx';
+import { ResultsScreen } from './screens/ResultsScreen.tsx';
+import { SearchScreen } from './screens/SearchScreen.tsx';
+import { SettingsScreen } from './screens/SettingsScreen.tsx';
 import { SettingsProvider } from './settings.tsx';
 import { searchId } from './storage.ts';
 import './styles.css';
 
 function App() {
   const page = usePage();
-  const link = (path: string) => (event: MouseEvent) => {
-    event.preventDefault();
-    navigate(path);
-  };
+  // Each screen scrolls inside the app shell, so the page title is the only way a screen
+  // change reaches a screen reader without moving focus.
+  useEffect(() => {
+    document.title = page.name === 'trip' ? `${page.search.fromLabel} to ${page.search.toLabel} · Transfers` : page.name === 'home' ? 'Transfers' : `${page.name[0]!.toUpperCase()}${page.name.slice(1)} · Transfers`;
+  }, [page]);
   return (
     <SettingsProvider>
-      <a class="skip-link" href="#main">
-        Skip to content
-      </a>
-      <header class="site-header">
-        <a href="/" class="site-title" onClick={link('/')}>
-          Transfers
-        </a>
-        <nav aria-label="Main">
-          <a href="/nearby" onClick={link('/nearby')} aria-current={page.name === 'nearby' ? 'page' : undefined}>
-            Nearby
-          </a>
-          <a href="/settings" onClick={link('/settings')} aria-current={page.name === 'settings' ? 'page' : undefined}>
-            Settings
-          </a>
-        </nav>
-      </header>
-      <main id="main">
-        {page.name === 'home' && <Home />}
-        {page.name === 'trip' && <Trip key={searchId(page.search)} search={page.search} />}
-        {page.name === 'nearby' && <Nearby />}
-        {page.name === 'settings' && <Settings />}
-      </main>
-      <footer class="site-footer">
-        Data provided by <a href="https://511.org">511.org</a> and BART. Times are Pacific.
-      </footer>
+      <div class="tf-app">
+        {page.name === 'home' && <SearchScreen key={history.state ? 'prefilled' : 'home'} />}
+        {page.name === 'trip' && <ResultsScreen key={searchId(page.search)} search={page.search} />}
+        {page.name === 'nearby' && <NearbyScreen />}
+        {page.name === 'settings' && <SettingsScreen />}
+      </div>
     </SettingsProvider>
   );
 }

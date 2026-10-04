@@ -27,4 +27,5 @@ Checks: `pnpm typecheck` (TypeScript 7) and `pnpm test` (Node's test runner).
   - `api/`, `main.ts`: the HTTP API.
 - `web/`: Preact frontend built with Vite.
 - `shared/api.ts`: the JSON the API sends.
+- `design_handoff_transfers/`: the Claude Design handoff the frontend follows. `web/src/styles.css` starts with its stylesheet unchanged, and additions for screens it did not cover follow at the end.
 - `docker/`, `Dockerfile`, `docker-compose.yml`: deployment. See [docs/deploy.md](docs/deploy.md).

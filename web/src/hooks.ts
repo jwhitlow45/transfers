@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { getJson } from './api.ts';
 import { loadCached } from './storage.ts';
 
-// The current time, ticking every few seconds so countdowns move without re-rendering every frame.
-export function useNow(intervalMs = 5000) {
+// The device clock, ticking every second so countdowns move offline too.
+export function useNow(intervalMs = 1000) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), intervalMs);
@@ -12,50 +12,63 @@ export function useNow(intervalMs = 5000) {
   return now;
 }
 
+export type FeedState = 'live' | 'refreshing' | 'loading' | 'offline';
+
 export type Polled<T> = {
   data: T | null;
   error: string | null;
   // When the shown data was fetched, in milliseconds.
   fetchedAt: number | null;
-  offline: boolean;
-  loading: boolean;
+  feed: FeedState;
   refresh: () => void;
 };
+
+// A quick refresh would flash the header's bar for a frame, so it stays up at least this long.
+const MIN_REFRESH_MS = 800;
 
 // Fetches `url` now and every `intervalMs` while the page is visible. Shows the last response
 // for the same URL at once (from this session or storage), so returning or going offline
 // never blanks the screen.
 export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: T | null = null): Polled<T> {
-  const cached = url ? loadCached<T>(url) : null;
-  const [state, setState] = useState<Omit<Polled<T>, 'refresh'>>(() => ({
-    data: initial ?? cached?.data ?? null,
-    error: null,
-    fetchedAt: initial ? Date.now() : (cached?.fetchedAt ?? null),
-    offline: false,
-    loading: !initial,
-  }));
+  const [state, setState] = useState<Omit<Polled<T>, 'refresh'>>(() => {
+    const cached = url ? loadCached<T>(url) : null;
+    const data = initial ?? cached?.data ?? null;
+    return { data, error: null, fetchedAt: initial ? Date.now() : (cached?.fetchedAt ?? null), feed: initial ? 'live' : data ? 'refreshing' : 'loading' };
+  });
   const tick = useRef<() => void>(() => {});
+  const seeded = useRef(Boolean(initial));
 
   useEffect(() => {
     if (!url) return;
     let controller: AbortController | null = null;
-    const stored = loadCached<T>(url);
-    if (!initial) setState((current) => ({ ...current, data: stored?.data ?? null, fetchedAt: stored?.fetchedAt ?? null, loading: true }));
+    let settle: ReturnType<typeof setTimeout> | undefined;
+    if (!seeded.current) {
+      // A changed setting is a new URL. Until its answer arrives, the previous results stay up
+      // as refreshing, which beats flashing an empty screen.
+      const cached = loadCached<T>(url);
+      if (cached) setState((current) => ({ ...current, data: cached.data, fetchedAt: cached.fetchedAt }));
+    }
 
     const fetchNow = async () => {
       controller?.abort();
       controller = new AbortController();
+      const started = Date.now();
+      setState((current) => ({ ...current, feed: current.data ? 'refreshing' : 'loading' }));
       try {
         const data = await getJson<T>(url, { signal: controller.signal, remember: true });
-        setState({ data, error: null, fetchedAt: Date.now(), offline: false, loading: false });
+        const wait = Math.max(0, MIN_REFRESH_MS - (Date.now() - started));
+        clearTimeout(settle);
+        settle = setTimeout(() => setState({ data, error: null, fetchedAt: Date.now(), feed: 'live' }), wait);
       } catch (error) {
         if ((error as Error).name === 'AbortError') return;
         const offline = !navigator.onLine || error instanceof TypeError;
-        setState((current) => ({ ...current, error: offline ? null : (error as Error).message, offline, loading: false }));
+        setState((current) => ({ ...current, error: offline ? null : (error as Error).message, feed: offline ? 'offline' : 'live' }));
       }
     };
     tick.current = () => void fetchNow();
-    if (!initial) void fetchNow();
+    // Data the server put in the page is fresh, so the first fetch waits for the first refresh.
+    if (!seeded.current) void fetchNow();
+    seeded.current = false;
 
     const timer = setInterval(() => {
       if (document.visibilityState === 'visible') void fetchNow();
@@ -63,15 +76,18 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: T |
     const onVisible = () => {
       if (document.visibilityState === 'visible') void fetchNow();
     };
+    const onOffline = () => setState((current) => ({ ...current, feed: 'offline' }));
     document.addEventListener('visibilitychange', onVisible);
     addEventListener('online', onVisible);
+    addEventListener('offline', onOffline);
     return () => {
       controller?.abort();
+      clearTimeout(settle);
       clearInterval(timer);
       document.removeEventListener('visibilitychange', onVisible);
       removeEventListener('online', onVisible);
+      removeEventListener('offline', onOffline);
     };
-    // `initial` only seeds the first render, so it is left out of the dependencies.
   }, [url, intervalMs]);
 
   return { ...state, refresh: () => tick.current() };

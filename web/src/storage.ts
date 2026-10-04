@@ -56,9 +56,12 @@ export type Search = {
   destLabel?: string;
   firstRoutes?: string[];
   secondRoutes?: string[];
+  // Transfer points the rider turned off, by pointId.
+  off?: string[];
 };
 
 export type SavedSearch = Search & { id: string; name: string };
+export type RecentSearch = Search & { at: number; via?: string };
 
 export const searchId = (search: Search) => `${search.from}>${search.to}`;
 
@@ -70,13 +73,31 @@ export function saveSaved(saved: SavedSearch[]) {
   write('saved', saved);
 }
 
-export function loadRecent(): Search[] {
-  return read<Search[]>('recent', []);
+export function saveSearch(search: Search, name: string) {
+  const saved = loadSaved().filter((item) => item.id !== searchId(search));
+  const entry = { ...search, id: searchId(search), name };
+  saveSaved([...saved, entry]);
+  return entry;
 }
 
-export function rememberRecent(search: Search) {
+export function removeSaved(id: string) {
+  saveSaved(loadSaved().filter((item) => item.id !== id));
+}
+
+export const findSaved = (search: Search) => loadSaved().find((item) => item.id === searchId(search)) ?? null;
+
+// Keeps a saved search's settings in step with the trip screen, which owns them while open.
+export function updateSaved(search: Search) {
+  saveSaved(loadSaved().map((item) => (item.id === searchId(search) ? { ...search, id: item.id, name: item.name } : item)));
+}
+
+export function loadRecent(): RecentSearch[] {
+  return read<RecentSearch[]>('recent', []);
+}
+
+export function rememberRecent(search: Search, via?: string) {
   const recent = loadRecent().filter((item) => searchId(item) !== searchId(search));
-  write('recent', [search, ...recent].slice(0, 8));
+  write('recent', [{ ...search, at: Date.now(), ...(via ? { via } : {}) }, ...recent].slice(0, 8));
 }
 
 // The last response for each request, shown at once on return or while offline.

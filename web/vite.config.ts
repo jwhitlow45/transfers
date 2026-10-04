@@ -11,7 +11,8 @@ export default defineConfig({
   root: import.meta.dirname,
   plugins: [preact(), serviceWorker(), precompress()],
   build: { outDir, emptyOutDir: true, target: 'es2022' },
-  server: { proxy: { '/api': 'http://localhost:3000' } },
+  // Tailnet names are allowed so a phone can reach the dev server through `tailscale serve`.
+  server: { proxy: { '/api': 'http://localhost:3000' }, allowedHosts: ['.ts.net'] },
 });
 
 // Writes sw.js listing every built file, so the service worker caches the whole app on the

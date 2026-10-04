@@ -20,6 +20,7 @@ export function tripPath(search: Search) {
   if (search.destLabel) params.set('dl', search.destLabel);
   if (search.firstRoutes?.length) params.set('r1', search.firstRoutes.join(','));
   if (search.secondRoutes?.length) params.set('r2', search.secondRoutes.join(','));
+  if (search.off?.length) params.set('off', search.off.join(','));
   return `/t/${encodeURIComponent(search.from)}/${encodeURIComponent(search.to)}?${params}`;
 }
 
@@ -52,6 +53,8 @@ export function parsePage(location: Location): Page {
     const second = params.get('r2');
     if (first) search.firstRoutes = first.split(',');
     if (second) search.secondRoutes = second.split(',');
+    const off = params.get('off');
+    if (off) search.off = off.split(',');
     return { name: 'trip', search };
   }
   if (location.pathname === '/nearby') return { name: 'nearby' };
@@ -68,10 +71,7 @@ export function navigate(path: string, options: { replace?: boolean } = {}) {
 export function usePage() {
   const [page, setPage] = useState(() => parsePage(location));
   useEffect(() => {
-    const update = () => {
-      setPage(parsePage(location));
-      window.scrollTo(0, 0);
-    };
+    const update = () => setPage(parsePage(location));
     addEventListener('popstate', update);
     return () => removeEventListener('popstate', update);
   }, []);
