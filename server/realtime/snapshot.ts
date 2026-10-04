@@ -190,7 +190,9 @@ function translated(text: TranslatedString | undefined) {
 }
 
 // Where each vehicle is, keyed by its trip ("SF:12126855"), as the trip snapshot keys trips.
-export type RtVehicle = { lat: number; lon: number; bearing: number | null; at: number | null; stopId: string | null };
+// `sequence` is the GTFS stop_sequence of `stopId` in the trip, which tells apart two visits to
+// one stop on a loop.
+export type RtVehicle = { lat: number; lon: number; bearing: number | null; at: number | null; stopId: string | null; sequence: number | null };
 export type VehicleSnapshot = { fetchedAt: number; byTrip: Map<string, RtVehicle> };
 
 export function buildVehicleSnapshot(feed: FeedObject, fetchedAt: number, agencies: ReadonlySet<Agency>): VehicleSnapshot {
@@ -206,6 +208,7 @@ export function buildVehicleSnapshot(feed: FeedObject, fetchedAt: number, agenci
       bearing: vehicle.position.bearing || null,
       at: vehicle.timestamp ?? null,
       stopId: vehicle.stopId ?? null,
+      sequence: vehicle.currentStopSequence ?? null,
     });
   }
   return { fetchedAt, byTrip };

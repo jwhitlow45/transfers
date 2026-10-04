@@ -1,6 +1,6 @@
 import type { TrackResponse } from '../../shared/api.ts';
 import { distanceMeters, type Point } from '../geo.ts';
-import type { VehicleSnapshot } from '../realtime/snapshot.ts';
+import type { RtVehicle, VehicleSnapshot } from '../realtime/snapshot.ts';
 import type { Schedule, StopRow } from '../schedule.ts';
 import { projector, shapePoints } from './shapes.ts';
 import { RequestError } from './trip.ts';
@@ -8,6 +8,8 @@ import { Tables } from './views.ts';
 
 // Stops drawn before the rider's when the vehicle has no position to start from.
 const STOPS_BEFORE = 3;
+// A route's line passes its stops within this distance, as stops sit at the curb beside it.
+const PASS_METERS = 60;
 
 // A vehicle's live map: its trip's line from where the vehicle is to one stop past the rider's,
 // with the stops on the way and the vehicle itself.
@@ -19,15 +21,15 @@ export function trackVehicle(schedule: Schedule, vehicles: VehicleSnapshot | nul
   if (!target) throw new RequestError(404, 'Unknown stop');
   // A station is boarded at one of its platforms.
   const boarding = new Set(schedule.boardingStops(target).map(({ id }) => id));
-  const targetAt = pattern.stops.findIndex((id) => boarding.has(id));
-  if (targetAt === -1) throw new RequestError(404, 'That trip does not stop there');
+  const visits = pattern.stops.flatMap((id, index) => (boarding.has(id) ? [index] : []));
+  if (visits.length === 0) throw new RequestError(404, 'That trip does not stop there');
   const stops = pattern.stops.map((id) => schedule.stop(id));
 
   const vehicle = vehicles?.byTrip.get(request.trip) ?? null;
-  // Where along its stops the vehicle is: the stop it reports heading to or standing at, or else
-  // the nearest one.
-  const reported = vehicle?.stopId ? stops.findIndex((stop) => stop.stopId === vehicle.stopId) : -1;
-  const vehicleAt = !vehicle ? -1 : reported !== -1 ? reported : nearest(stops, vehicle);
+  const vehicleAt = vehicle ? placeOf(schedule, trip.row, stops, vehicle, now) : -1;
+  // A trip that makes the rider's stop twice, as on a loop, is watched to the visit it reaches
+  // next, or the last once it has made them all.
+  const targetAt = visits.find((index) => index >= vehicleAt) ?? visits.at(-1)!;
   const coming = vehicleAt !== -1 && vehicleAt <= targetAt;
   const passed = vehicleAt > targetAt;
   // From the stop behind the vehicle, so it sits on the line, to one past the rider's, or on to
@@ -43,12 +45,13 @@ export function trackVehicle(schedule: Schedule, vehicles: VehicleSnapshot | nul
     lon: (Math.min(...places.map(({ lon }) => lon)) + Math.max(...places.map(({ lon }) => lon))) / 2,
   });
 
-  // The stretch of the trip's shape between the first and last stops drawn. Searching on from the
-  // first keeps a loop from matching its far side.
+  // The stretch of the trip's shape between the first and last stops drawn. Where it passes each
+  // stop is found in travel order from the trip's start, so a loop, or a street the route comes
+  // back along, matches the pass the trip makes there.
   const shape = pattern.shape === null ? [] : shapePoints(schedule, pattern.shape);
-  const start = nearest(shape, shown[0]!);
-  const end = start + nearest(shape.slice(start), shown.at(-1)!);
-  const stretch = shape.slice(start, end + 1).map(project);
+  const passes: number[] = [];
+  for (const stop of stops.slice(0, to + 1)) passes.push(passAt(shape, stop, passes.at(-1) ?? 0));
+  const stretch = shape.slice(passes[from], passes[to]! + 1).map(project);
   // Thinned to about 300 points across the picture, finer than a phone draws it, so a long ride
   // over the bridge stays as small as a short one.
   const [width, height] = ([0, 1] as const).map((axis) => Math.max(...stretch.map((point) => point[axis])) - Math.min(...stretch.map((point) => point[axis])));
@@ -85,6 +88,38 @@ export function trackVehicle(schedule: Schedule, vehicles: VehicleSnapshot | nul
 }
 
 const pointOf = ([x, y]: [number, number]) => ({ x, y });
+
+// Where along its stops the vehicle is: the stop it reports heading to or standing at, or else
+// the nearest one. A stop the trip makes twice is told apart by the sequence the vehicle reports,
+// which Muni and SamTrans count from 1 along the trip, or else by which visit is scheduled
+// nearest now.
+function placeOf(schedule: Schedule, tripRow: number, stops: StopRow[], vehicle: RtVehicle, now: number) {
+  const { sequence, stopId } = vehicle;
+  if (sequence !== null && stopId !== null && stops[sequence - 1]?.stopId === stopId) return sequence - 1;
+  const named = stopId ?? stops[nearest(stops, vehicle)]!.stopId;
+  const visits = stops.flatMap((stop, index) => (stop.stopId === named ? [index] : []));
+  if (visits.length === 0) return nearest(stops, vehicle);
+  const offBy = (index: number) => Math.abs((schedule.scheduledTimeAt(tripRow, index, now) ?? Infinity) - now);
+  return visits.reduce((best, index) => (offBy(index) < offBy(best) ? index : best));
+}
+
+// The shape point where the line passes a stop, searching on from `from`: the closest point of
+// the first pass that comes within PASS_METERS, so a later pass by the same corner is not taken
+// for it. A stop the line never comes that near takes the closest point after `from`.
+function passAt(shape: Point[], stop: Point, from: number) {
+  let best = -1;
+  for (let index = from; index < shape.length; index++) {
+    const meters = distanceMeters(shape[index]!, stop);
+    if (best === -1) {
+      if (meters <= PASS_METERS) best = index;
+      continue;
+    }
+    const closest = distanceMeters(shape[best]!, stop);
+    if (meters < closest) best = index;
+    else if (meters > closest + PASS_METERS) break;
+  }
+  return best !== -1 ? best : from + nearest(shape.slice(from), stop);
+}
 
 function nearest(points: (Point | StopRow)[], to: Point) {
   let best = 0;
