@@ -42,9 +42,16 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
     (spans?.transfer ? `&tfrom=${spans.transfer[0]}&tto=${spans.transfer[1]}` : '');
   // Not kept in storage: a position from an earlier visit is no use.
   const { data, error, fetchedAt, feed } = usePoll<TrackResponse>(url, REFRESH_MS, null, false);
+  // When the rider last asked to fit the map to the trip from here. Only an answer that arrives
+  // after it pins the map again, as the one on screen still shows the old stretch.
+  const [refitAt, setRefitAt] = useState(0);
   useEffect(() => {
-    if (!spans && data?.span) setSpans({ main: data.span, ...(data.transfer ? { transfer: data.transfer.span } : {}) });
-  }, [data]);
+    if (!spans && data?.span && fetchedAt !== null && fetchedAt > refitAt) setSpans({ main: data.span, ...(data.transfer ? { transfer: data.transfer.span } : {}) });
+  }, [data, fetchedAt]);
+  const refit = () => {
+    setRefitAt(Date.now());
+    setSpans(null);
+  };
   const now = useNow() + clockSkewMs(data?.generatedAt, fetchedAt);
   if (!data) {
     return <p class="tf-muted">{error ?? (feed === 'offline' ? 'Offline. The map shows once you are back online.' : 'Finding the vehicle…')}</p>;
@@ -80,8 +87,19 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
         {headline}
       </p>
       <LineMap legs={legs} label={headline} />
-      {ageLine && <p class={`tf-track__age${age !== null && age > OLD_SECONDS ? ' tf-track__age--old' : ''}`}>{ageLine}</p>}
-      {feed === 'offline' && <p class="tf-track__age tf-track__age--old">Offline. This is the last update received.</p>}
+      <div class="tf-track__under">
+        <div>
+          {ageLine && <p class={`tf-track__age${age !== null && age > OLD_SECONDS ? ' tf-track__age--old' : ''}`}>{ageLine}</p>}
+          {feed === 'offline' && <p class="tf-track__age tf-track__age--old">Offline. This is the last update received.</p>}
+        </div>
+        {/* Drops the stops behind the vehicle and fits the map to the trip from where it is now. */}
+        <button type="button" class="tf-track__fit" onClick={refit} disabled={!spans} aria-label="Fit the map to the trip from here">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" />
+          </svg>
+          Fit
+        </button>
+      </div>
       <LegList leg={data} stops={data.stops} labels={labels} color={color} now={now} />
       {next && nextLabels && (
         <>

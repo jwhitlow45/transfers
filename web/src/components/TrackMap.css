@@ -3,6 +3,9 @@
 .tf-track p { margin: 0; }
 .tf-track__toward { font-size: var(--text-base); color: var(--muted); }
 .tf-track__headline { margin-top: 2px; font-size: var(--text-lg); font-weight: var(--weight-bold); }
+/* Under the map: how old the position is, and the Fit button at the right. */
+.tf-track__under { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-2); }
+.tf-track__fit { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 36px; margin-top: var(--space-1); padding: 0 var(--space-3); color: var(--text); border: var(--border-hair) solid var(--line); font-size: var(--text-sm); font-weight: 650; }
 .tf-track__map { display: block; width: 100%; height: auto; max-height: 50vh; margin-top: var(--space-3); border: var(--border-strong) solid var(--line); background: var(--bg); }
 .tf-track__stop { fill: var(--bg); stroke: var(--text); }
 .tf-track__square--yours { fill: var(--text); stroke: var(--bg); }
@@ -39,12 +42,12 @@
 .tf-track__in--passed { font-weight: 650; color: var(--muted); }
 .tf-track__time { font-size: var(--text-sm); color: var(--muted); }
 .tf-track__stops .tf-track__fold { display: block; padding: 0; }
-/* Stops in an opened fold sit indented under it. The fold's dotted mark becomes one line running
-   from where its dots start down past the last of them: drawn on the open fold itself, in the
-   same dots, so the two never break apart. */
+/* Stops in an opened fold sit indented under it. The fold's dots are drawn on the fold itself,
+   from where its mark starts to as far above its bottom, so closed they are just the mark, and as
+   the fold opens and closes they grow and shrink with it as one unbroken line. */
 .tf-track__stops--between { margin: 0; padding-left: calc(10px + var(--space-3)); }
-.tf-track__fold:has(> .tf-track__more[aria-expanded="true"]) { background: var(--track-dots) 4px var(--track-dots-top) / 2px calc(100% - var(--track-dots-top)) no-repeat; }
-.tf-track__more[aria-expanded="true"] .tf-track__more-line { visibility: hidden; }
+.tf-track__fold { background: var(--track-dots) 4px var(--track-dots-top) / 2px calc(100% - 2 * var(--track-dots-top)) no-repeat; }
+.tf-track__more-line { visibility: hidden; }
 .tf-track__more { display: flex; align-items: center; gap: var(--space-2); width: 100%; min-height: var(--tap-min); padding: var(--space-2) 0; color: var(--muted); font-weight: 650; text-align: left; }
 /* A dotted stretch of line where the stop dots would be, standing for the stops folded away. */
 /* The dots, and where they start in a fold's row: the row is the tap height, with the 20 px mark
