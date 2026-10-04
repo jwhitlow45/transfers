@@ -14,16 +14,9 @@ type MapComponent = FunctionComponent<{ tracked: Tracked }>;
 const TrackContext = createContext<(tracked: Tracked) => void>(() => {});
 
 // The live map is its own chunk, fetched the first time a rider opens one, so pages without a
-// map open never download it. A failed fetch is forgotten, so the next tap tries again.
+// map open never download it.
 let loading: Promise<MapComponent> | null = null;
-const loadMap = () =>
-  (loading ??= import('./components/TrackMap.tsx').then(
-    (module) => module.TrackMap,
-    (error: unknown) => {
-      loading = null;
-      throw error;
-    },
-  ));
+const loadMap = () => (loading ??= import('./components/TrackMap.tsx').then((module) => module.TrackMap));
 
 // Holds the one tracking sheet for every screen. It renders no element of its own, so the sheet
 // sits directly in the app shell, where swipe back leaves sheets alone.
@@ -44,7 +37,21 @@ export function TrackProvider({ children }: { children: ComponentChildren }) {
       {children}
       {tracked && (
         <Sheet title={tracked.title} onClose={() => setTracked(null)}>
-          {map ? <map.Map key={`${tracked.trip}|${tracked.stop}`} tracked={tracked} /> : <p class="tf-muted">{failed ? 'The map could not load. Check your connection and try again.' : 'Loading the map…'}</p>}
+          {map ? (
+            <map.Map key={`${tracked.trip}|${tracked.stop}`} tracked={tracked} />
+          ) : failed ? (
+            // Browsers remember a failed load of a script chunk and refuse it again until the page
+            // reloads, so a reload is the way to retry.
+            <p class="tf-muted">
+              The map could not load. Check your connection, then{' '}
+              <button type="button" class="tf-time-link" onClick={() => location.reload()}>
+                reload the page
+              </button>
+              .
+            </p>
+          ) : (
+            <p class="tf-muted">Loading the map…</p>
+          )}
         </Sheet>
       )}
     </TrackContext.Provider>

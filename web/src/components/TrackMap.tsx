@@ -32,7 +32,9 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
       : data.stopsAway === 0
         ? `${target} is its next stop`
         : `${data.stopsAway} stop${data.stopsAway === 1 ? '' : 's'} before ${target}`;
-  const age = data.vehicle?.at ? Math.max(0, Math.floor(now / 1000 - data.vehicle.at)) : null;
+  // Some vehicles send no time with their position. Theirs counts from when the server got it.
+  const reportedAt = data.vehicle ? (data.vehicle.at ?? data.dataAt) : null;
+  const age = reportedAt === null ? null : Math.max(0, Math.floor(now / 1000 - reportedAt));
   return (
     <div class="tf-track">
       <p class="tf-track__toward">Toward {data.headsign}</p>
@@ -40,7 +42,12 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
         {headline}
       </p>
       <Map data={data} color={color} label={headline} />
-      {age !== null && <p class={`tf-track__age${age > OLD_SECONDS ? ' tf-track__age--old' : ''}`}>Position from {ageText(age)} ago</p>}
+      {age !== null && (
+        <p class={`tf-track__age${age > OLD_SECONDS ? ' tf-track__age--old' : ''}`}>
+          Position {data.vehicle?.at ? 'from' : 'received'} {ageText(age)} ago
+        </p>
+      )}
+      {feed === 'offline' && <p class="tf-track__age tf-track__age--old">Offline. This is the last position received.</p>}
       <ol class="tf-track__stops">
         {data.path.map(({ stop }, index) => (
           <li key={stop} class={index === data.targetIndex ? 'tf-track__yours' : ''}>
