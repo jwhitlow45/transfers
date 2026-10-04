@@ -1,10 +1,10 @@
 import type { NearbyResponse, NearbyStop, Schematic } from '../../shared/api.ts';
 import type { Link } from '../engine/links.ts';
+import { projector, shapePoints } from '../engine/shapes.ts';
 import type { RealtimeView } from '../engine/trip.ts';
 import { secondLegs } from '../engine/vehicles.ts';
 import { Tables } from '../engine/views.ts';
-import { decodePolyline, distanceMeters, type Point } from '../geo.ts';
-import { get } from '../db.ts';
+import { distanceMeters, type Point } from '../geo.ts';
 import type { Schedule, StopRow } from '../schedule.ts';
 
 export const DEFAULT_NEARBY_METERS = 400;
@@ -97,17 +97,10 @@ export function nearby(schedule: Schedule, realtime: RealtimeView, center: Point
   };
 }
 
-const shapeCache = new WeakMap<Schedule, Map<number, Point[]>>();
-
 // Positions as whole meters east and north of the rider, lines clipped to a square a bit
 // larger than the search radius and thinned to points at least 8 m apart.
 function schematic(schedule: Schedule, center: Point, radius: number, candidates: { stop: StopRow; route: number; direction: number | null }[]): Schematic {
-  const metersPerDegreeLat = 111_320;
-  const metersPerDegreeLon = 111_320 * Math.cos((center.lat * Math.PI) / 180);
-  const project = (point: Point): [number, number] => [
-    Math.round((point.lon - center.lon) * metersPerDegreeLon),
-    Math.round((point.lat - center.lat) * metersPerDegreeLat),
-  ];
+  const project = projector(center);
   const half = radius * 1.25;
   const inside = ([x, y]: [number, number]) => Math.abs(x) <= half && Math.abs(y) <= half;
 
@@ -119,8 +112,6 @@ function schematic(schedule: Schedule, center: Point, radius: number, candidates
     stops.set(shown.id, { stop: tables.stop(shown), x, y });
   }
 
-  let cache = shapeCache.get(schedule);
-  if (!cache) shapeCache.set(schedule, (cache = new Map()));
   const lines: Schematic['lines'] = [];
   const drawn = new Set<string>();
   for (const { route, direction } of candidates) {
@@ -130,12 +121,7 @@ function schematic(schedule: Schedule, center: Point, radius: number, candidates
       .sort((a, b) => b.trips - a.trips)[0];
     if (!pattern?.shape || drawn.has(`${route}|${pattern.shape}`)) continue;
     drawn.add(`${route}|${pattern.shape}`);
-    let points = cache.get(pattern.shape);
-    if (!points) {
-      const row = get<{ polyline: string }>(schedule.db, 'SELECT polyline FROM shapes WHERE id = ?', pattern.shape);
-      points = row ? decodePolyline(row.polyline) : [];
-      cache.set(pattern.shape, points);
-    }
+    const points = shapePoints(schedule, pattern.shape);
     let segment: [number, number][] = [];
     const routeKey = tables.route(schedule.route(route));
     for (const point of points.map(project)) {

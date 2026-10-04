@@ -6,7 +6,7 @@ import { dirname } from 'node:path';
 // three endpoints each reported 59 left after one request apiece). The pool spreads requests
 // across keys by how many each has left on that endpoint, and remembers its usage on disk so a
 // restart does not spend requests the last run already used.
-export type Endpoint = 'tripupdates' | 'servicealerts' | 'datafeeds';
+export type Endpoint = 'tripupdates' | 'vehiclepositions' | 'servicealerts' | 'datafeeds';
 
 export const HOURLY_LIMIT = 60;
 const HOUR = 3600;

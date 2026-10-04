@@ -3,6 +3,7 @@ import type { Departure, Group } from '../../../shared/api.ts';
 import { IconChevron } from '../icons/ui.tsx';
 import { clock, minutesUntil } from '../format.ts';
 import type { CardContext } from '../lib/results.ts';
+import { TimeLink } from '../track.tsx';
 import { chipLabel, spokenRoute, statusOf } from '../view.ts';
 import { Collapse } from './Collapse.tsx';
 import { ConnectionRow } from './ConnectionRow.tsx';
@@ -53,19 +54,28 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
     `${route ? spokenRoute(route) : 'Departure'} at ${clock(departure.at)}, ${status.label}, ` +
     `${minutes} minutes away${toward ? `, ${toward.toLowerCase()}` : ''}${destination ? `, reaches ${destination}` : ''}.` +
     (walk ? '' : ` ${count} connecting ${noun[count === 1 ? 0 : 1]}${expanded ? '' : `, leaving in ${countdowns.join(', ')} minutes`}.`);
+  // The spoken summary says everything shown, so screen readers skip the shown text and reach
+  // only the links in it.
   const band = (
     <>
-      <span class="tf-sr">{spoken}</span>
-      <span class="tf-band__main" aria-hidden="true">
+      <span class="tf-band__main">
         <span class="tf-band__line">
-          <RouteChip route={route} size="band" color={color} />
-          <span class="tf-band__time">{clock(departure.at)}</span>
-          <StatusTag status={status} />
+          <RouteChip route={route} size="band" color={color} hidden />
+          <span class="tf-band__time">
+            <TimeLink trip={departure.trip} stop={context.data.stops[group.board]} title={`${route ? chipLabel(route) : 'Vehicle'} at ${clock(departure.at)}`} color={color}>
+              {clock(departure.at)}
+            </TimeLink>
+          </span>
+          <StatusTag status={status} hidden />
         </span>
-        <span class="tf-band__sub">
+        <span class="tf-band__sub" aria-hidden="true">
           {[toward, walk ? null : `Arrives at ${boardName}`].filter(Boolean).join(' · ')}
         </span>
-        {destination && <span class="tf-band__dest">{destination}</span>}
+        {destination && (
+          <span class="tf-band__dest" aria-hidden="true">
+            {destination}
+          </span>
+        )}
       </span>
       <span class="tf-band__right" aria-hidden="true">
         <span class="tf-band__in">{minutes < 1 ? 'Now' : `${minutes} min`}</span>
@@ -84,17 +94,25 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
     return (
       <article class="tf-card tf-card--walk">
         <h3 class="tf-card__heading">
-          <span class="tf-band tf-band--static">{band}</span>
+          <span class="tf-band">
+            <span class="tf-sr">{spoken}</span>
+            {band}
+          </span>
         </h3>
       </article>
     );
   }
+  // The toggle is a button stretched under the whole band, rather than the band itself, so the
+  // time and stop links in the band are their own targets and not buttons inside a button.
   return (
     <article class={`tf-card${expanded ? '' : ' tf-card--closed'}`}>
       <h3 class="tf-card__heading">
-        <button type="button" class="tf-band" aria-expanded={expanded} aria-controls={panel} onClick={onToggle}>
+        <span class="tf-band">
+          <button type="button" class="tf-band__toggle" aria-expanded={expanded} aria-controls={panel} onClick={onToggle}>
+            <span class="tf-sr">{spoken}</span>
+          </button>
           {band}
-        </button>
+        </span>
       </h3>
       {/* The rows and the closed card's one-line summary each slide, so they trade places
           smoothly. */}

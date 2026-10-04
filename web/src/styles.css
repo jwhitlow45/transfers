@@ -378,16 +378,18 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-near__actions .tf-btn-secondary + .tf-btn-secondary { border-left: var(--border-hair) solid var(--divider); }
 .tf-near__problem { padding: var(--space-2) var(--space-3); background: var(--late-tint); color: var(--late); font-weight: 650; }
 
-/* Collapsible departure cards. The band is the toggle, a button inside the card's heading. */
+/* Collapsible departure cards. The toggle is a button stretched under the band, whose content
+   lets taps through to it, all but the links. Tapping it leaves the band as it is, with no flash. */
 .tf-card__heading { margin: 0; font: inherit; }
-button.tf-band { width: 100%; text-align: left; color: var(--on-field); }
+.tf-band { position: relative; }
+.tf-band__toggle { position: absolute; inset: 0; width: 100%; -webkit-tap-highlight-color: transparent; }
+.tf-band__main, .tf-band__right { position: relative; pointer-events: none; }
+.tf-band a, .tf-band .tf-time-link { pointer-events: auto; }
 .tf-band__main, .tf-band__sub, .tf-band__in, .tf-band__inlabel { display: block; }
 .tf-band__right { display: flex; flex-direction: column; align-items: flex-end; }
 .tf-band__dest { display: block; margin-top: 2px; font-size: var(--text-md); font-weight: 650; color: var(--on-field); }
 .tf-band__chev { display: block; margin-top: var(--space-1); color: var(--on-field-muted); transition: transform .15s; }
-.tf-band[aria-expanded="true"] .tf-band__chev { transform: rotate(180deg); }
-button.tf-band:hover { filter: brightness(1.12); }
-.tf-band--static { display: flex; }
+.tf-band__toggle[aria-expanded="true"] ~ .tf-band__right .tf-band__chev { transform: rotate(180deg); }
 .tf-card__summary { padding: 10px var(--space-4); font-size: 15px; font-weight: var(--weight-semibold); }
 
 /* Group headings lead with the direction, and say once where to get off. */
@@ -526,5 +528,6 @@ button.tf-band:hover { filter: brightness(1.12); }
 /* ── links out ─────────────────────────────────────── */
 /* A stop's name links to its agency's page. An underline says so, in the text's own color so it
    sits quietly in a line of muted detail. */
-.tf-stop-link { color: inherit; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
-.tf-stop-link:hover { color: var(--text); text-decoration-thickness: 2px; }
+.tf-stop-link, .tf-time-link { color: inherit; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.tf-stop-link:hover, .tf-time-link:hover { text-decoration-thickness: 2px; }
+.tf-time-link { font: inherit; padding: 0; }

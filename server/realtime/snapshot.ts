@@ -189,6 +189,28 @@ function translated(text: TranslatedString | undefined) {
   return value || null;
 }
 
+// Where each vehicle is, keyed by its trip ("SF:12126855"), as the trip snapshot keys trips.
+export type RtVehicle = { lat: number; lon: number; bearing: number | null; at: number | null; stopId: string | null };
+export type VehicleSnapshot = { fetchedAt: number; byTrip: Map<string, RtVehicle> };
+
+export function buildVehicleSnapshot(feed: FeedObject, fetchedAt: number, agencies: ReadonlySet<Agency>): VehicleSnapshot {
+  const byTrip = new Map<string, RtVehicle>();
+  for (const entity of feed.entity ?? []) {
+    const vehicle = entity.vehicle;
+    const trip = splitPrefixed(vehicle?.trip?.tripId);
+    if (!vehicle?.position || entity.isDeleted || !trip || !agencies.has(trip.agency as Agency)) continue;
+    byTrip.set(tripKey(trip.agency, trip.id), {
+      lat: vehicle.position.latitude,
+      lon: vehicle.position.longitude,
+      // Many vehicles report 0 while standing, which would point every stopped bus north.
+      bearing: vehicle.position.bearing || null,
+      at: vehicle.timestamp ?? null,
+      stopId: vehicle.stopId ?? null,
+    });
+  }
+  return { fetchedAt, byTrip };
+}
+
 // 511 reports trips that start after midnight a whole day late or early: the 1 due at 12:27 AM
 // came with a delay of 86,478 seconds, its predicted time right. No vehicle runs half a day off
 // schedule, so whole days are taken out, leaving 78 seconds.

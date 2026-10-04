@@ -220,3 +220,30 @@ export type NearbyResponse = {
   schematic: Schematic;
   feeds: FeedStatus[];
 };
+
+// One vehicle on its way to the rider's stop, for its live map. Places are whole meters east and
+// north of the middle of the picture, as on Nearby's map.
+export type TrackResponse = {
+  generatedAt: number;
+  // When 511 last reported where vehicles are, or null when it has not.
+  dataAt: number | null;
+  route: string;
+  headsign: string;
+  // The stop the rider is watching, and the trip's stops drawn around it, in order.
+  target: string;
+  path: { stop: string; x: number; y: number }[];
+  // Where in path the rider's stop is, and the stop the vehicle is at or heading to, which is
+  // null with no position.
+  targetIndex: number;
+  nextIndex: number | null;
+  // The route's line through those stops.
+  line: [number, number][];
+  // Null when the vehicle reports no position, such as before its trip starts.
+  vehicle: { x: number; y: number; bearing: number | null; at: number | null } | null;
+  // Stops the vehicle makes before the rider's: 0 when the rider's is next. Null with no
+  // position, or once it has gone past.
+  stopsAway: number | null;
+  passed: boolean;
+  routes: Record<string, Route>;
+  stops: Record<string, Stop>;
+};

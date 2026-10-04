@@ -39,5 +39,18 @@ self.addEventListener('fetch', (event) => {
   }
   // Built file names carry a content hash, so a URL match is enough. Matching on Vary headers
   // (Origin, Accept-Encoding) would miss module scripts, which send an Origin the precache lacked.
-  event.respondWith(caches.match(event.request, { ignoreVary: true }).then((cached) => cached ?? fetch(event.request)));
+  // A built file fetched on demand, such as the live map's, is kept for next time and offline.
+  event.respondWith(
+    caches.match(event.request, { ignoreVary: true }).then(
+      (cached) =>
+        cached ??
+        fetch(event.request).then((response) => {
+          if (response.ok && url.pathname.startsWith('/assets/')) {
+            const copy = response.clone();
+            event.waitUntil(caches.open(VERSION).then((cache) => cache.put(event.request, copy)));
+          }
+          return response;
+        }),
+    ),
+  );
 });

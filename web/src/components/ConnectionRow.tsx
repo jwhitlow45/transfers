@@ -1,7 +1,8 @@
 import type { Connection, Departure } from '../../../shared/api.ts';
 import { clock, minutesUntil } from '../format.ts';
 import { type CardContext, isTight } from '../lib/results.ts';
-import { shortStopName, spokenRoute, statusOf } from '../view.ts';
+import { TimeLink } from '../track.tsx';
+import { chipLabel, shortStopName, spokenRoute, statusOf } from '../view.ts';
 import { RouteChip } from './RouteChip.tsx';
 import { StopLink } from './StopLink.tsx';
 import { StatusTag } from './StatusTag.tsx';
@@ -43,20 +44,22 @@ export function ConnectionRow({ connection, departure, alightName, min, secondCo
         <div class="tf-row__num">{now ? 'Now' : minutes}</div>
         {!now && <div class="tf-row__unit">min</div>}
       </div>
-      <div class="tf-row__main" aria-hidden="true">
+      {/* The spoken summary says everything shown, so screen readers skip the shown text and
+          reach only the links in it. */}
+      <div class="tf-row__main">
         <div class="tf-row__line">
-          <RouteChip route={route} />
-          <span>{clock(connection.departs)}</span>
+          <RouteChip route={route} hidden />
+          <TimeLink trip={connection.trip} stop={context.data.stops[context.data.from]} title={`${route ? chipLabel(route) : 'Vehicle'} at ${clock(connection.departs)}`}>
+            {clock(connection.departs)}
+          </TimeLink>
         </div>
-        <StatusTag status={status} plain />
+        <StatusTag status={status} plain hidden />
         <div class="tf-row__off">
-          Off {clock(connection.arrives)}
-          {offAt && (
-            <>
-              {' at '}
-              <StopLink stop={context.data.stops[connection.alight!]}>{offAt}</StopLink>
-            </>
-          )}
+          <span aria-hidden="true">
+            Off {clock(connection.arrives)}
+            {offAt && ' at '}
+          </span>
+          {offAt && <StopLink stop={context.data.stops[connection.alight!]}>{offAt}</StopLink>}
         </div>
       </div>
       <div class="tf-row__xfer" aria-hidden="true">

@@ -15,16 +15,28 @@ export default defineConfig({
   server: { proxy: { '/api': 'http://localhost:3000' }, allowedHosts: ['.ts.net'] },
 });
 
-// Writes sw.js listing every built file, so the service worker caches the whole app on the
-// first visit and later visits open with no network at all.
+// Writes sw.js listing the built files the app needs to open, so the service worker caches them
+// on the first visit and later visits open with no network at all. Chunks loaded only on demand,
+// such as the live map, stay out: the service worker caches each when it is first fetched.
 function serviceWorker(): Plugin {
   return {
     name: 'service-worker',
     apply: 'build',
     generateBundle(_options, bundle) {
+      const chunks = Object.values(bundle).filter((file) => file.type === 'chunk');
+      const eager = new Set<string>();
+      const reach = (fileName: string) => {
+        if (eager.has(fileName)) return;
+        eager.add(fileName);
+        const chunk = bundle[fileName];
+        if (chunk?.type === 'chunk') chunk.imports.forEach(reach);
+      };
+      chunks.filter((chunk) => chunk.isEntry).forEach((chunk) => reach(chunk.fileName));
+      const lazy = new Set(chunks.filter((chunk) => !eager.has(chunk.fileName)).flatMap((chunk) => [chunk.fileName, ...(chunk.viteMetadata?.importedCss ?? [])]));
+      for (const fileName of eager) for (const css of (bundle[fileName] as { viteMetadata?: { importedCss: Set<string> } }).viteMetadata?.importedCss ?? []) lazy.delete(css);
       // Files in public/ are copied as they are and never appear in the bundle.
       const publicFiles = readdirSync(join(import.meta.dirname, 'public'));
-      const files = [...Object.keys(bundle), ...publicFiles].map((name) => `/${name}`);
+      const files = [...Object.keys(bundle).filter((name) => !lazy.has(name)), ...publicFiles].map((name) => `/${name}`);
       const version = createHash('sha256').update(files.join('\n')).digest('hex').slice(0, 12);
       const source = readFileSync(join(import.meta.dirname, 'src', 'sw.js'), 'utf8')
         .replaceAll('__VERSION__', version)

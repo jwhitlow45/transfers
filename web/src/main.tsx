@@ -7,6 +7,7 @@ import { SearchScreen } from './screens/SearchScreen.tsx';
 import { SettingsScreen } from './screens/SettingsScreen.tsx';
 import { SettingsProvider } from './settings.tsx';
 import { searchId } from './storage.ts';
+import { TrackProvider } from './track.tsx';
 import './styles.css';
 
 function App() {
@@ -19,10 +20,12 @@ function App() {
   return (
     <SettingsProvider>
       <div class="tf-app">
-        {page.name === 'home' && <SearchScreen key={history.state ? 'prefilled' : 'home'} />}
-        {page.name === 'trip' && <ResultsScreen key={searchId(page.search)} search={page.search} />}
-        {page.name === 'nearby' && <NearbyScreen />}
-        {page.name === 'settings' && <SettingsScreen />}
+        <TrackProvider>
+          {page.name === 'home' && <SearchScreen key={history.state ? 'prefilled' : 'home'} />}
+          {page.name === 'trip' && <ResultsScreen key={searchId(page.search)} search={page.search} />}
+          {page.name === 'nearby' && <NearbyScreen />}
+          {page.name === 'settings' && <SettingsScreen />}
+        </TrackProvider>
       </div>
     </SettingsProvider>
   );

@@ -24,7 +24,18 @@ export type FeedEntity = {
   id: string;
   isDeleted?: boolean;
   tripUpdate?: TripUpdate;
+  vehicle?: VehiclePosition;
   alert?: Alert;
+};
+
+export type VehiclePosition = {
+  trip?: TripUpdate['trip'];
+  vehicle?: { id?: string; label?: string };
+  position?: { latitude: number; longitude: number; bearing?: number; speed?: number };
+  currentStopSequence?: number;
+  stopId?: string;
+  currentStatus?: 'INCOMING_AT' | 'STOPPED_AT' | 'IN_TRANSIT_TO';
+  timestamp?: number;
 };
 
 export type TripUpdate = {

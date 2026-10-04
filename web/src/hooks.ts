@@ -39,10 +39,11 @@ const SETTLE_MS = 5000;
 // never blanks the screen. Fetches come every `intervalMs` from when the page opened, and
 // never faster when data is old. Pages opening at different times keep their own rhythm, so
 // devices never line up into bursts.
-// `initial` is a response that arrived with the page, and when it arrived.
-export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { data: T; fetchedAt: number } | null = null): Polled<T> {
+// `initial` is a response that arrived with the page, and when it arrived. `remember` false keeps
+// responses out of storage, for data that is no use on a later visit.
+export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { data: T; fetchedAt: number } | null = null, remember = true): Polled<T> {
   const [state, setState] = useState<Omit<Polled<T>, 'refresh' | 'settled'>>(() => {
-    const cached = url ? loadCached<T>(url) : null;
+    const cached = url && remember ? loadCached<T>(url) : null;
     const data = initial?.data ?? cached?.data ?? null;
     return { data, error: null, fetchedAt: initial?.fetchedAt ?? cached?.fetchedAt ?? null, feed: initial ? 'live' : data ? 'refreshing' : 'loading' };
   });
@@ -73,7 +74,7 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
       clearTimeout(timer);
       timer = setTimeout(() => (document.visibilityState === 'visible' ? void fetchNow() : plan(intervalMs)), delay);
     };
-    if (seeded.current === null) {
+    if (seeded.current === null && remember) {
       // A changed setting is a new URL. Until its answer arrives, the previous results stay up
       // as refreshing, which beats flashing an empty screen.
       const cached = loadCached<T>(url);
@@ -96,7 +97,7 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
       }, REQUEST_TIMEOUT_MS);
       setState((current) => ({ ...current, feed: current.data ? 'refreshing' : 'loading' }));
       try {
-        const data = await getJson<T>(url, { signal: request.signal, remember: true });
+        const data = await getJson<T>(url, { signal: request.signal, remember });
         // New data shows at once. Only the refresh bar lingers.
         setState({ data, error: null, fetchedAt: Date.now(), feed: 'refreshing' });
         clearTimeout(settle);

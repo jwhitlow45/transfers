@@ -15,7 +15,8 @@ import { ageText, clockSkewMs, freshness } from '../lib/freshness.ts';
 import { type LocationProblem, type Position, locate, locationProblemText, takeHanded } from '../lib/location.ts';
 import { useSwipeBack } from '../gestures.ts';
 import { navigate } from '../router.ts';
-import { agencyName, directionText, shortStopName, statusOf } from '../view.ts';
+import { TimeLink } from '../track.tsx';
+import { agencyName, chipLabel, directionText, shortStopName, statusOf } from '../view.ts';
 import type { Picked } from './SearchScreen.tsx';
 
 type Located = { state: 'idle' | 'asking' | LocationProblem } | { state: 'found'; position: Position };
@@ -158,7 +159,11 @@ function NearbyResults({ position, onRelocate }: { position: Position; onRelocat
                       return (
                         <li key={arrival.trip}>
                           {routes.length > 1 && <RouteChip route={route} size="sm" label={route?.agency === 'BA' ? route.name : undefined} />}
-                          <span class="tf-near__time">{clock(arrival.at)}</span>
+                          <span class="tf-near__time">
+                            <TimeLink trip={arrival.trip} stop={stop} title={`${route ? chipLabel(route) : 'Vehicle'} at ${clock(arrival.at)}`}>
+                              {clock(arrival.at)}
+                            </TimeLink>
+                          </span>
                           <StatusTag status={statusOf(arrival.delay, arrival.live)} plain />
                           <span class="tf-near__in">{minutes < 1 ? 'Now' : `${minutes} min`}</span>
                         </li>

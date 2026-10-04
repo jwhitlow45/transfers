@@ -5,14 +5,15 @@ import { useSettings } from '../settings.tsx';
 import { chipLabel } from '../view.ts';
 
 // Route label on its line color with the mode icon, unless the rider turned icons off. Text
-// color is picked for contrast.
-export function RouteChip({ route, size = 'md', iconSize, color, label }: { route: Route | undefined; size?: 'sm' | 'md' | 'band'; iconSize?: number; color?: string; label?: string }) {
+// color is picked for contrast. `hidden` keeps it from screen readers where a row's spoken
+// summary already says it.
+export function RouteChip({ route, size = 'md', iconSize, color, label, hidden = false }: { route: Route | undefined; size?: 'sm' | 'md' | 'band'; iconSize?: number; color?: string; label?: string; hidden?: boolean }) {
   const { settings } = useSettings();
   if (!route) return null;
   const background = color ?? routeColor(route);
   const px = iconSize ?? (size === 'sm' ? 15 : size === 'band' ? 18 : 16);
   return (
-    <span class={`tf-chip${size === 'md' ? '' : ` tf-chip--${size}`}${settings.modeIcons ? '' : ' tf-chip--plain'}`} style={{ background, color: textOn(background) }}>
+    <span class={`tf-chip${size === 'md' ? '' : ` tf-chip--${size}`}${settings.modeIcons ? '' : ' tf-chip--plain'}`} style={{ background, color: textOn(background) }} aria-hidden={hidden || undefined}>
       {settings.modeIcons && <ModeIcon mode={route.mode} size={px} />}
       {label ?? chipLabel(route)}
     </span>

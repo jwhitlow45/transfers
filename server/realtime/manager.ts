@@ -2,7 +2,7 @@ import { AGENCIES, type Agency } from '../config.ts';
 import { nowSeconds } from '../time.ts';
 import { decodeFeed } from './feed.ts';
 import { type KeyPool, pollSeconds } from './keys.ts';
-import { type RtAlert, type TripSnapshot, buildAlerts, buildTripSnapshot } from './snapshot.ts';
+import { type RtAlert, type TripSnapshot, type VehicleSnapshot, buildAlerts, buildTripSnapshot, buildVehicleSnapshot } from './snapshot.ts';
 
 const BART_ALERTS_URL = 'https://api.bart.gov/gtfsrt/alerts.aspx';
 const ALERT_SECONDS = 60;
@@ -21,6 +21,7 @@ export class Realtime {
   private trips: FeedState<TripSnapshot> = { value: null, fetchedAt: 0, failedAt: 0, error: null };
   private alerts511: FeedState<RtAlert[]> = { value: null, fetchedAt: 0, failedAt: 0, error: null };
   private alertsBart: FeedState<RtAlert[]> = { value: null, fetchedAt: 0, failedAt: 0, error: null };
+  private vehicles: FeedState<VehicleSnapshot> = { value: null, fetchedAt: 0, failedAt: 0, error: null };
   private lastDemand = 0;
   private timer: NodeJS.Timeout | null = null;
   private inFlight = new Map<string, Promise<void>>();
@@ -64,6 +65,17 @@ export class Realtime {
     return this.trips.fetchedAt || null;
   }
 
+  // Vehicle positions, fetched only when someone opens a vehicle's map, never on the timer. One
+  // fetch then serves every open map until the next interval, so open maps cost at most one
+  // request per interval between them.
+  async vehiclePositions() {
+    const now = nowSeconds();
+    if (now - Math.max(this.vehicles.fetchedAt, this.vehicles.failedAt) >= this.tripSeconds) {
+      await Promise.race([this.refresh('vehicles'), new Promise((resolve) => setTimeout(resolve, 8000))]);
+    }
+    return this.vehicles.value;
+  }
+
   private schedule() {
     if (this.timer) return;
     const tick = () => {
@@ -81,10 +93,11 @@ export class Realtime {
     this.timer.unref();
   }
 
-  private refresh(feed: 'trips' | 'alerts') {
+  private refresh(feed: 'trips' | 'alerts' | 'vehicles') {
     const existing = this.inFlight.get(feed);
     if (existing) return existing;
-    const work = (feed === 'trips' ? this.fetchTrips() : this.fetchAlerts()).finally(() => this.inFlight.delete(feed));
+    const fetchFeed = { trips: () => this.fetchTrips(), alerts: () => this.fetchAlerts(), vehicles: () => this.fetchVehicles() }[feed];
+    const work = fetchFeed().finally(() => this.inFlight.delete(feed));
     this.inFlight.set(feed, work);
     return work;
   }
@@ -97,6 +110,17 @@ export class Realtime {
     } catch (error) {
       this.trips = { ...this.trips, failedAt: started, error: String(error) };
       console.error('Trip updates failed:', error);
+    }
+  }
+
+  private async fetchVehicles() {
+    const started = nowSeconds();
+    try {
+      const bytes = await this.pool.request('vehiclepositions', { agency: 'RG' });
+      this.vehicles = { value: buildVehicleSnapshot(decodeFeed(bytes), started, this.agencies), fetchedAt: started, failedAt: 0, error: null };
+    } catch (error) {
+      this.vehicles = { ...this.vehicles, failedAt: started, error: String(error) };
+      console.error('Vehicle positions failed:', error);
     }
   }
 
