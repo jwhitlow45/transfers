@@ -125,6 +125,7 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
               connection={connection}
               departure={departure}
               alightName={alightName}
+              alight={group.alight}
               min={group.window.min}
               secondColor={color}
               context={context}

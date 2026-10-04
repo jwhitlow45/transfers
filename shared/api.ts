@@ -235,8 +235,10 @@ export type TrackResponse = {
   nextIndex: number | null;
   // The route's line through those stops.
   line: [number, number][];
-  // Null when the vehicle reports no position, such as before its trip starts.
-  vehicle: { x: number; y: number; bearing: number | null; at: number | null } | null;
+  // Null before the trip starts. `estimate` marks a vehicle that reports no position, as no BART
+  // train or ferry does, placed by when it is due at its stops: from live predictions, or from the
+  // schedule when the trip has none.
+  vehicle: { x: number; y: number; bearing: number | null; at: number | null; estimate?: 'predicted' | 'scheduled' } | null;
   // Stops the vehicle makes before the rider's: 0 when the rider's is next. Null with no
   // position, or once it has gone past.
   stopsAway: number | null;

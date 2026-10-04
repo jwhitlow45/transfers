@@ -7,6 +7,7 @@
 .tf-track__stop { fill: var(--bg); stroke: var(--text); }
 .tf-track__target { fill: var(--text); stroke: var(--bg); }
 .tf-track__vehicle { stroke: var(--bg); }
+.tf-track__vehicle--estimate { fill-opacity: .55; stroke: var(--text); }
 .tf-track__age { margin-top: var(--space-2); font-size: var(--text-sm); color: var(--muted); }
 .tf-track__age--old { color: var(--late); font-weight: 650; }
 .tf-track__stops { list-style: none; margin: var(--space-3) 0 0; padding: 0; }

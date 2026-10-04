@@ -15,10 +15,12 @@ const HIDDEN = {
 };
 
 // One first vehicle under a departure. The countdown leads: when it reaches the From stop.
-export function ConnectionRow({ connection, departure, alightName, min, secondColor, context }: {
+export function ConnectionRow({ connection, departure, alightName, alight, min, secondColor, context }: {
   connection: Connection;
   departure: Departure;
   alightName: string;
+  // The group's stop key for where riders get off, unless this vehicle names its own.
+  alight: string;
   min: number;
   secondColor: string;
   context: CardContext;
@@ -55,11 +57,16 @@ export function ConnectionRow({ connection, departure, alightName, min, secondCo
         </div>
         <StatusTag status={status} plain hidden />
         <div class="tf-row__off">
-          <span aria-hidden="true">
-            Off {clock(connection.arrives)}
-            {offAt && ' at '}
-          </span>
-          {offAt && <StopLink stop={context.data.stops[connection.alight!]}>{offAt}</StopLink>}
+          <span aria-hidden="true">Off </span>
+          <TimeLink trip={connection.trip} stop={context.data.stops[connection.alight ?? alight]} title={`${route ? chipLabel(route) : 'Vehicle'} at ${clock(connection.arrives)}`}>
+            {clock(connection.arrives)}
+          </TimeLink>
+          {offAt && (
+            <>
+              <span aria-hidden="true"> at </span>
+              <StopLink stop={context.data.stops[connection.alight!]}>{offAt}</StopLink>
+            </>
+          )}
         </div>
       </div>
       <div class="tf-row__xfer" aria-hidden="true">

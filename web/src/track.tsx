@@ -3,7 +3,6 @@ import { useContext, useEffect, useState } from 'preact/hooks';
 import type { Stop } from '../../shared/api.ts';
 import { DataCredit } from './components/DataCredit.tsx';
 import { Sheet } from './components/Sheet.tsx';
-import { stopPage } from './view.ts';
 
 // A vehicle the rider asked to follow to a stop. The title is what they tapped, such as "49 at
 // 8:12", so the sheet names it before the map arrives. The color is the route's on the page they
@@ -70,22 +69,11 @@ export function TrackProvider({ children }: { children: ComponentChildren }) {
   );
 }
 
-// A vehicle's time at a stop, which opens its live map. BART reports no train positions, so a
-// BART time opens the station's page on bart.gov instead, which lists its trains. 511 sends no
-// positions for the ferry either, and it has no page per stop, so a ferry time is plain text.
+// A vehicle's time at a stop, which opens its live map. For BART and the ferry, which report no
+// positions, the map places the vehicle by when it is due at its stops.
 export function TimeLink({ trip, stop, title, color, children }: { trip: string; stop: Stop | undefined; title: string; color?: string; children: ComponentChildren }) {
   const open = useContext(TrackContext);
-  if (!stop || trip.startsWith('GF:')) return <>{children}</>;
-  if (trip.startsWith('BA:')) {
-    const page = stopPage(stop);
-    if (!page) return <>{children}</>;
-    return (
-      <a class="tf-time-link" href={page} target="_blank" rel="noopener">
-        {children}
-        <span class="tf-sr">, trains on bart.gov</span>
-      </a>
-    );
-  }
+  if (!stop) return <>{children}</>;
   return (
     <button type="button" class="tf-time-link" onClick={() => open({ trip, stop: stop.key, title, ...(color ? { color } : {}) })}>
       {children}

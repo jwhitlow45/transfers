@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { after, before, test } from 'node:test';
 import type { Agency } from '../config.ts';
 import { buildScheduleDatabase } from '../gtfs/ingest.ts';
-import type { RtVehicle, VehicleSnapshot } from '../realtime/snapshot.ts';
+import type { RtTrip, RtVehicle, TripSnapshot, VehicleSnapshot } from '../realtime/snapshot.ts';
 import { Schedule } from '../schedule.ts';
 import { serviceDayStart } from '../time.ts';
 import { trackVehicle } from './track.ts';
@@ -58,9 +58,8 @@ before(() => {
 });
 after(() => schedule.close());
 
-const at = (vehicle: Partial<RtVehicle> & { lon: number }, trip = 'SF:t1'): VehicleSnapshot => ({
-  fetchedAt: NOW - 5,
-  byTrip: new Map([[trip, { lat: LAT, bearing: 90, at: NOW - 20, stopId: null, sequence: null, ...vehicle }]]),
+const at = (vehicle: Partial<RtVehicle> & { lon: number }, trip = 'SF:t1'): { vehicles: VehicleSnapshot } => ({
+  vehicles: { fetchedAt: NOW - 5, byTrip: new Map([[trip, { lat: LAT, bearing: 90, at: NOW - 20, stopId: null, sequence: null, ...vehicle }]]) },
 });
 const names = (response: ReturnType<typeof trackVehicle>) => response.path.map(({ stop }) => response.stops[stop]!.name);
 
@@ -90,16 +89,16 @@ test('with no stop reported, the vehicle heads to the first stop past it on the 
 });
 
 test('a vehicle with no position shows the stops before the rider and no vehicle', () => {
-  const response = trackVehicle(schedule, { fetchedAt: NOW, byTrip: new Map() }, { trip: 'SF:t1', stop: 'SF:105' }, NOW);
+  const response = trackVehicle(schedule, { vehicles: { fetchedAt: NOW, byTrip: new Map() } }, { trip: 'SF:t1', stop: 'SF:105' }, NOW);
   deepStrictEqual([response.vehicle, response.stopsAway, response.passed, response.targetIndex, response.nextIndex], [null, null, false, 3, null]);
   deepStrictEqual(names(response), ['Market St & Stop 2', 'Market St & Stop 3', 'Market St & Stop 4', 'Market St & Stop 5']);
-  strictEqual(trackVehicle(schedule, null, { trip: 'SF:t1', stop: 'SF:105' }, NOW).dataAt, null);
+  strictEqual(trackVehicle(schedule, { vehicles: null }, { trip: 'SF:t1', stop: 'SF:105' }, NOW).dataAt, null);
 });
 
 test('an unknown trip, or a stop the trip does not make, is not found', () => {
   const notFound = (error: unknown) => error instanceof RequestError && error.status === 404;
-  throws(() => trackVehicle(schedule, null, { trip: 'SF:nope', stop: 'SF:104' }, NOW), notFound);
-  throws(() => trackVehicle(schedule, null, { trip: 'SF:t1', stop: 'SF:999' }, NOW), notFound);
+  throws(() => trackVehicle(schedule, { vehicles: null }, { trip: 'SF:nope', stop: 'SF:104' }, NOW), notFound);
+  throws(() => trackVehicle(schedule, { vehicles: null }, { trip: 'SF:t1', stop: 'SF:999' }, NOW), notFound);
 });
 
 test('on a loop, the visit the vehicle reports by sequence, or else the one due nearest now, places it', () => {
@@ -125,4 +124,36 @@ test('a loop that ends where it began is drawn the whole way round', () => {
   deepStrictEqual([response.line[0], response.line.at(-1)], [[first.x, first.y], [last.x, last.y]]);
   const north = response.path[2]!;
   strictEqual(response.line.some(([x, y]) => x === north.x && y === north.y), true);
+});
+
+// 8:00 on the day the trips run, when t1 leaves stop 0, a minute between stops.
+const EIGHT = serviceDayStart(20261005) + 8 * 3600;
+const feed = (trip: Partial<RtTrip>): TripSnapshot => ({
+  fetchedAt: EIGHT + 250,
+  feedTime: null,
+  trips: new Map([['SF:t1', { agency: 'SF', tripId: 't1', routeId: null, canceled: false, added: false, vehicle: null, stops: [], ...trip }]]),
+  byStop: new Map(),
+  horizon: new Map(),
+});
+const xOf = (response: ReturnType<typeof trackVehicle>, stop: string) => response.path.find(({ stop: key }) => response.stops[key]!.name === `Market St & Stop ${stop}`)!.x;
+
+test('a vehicle that reports no position is placed by the schedule, between the stops it is due at', () => {
+  // 8:02:30, halfway from stop 2 (8:02) to stop 3 (8:03).
+  const response = trackVehicle(schedule, { vehicles: null }, { trip: 'SF:t1', stop: 'SF:104' }, EIGHT + 150);
+  deepStrictEqual([response.vehicle?.estimate, response.stopsAway, response.passed], ['scheduled', 1, false]);
+  strictEqual(Math.abs(response.vehicle!.x - (xOf(response, '2') + xOf(response, '3')) / 2) <= 1, true);
+  strictEqual(response.vehicle!.bearing, 90);
+});
+
+test('with predictions, the delay carries forward and the stops before the first one listed are behind it', () => {
+  // Two minutes late from stop 3, so due there at 8:05. At 8:04:30 it left stop 2 at 8:04.
+  const late = feed({ stops: [{ stopId: '103', time: null, delay: 120, skipped: false }] });
+  const response = trackVehicle(schedule, { vehicles: null, trips: late }, { trip: 'SF:t1', stop: 'SF:104' }, EIGHT + 270);
+  deepStrictEqual([response.vehicle?.estimate, response.stopsAway, response.dataAt], ['predicted', 1, EIGHT + 250]);
+  strictEqual(Math.abs(response.vehicle!.x - (xOf(response, '2') + xOf(response, '3')) / 2) <= 1, true);
+});
+
+test('before its trip starts, a vehicle that reports no position is not shown', () => {
+  const response = trackVehicle(schedule, { vehicles: null }, { trip: 'SF:t1', stop: 'SF:104' }, EIGHT - 600);
+  deepStrictEqual([response.vehicle, response.stopsAway], [null, null]);
 });

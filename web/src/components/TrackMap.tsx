@@ -30,16 +30,24 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
   const route = data.routes[data.route];
   const color = tracked.color ?? (route ? routeColor(route) : 'currentColor');
   const target = shortStopName(data.stops[data.target], 'your stop');
+  const estimate = data.vehicle?.estimate;
   const headline = data.passed
     ? `It has gone past ${target}`
     : data.stopsAway === null
-      ? 'No position yet. Vehicles report one once their trip starts.'
+      ? 'Not under way yet. It shows here once its trip starts.'
       : data.stopsAway === 0
         ? `${target} is its next stop`
-        : `${data.stopsAway} stop${data.stopsAway === 1 ? '' : 's'} before ${target}`;
-  // Some vehicles send no time with their position. Theirs counts from when the server got it.
-  const reportedAt = data.vehicle ? (data.vehicle.at ?? data.dataAt) : null;
+        : `${estimate ? 'About ' : ''}${data.stopsAway} stop${data.stopsAway === 1 ? '' : 's'} before ${target}`;
+  // Some vehicles send no time with their position. Theirs counts from when the server got it,
+  // as does an estimate's, from when the predictions arrived.
+  const reportedAt = data.vehicle && estimate !== 'scheduled' ? (data.vehicle.at ?? data.dataAt) : null;
   const age = reportedAt === null ? null : Math.max(0, Math.floor(now / 1000 - reportedAt));
+  const ageLine =
+    age === null
+      ? estimate === 'scheduled' && 'Estimated from the schedule. There are no live updates for this trip.'
+      : estimate === 'predicted'
+        ? `Estimated from arrival times predicted ${ageText(age)} ago`
+        : `Position ${data.vehicle?.at ? 'from' : 'received'} ${ageText(age)} ago`;
   // The stops listed from the rider's toward the vehicle: the rider's first and the vehicle's next
   // stop last, with the stops between folded into one row that opens on a tap. With no position,
   // the stops before the rider's, nearest first.
@@ -67,11 +75,7 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
         {headline}
       </p>
       <Map data={data} color={color} label={headline} />
-      {age !== null && (
-        <p class={`tf-track__age${age > OLD_SECONDS ? ' tf-track__age--old' : ''}`}>
-          Position {data.vehicle?.at ? 'from' : 'received'} {ageText(age)} ago
-        </p>
-      )}
+      {ageLine && <p class={`tf-track__age${age !== null && age > OLD_SECONDS ? ' tf-track__age--old' : ''}`}>{ageLine}</p>}
       {feed === 'offline' && <p class="tf-track__age tf-track__age--old">Offline. This is the last position received.</p>}
       <ol class="tf-track__stops">
         {item(order[0]!)}
@@ -126,7 +130,8 @@ function Map({ data, color, label }: { data: TrackResponse; color: string; label
         <g transform={`translate(${data.vehicle.x} ${-data.vehicle.y})`}>
           {/* Bearing is clockwise from north, as SVG rotates. */}
           {data.vehicle.bearing !== null && <path d={`M0 ${-unit * 3.2} L${unit * 1.3} ${-unit * 1.5} L${-unit * 1.3} ${-unit * 1.5} Z`} fill={color} transform={`rotate(${data.vehicle.bearing})`} />}
-          <circle r={unit * 1.8} fill={color} class="tf-track__vehicle" stroke-width={unit * 0.5} />
+          {/* An estimate is drawn faded and dashed, so it does not pass for a reported position. */}
+          <circle r={unit * 1.8} fill={color} class={`tf-track__vehicle${data.vehicle.estimate ? ' tf-track__vehicle--estimate' : ''}`} stroke-width={unit * 0.5} stroke-dasharray={data.vehicle.estimate ? `${unit * 0.7} ${unit * 0.5}` : undefined} />
         </g>
       )}
     </svg>
