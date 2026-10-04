@@ -4,7 +4,8 @@ import type { ViewAlert } from '../lib/alerts.ts';
 import { Collapse } from './Collapse.tsx';
 
 // Inline, collapsible, ordered by importance. Alerts on the rider's boarding stop are severe
-// and open by default.
+// and open by default. Folded, each is one line, since riders often have a notice from each
+// agency above their results.
 export function AlertList({ alerts }: { alerts: ViewAlert[] }) {
   const [open, setOpen] = useState<Record<string, boolean>>(() => Object.fromEntries(alerts.filter(({ severity }) => severity === 'severe').map(({ id }) => [id, true])));
   if (alerts.length === 0) return null;
@@ -19,6 +20,9 @@ export function AlertList({ alerts }: { alerts: ViewAlert[] }) {
               <span class="tf-alert__icon">{alert.severity === 'info' ? <IconInfo /> : <IconWarn />}</span>
               <span class="tf-alert__text">
                 <span class="tf-kicker">{alert.kicker}</span>
+                <span class="tf-alert__sep" aria-hidden="true">
+                  ·
+                </span>
                 <span class="tf-alert__title">{alert.title}</span>
               </span>
               <span class="tf-alert__chev">
