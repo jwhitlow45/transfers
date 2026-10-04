@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><style>
+html,body{margin:0;height:100%}
+.tf2-light,.tf2-auto{--bg:#f2f2f3;--surface:#e3e3e5;--text:#1d1f20;--muted:#55575a;--divider:rgba(29,31,32,.14);--line:rgba(29,31,32,.66);--mark:rgba(29,31,32,.55);--accent:#5980a6;--accent-ink:#416180;--accent-tint:#d6ebff;--primary:#416180;--on-primary:#f5f5f8;--field:#1d2d3d;--on-field:#eef6ff;--on-field-muted:#b9cadb;--late:oklch(0.5 0.18 28);--late-tint:oklch(0.93 0.04 28);--early:oklch(0.48 0.17 300);--early-tint:oklch(0.93 0.04 300);--caution:oklch(0.5 0.11 70);--caution-tint:oklch(0.94 0.045 85);--ok:#416180;--scrim:rgba(18,20,22,.45);color-scheme:light}
+.tf2-dark{--bg:#1c2128;--surface:#2a313b;--text:#d9dfe7;--muted:#9ba5b2;--divider:rgba(205,217,229,.13);--line:rgba(205,217,229,.5);--mark:rgba(205,217,229,.45);--accent:#8fb5dc;--accent-ink:#b5d4f4;--accent-tint:#2c4258;--primary:#8fb5dc;--on-primary:#14191f;--field:#2d3b4c;--on-field:#ecf3fb;--on-field-muted:#bccad9;--late:oklch(0.77 0.13 28);--late-tint:oklch(0.33 0.065 28);--early:oklch(0.8 0.11 300);--early-tint:oklch(0.33 0.055 300);--caution:oklch(0.84 0.11 80);--caution-tint:oklch(0.33 0.045 80);--ok:#b5d4f4;--scrim:rgba(6,9,13,.55);color-scheme:dark}
+@media (prefers-color-scheme:dark){.tf2-auto{--bg:#1c2128;--surface:#2a313b;--text:#d9dfe7;--muted:#9ba5b2;--divider:rgba(205,217,229,.13);--line:rgba(205,217,229,.5);--mark:rgba(205,217,229,.45);--accent:#8fb5dc;--accent-ink:#b5d4f4;--accent-tint:#2c4258;--primary:#8fb5dc;--on-primary:#14191f;--field:#2d3b4c;--on-field:#ecf3fb;--on-field-muted:#bccad9;--late:oklch(0.77 0.13 28);--late-tint:oklch(0.33 0.065 28);--early:oklch(0.8 0.11 300);--early-tint:oklch(0.33 0.055 300);--caution:oklch(0.84 0.11 80);--caution-tint:oklch(0.33 0.045 80);--ok:#b5d4f4;--scrim:rgba(6,9,13,.55);color-scheme:dark}}
+@keyframes tf-indet{0%{transform:translateX(-100%)}100%{transform:translateX(260%)}}
+@media (prefers-reduced-motion:reduce){[data-tf-motion]{animation:none!important}}
+a{color:var(--accent-ink);text-underline-offset:3px}
+a:hover{color:var(--text)}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style></helmet>
+<div class="tf2-{{ theme }}" style="position:relative;width:100%;height:{{ rootH }};overflow:hidden;display:flex;flex-direction:column;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',sans-serif;font-size:16px;line-height:1.4;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased">
+
+<sc-if value="{{ isSearch }}" hint-placeholder-val="{{ false }}">
+<div style="flex:1;overflow-y:auto;overflow-x:hidden">
+<div style="max-width:760px;margin:0 auto;padding:16px 16px 32px;display:flex;flex-direction:column;gap:22px">
+  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding-top:4px">
+    <h1 style="margin:0;font-size:24px;font-weight:700;letter-spacing:-0.01em">Transfers</h1>
+    <span style="font-size:14px;color:var(--muted)">{{ clockText }}</span>
+  </div>
+
+  <div style="position:relative;border:1.5px solid var(--line);display:grid;grid-template-columns:minmax(0,1fr) 52px">
+    <div style="min-width:0">
+      <label style="display:block;padding:10px 12px;border-bottom:1px solid var(--divider)">
+        <span style="display:block;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)">From</span>
+        <input value="{{ fromQ }}" onChange="{{ onFromChange }}" onFocus="{{ onFromFocus }}" placeholder="Stop name or stop code" autocomplete="off" style="display:block;width:100%;box-sizing:border-box;border:0;background:transparent;font:inherit;font-size:18px;font-weight:600;color:var(--text);padding:4px 0;min-height:34px">
+        <sc-if value="{{ fromSel }}" hint-placeholder-val="{{ false }}"><span style="display:block;font-size:13px;color:var(--muted)">{{ fromSel.meta }}</span></sc-if>
+      </label>
+      <label style="display:block;padding:10px 12px">
+        <span style="display:block;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)">To</span>
+        <input value="{{ toQ }}" onChange="{{ onToChange }}" onFocus="{{ onToFocus }}" placeholder="Stop, stop code, or route" autocomplete="off" style="display:block;width:100%;box-sizing:border-box;border:0;background:transparent;font:inherit;font-size:18px;font-weight:600;color:var(--text);padding:4px 0;min-height:34px">
+        <sc-if value="{{ toSel }}" hint-placeholder-val="{{ false }}"><span style="display:block;font-size:13px;color:var(--muted)">{{ toSel.meta }}</span></sc-if>
+      </label>
+    </div>
+    <button onClick="{{ swap }}" aria-label="Swap From and To" style="border:0;border-left:1px solid var(--divider);background:transparent;color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4"></path></svg>
+    </button>
+  </div>
+
+  <sc-if value="{{ showGo }}" hint-placeholder-val="{{ false }}">
+    <button onClick="{{ go }}" disabled="{{ goDisabled }}" style="min-height:52px;border:1px solid var(--primary);background:var(--primary);color:var(--on-primary);font:inherit;font-size:17px;font-weight:700;cursor:pointer;opacity:{{ goOpacity }}">Find transfers</button>
+  </sc-if>
+
+  <sc-if value="{{ showResults }}" hint-placeholder-val="{{ false }}">
+    <div role="region" aria-label="{{ resultsLabel }}" style="border:1.5px solid var(--line);margin-top:-8px">
+      <div aria-live="polite" style="padding:8px 14px;font-size:13px;color:var(--muted);border-bottom:1px solid var(--divider)">{{ resultsLabel }}</div>
+      <div role="list">
+      <sc-for list="{{ results }}" as="r" hint-placeholder-count="4">
+        <div role="listitem"><button onClick="{{ r.pick }}" style="display:flex;flex-direction:column;gap:4px;width:100%;text-align:left;padding:12px 14px;min-height:64px;background:transparent;border:0;border-bottom:1px solid var(--divider);color:var(--text);font:inherit;cursor:pointer">
+          <span style="display:flex;justify-content:space-between;gap:10px;align-items:baseline;width:100%">
+            <span style="font-size:17px;font-weight:650">{{ r.name }}</span>
+            <span style="font-size:14px;font-weight:600;color:var(--muted);white-space:nowrap">{{ r.codeLabel }}</span>
+          </span>
+          <span style="font-size:14px;color:var(--muted)">{{ r.agency }} · {{ r.dir }}</span>
+          <span style="display:flex;flex-wrap:wrap;gap:6px;margin-top:2px">
+            <sc-for list="{{ r.chips }}" as="ch" hint-placeholder-count="2">
+              <span style="display:inline-flex;align-items:center;gap:3px;padding:1px 7px 1px 4px;font-size:13px;font-weight:700;background:{{ ch.color }};color:{{ ch.fg }}"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true" style="flex:none"><g transform="{{ ch.ic.tf }}"><sc-for list="{{ ch.ic.parts }}" as="p" hint-placeholder-count="3"><path d="{{ p.d }}" fill="{{ p.fill }}" stroke="{{ p.stroke }}" stroke-width="{{ p.sw }}" fill-rule="evenodd" stroke-linecap="round" stroke-linejoin="round"></path></sc-for></g></svg>{{ ch.label }}</span>
+            </sc-for>
+          </span>
+        </button></div>
+      </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showHome }}" hint-placeholder-val="{{ true }}">
+    <section style="display:flex;flex-direction:column;gap:14px">
+      <h2 style="margin:0;font-size:13px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)">Saved</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:14px">
+      <sc-for list="{{ saved }}" as="sv" hint-placeholder-count="2">
+        <div style="position:relative;border:1.5px solid var(--line)">
+          <div style="display:flex;align-items:center;gap:4px;padding:4px 4px 0 14px">
+            <sc-if value="{{ sv.renaming }}" hint-placeholder-val="{{ false }}">
+              <input value="{{ sv.renameVal }}" onChange="{{ sv.onRename }}" onKeyDown="{{ sv.onRenameKey }}" onBlur="{{ sv.commit }}" aria-label="Saved search name" autofocus="{{ true }}" style="flex:1;min-width:0;font:inherit;font-size:19px;font-weight:700;color:var(--text);background:transparent;border:0;border-bottom:1px solid var(--accent);padding:6px 0">
+            </sc-if>
+            <sc-if value="{{ sv.notRenaming }}" hint-placeholder-val="{{ true }}">
+              <h3 style="flex:1;min-width:0;margin:0;font-size:19px;font-weight:700">{{ sv.name }}</h3>
+            </sc-if>
+            <button onClick="{{ sv.startRename }}" aria-label="Rename {{ sv.name }}" style="width:44px;height:44px;flex:none;border:0;background:transparent;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"></path></svg>
+            </button>
+          </div>
+          <button onClick="{{ sv.open }}" style="display:flex;flex-direction:column;gap:2px;width:100%;text-align:left;padding:0 14px 14px;background:transparent;border:0;color:var(--text);font:inherit;cursor:pointer">
+            <span style="font-size:14px;color:var(--muted)">{{ sv.chain }} · {{ sv.window }}</span>
+            <span style="display:flex;align-items:baseline;gap:8px;margin-top:10px">
+              <span style="font-size:13px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted)">{{ sv.leaveLead }}</span>
+              <span style="font-size:38px;font-weight:800;line-height:1">{{ sv.leaveNum }}</span>
+              <span style="font-size:16px;font-weight:600">{{ sv.leaveUnit }}</span>
+            </span>
+            <span style="font-size:15px">{{ sv.nextLine }}</span>
+            <sc-if value="{{ sv.alert }}" hint-placeholder-val="{{ false }}">
+              <span style="display:inline-flex;align-self:flex-start;align-items:center;gap:6px;margin-top:8px;padding:3px 8px;background:var(--late-tint);color:var(--late);font-size:13px;font-weight:650">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9.5 17h-19zM12 10v4M12 17v.5"></path></svg>{{ sv.alert }}
+              </span>
+            </sc-if>
+          </button>
+        </div>
+      </sc-for>
+      </div>
+    </section>
+    <section style="display:flex;flex-direction:column">
+      <h2 style="margin:0 0 4px;font-size:13px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)">Recent</h2>
+      <sc-for list="{{ recent }}" as="rc" hint-placeholder-count="2">
+        <button onClick="{{ rc.open }}" style="display:flex;align-items:center;gap:12px;width:100%;min-height:60px;padding:8px 0;text-align:left;background:transparent;border:0;border-bottom:1px solid var(--divider);color:var(--text);font:inherit;cursor:pointer">
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:16px;font-weight:600">{{ rc.label }}</span><span style="font-size:14px;color:var(--muted)">{{ rc.sub }}</span></span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true" style="color:var(--muted)"><path d="M9 6l6 6-6 6"></path></svg>
+        </button>
+      </sc-for>
+    </section>
+  </sc-if>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isResults }}" hint-placeholder-val="{{ true }}">
+<div style="flex:1;overflow-y:auto;overflow-x:hidden">
+  <header style="position:sticky;top:0;z-index:3;background:var(--bg);border-bottom:1px solid var(--divider)">
+    <div style="max-width:1120px;margin:0 auto;display:flex;align-items:flex-start;gap:2px;padding:6px 12px 0 4px">
+      <button onClick="{{ goSearch }}" aria-label="Back to search" style="width:44px;height:44px;flex:none;border:0;background:transparent;color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+      </button>
+      <h1 style="flex:1;min-width:0;margin:0;padding-top:10px;font-size:17px;font-weight:700;display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px">
+        <span>{{ chain.from }}</span>
+        <span aria-hidden="true" style="color:var(--muted);font-weight:400">→</span>
+        <span title="Transfer point worked out by Transfers" style="display:inline-flex;align-items:center;gap:4px;border:1px dashed var(--accent);color:var(--accent-ink);padding:0 6px;font-weight:600;font-style:italic">{{ chain.via }}<span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap"> (transfer point found for you)</span></span>
+        <span aria-hidden="true" style="color:var(--muted);font-weight:400">→</span>
+        <span style="display:inline-flex;align-items:center;gap:4px;padding:0 7px 0 5px;background:{{ chain.toColor }};color:{{ chain.toFg }}"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" style="flex:none"><g transform="{{ chain.ic.tf }}"><sc-for list="{{ chain.ic.parts }}" as="p" hint-placeholder-count="3"><path d="{{ p.d }}" fill="{{ p.fill }}" stroke="{{ p.stroke }}" stroke-width="{{ p.sw }}" fill-rule="evenodd" stroke-linecap="round" stroke-linejoin="round"></path></sc-for></g></svg>{{ chain.to }}</span>
+      </h1>
+    </div>
+    <div style="max-width:1120px;margin:0 auto;display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:4px 16px 10px 48px;font-size:14px;color:var(--muted)">
+      <span style="display:inline-flex;align-items:center;gap:6px;color:{{ statusColor }};font-weight:{{ statusWeight }}"><span style="width:8px;height:8px;border-radius:50%;background:{{ dotColor }};border:1.5px solid {{ dotBorder }};box-sizing:border-box"></span>{{ updatedText }}</span>
+      <span aria-hidden="true">·</span>
+      <span>Transfer {{ windowText }}</span>
+    </div>
+    {{ refreshBar }}
+  </header>
+
+  <main style="max-width:1120px;margin:0 auto;padding:16px 16px 24px;display:flex;flex-direction:column;gap:14px">
+    <sc-if value="{{ offline }}" hint-placeholder-val="{{ false }}">
+      <div role="status" style="display:flex;gap:12px;align-items:flex-start;padding:12px 14px;background:var(--field);color:var(--on-field)">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true" style="flex:none;margin-top:1px"><path d="M2 8.5a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M12 19.5h.01M3 3l18 18"></path></svg>
+        <div><div style="font-weight:700">{{ updatedText }}</div><div style="font-size:14px;color:var(--on-field-muted)">Showing the last results. Countdowns keep running on your phone and will correct when you reconnect.</div></div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ outage }}" hint-placeholder-val="{{ false }}">
+      <div role="status" style="display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border:1px solid var(--caution);background:var(--caution-tint)">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" aria-hidden="true" style="flex:none;color:var(--caution);margin-top:1px"><path d="M12 3l9.5 17h-19zM12 10v4M12 17v.5"></path></svg>
+        <div><div style="font-weight:700">Muni live data is unavailable</div><div style="font-size:14px">48 times below are from the schedule. BART predictions are still live.</div></div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ hasAlerts }}" hint-placeholder-val="{{ true }}">
+      <section aria-label="Service alerts" style="display:flex;flex-direction:column;gap:8px;max-width:760px">
+        <sc-for list="{{ alerts }}" as="al" hint-placeholder-count="2">
+          <div style="border:1px solid {{ al.border }};background:{{ al.bg }}">
+            <button onClick="{{ al.toggle }}" aria-expanded="{{ al.open }}" aria-controls="{{ al.panelId }}" style="display:flex;align-items:flex-start;gap:10px;width:100%;min-height:52px;padding:10px 8px 10px 12px;text-align:left;background:transparent;border:0;color:var(--text);font:inherit;cursor:pointer">
+              <span style="flex:none;color:{{ al.iconColor }};margin-top:2px">
+                <sc-if value="{{ al.isInfo }}" hint-placeholder-val="{{ false }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8v.01"></path></svg></sc-if>
+                <sc-if value="{{ al.isWarn }}" hint-placeholder-val="{{ true }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9.5 17h-19zM12 10v4M12 17v.5"></path></svg></sc-if>
+              </span>
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+                <span style="font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:{{ al.kickerColor }}">{{ al.kicker }}</span>
+                <span style="font-size:16px;font-weight:650;text-wrap:pretty">{{ al.title }}</span>
+              </span>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true" style="flex:none;margin:2px 4px 0;color:var(--muted);transform:rotate({{ al.rot }})"><path d="M6 9l6 6 6-6"></path></svg>
+            </button>
+            <sc-if value="{{ al.open }}" hint-placeholder-val="{{ false }}">
+              <div id="{{ al.panelId }}" style="padding:0 14px 12px 42px;font-size:15px;text-wrap:pretty">{{ al.body }}<div style="margin-top:6px;font-size:13px;color:var(--muted)">{{ al.meta }}</div></div>
+            </sc-if>
+          </div>
+        </sc-for>
+      </section>
+    </sc-if>
+
+    <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+      <div role="status" style="display:flex;flex-direction:column;gap:14px">
+        <div style="font-size:15px;color:var(--muted)">Getting live predictions…</div>
+        <div style="position:relative;border:1px solid var(--divider);padding:14px;display:flex;flex-direction:column;gap:12px">
+          <div style="width:60%;height:22px;background:var(--surface)"></div>
+          <div style="display:grid;grid-template-columns:56px 1fr;gap:12px"><div style="height:44px;background:var(--surface)"></div><div style="display:flex;flex-direction:column;gap:8px"><div style="height:14px;width:80%;background:var(--surface)"></div><div style="height:14px;width:55%;background:var(--surface)"></div></div></div>
+          <div style="display:grid;grid-template-columns:56px 1fr;gap:12px"><div style="height:44px;background:var(--surface)"></div><div style="display:flex;flex-direction:column;gap:8px"><div style="height:14px;width:70%;background:var(--surface)"></div><div style="height:14px;width:45%;background:var(--surface)"></div></div></div>
+        </div>
+        <div style="position:relative;border:1px solid var(--divider);padding:14px;display:flex;flex-direction:column;gap:12px">
+          <div style="width:50%;height:22px;background:var(--surface)"></div>
+          <div style="display:grid;grid-template-columns:56px 1fr;gap:12px"><div style="height:44px;background:var(--surface)"></div><div style="display:flex;flex-direction:column;gap:8px"><div style="height:14px;width:75%;background:var(--surface)"></div><div style="height:14px;width:50%;background:var(--surface)"></div></div></div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ notLoading }}" hint-placeholder-val="{{ true }}">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:20px 28px;align-items:start">
+      <sc-for list="{{ groups }}" as="g" hint-placeholder-count="1">
+        <section style="display:flex;flex-direction:column;gap:14px;margin-top:8px">
+          <div>
+            <sc-if value="{{ g.kicker }}" hint-placeholder-val="{{ false }}"><div style="font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)">{{ g.kicker }}</div></sc-if>
+            <h2 style="margin:0;font-size:18px;font-weight:700;display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px">
+              <span style="display:inline-flex;align-items:center;gap:4px;padding:0 7px 0 5px;background:{{ g.color }};color:{{ g.fg }}"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="flex:none"><g transform="{{ g.ic.tf }}"><sc-for list="{{ g.ic.parts }}" as="p" hint-placeholder-count="3"><path d="{{ p.d }}" fill="{{ p.fill }}" stroke="{{ p.stroke }}" stroke-width="{{ p.sw }}" fill-rule="evenodd" stroke-linecap="round" stroke-linejoin="round"></path></sc-for></g></svg>{{ g.route }}</span>
+              <span>at {{ g.stop }}</span>
+            </h2>
+            <div style="font-size:14px;color:var(--muted);margin-top:2px">{{ g.agency }} stop {{ g.code }} · {{ g.toward }}</div>
+          </div>
+
+          <sc-if value="{{ g.empty }}" hint-placeholder-val="{{ false }}">
+            <div style="position:relative;border:1.5px solid var(--line);padding:16px;display:flex;flex-direction:column;gap:6px">
+              <div style="font-size:18px;font-weight:700;text-wrap:pretty">No {{ g.firstLabel }} connects to the {{ g.route }} within {{ windowText }}</div>
+              <div style="font-size:15px;color:var(--muted);text-wrap:pretty">{{ g.emptyHint }}</div>
+              <sc-if value="{{ g.widen }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ g.widen }}" style="margin-top:8px;min-height:52px;border:1px solid var(--primary);background:var(--primary);color:var(--on-primary);font:inherit;font-size:17px;font-weight:700;cursor:pointer">Widen to {{ g.widenText }}</button>
+              </sc-if>
+            </div>
+          </sc-if>
+
+          <sc-for list="{{ g.cards }}" as="c" hint-placeholder-count="2">
+            <div>
+            <sc-if value="{{ c.canceled }}" hint-placeholder-val="{{ false }}">
+              <div style="border:1px dashed var(--late);padding:12px 14px;display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 10px">
+                <span style="display:inline-flex;align-items:center;gap:4px;padding:0 7px 0 5px;font-weight:700;background:{{ c.color }};color:{{ c.fg }}"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" style="flex:none"><g transform="{{ c.ic.tf }}"><sc-for list="{{ c.ic.parts }}" as="p" hint-placeholder-count="3"><path d="{{ p.d }}" fill="{{ p.fill }}" stroke="{{ p.stroke }}" stroke-width="{{ p.sw }}" fill-rule="evenodd" stroke-linecap="round" stroke-linejoin="round"></path></sc-for></g></svg>{{ c.route }}</span>
+                <span style="font-size:19px;font-weight:700;text-decoration:line-through;color:var(--muted)">{{ c.time }}</span>
+                <span style="padding:1px 8px;font-size:14px;font-weight:700;background:var(--late-tint);color:var(--late)">Canceled</span>
+                <span style="flex-basis:100%;font-size:14px;color:var(--muted)">{{ c.cancelNote }}</span>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ c.isA }}" hint-placeholder-val="{{ true }}">
+              <article aria-label="{{ c.aria }}" style="position:relative;border:1.5px solid var(--line)">
+                <h3 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;margin:0">{{ c.aria }}</h3>
+                <div aria-hidden="true" style="display:flex;gap:12px;align-items:flex-start;padding:12px 14px;background:var(--field);color:var(--on-field)">
+                  <div style="flex:1;min-width:0">
+                    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px">
+                      <span style="display:inline-flex;align-items:center;gap:4px;padding:1px 7px 1px 5px;font-size:17px;font-weight:800;background:{{ c.color }};color:{{ c.fg }}"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="flex:none"><g transform="{{ c.ic.tf }}"><sc-for list="{{ c.ic.parts }}" as="p" hint-placeholder-count="3"><path d="{{ p.d }}" fill="{{ p.fill }}" stroke="{{ p.stroke }}" stroke-width="{{ p.sw }}" fill-rule="evenodd" stroke-linecap="round" stroke-linejoin="round"></path></sc-for></g></svg>{{ c.route }}</span>
+                      <sc-if value="{{ c.schedOnly }}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true" style="color:var(--on-field-muted)"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg></sc-if>
+                      <span style="font-size:21px;font-weight:800">{{ c.time }}</span>
+                      <span style="padding:0 7px;font-size:14px;font-weight:800;color:{{ c.st.bandColor }};background:{{ c.st.bandBg }};border:1px {{ c.st.bstyle }} {{ c.st.bandBorder }}">{{ c.st.label }}</span>
+                    </div>
+                    <div style="font-size:14px;color:var(--on-field-muted);margin-top:4px">{{ c.sub }}</div>
+                  </div>
+                  <div style="text-align:right;flex:none">
+                    <div style="font-size:21px;font-weight:800">{{ c.inText }}</div>
+                    <div style="font-size:13px;color:var(--on-field-muted)">{{ c.inLabel }}</div>
+                  </div>
+                </div>
+                <sc-if value="{{ c.showStrip }}" hint-placeholder-val="{{ false }}">
+                  <div aria-hidden="true" style="position:relative;height:18px;margin:8px 14px 0 106px;font-size:12px;color:var(--muted)">
+                    <sc-for list="{{ ticks }}" as="tk" hint-placeholder-count="4">
+                      <span style="position:absolute;left:{{ tk.left }};top:0;padding-left:3px;border-left:1px solid var(--divider);height:14px;line-height:14px">{{ tk.label }}</span>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <div role="list" aria-label="Connecting vehicles">
+                <sc-for list="{{ c.trains }}" as="t" hint-placeholder-count="1">
+                  <div role="listitem" style="position:relative;display:grid;grid-template-columns:80px minmax(0,1fr) auto;gap:12px;align-items:start;padding:12px 14px;border-top:1px solid var(--divider)">
+                    <span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap">{{ t.aria }}</span>
+                    <div aria-hidden="true">
+                      <div style="font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;white-space:nowrap;color:var(--muted)">{{ t.leaveLead }}</div>
+                      <div style="font-size:38px;font-weight:800;line-height:1;letter-spacing:-0.02em">{{ t.leaveNum }}</div>
+                      <div style="font-size:14px;font-weight:600">{{ t.leaveUnit }}</div>
+                    </div>
+                    <div aria-hidden="true" style="min-width:0;padding-top:2px">
+                      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;font-size:17px;font-weight:700"><span style="display:inline-flex;align-items:center;gap:3px;padding:0 6px 0 4px;background:{{ t.color }};color:{{ t.fg }}"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" style="flex:none"><g transform="{{ t.ic.tf }}"><sc-for list="{{ t.ic.parts }}" as="p" hint-placeholder-count="3"><path d="{{ p.d }}" fill="{{ p.fill }}" stroke="{{ p.stroke }}" stroke-width="{{ p.sw }}" fill-rule="evenodd" stroke-linecap="round" stroke-linejoin="round"></path></sc-for></g></svg>{{ t.lineName }}</span><span>{{ t.time }}</span></div>
+                      <div style="font-size:14px;font-weight:650;color:{{ t.st.color }}">{{ t.st.label }}</div>
+                      <div style="font-size:14px;color:var(--muted)">Off at {{ t.arrStop }} {{ t.arrTime }}</div>
+                    </div>
+                    <div aria-hidden="true" style="text-align:right;padding-top:2px">
+                      <div style="font-size:20px;font-weight:800;color:{{ t.xferColor }}">{{ t.xfer }}</div>
+                      <div style="font-size:13px;color:var(--muted)">transfer</div>
+                      <sc-if value="{{ t.tight }}" hint-placeholder-val="{{ false }}"><div style="display:inline-block;margin-top:4px;padding:0 6px;font-size:12px;font-weight:800;letter-spacing:0.08em;background:var(--late-tint);color:var(--late)">TIGHT</div></sc-if>
+                    </div>
+                    <sc-if value="{{ t.showStrip }}" hint-placeholder-val="{{ false }}">
+                      <div aria-hidden="true" style="grid-column:2 / -1;position:relative;height:14px;margin-top:-2px">
+                        <div style="position:absolute;left:0;right:0;top:6px;border-top:1px dotted var(--line)"></div>
+                        <div style="position:absolute;top:0;height:14px;left:{{ t.s.rideL }};width:{{ t.s.rideW }};background:var(--text)"></div>
+                        <div style="position:absolute;top:0;height:14px;box-sizing:border-box;left:{{ t.s.gapL }};width:{{ t.s.gapW }};border:2px solid {{ t.xferColor }};background:{{ t.s.gapBg }}"></div>
+                        <div style="position:absolute;top:0;height:14px;left:{{ t.s.busL }};width:{{ t.s.busW }};background:{{ t.busColor }}"></div>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-for>
+                </div>
+              </article>
+            </sc-if>
+
+                        </div>
+          </sc-for>
+        </section>
+      </sc-for>
+      </div>
+    </sc-if>
+
+    <footer style="margin-top:12px;padding-top:12px;border-top:1px solid var(--divider);font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 14px">
+      <span>Data provided by <a href="https://511.org" target="_blank" rel="noopener">511.org</a></span>
+      <span>BART data courtesy of <a href="https://www.bart.gov" target="_blank" rel="noopener">BART</a></span>
+    </footer>
+  </main>
+</div>
+<nav aria-label="Trip controls" style="flex:none;border-top:1px solid var(--line);background:var(--bg);padding:8px 12px">
+  <div style="max-width:560px;margin:0 auto;display:flex;gap:8px">
+    <button onClick="{{ openWindow }}" style="flex:1;min-height:52px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 14px;border:1.5px solid var(--line);background:transparent;color:var(--text);font:inherit;cursor:pointer">
+      <span style="font-size:14px;color:var(--muted)">Transfer window</span>
+      <span style="font-size:18px;font-weight:700">{{ windowText }}</span>
+    </button>
+    <button onClick="{{ openSettings }}" aria-label="Trip settings" style="width:52px;min-height:52px;flex:none;border:1.5px solid var(--line);background:transparent;color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"></path><circle cx="15" cy="7" r="2"></circle><circle cx="9" cy="17" r="2"></circle></svg>
+    </button>
+  </div>
+</nav>
+</sc-if>
+
+<sc-if value="{{ sheetOpen }}" hint-placeholder-val="{{ false }}">
+  <div style="position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;justify-content:flex-end">
+    <div onClick="{{ closeSheet }}" aria-hidden="true" style="position:absolute;inset:0;background:var(--scrim)"></div>
+    <div role="dialog" aria-modal="true" aria-label="{{ sheetTitle }}" tabIndex="-1" ref="{{ sheetRef }}" onKeyDown="{{ onSheetKey }}" style="position:relative;outline:none;background:var(--bg);border-top:1px solid var(--line);max-height:90%;overflow-y:auto;padding:4px 16px 16px">
+      <div style="max-width:560px;margin:0 auto">
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 0">
+          <h2 style="flex:1;margin:0;font-size:19px;font-weight:700">{{ sheetTitle }}</h2>
+          <button onClick="{{ closeSheet }}" aria-label="Close" style="width:44px;height:44px;border:0;background:transparent;color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+        </div>
+        <div style="font-size:14px;color:var(--muted);margin-bottom:4px">{{ sheetSub }}</div>
+        <sc-for list="{{ steppers }}" as="sp" hint-placeholder-count="2">
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--divider)">
+            <div style="flex:1;min-width:0"><div style="font-size:16px;font-weight:650">{{ sp.label }}</div><div style="font-size:14px;color:var(--muted)">{{ sp.help }}</div></div>
+            <div style="display:flex;align-items:center;border:1.5px solid var(--line);flex:none">
+              <button onClick="{{ sp.dec }}" disabled="{{ sp.decDis }}" aria-label="Less: {{ sp.label }}" style="width:48px;height:48px;border:0;background:transparent;color:var(--text);font:inherit;font-size:22px;cursor:pointer;opacity:{{ sp.decOp }}">−</button>
+              <output aria-live="polite" style="min-width:68px;text-align:center;font-size:18px;font-weight:700;border-left:1px solid var(--divider);border-right:1px solid var(--divider);line-height:48px">{{ sp.value }} min</output>
+              <button onClick="{{ sp.inc }}" aria-label="More: {{ sp.label }}" style="width:48px;height:48px;border:0;background:transparent;color:var(--text);font:inherit;font-size:22px;cursor:pointer">+</button>
+            </div>
+          </div>
+        </sc-for>
+        <sc-if value="{{ isSettingsSheet }}" hint-placeholder-val="{{ false }}">
+          <label style="display:block;padding:12px 0;border-bottom:1px solid var(--divider)">
+            <span style="display:block;font-size:16px;font-weight:650">Destination stop on the {{ chain.to }}</span>
+            <span style="display:block;font-size:14px;color:var(--muted);margin-bottom:8px">Shows when each departure gets you there</span>
+            <select value="{{ destValue }}" onChange="{{ onDest }}" style="width:100%;min-height:48px;font:inherit;font-size:16px;color:var(--text);background:var(--bg);border:1.5px solid var(--line);padding:0 10px">
+              <sc-for list="{{ destOptions }}" as="o" hint-placeholder-count="2"><option value="{{ o.v }}">{{ o.l }}</option></sc-for>
+            </select>
+          </label>
+          <div style="padding:12px 0;border-bottom:1px solid var(--divider)">
+            <div style="font-size:16px;font-weight:650">Routes on the first leg</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
+              <sc-for list="{{ leg1Chips }}" as="ch" hint-placeholder-count="4">
+                <button onClick="{{ ch.toggle }}" aria-pressed="{{ ch.pressed }}" style="min-height:44px;padding:0 14px;display:inline-flex;align-items:center;gap:8px;font:inherit;font-size:15px;font-weight:650;cursor:pointer;border:1px solid {{ ch.border }};background:{{ ch.bg }};color:{{ ch.fg }}"><span style="width:9px;height:9px;background:{{ ch.color }}"></span>{{ ch.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+          <div style="padding:12px 0">
+            <div style="font-size:16px;font-weight:650">Routes on the second leg</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
+              <sc-for list="{{ leg2Chips }}" as="ch" hint-placeholder-count="1">
+                <button onClick="{{ ch.toggle }}" aria-pressed="{{ ch.pressed }}" style="min-height:44px;padding:0 14px;display:inline-flex;align-items:center;gap:8px;font:inherit;font-size:15px;font-weight:650;cursor:pointer;border:1px solid {{ ch.border }};background:{{ ch.bg }};color:{{ ch.fg }}"><span style="width:9px;height:9px;background:{{ ch.color }}"></span>{{ ch.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ isWindowSheet }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ openSettings }}" style="margin-top:4px;min-height:48px;padding:0;border:0;background:transparent;color:var(--accent-ink);font:inherit;font-size:16px;font-weight:650;cursor:pointer;text-decoration:underline;text-underline-offset:3px">All trip settings</button>
+        </sc-if>
+        <button onClick="{{ closeSheet }}" style="display:block;width:100%;margin-top:12px;min-height:52px;border:1px solid var(--primary);background:var(--primary);color:var(--on-primary);font:inherit;font-size:17px;font-weight:700;cursor:pointer">Done</button>
+        <div style="text-align:center;font-size:13px;color:var(--muted);margin-top:8px">Saved with “{{ tripName }}”</div>
+      </div>
+    </div>
+  </div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;auto&quot;,&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;auto&quot;,&quot;tsType&quot;:&quot;'auto'|'light'|'dark'&quot;},&quot;preset&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;live&quot;,&quot;loading&quot;,&quot;refreshing&quot;,&quot;offline&quot;,&quot;empty&quot;,&quot;route&quot;,&quot;scheduled&quot;,&quot;outage&quot;,&quot;alerts&quot;,&quot;typing&quot;],&quot;default&quot;:&quot;live&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;search&quot;,&quot;results&quot;],&quot;default&quot;:&quot;results&quot;,&quot;tsType&quot;:&quot;'search'|'results'&quot;},&quot;sheet&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;window&quot;,&quot;settings&quot;],&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;framed&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const T = (h, m) => h * 60 + m;
+    const MUNI = '#bf2b45';
+    this.D = {
+      now: T(16, 34),
+      trips: {
+        work: {
+          name: 'Work to home', fromShort: 'Montgomery', via: '24th St Mission', to: '48', toColor: MUNI,
+          alight: '24th St Mission', firstWord: 'train',
+          firsts: [
+            { id: 't1', agency: 'BART', line: 'Yellow', color: '#f2c500', dest: 'SFO', sched: T(16, 38), delay: 1, ride: 8 },
+            { id: 't2', agency: 'BART', line: 'Green', color: '#4db848', dest: 'Daly City', sched: T(16, 44), delay: 0, ride: 8 },
+            { id: 't3', agency: 'BART', line: 'Red', color: '#e2231a', dest: 'Millbrae', sched: T(16, 47), delay: 0, ride: 8 },
+            { id: 't4', agency: 'BART', line: 'Blue', color: '#0099d8', dest: 'Daly City', sched: T(16, 50), delay: 0, ride: 8 },
+            { id: 't5', agency: 'BART', line: 'Yellow', color: '#f2c500', dest: 'SFO', sched: T(17, 2), delay: 0, ride: 8 },
+            { id: 't6', agency: 'BART', line: 'Green', color: '#4db848', dest: 'Daly City', sched: T(17, 5), delay: 0, ride: 8 }
+          ],
+          groups: [{ id: 'g48', route: '48', agency: 'Muni', color: MUNI, stop: '24th St & Mission St', code: '13477', toward: 'Eastbound, toward 22nd St & Iowa St', destRide: 12,
+            seconds: [{ sched: T(16, 43), delay: 7 }, { sched: T(17, 7), delay: 0 }, { sched: T(17, 22), delay: -2 }, { sched: T(17, 37), delay: 0 }] }],
+          destOptions: [{ v: 'none', l: 'None' }, { v: 'home', l: 'Home · 24th St & Potrero Ave (13510)', short: 'Home' }],
+          alerts: [
+            { id: 'a1', sev: 'severe', kicker: 'Your boarding stop', title: '48 STOP TEMP. MOVED, board at 24th & Capp', body: 'Stop 13477 at 24th St & Mission St is closed for sidewalk work. Board eastbound 48 buses at the temporary pole on 24th St at Capp St, half a block east.', meta: 'Muni · Until Oct 18' },
+            { id: 'a2', sev: 'warning', kicker: 'Station access · 24th St Mission', title: 'Elevator out of service at 24th St Mission', body: 'The street elevator on the northeast plaza is out of service. Use the southwest plaza elevator at 24th St & Mission St.', meta: 'BART · Posted 3:52 PM' }
+          ],
+          extraAlerts: [
+            { id: 'a3', sev: 'warning', kicker: 'Reroute · 48', title: '48 detour on 24th St east of Potrero Ave', body: 'Eastbound buses run via 23rd St between Potrero Ave and Utah St for a street fair. Your transfer stop is not affected.', meta: 'Muni · 10 AM to 7 PM today' },
+            { id: 'a4', sev: 'info', kicker: 'Notice · Montgomery St', title: 'Market St entrance escalator work tonight', body: 'The escalator at the Market St & New Montgomery entrance will be off from 9 PM to 5 AM. Stairs stay open.', meta: 'BART · Tonight' }
+          ]
+        },
+        route: {
+          name: 'Climbing gym', fromShort: '26th & De Haro', via: 'Rhode Island & 16th', to: '22', toColor: MUNI,
+          alight: 'Rhode Island & 16th', firstWord: '19',
+          firsts: [
+            { id: 'n1', agency: 'Muni', line: '19 Polk', color: MUNI, dest: 'Fisherman’s Wharf', sched: T(16, 37), delay: 2, ride: 7 },
+            { id: 'n2', agency: 'Muni', line: '19 Polk', color: MUNI, dest: 'Fisherman’s Wharf', sched: T(16, 52), delay: 0, ride: 7 },
+            { id: 'n3', agency: 'Muni', line: '19 Polk', color: MUNI, dest: 'Fisherman’s Wharf', sched: T(17, 7), delay: null, ride: 7 }
+          ],
+          groups: [
+            { id: 'gf', kicker: 'Transfer point 1 of 2', route: '22', agency: 'Muni', color: MUNI, stop: '16th St & Rhode Island St', code: '13322', toward: 'Westbound, toward Fillmore', destRide: 0,
+              seconds: [{ sched: T(16, 50), delay: 0 }, { sched: T(17, 2), delay: 1 }, { sched: T(17, 12), delay: 0 }, { sched: T(17, 22), delay: 0 }] },
+            { id: 'gm', kicker: 'Transfer point 2 of 2', route: '22', agency: 'Muni', color: MUNI, stop: '16th St & Rhode Island St', code: '13323', toward: 'Eastbound, toward UCSF Mission Bay', destRide: 0,
+              seconds: [{ sched: T(16, 51), canceled: true }, { sched: T(16, 55), delay: -1 }, { sched: T(17, 8), delay: 3 }, { sched: T(17, 20), delay: 0 }] }
+          ],
+          destOptions: [{ v: 'none', l: 'None' }],
+          alerts: [{ id: 'r1', sev: 'warning', kicker: 'Reroute · 22', title: '22 reroute: detour via 17th St', body: 'Buses toward Fillmore detour via 17th St between Kansas St and De Haro St. Your transfer stop at 16th St & Rhode Island St is still served.', meta: 'Muni · Until 8 PM' }],
+          extraAlerts: []
+        },
+        samtrans: {
+          name: 'Montgomery St → SamTrans 120', fromShort: 'Montgomery', via: 'Daly City', to: 'SamTrans 120', toColor: '#0f75bc',
+          alight: 'Daly City', firstWord: 'train',
+          firsts: [
+            { id: 's1', agency: 'BART', line: 'Green', color: '#4db848', dest: 'Daly City', sched: T(16, 41), delay: 0, ride: 16 },
+            { id: 's2', agency: 'BART', line: 'Blue', color: '#0099d8', dest: 'Daly City', sched: T(16, 47), delay: 0, ride: 16 },
+            { id: 's3', agency: 'BART', line: 'Green', color: '#4db848', dest: 'Daly City', sched: T(17, 14), delay: 0, ride: 16 },
+            { id: 's4', agency: 'BART', line: 'Green', color: '#4db848', dest: 'Daly City', sched: T(17, 41), delay: 0, ride: 16 },
+            { id: 's5', agency: 'BART', line: 'Blue', color: '#0099d8', dest: 'Daly City', sched: T(17, 44), delay: 0, ride: 16 }
+          ],
+          groups: [{ id: 'g120', route: '120', agency: 'SamTrans', color: '#0f75bc', stop: 'Daly City BART, Bay 3', code: '356005', toward: 'Southbound, toward Colma BART', destRide: 0,
+            seconds: [{ sched: T(17, 5), delay: 1 }, { sched: T(17, 35), schedOnly: true }, { sched: T(18, 5), schedOnly: true }] }],
+          destOptions: [{ v: 'none', l: 'None' }],
+          alerts: [{ id: 'x1', sev: 'info', kicker: 'Notice · Daly City BART', title: 'Bay 3 shelter work through Oct 10', body: 'The shelter at Bay 3 is being replaced. Buses still stop at Bay 3; wait at the marked temporary pole.', meta: 'SamTrans · Through Oct 10' }],
+          extraAlerts: []
+        }
+      },
+      stops: [
+        { id: 'mont-s', name: 'Montgomery St', agency: 'BART', code: '', codeLabel: 'Station', dir: 'Platform 2, toward Daly City, SFO, Millbrae', chips: [['SFO', '#f2c500'], ['Millbrae', '#e2231a'], ['Daly City', '#4db848'], ['Daly City', '#0099d8']] },
+        { id: 'mont-n', name: 'Montgomery St', agency: 'BART', code: '', codeLabel: 'Station', dir: 'Platform 1, toward Antioch, Richmond, Berryessa, Dublin', chips: [['Antioch', '#f2c500'], ['Richmond', '#e2231a'], ['Berryessa', '#4db848'], ['Dublin', '#0099d8']] },
+        { id: 'mont-m', name: 'Montgomery St', agency: 'Muni Metro', code: '16994', dir: 'Outbound, toward West Portal', chips: [['J', '#faa634'], ['K', '#569bbe'], ['L', '#92278f'], ['M', '#008752'], ['N', '#00539b']] },
+        { id: '13477', name: '24th St & Mission St', agency: 'Muni', code: '13477', dir: 'Eastbound, toward 22nd St & Iowa St', chips: [['48', MUNI]] },
+        { id: '13476', name: '24th St & Mission St', agency: 'Muni', code: '13476', dir: 'Westbound, toward 48th Ave & Quintara St', chips: [['48', MUNI], ['67', MUNI]] },
+        { id: '15553', name: 'Mission St & 24th St', agency: 'Muni', code: '15553', dir: 'Northbound, toward Downtown', chips: [['14', MUNI], ['14R', MUNI], ['49', MUNI]] },
+        { id: '15552', name: 'Mission St & 24th St', agency: 'Muni', code: '15552', dir: 'Southbound, toward Daly City', chips: [['14', MUNI], ['14R', MUNI], ['49', MUNI]] },
+        { id: '2416', name: '24th St Mission', agency: 'BART', code: '', codeLabel: 'Station', dir: 'Platform 2, toward Daly City, SFO, Millbrae', chips: [['SFO', '#f2c500'], ['Millbrae', '#e2231a'], ['Daly City', '#4db848'], ['Daly City', '#0099d8']] },
+        { id: '13516', name: '26th St & De Haro St', agency: 'Muni', code: '13516', dir: 'Northbound, toward Fisherman’s Wharf', chips: [['19', MUNI]] }
+      ],
+      routes: [
+        { id: 'r22', name: '22 Fillmore', agency: 'Muni', dir: 'Route · Fillmore ↔ UCSF Mission Bay', chips: [['22', MUNI]], trip: 'route' },
+        { id: 'r48', name: '48 Quintara/24th St', agency: 'Muni', dir: 'Route · West Portal ↔ 22nd St & Iowa St', chips: [['48', MUNI]], trip: 'work' },
+        { id: 'r19', name: '19 Polk', agency: 'Muni', dir: 'Route · Hunters Point ↔ Fisherman’s Wharf', chips: [['19', MUNI]], trip: 'route' },
+        { id: 'r120', name: '120', agency: 'SamTrans', dir: 'Route · Daly City BART ↔ Colma BART', chips: [['120', '#0f75bc']], trip: 'samtrans' },
+        { id: 'r101', name: '101', agency: 'Golden Gate Transit', dir: 'Route · San Francisco ↔ Santa Rosa', chips: [['101', '#d12d33']], trip: 'work' }
+      ]
+    };
+    const p = props.preset || 'live';
+    const tripId = p === 'route' ? 'route' : p === 'scheduled' ? 'samtrans' : 'work';
+    const settings = {
+      work: { min: 3, max: 12, hide: 2, dest: 'home', off: {}, offB: {} },
+      route: { min: 3, max: 12, hide: 0, dest: 'none', off: {}, offB: {} },
+      samtrans: { min: 3, max: 12, hide: 2, dest: 'none', off: {}, offB: {} }
+    };
+    if (p === 'empty') { settings.work.min = 4; settings.work.max = 6; }
+    const typing = p === 'typing';
+    this.state = {
+      screen: props.screen || 'results', tripId, settings, elapsed: 0, flash: -99,
+      lastRefresh: p === 'offline' ? -184 : -12,
+      offline: p === 'offline', loading: p === 'loading', refreshing: p === 'refreshing',
+      outage: p === 'outage', allAlerts: p === 'alerts',
+      openAlerts: p === 'alerts' ? { a1: 1, a2: 1, a3: 1, a4: 1 } : { a1: 1 },
+      sheet: props.sheet || 'none',
+      fromQ: typing ? 'Montgomery St' : '', toQ: typing ? '24th' : '', focus: typing ? 'to' : null,
+      fromSel: typing ? this.D.stops[0] : null, toSel: null,
+      saved: [{ id: 'v1', name: 'Work to home', tripId: 'work' }, { id: 'v2', name: 'Climbing gym', tripId: 'route' }],
+      recent: [
+        { id: 'c1', label: 'Montgomery St → SamTrans 120', sub: 'via Daly City · Yesterday', tripId: 'samtrans' },
+        { id: 'c2', label: '26th St & De Haro St → 22', sub: '2 transfer points · Monday', tripId: 'route' }
+      ],
+      renaming: null, renameVal: '', cached: { work: true }
+    };
+    this.recolor();
+  }
+
+  // Bus routes have no official per-route color. Muni Rapid ("R") routes use Muni red as on the SFMTA map;
+  // every other bus route gets a stable hue from a matched-lightness palette, keyed on its number.
+  PAL = ['#00858a', '#2b6fa8', '#4c55a8', '#2e8350', '#6f8226', '#b8602a', '#9a3b6d', '#7a5f45'];
+  busColor(agency, label, color) {
+    if (agency === 'BART' || agency === 'Muni Metro' || /^[JKLMNSTEF]$/.test(label)) return color;
+    if (/^\d+R$/.test(label)) return '#c4122f';
+    const n = parseInt(label, 10);
+    return this.PAL[(isNaN(n) ? label.length : n) % this.PAL.length];
+  }
+  recolor() {
+    const D = this.D;
+    Object.values(D.trips).forEach(t => {
+      t.firsts.forEach(f => { if (f.agency !== 'BART') f.color = this.busColor(f.agency, f.line.split(' ')[0], f.color); });
+      t.groups.forEach(g => { g.color = this.busColor(g.agency, g.route, g.color); });
+      t.toColor = t.groups[0].color;
+    });
+    D.stops.concat(D.routes).forEach(r => { r.chips = r.chips.map(c => [c[0], this.busColor(r.agency, c[0], c[1])]); });
+  }
+
+  R(x, y, w, h, r) { r = Math.min(r, w / 2, h / 2); return `M${x + r} ${y}H${x + w - r}A${r} ${r} 0 0 1 ${x + w} ${y + r}V${y + h - r}A${r} ${r} 0 0 1 ${x + w - r} ${y + h}H${x + r}A${r} ${r} 0 0 1 ${x} ${y + h - r}V${y + r}A${r} ${r} 0 0 1 ${x + r} ${y}Z`; }
+  RT(x, y, w, h, r) { return `M${x} ${y + h}V${y + r}A${r} ${r} 0 0 1 ${x + r} ${y}H${x + w - r}A${r} ${r} 0 0 1 ${x + w} ${y + r}V${y + h}Z`; }
+  RB(x, y, w, h, r) { return `M${x} ${y}H${x + w}V${y + h - r}A${r} ${r} 0 0 1 ${x + w - r} ${y + h}H${x + r}A${r} ${r} 0 0 1 ${x} ${y + h - r}Z`; }
+  C(cx, cy, r) { return `M${cx - r} ${cy}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0 ${-2 * r} 0Z`; }
+
+  // Gerbil head in profile facing right, drawn in a 10×8 box: domed crown, big round ear, long tapering snout, eye cut out.
+  gerbil(s, tx, ty) {
+    const P = ([x, y]) => (tx + x * s).toFixed(2) + ' ' + (ty + y * s).toFixed(2);
+    const segs = [
+      ['M', [0.6, 8]], ['C', [0.2, 5.5], [0.8, 3], [2.3, 2.1]], ['C', [2.2, 1], [2.7, 0.1], [3.5, 0.1]],
+      ['C', [4.3, 0.1], [4.6, 1], [4.4, 2]], ['C', [5.8, 2], [7.4, 3], [9.5, 4.8]], ['C', [10.1, 5.3], [9.9, 6], [9.2, 6]],
+      ['C', [7.8, 6.2], [6.3, 6.6], [5, 7.2]], ['C', [4.4, 7.5], [4, 7.8], [3.8, 8]]
+    ];
+    return segs.map(([c, ...pts]) => c + pts.map(P).join(' ')).join('') + 'Z' + this.C(+(tx + 6.2 * s).toFixed(2), +(ty + 3.9 * s).toFixed(2), +(0.6 * s).toFixed(2));
+  }
+  // Consistency rules: every cab window is 5.2×4.2 (r 0.8); the gerbil is always scale 0.4, sits on the window's bottom edge
+  // with a 0.5 gap to the front edge and ~1 above; rail-vehicle wheels all bottom out at y 19 above a rail at y 20.3.
+  geo2(mode) {
+    const R = this.R.bind(this), C = this.C.bind(this), rail = 'M1.5 19.6H22.5', down = 'translate(0 0.2)', W = (x, y) => R(x, y, 5.2, 4.2, 0.8), G = 0.4;
+    const drv = (x, bottom) => [G, x + 5.2 - 0.5 - 10.05 * G, bottom];
+    switch (mode) {
+      case 'bus': return { pieces: [{ d: R(1.5, 3.5, 21, 13.5, 2.6), holes: [R(3.5, 6.8, 10.5, 4.2, 0.8), W(15.8, 6.8)] }], wheels: [C(6.5, 17.5, 2.1), C(17.5, 17.5, 2.1)], strokes: [], drv: drv(15.8, 11) };
+      case 'lrv': return { tf: down, pieces: [{ d: R(1.5, 5, 21, 12, 3.2), holes: [R(3.5, 7.5, 11, 4.2, 0.8), W(15.3, 7.5)] }, { d: this.RT(10, 4.2, 4.9, 1.2, 0.4), holes: [] }], wheels: [C(5.5, 17.5, 1.5), C(9, 17.5, 1.5), C(15, 17.5, 1.5), C(18.5, 17.5, 1.5)], strokes: [['M13.75 4.83L8.6 2.9L12.6 1.5', 1.2], ['M10.6 1.5H14.6', 1.3], rail], drv: drv(15.3, 11.7) };
+      case 'streetcar': return { tf: down, pieces: [{ d: R(2, 5.5, 20, 11.5, 4), holes: [R(4, 8, 3, 4.2, 0.8), R(7.8, 8, 3, 4.2, 0.8), R(11.6, 8, 3, 4.2, 0.8), W(15.9, 8)] }, { d: this.RT(13.2, 4.6, 3.6, 1.3, 0.4), holes: [] }], wheels: [C(7, 17.3, 1.7), C(17, 17.3, 1.7)], strokes: ['M15.56 5.4L6.4 1.6', 'M5.4 1.6H7.6', rail], drv: drv(15.9, 12.2) };
+      case 'cable': return { tf: 'translate(0.36 0) ' + down + ' rotate(-9 12 14)', pieces: [{ d: this.RT(6, 2.8, 12, 2.6, 0.6), holes: [] }, { d: R(1.5, 5, 21, 2.4, 0.7), holes: [] }, { d: this.RB(3.5, 7, 17, 10, 0.9), holes: [R(4.8, 8.3, 2.6, 4.2, 0.8), R(8.1, 8.3, 2.6, 4.2, 0.8), R(11.4, 8.3, 2.6, 4.2, 0.8), W(14.6, 8.3)] }], wheels: [C(7.5, 17.3, 1.7), C(16.5, 17.3, 1.7)], strokes: ['M2.5 19.6H21.5'], drv: drv(14.6, 12.5) };
+      case 'bart': return { tf: down, pieces: [{ d: 'M1.5 16.2V8Q1.5 5.5 4 5.5H15.5Q17.2 5.5 18.3 6.9L22.2 12.3Q22.5 12.8 22.5 13.6V16.2Q22.5 17 21.7 17H2.3Q1.5 17 1.5 16.2Z', holes: [R(3.5, 8, 10, 4.2, 0.8), 'M15.8 7.6H17.1Q17.5 7.6 17.75 7.95L20.35 11.5Q20.7 12.2 19.9 12.2H15.8Q15 12.2 15 11.4V8.4Q15 7.6 15.8 7.6Z'] }], wheels: [C(5, 17.5, 1.5), C(8.2, 17.5, 1.5), C(14.8, 17.5, 1.5), C(18, 17.5, 1.5)], strokes: [rail], drv: [G, 15.5, 12.2] };
+      case 'ferry': return { pieces: [{ d: 'M1.5 13.5H22.5L20.55 17.48Q20.2 18.2 19.4 18.2H4.6Q3.8 18.2 3.45 17.48Z', holes: [] }, { d: this.RT(4.5, 9, 14, 4.9, 0.8), holes: [R(5.8, 10, 2.2, 2, 0.4), R(9, 10, 2.2, 2, 0.4), R(12.2, 10, 2.2, 2, 0.4), R(15.4, 10, 2.2, 2, 0.4)] }, { d: this.RT(8, 4.7, 7.5, 4.7, 0.8), holes: [R(11, 5.4, 3.8, 3.2, 0.5)] }, { d: this.RT(9.6, 2.3, 1.8, 2.8, 0.3), holes: [] }], wheels: [], strokes: ['M1.5 19.6q2.625-1.6 5.25 0t5.25 0t5.25 0t5.25 0'], drv: [0.36, 11.1, 8.6] };
+    }
+  }
+  icon2(mode) {
+    const g = this.geo2(mode), parts = [];
+    g.pieces.forEach(p => parts.push({ d: p.d + p.holes.join(''), fill: 'currentColor', stroke: 'none', sw: 0 }));
+    g.wheels.forEach(d => parts.push({ d, fill: 'currentColor', stroke: 'none', sw: 0 }));
+    g.strokes.forEach(s => { const [d, sw] = Array.isArray(s) ? s : [s, 1.6]; parts.push({ d, fill: 'none', stroke: 'currentColor', sw }); });
+    parts.push({ d: this.gerbil(g.drv[0], g.drv[1], g.drv[2] - 8 * g.drv[0]), fill: 'currentColor', stroke: 'none', sw: 0 });
+    return { tf: 'translate(12 12) scale(1.06) translate(-12 -10.75) ' + (g.tf || ''), parts };
+  }
+
+  modeFor(agency, label) {
+    if (agency === 'BART') return 'bart';
+    if (agency === 'Muni Metro' || /^[JKLMNST]$/.test(label)) return 'lrv';
+    if (/^[EF]$/.test(label)) return 'streetcar';
+    if (/^(PH|PM|C)$/.test(label)) return 'cable';
+    if (/Ferry/.test(agency)) return 'ferry';
+    return 'bus';
+  }
+  ic(agency, label) { const m = this.modeFor(agency, label); this._ic = this._ic || {}; return this._ic[m] || (this._ic[m] = this.icon2(m)); }
+
+  sheetRef = React.createRef();
+  // Focus moves into the sheet on open and back to the opener on close; done in the handlers, not lifecycle.
+  openSheet(name) {
+    if (this.state.sheet === 'none') this._ret = document.activeElement;
+    this.setState({ sheet: name }, () => requestAnimationFrame(() => this.sheetRef.current && this.sheetRef.current.focus()));
+  }
+  closeSheetFocus() {
+    const ret = this._ret; this._ret = null;
+    this.setState({ sheet: 'none' }, () => requestAnimationFrame(() => ret && ret.isConnected && ret.focus && ret.focus()));
+  }
+  onSheetKey = e => {
+    if (e.key === 'Escape') { e.preventDefault(); this.closeSheetFocus(); return; }
+    if (e.key !== 'Tab' || !this.sheetRef.current) return;
+    const f = [...this.sheetRef.current.querySelectorAll('button:not([disabled]),select,input,[href]')];
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && (document.activeElement === first || document.activeElement === this.sheetRef.current)) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  };
+
+  componentDidMount() {
+    this.timer = setInterval(() => this.setState(s => {
+      const e = s.elapsed + 1, u = { elapsed: e };
+      if (!s.offline && !s.loading && e - s.lastRefresh >= 30) { u.lastRefresh = e; u.flash = e; }
+      return u;
+    }), 1000);
+  }
+  componentWillUnmount() { clearInterval(this.timer); (this.tos || []).forEach(clearTimeout); }
+  later(fn, ms) { (this.tos = this.tos || []).push(setTimeout(fn, ms)); }
+
+  fg(hex) {
+    const n = parseInt(hex.slice(1), 16), ch = [n >> 16, (n >> 8) & 255, n & 255].map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+    const L = 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
+    return (L + 0.05) / 0.05 >= 1.05 / (L + 0.05) ? '#111214' : '#ffffff';
+  }
+  // BART line colors are fixed; other agencies' colors are arbitrary and yield on a clash.
+  // When both legs are arbitrary (bus to bus), the second leg yields.
+  res(color, fixed) {
+    const rgb = h => { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
+    const a = rgb(color);
+    const clash = c => { const x = rgb(c); return fixed.some(f => { const b = rgb(f); return Math.hypot(x[0] - b[0], x[1] - b[1], x[2] - b[2]) < 90; }); };
+    if (!clash(color)) return color;
+    const i = Math.max(0, this.PAL.indexOf(color));
+    for (let k = 1; k <= this.PAL.length; k++) { const c = this.PAL[(i + k) % this.PAL.length]; if (!clash(c)) return c; }
+    return color;
+  }
+  fmt(m) { m = Math.floor(m); let h = Math.floor(m / 60); const mm = m % 60, ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return h + ':' + String(mm).padStart(2, '0') + ' ' + ap; }
+
+  status(delay, schedOnly, canceled) {
+    const base = { bstyle: 'solid', border: 'transparent', bandBorder: 'transparent' };
+    if (canceled) return { ...base, label: 'Canceled', color: 'var(--late)', bg: 'var(--late-tint)', bandColor: 'var(--late)', bandBg: 'var(--late-tint)' };
+    if (schedOnly) return { ...base, label: 'Scheduled', color: 'var(--muted)', bg: 'transparent', bstyle: 'dashed', border: 'var(--muted)', bandColor: 'var(--on-field)', bandBg: 'transparent', bandBorder: 'var(--on-field)' };
+    if (delay == null) return { ...base, label: 'No delay data', color: 'var(--muted)', bg: 'transparent', bandColor: 'var(--on-field-muted)', bandBg: 'transparent' };
+    if (delay > 0) return { ...base, label: delay + ' min late', color: 'var(--late)', bg: 'var(--late-tint)', bandColor: 'var(--late)', bandBg: 'var(--late-tint)' };
+    if (delay < 0) return { ...base, label: (-delay) + ' min early', color: 'var(--early)', bg: 'var(--early-tint)', bandColor: 'var(--early)', bandBg: 'var(--early-tint)' };
+    return { ...base, label: 'On time', color: 'var(--ok)', bg: 'transparent', bandColor: 'var(--on-field)', bandBg: 'transparent' };
+  }
+
+  firstsFor(tripId, nowSec) {
+    const set = this.state.settings[tripId];
+    return this.D.trips[tripId].firsts.map(f => {
+      const dep = f.sched + (f.delay || 0);
+      return { ...f, dep, arr: dep + f.ride, leaveSec: dep * 60 - nowSec };
+    }).filter(f => f.leaveSec >= 0 && f.leaveSec / 60 >= set.hide && !set.off[f.line]);
+  }
+
+  groupCards(g, firsts, mn, mx, nowSec, outage) {
+    const cards = [];
+    for (const b of g.seconds) {
+      if (cards.filter(c => !c.canceled).length >= 3) break;
+      if (b.canceled) { cards.push({ b, canceled: true, t: b.sched }); continue; }
+      const schedOnly = !!b.schedOnly || outage;
+      const t = schedOnly ? b.sched : b.sched + (b.delay || 0);
+      if (t * 60 < nowSec) continue;
+      const conns = firsts.map(f => ({ f, x: t - f.arr })).filter(c => c.x >= mn && c.x <= mx);
+      if (conns.length) cards.push({ b, t, schedOnly, conns });
+    }
+    while (cards.length && cards[cards.length - 1].canceled) cards.pop();
+    return cards;
+  }
+
+  compute(tripId, nowSec) {
+    const s = this.state, trip = this.D.trips[tripId], set = s.settings[tripId];
+    const outage = s.outage && tripId === 'work';
+    const firsts = this.firstsFor(tripId, nowSec);
+    const groups = trip.groups.filter(g => !set.offB[g.id]).map(g => {
+      const cards = this.groupCards(g, firsts, set.min, set.max, nowSec, outage);
+      let widen = null;
+      if (!cards.some(c => !c.canceled)) {
+        for (let k = 1; k <= 30 && !widen; k++) {
+          const mn = Math.max(0, set.min - k), mx = set.max + k;
+          if (this.groupCards(g, firsts, mn, mx, nowSec, outage).some(c => !c.canceled)) widen = [mn, mx];
+        }
+      }
+      return { g, cards, widen };
+    });
+    return { trip, set, firsts, groups, outage };
+  }
+
+  openTrip(tripId) {
+    const cached = this.state.cached[tripId];
+    this.setState(s => ({ screen: 'results', tripId, sheet: 'none', focus: null, loading: !cached, refreshing: !!cached, cached: { ...s.cached, [tripId]: true } }));
+    this.later(() => this.setState(s => ({ loading: false, refreshing: false, lastRefresh: s.elapsed })), cached ? 1100 : 1500);
+  }
+
+  updSet(fn) { this.setState(s => { const st = { ...s.settings }; st[s.tripId] = fn({ ...st[s.tripId] }); return { settings: st }; }); }
+
+  renderVals() {
+    const s = this.state, D = this.D;
+    const variant = this.props.variant || 'a';
+    const nowSec = D.now * 60 + 15 + s.elapsed;
+    const res = this.compute(s.tripId, nowSec);
+    const { trip, set } = res;
+    const windowText = set.min + '–' + set.max + ' min';
+    const destOpt = trip.destOptions.find(o => o.v === set.dest);
+    const destShort = destOpt && destOpt.v !== 'none' ? destOpt.short : null;
+
+    let maxEnd = 60;
+    res.groups.forEach(gr => gr.cards.forEach(c => { if (!c.canceled) maxEnd = Math.max(maxEnd, (c.t + Math.max(gr.g.destRide, 8)) - nowSec / 60); }));
+    const scale = Math.ceil(maxEnd / 15) * 15;
+    const pct = m => Math.max(0, Math.min(100, ((m * 60 - nowSec) / 60) / scale * 100));
+    const ticks = []; for (let k = 0; k < scale; k += 15) ticks.push({ left: (k / scale * 100) + '%', label: k === 0 ? 'now' : '+' + k });
+
+    const fixed = [...new Set(trip.firsts.map(f => f.color))];
+    const groups = res.groups.map(gr => {
+      const g = { ...gr.g, color: this.res(gr.g.color, fixed) };
+      const real = gr.cards.filter(c => !c.canceled);
+      const cards = gr.cards.map((c, i) => {
+        const base = { route: g.route, color: g.color, fg: this.fg(g.color), ic: this.ic(g.agency, g.route), time: this.fmt(c.t), isA: false, isB: false, isC: false, canceled: !!c.canceled };
+        if (c.canceled) {
+          const next = gr.cards.slice(i + 1).find(x => !x.canceled);
+          return { ...base, cancelNote: 'Not counted. ' + (next ? 'Next ' + g.route + ' ' + g.toward.split(', ')[1] + ' at ' + this.fmt(next.t) + '.' : '') };
+        }
+        const st = this.status(c.b.delay, c.schedOnly, false);
+        const inMin = Math.floor((c.t * 60 - nowSec) / 60);
+        const destTime = destShort && g.destRide ? destShort + ' ' + this.fmt(c.t + g.destRide) : null;
+        const trains = c.conns.map(({ f, x }) => {
+          const lm = Math.floor(f.leaveSec / 60), tight = x <= set.min + 1;
+          const gapBg = tight ? 'var(--late-tint)' : 'transparent';
+          return {
+            leaveLead: lm < 1 ? 'Arriving' : 'Arrives in', fg: this.fg(f.color), showStrip: true, ic: this.ic(f.agency, f.line),
+            agencyPrefix: '', lineName: f.agency === 'BART' ? 'BART' : f.line, lineDest: f.agency === 'BART' ? '· ' + f.dest : '', leaveNum: lm < 1 ? 'Now' : String(lm), leaveUnit: lm < 1 ? '' : 'min',
+            routeLabel: f.agency === 'BART' ? 'BART ' + f.line : f.line, line: f.agency === 'BART' ? f.line + ' · ' + f.dest : f.line,
+            color: f.color, time: this.fmt(f.dep), st: this.status(f.delay, false, false),
+            arrStop: trip.alight, arrTime: this.fmt(f.arr), arrShort: this.fmt(f.arr).replace(' PM', '').replace(' AM', ''),
+            xfer: x + ' min', xferNum: String(x), xferWord: tight ? 'TIGHT' : 'MIN', tight,
+            xferColor: tight ? 'var(--late)' : 'var(--text)',
+            xferBg: tight ? 'var(--late-tint)' : 'transparent', xferFg: tight ? 'var(--late)' : 'var(--text)',
+            busColor: g.color,
+            aria: (f.agency === 'BART' ? 'BART ' + f.line + ' line toward ' + f.dest : f.line + ' toward ' + f.dest) + ', ' + (lm < 1 ? 'arriving now' : 'arrives in ' + lm + (lm === 1 ? ' minute' : ' minutes')) + ', ' + this.fmt(f.dep) + ', ' + this.status(f.delay).label + '. Off at ' + trip.alight + ' ' + this.fmt(f.arr) + '. ' + x + ' minute transfer' + (tight ? ', tight.' : '.'),
+            s: { rideL: pct(f.dep) + '%', rideW: (pct(f.arr) - pct(f.dep)) + '%', gapL: pct(f.arr) + '%', gapW: Math.max(1.5, pct(c.t) - pct(f.arr)) + '%', gapBg,
+              busL: pct(c.t) + '%', busW: (pct(c.t + Math.max(g.destRide, 8)) - pct(c.t)) + '%' }
+          };
+        });
+        return {
+          ...base, showStrip: true, isA: true, isB: variant === 'b', isC: variant === 'c', st, schedOnly: c.schedOnly,
+          timeColor: c.schedOnly ? 'var(--muted)' : 'var(--text)',
+          inText: (c.schedOnly ? '~' : '') + inMin + ' min', inLabel: c.schedOnly ? 'by schedule' : 'away',
+          destText: destTime,
+          sub: (c.schedOnly ? 'Scheduled time, no live prediction' : 'Arrives at ' + g.stop) + (destTime ? ' · ' + destTime : ''),
+          firstHead: trip.firstWord === 'train' ? 'Train' : trip.firstWord, trains,
+          aria: g.route + ' at ' + this.fmt(c.t) + ', ' + st.label + (c.schedOnly ? ', no live prediction' : '') + ', ' + inMin + ' minutes away' + (destTime ? ', reaches ' + destTime : '') + '. ' + trains.length + (trains.length === 1 ? ' connection.' : ' connections.')
+        };
+      });
+      const w = gr.widen;
+      return {
+        kicker: g.kicker || null, route: g.route, color: g.color, fg: this.fg(g.color), ic: this.ic(g.agency, g.route), stop: g.stop, code: g.code, agency: g.agency, toward: g.toward,
+        cards, empty: real.length === 0, firstLabel: trip.firstWord,
+        emptyHint: w ? 'The closest connections fall just outside your window.' : 'Nothing connects in the next hour.',
+        widen: w ? () => this.updSet(x => ({ ...x, min: w[0], max: w[1] })) : null,
+        widenText: w ? w[0] + '–' + w[1] + ' min' : ''
+      };
+    });
+
+    const alertsSrc = trip.alerts.concat(s.allAlerts ? trip.extraAlerts : []);
+    const alerts = alertsSrc.map(a => {
+      const open = !!s.openAlerts[a.id];
+      const sev = a.sev;
+      return {
+        ...a, open, panelId: 'alert-' + a.id + '-' + (this.props.theme || 'auto'), rot: open ? '180deg' : '0deg', isInfo: sev === 'info', isWarn: sev !== 'info',
+        border: sev === 'severe' ? 'var(--late)' : sev === 'warning' ? 'var(--caution)' : 'var(--line)',
+        bg: sev === 'severe' ? 'var(--late-tint)' : 'transparent',
+        iconColor: sev === 'severe' ? 'var(--late)' : sev === 'warning' ? 'var(--caution)' : 'var(--muted)',
+        kickerColor: sev === 'severe' ? 'var(--late)' : 'var(--muted)',
+        toggle: () => this.setState(st => ({ openAlerts: { ...st.openAlerts, [a.id]: !st.openAlerts[a.id] } }))
+      };
+    });
+
+    const since = s.elapsed - s.lastRefresh;
+    const showBar = s.refreshing || s.loading || (s.elapsed - s.flash < 2);
+    let updatedText;
+    if (s.offline) updatedText = 'Offline, updated ' + Math.floor(since / 60) + ' min ago';
+    else if (s.loading) updatedText = 'Loading';
+    else if (showBar) updatedText = 'Refreshing…';
+    else updatedText = since < 60 ? 'Updated ' + since + ' s ago' : 'Updated ' + Math.floor(since / 60) + ' min ago';
+    const refreshBar = showBar ? React.createElement('div', { style: { position: 'absolute', left: 0, right: 0, bottom: -1, height: 2, overflow: 'hidden' } },
+      React.createElement('div', { 'data-tf-motion': '', style: { width: '40%', height: '100%', background: 'var(--accent)', animation: 'tf-indet 1.1s linear infinite' } })) : null;
+
+    // Search
+    const q = (s.focus === 'from' ? s.fromQ : s.toQ).trim().toLowerCase();
+    const sel = s.focus === 'from' ? s.fromSel : s.toSel;
+    const pool = s.focus === 'to' ? D.stops.concat(D.routes) : D.stops;
+    const matched = (s.focus && q && !sel) ? pool.filter(r => r.name.toLowerCase().includes(q) || (r.code && r.code.includes(q)) || r.chips.some(c => c[0].toLowerCase() === q)).slice(0, 6) : [];
+    const fixedR = [].concat(...matched.filter(r => r.agency === 'BART').map(r => r.chips.map(c => c[1])));
+    const results = matched.map(r => ({
+      name: r.name, codeLabel: r.trip ? 'Route' : (r.code ? 'Stop ' + r.code : r.codeLabel), agency: r.agency, dir: r.dir,
+      chips: r.chips.map(c => { const col = r.agency === 'BART' ? c[1] : this.res(c[1], fixedR); return { label: c[0], color: col, fg: this.fg(col), ic: this.ic(r.agency, c[0]) }; }),
+      pick: () => this.setState(st => st.focus === 'from' ? { fromSel: r, fromQ: r.name, focus: null } : { toSel: r, toQ: r.name, focus: null })
+    }));
+    const meta = r => r ? (r.trip ? r.agency + ' route' : r.agency + (r.code ? ' · Stop ' + r.code : '') + ' · ' + r.dir) : '';
+
+    const savedVM = s.saved.map(sv => {
+      const r = this.compute(sv.tripId, nowSec), t = D.trips[sv.tripId];
+      let best = null;
+      r.groups.forEach(gr => gr.cards.forEach(c => { if (!c.canceled) c.conns.forEach(cn => { if (!best || cn.f.leaveSec < best.f.leaveSec) best = { ...cn, c, g: gr.g }; }); }));
+      const lm = best ? Math.floor(best.f.leaveSec / 60) : null;
+      const sev = t.alerts.filter(a => a.sev === 'severe').length;
+      const lbl = f => f.agency === 'BART' ? 'BART' : f.line.split(' ')[0];
+      return {
+        name: sv.name, chain: t.fromShort + ' → ' + t.via + ' → ' + t.to, window: r.set.min + '–' + r.set.max + ' min',
+        leaveLead: best ? (lm < 1 ? 'Arriving' : 'Arrives in') : 'No connection', leaveNum: best ? (lm < 1 ? 'Now' : String(lm)) : '', leaveUnit: best && lm >= 1 ? 'min' : '',
+        nextLine: best ? lbl(best.f) + ' ' + this.fmt(best.f.dep) + ' (' + this.status(best.f.delay).label.toLowerCase() + ') → ' + best.g.route + ' ' + this.fmt(best.c.t) + ' (' + this.status(best.c.b.delay, best.c.schedOnly).label.toLowerCase() + ')' : 'Open to widen the window',
+        alert: sev ? sev + ' alert on your boarding stop' : null,
+        renaming: s.renaming === sv.id, notRenaming: s.renaming !== sv.id, renameVal: s.renameVal,
+        open: () => this.openTrip(sv.tripId),
+        startRename: () => this.setState({ renaming: sv.id, renameVal: sv.name }),
+        onRename: e => this.setState({ renameVal: e.target.value }),
+        commit: () => this.setState(st => ({ renaming: null, saved: st.saved.map(x => x.id === sv.id ? { ...x, name: st.renameVal.trim() || x.name } : x) })),
+        onRenameKey: e => { if (e.key === 'Enter') e.target.blur(); }
+      };
+    });
+
+    const stepper = (label, help, key, minV) => ({
+      label, help, value: set[key], decDis: set[key] <= minV, decOp: set[key] <= minV ? 0.35 : 1,
+      dec: () => this.updSet(x => { x[key] = Math.max(minV, x[key] - 1); if (key === 'max' && x.max < x.min) x.min = x.max; return x; }),
+      inc: () => this.updSet(x => { x[key] = Math.min(60, x[key] + 1); if (key === 'min' && x.min > x.max) x.max = x.min; return x; })
+    });
+    const fromName = trip.fromShort;
+    const steppers = s.sheet === 'none' ? [] : [stepper('Minimum transfer', 'Time to get between stops', 'min', 0), stepper('Maximum transfer', 'Longest wait you will accept', 'max', 1)]
+      .concat(s.sheet === 'settings' ? [stepper('Hide departures leaving in less than', 'Time to reach ' + fromName, 'hide', 0)] : []);
+    const chipVM = (key, label, color, id) => {
+      const on = !set[key][id];
+      return { label, color, pressed: on, border: on ? 'var(--accent)' : 'var(--line)', bg: on ? 'var(--accent-tint)' : 'transparent', fg: on ? 'var(--text)' : 'var(--muted)',
+        toggle: () => this.updSet(x => ({ ...x, [key]: { ...x[key], [id]: !x[key][id] } })) };
+    };
+    const lines = []; trip.firsts.forEach(f => { if (!lines.find(l => l.line === f.line)) lines.push(f); });
+
+    return {
+      theme: this.props.theme || 'auto',
+      rootH: this.props.framed ? '100%' : '100vh',
+      isSearch: s.screen === 'search', isResults: s.screen === 'results',
+      clockText: this.fmt(nowSec / 60),
+      fromQ: s.fromQ, toQ: s.toQ,
+      fromSel: s.fromSel ? { meta: meta(s.fromSel) } : null, toSel: s.toSel ? { meta: meta(s.toSel) } : null,
+      onFromChange: e => this.setState({ fromQ: e.target.value, fromSel: null, focus: 'from' }),
+      onToChange: e => this.setState({ toQ: e.target.value, toSel: null, focus: 'to' }),
+      onFromFocus: () => this.setState({ focus: 'from' }), onToFocus: () => this.setState({ focus: 'to' }),
+      swap: () => this.setState(st => ({ fromQ: st.toQ, toQ: st.fromQ, fromSel: st.toSel && st.toSel.trip ? null : st.toSel, toSel: st.fromSel })),
+      showResults: results.length > 0, results, resultsLabel: results.length + (s.focus === 'to' ? ' stops and routes' : ' stops') + ' match “' + (s.focus === 'from' ? s.fromQ : s.toQ) + '”',
+      showHome: results.length === 0,
+      showGo: !!(s.fromSel || s.toSel || s.fromQ || s.toQ), goDisabled: !(s.fromSel && s.toSel), goOpacity: (s.fromSel && s.toSel) ? 1 : 0.45,
+      go: () => this.openTrip(s.toSel && s.toSel.trip ? s.toSel.trip : 'work'),
+      saved: savedVM,
+      recent: s.recent.map(r => ({ ...r, open: () => this.openTrip(r.tripId) })),
+      goSearch: () => this.setState({ screen: 'search', sheet: 'none' }),
+      chain: { from: trip.fromShort, via: trip.via, to: trip.to, toColor: this.res(trip.toColor, fixed), toFg: this.fg(this.res(trip.toColor, fixed)), ic: this.ic(trip.groups[0].agency, trip.groups[0].route) },
+      updatedText, refreshBar,
+      statusColor: s.offline ? 'var(--late)' : 'var(--muted)', statusWeight: s.offline ? 700 : 400,
+      dotColor: s.offline ? 'transparent' : 'var(--accent)', dotBorder: s.offline ? 'var(--late)' : 'var(--accent)',
+      windowText, offline: s.offline, outage: res.outage,
+      hasAlerts: alerts.length > 0, alerts,
+      loading: s.loading, notLoading: !s.loading, groups, ticks,
+      openWindow: () => this.openSheet('window'), openSettings: () => this.openSheet('settings'),
+      closeSheet: () => this.closeSheetFocus(),
+      sheetOpen: s.sheet !== 'none', isSettingsSheet: s.sheet === 'settings', isWindowSheet: s.sheet === 'window',
+      sheetTitle: s.sheet === 'settings' ? 'Trip settings' : 'Transfer window',
+      sheetSub: s.sheet === 'settings' ? trip.fromShort + ' → ' + trip.via + ' → ' + trip.to : 'Only show connections with a transfer in this range',
+      sheetRef: this.sheetRef, onSheetKey: this.onSheetKey,
+      steppers, tripName: s.saved.find(x => x.tripId === s.tripId)?.name || trip.name,
+      destValue: set.dest, destOptions: trip.destOptions,
+      onDest: e => { const v = e.target.value; this.updSet(x => ({ ...x, dest: v })); },
+      leg1Chips: lines.map(f => chipVM('off', f.agency === 'BART' ? 'BART · ' + f.dest : f.line, f.color, f.line)),
+      leg2Chips: trip.groups.map(g => chipVM('offB', g.route + ' ' + g.toward.split(', ')[1], g.color, g.id))
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><meta name="design_doc_mode" content="canvas"><style>
+body{margin:0;background:#e7e8ea;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#1d1f20}
+a{color:#416180}a:hover{color:#1d1f20}
+</style></helmet>
+<sc-for list="{{ turns }}" as="tn" hint-placeholder-count="2">
+<section id="{{ tn.tid }}" style="padding:40px 44px 48px;border-bottom:1px solid rgba(0,0,0,.1)">
+  <div style="display:flex;align-items:baseline;gap:10px;margin:0 0 6px">
+    <a href="#{{ tn.tid }}" style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1d1f20;color:#fff;text-decoration:none">{{ tn.n }}</a>
+    <span style="font-size:15px;font-weight:700">{{ tn.title }}</span>
+  </div>
+  <p style="margin:0 0 28px;max-width:780px;font-size:14px;line-height:1.5;color:#55575a;text-wrap:pretty">{{ tn.intro }}</p>
+  <div style="display:flex;flex-direction:column;gap:44px">
+    <sc-for list="{{ tn.options }}" as="o" hint-placeholder-count="2">
+      <div id="{{ o.id }}" style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:baseline;gap:8px;font-size:13px;color:#55575a"><a href="#{{ o.id }}" style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1d1f20;text-decoration:none">{{ o.id }}</a><strong style="color:#1d1f20">{{ o.name }}</strong>{{ o.note }}</div>
+        <div style="display:flex;flex-wrap:wrap;border:1px solid rgba(0,0,0,.15);align-self:flex-start">
+          <sc-for list="{{ o.themes }}" as="th" hint-placeholder-count="2">
+            <div style="width:460px;box-sizing:border-box;padding:24px;background:{{ th.bg }};color:{{ th.fg }};display:flex;flex-direction:column;gap:22px">
+              <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px 8px">
+                <sc-for list="{{ th.icons }}" as="ic" hint-placeholder-count="7">
+                  <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
+                    <svg width="{{ th.big }}" height="{{ th.big }}" viewBox="0 0 24 24" aria-hidden="true"><g transform="{{ ic.tf }}"><sc-for list="{{ ic.parts }}" as="p" hint-placeholder-count="3"><path d="{{ p.d }}" fill="{{ p.fill }}" stroke="{{ p.stroke }}" stroke-width="{{ p.sw }}" fill-rule="evenodd" stroke-linecap="round" stroke-linejoin="round"></path></sc-for></g></svg>
+                    <span style="font-size:13px;color:{{ th.muted }}">{{ ic.label }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:10px;padding-top:16px;border-top:1px solid {{ th.rule }}">
+                <div style="display:flex;align-items:center;gap:14px">
+                  <span style="width:36px;font-size:12px;color:{{ th.muted }}">20 px</span>
+                  <sc-for list="{{ th.icons }}" as="ic" hint-placeholder-count="7">
+                    <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><g transform="{{ ic.tf }}"><sc-for list="{{ ic.parts }}" as="p" hint-placeholder-count="3"><path d="{{ p.d }}" fill="{{ p.fill }}" stroke="{{ p.stroke }}" stroke-width="{{ p.sw }}" fill-rule="evenodd" stroke-linecap="round" stroke-linejoin="round"></path></sc-for></g></svg>
+                  </sc-for>
+                </div>
+                <div style="display:flex;align-items:center;gap:14px">
+                  <span style="width:36px;font-size:12px;color:{{ th.muted }}">16 px</span>
+                  <sc-for list="{{ th.icons }}" as="ic" hint-placeholder-count="7">
+                    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><g transform="{{ ic.tf }}"><sc-for list="{{ ic.parts }}" as="p" hint-placeholder-count="3"><path d="{{ p.d }}" fill="{{ p.fill }}" stroke="{{ p.stroke }}" stroke-width="{{ p.sw }}" fill-rule="evenodd" stroke-linecap="round" stroke-linejoin="round"></path></sc-for></g></svg>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:12px;padding-top:16px;border-top:1px solid {{ th.rule }}">
+                <div style="display:flex;flex-wrap:wrap;gap:8px">
+                  <sc-for list="{{ th.chips }}" as="ch" hint-placeholder-count="7">
+                    <span style="display:inline-flex;align-items:center;gap:5px;padding:2px 7px 2px 5px;font-size:15px;font-weight:700;background:{{ ch.bg }};color:{{ ch.fg }}">
+                      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><g transform="{{ ch.ic.tf }}"><sc-for list="{{ ch.ic.parts }}" as="p" hint-placeholder-count="3"><path d="{{ p.d }}" fill="{{ p.fill }}" stroke="{{ p.stroke }}" stroke-width="{{ p.sw }}" fill-rule="evenodd" stroke-linecap="round" stroke-linejoin="round"></path></sc-for></g></svg>{{ ch.label }}
+                    </span>
+                  </sc-for>
+                </div>
+                <div style="display:grid;grid-template-columns:80px minmax(0,1fr) auto;gap:12px;align-items:start;padding:12px 0 0;border-top:1px solid {{ th.rule }}">
+                  <div><div style="font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;white-space:nowrap;color:{{ th.muted }}">Arrives in</div><div style="font-size:34px;font-weight:750;line-height:1">4</div><div style="font-size:14px;font-weight:600">min</div></div>
+                  <div style="padding-top:2px">
+                    <div style="display:flex;align-items:center;gap:6px;font-size:16px;font-weight:650"><span style="display:inline-flex;align-items:center;gap:4px;padding:0 6px 0 4px;background:#f2c500;color:#111214"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><g transform="{{ th.bart.tf }}"><sc-for list="{{ th.bart.parts }}" as="p" hint-placeholder-count="3"><path d="{{ p.d }}" fill="{{ p.fill }}" stroke="{{ p.stroke }}" stroke-width="{{ p.sw }}" fill-rule="evenodd" stroke-linecap="round" stroke-linejoin="round"></path></sc-for></g></svg>BART</span><span>· 4:39 PM</span></div>
+                    <div style="font-size:14px;font-weight:650;color:{{ th.late }}">1 min late</div>
+                    <div style="font-size:14px;color:{{ th.muted }}">Off at 24th St Mission 4:47 PM</div>
+                  </div>
+                  <div style="text-align:right;padding-top:2px"><div style="font-size:19px;font-weight:700;color:{{ th.late }}">3 min</div><div style="font-size:13px;color:{{ th.muted }}">transfer</div></div>
+                </div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+  <p style="margin:28px 0 0;font-size:13px;color:#55575a">Try next: {{ tn.next }}</p>
+</section>
+</sc-for>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  R(x, y, w, h, r) { r = Math.min(r, w / 2, h / 2); return `M${x + r} ${y}H${x + w - r}A${r} ${r} 0 0 1 ${x + w} ${y + r}V${y + h - r}A${r} ${r} 0 0 1 ${x + w - r} ${y + h}H${x + r}A${r} ${r} 0 0 1 ${x} ${y + h - r}V${y + r}A${r} ${r} 0 0 1 ${x + r} ${y}Z`; }
+  RT(x, y, w, h, r) { return `M${x} ${y + h}V${y + r}A${r} ${r} 0 0 1 ${x + r} ${y}H${x + w - r}A${r} ${r} 0 0 1 ${x + w} ${y + r}V${y + h}Z`; }
+  RB(x, y, w, h, r) { return `M${x} ${y}H${x + w}V${y + h - r}A${r} ${r} 0 0 1 ${x + w - r} ${y + h}H${x + r}A${r} ${r} 0 0 1 ${x} ${y + h - r}Z`; }
+  C(cx, cy, r) { return `M${cx - r} ${cy}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0 ${-2 * r} 0Z`; }
+
+  geo(mode, cute) {
+    const R = this.R.bind(this), C = this.C.bind(this);
+    const rail = 'M1.5 20.6H22.5';
+    const w = cute ? 0.45 : 0;
+    switch (mode) {
+      case 'bus': return {
+        pieces: [{ d: cute ? R(2, 4.5, 20, 11.5, 3.6) : R(2, 5, 20, 11, 2.4), holes: [R(4, 7.5, 9.5, 4, cute ? 1.6 : 1), R(15, 7.5, 5, 4, cute ? 1.6 : 1)].concat(cute ? [C(20, 13.8, 0.95)] : []) }],
+        wheels: [C(6.5, 18, 2 + w), C(17.5, 18, 2 + w)], strokes: [] };
+      case 'trolley': return {
+        pieces: [{ d: R(2, 8, 20, 9.5, cute ? 3.4 : 2.4), holes: [R(4, 10, 9.5, 3.5, cute ? 1.4 : 1), R(15, 10, 5, 3.5, cute ? 1.4 : 1)].concat(cute ? [C(20, 15, 0.85)] : []) }],
+        wheels: [C(6.5, 19.5, 1.9 + w * 0.6), C(17.5, 19.5, 1.9 + w * 0.6)], strokes: ['M12.5 8L4 2.5', 'M15.5 8L7 2.5'] };
+      case 'lrv': return {
+        pieces: [{ d: R(2, 7, 20, 9, cute ? 4 : 3), holes: [R(4.2, 9, 10.6, 3.4, cute ? 1.5 : 1), R(15.4, 9, 4.4, 3.4, cute ? 1.5 : 1)].concat(cute ? [C(20.1, 14, 0.8)] : []) }],
+        wheels: [C(5.6, 18, 1.35 + w * 0.4), C(8.9, 18, 1.35 + w * 0.4), C(15.1, 18, 1.35 + w * 0.4), C(18.4, 18, 1.35 + w * 0.4)], strokes: ['M9 7L12 3.4L15 7', 'M10 3.4H14', rail] };
+      case 'streetcar': return {
+        pieces: [{ d: R(2.5, 7.5, 19, 8.5, cute ? 4.2 : 3.4), holes: [R(4.6, 9.5, 2.9, 3, 0.6), R(8.4, 9.5, 2.9, 3, 0.6), R(12.2, 9.5, 2.9, 3, 0.6), R(16, 9.5, 2.9, 3, 0.6)].concat(cute ? [C(19.8, 14.2, 0.75)] : []) }],
+        wheels: [C(7, 18, 1.6 + w * 0.4), C(17, 18, 1.6 + w * 0.4)], strokes: ['M14.5 7.5L6 3', rail] };
+      case 'cable': return {
+        tf: cute ? 'rotate(-9 12 14)' : '',
+        pieces: [
+          { d: R(6, 4.5, 12, 2.4, 0.6), holes: [] },
+          { d: R(2, 6.5, 20, 2.2, 0.7), holes: [] },
+          { d: R(4, 8.3, 16, 7.7, cute ? 1.6 : 0.8), holes: [R(5.25, 9.5, 2.5, 3.2, 0.4), R(9, 9.5, 2.5, 3.2, 0.4), R(12.75, 9.5, 2.5, 3.2, 0.4), R(16.5, 9.5, 2.5, 3.2, 0.4)] }
+        ],
+        wheels: [C(7.5, 18, 1.6 + w * 0.4), C(16.5, 18, 1.6 + w * 0.4)], strokes: [rail] };
+      case 'bart': return {
+        pieces: [{ d: 'M2 16V9Q2 7 4 7H15.5Q17 7 18 8.2L21.6 13Q22 13.6 22 14.4V16Z', holes: [R(4, 9, 9.5, 3, cute ? 1.3 : 0.8), 'M15.6 9H17.2L19.9 12.5H15.6Z'].concat(cute ? [C(20.3, 14.6, 0.7)] : []) }],
+        wheels: [C(5, 18, 1.3 + w * 0.4), C(8, 18, 1.3 + w * 0.4), C(14.5, 18, 1.3 + w * 0.4), C(17.5, 18, 1.3 + w * 0.4)], strokes: [rail] };
+      case 'ferry': return {
+        pieces: [
+          { d: 'M1.5 14H22.5L20 18H4Z', holes: [] },
+          { d: R(5, 10, 13, 4.4, 0.8), holes: [R(6.3, 11, 2, 1.7, 0.4), R(9.3, 11, 2, 1.7, 0.4), R(12.3, 11, 2, 1.7, 0.4), R(15.3, 11, 2, 1.7, 0.4)] },
+          { d: R(8.5, 6.5, 6.5, 3.9, 0.8), holes: [R(12, 7.4, 2, 1.6, 0.4)] },
+          { d: R(10, 4, 1.8, 2.9, 0.3), holes: [] }
+        ].concat(cute ? [{ d: C(13.2, 2.4, 1.1), holes: [] }, { d: C(15.4, 1.6, 0.75), holes: [] }] : []),
+        wheels: [], strokes: ['M1.5 21.2q2.625-1.6 5.25 0t5.25 0t5.25 0t5.25 0'] };
+    }
+  }
+
+  // Gerbil head in profile facing right, drawn in a 10×8 box: domed crown, big round ear, long tapering snout, eye cut out.
+  gerbil(s, tx, ty) {
+    const P = ([x, y]) => (tx + x * s).toFixed(2) + ' ' + (ty + y * s).toFixed(2);
+    const segs = [
+      ['M', [0.6, 8]], ['C', [0.2, 5.5], [0.8, 3], [2.3, 2.1]], ['C', [2.2, 1], [2.7, 0.1], [3.5, 0.1]],
+      ['C', [4.3, 0.1], [4.6, 1], [4.4, 2]], ['C', [5.8, 2], [7.4, 3], [9.5, 4.8]], ['C', [10.1, 5.3], [9.9, 6], [9.2, 6]],
+      ['C', [7.8, 6.2], [6.3, 6.6], [5, 7.2]], ['C', [4.4, 7.5], [4, 7.8], [3.8, 8]]
+    ];
+    return segs.map(([c, ...pts]) => c + pts.map(P).join(' ')).join('') + 'Z' + this.C(+(tx + 6.2 * s).toFixed(2), +(ty + 3.9 * s).toFixed(2), +(0.6 * s).toFixed(2));
+  }
+  driver(mode) {
+    return { bus: [0.5, 14.75, 12.5], lrv: [0.4, 15.6, 12.4], streetcar: [0.38, 15.9, 12.6], cable: [0.35, 15.85, 12.8], bart: [0.36, 15.2, 12.8], ferry: [0.3, 11.35, 9.7] }[mode];
+  }
+
+  icon(mode, style, gerbil) {
+    const g = this.geo(mode, style === 'c');
+    if (gerbil && mode === 'bus') g.pieces[0].holes = [this.R(4, 7.5, 9, 4.5, 1), this.R(14.5, 7, 5.5, 5.5, 1.2)].concat(style === 'c' ? [this.C(20.3, 14.2, 0.8)] : []);
+    const cute = style === 'c';
+    if (gerbil && mode === 'streetcar') g.pieces[0].holes = [this.R(4.6, 9.5, 2.9, 3, 0.6), this.R(8.4, 9.5, 2.9, 3, 0.6), this.R(12.2, 9.5, 2.9, 3, 0.6), this.R(15.8, 9.2, 4, 3.4, 0.6)].concat(cute ? [this.C(19.8, 14.2, 0.75)] : []);
+    if (gerbil && mode === 'cable') g.pieces[2].holes = [this.R(5.25, 9.5, 2.5, 3.2, 0.4), this.R(9, 9.5, 2.5, 3.2, 0.4), this.R(12.75, 9.5, 2.5, 3.2, 0.4), this.R(15.8, 9.4, 3.6, 3.4, 0.4)];
+    if (gerbil && mode === 'bart') g.pieces[0].holes = [this.R(4, 9, 9.5, 3, cute ? 1.3 : 0.8), 'M15 8.8H17.3L20.3 12.8H15Z'].concat(cute ? [this.C(20.3, 14.6, 0.7)] : []);
+    if (gerbil && mode === 'ferry') g.pieces[2].holes = [this.R(11.2, 7.2, 3.3, 2.5, 0.5)];
+    const parts = [];
+    if (style === 'a') {
+      g.pieces.forEach(p => { parts.push({ d: p.d, fill: 'none', stroke: 'currentColor', sw: 1.6 }); p.holes.forEach(h => parts.push({ d: h, fill: 'none', stroke: 'currentColor', sw: 1.3 })); });
+      g.wheels.forEach(d => parts.push({ d, fill: 'none', stroke: 'currentColor', sw: 1.5 }));
+    } else {
+      g.pieces.forEach(p => parts.push({ d: p.d + p.holes.join(''), fill: 'currentColor', stroke: 'none', sw: 0 }));
+      g.wheels.forEach(d => parts.push({ d, fill: 'currentColor', stroke: 'none', sw: 0 }));
+    }
+    g.strokes.forEach(d => parts.push({ d, fill: 'none', stroke: 'currentColor', sw: style === 'c' ? 1.9 : 1.6 }));
+    if (gerbil) { const v = this.driver(mode); parts.push({ d: this.gerbil(v[0], v[1], v[2] - 8 * v[0]), fill: 'currentColor', stroke: 'none', sw: 0 }); }
+    return { tf: g.tf || '', parts };
+  }
+
+  fg(hex) {
+    const n = parseInt(hex.slice(1), 16), ch = [n >> 16, (n >> 8) & 255, n & 255].map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+    const L = 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
+    return (L + 0.05) / 0.05 >= 1.05 / (L + 0.05) ? '#111214' : '#ffffff';
+  }
+  // v2: larger bodies, wheels and water pulled up into the vehicle. Solid pictogram with gerbil driver; [gerbil scale, x, y].
+  // Consistency rules: every cab window is 5.2×4.2 (r 0.8); the gerbil is always scale 0.4, sits on the window's bottom edge
+  // with a 0.5 gap to the front edge and ~1 above; rail-vehicle wheels all bottom out at y 19 above a rail at y 20.3.
+  geo2(mode) {
+    const R = this.R.bind(this), C = this.C.bind(this), rail = 'M1.5 19.6H22.5', down = 'translate(0 0.2)', W = (x, y) => R(x, y, 5.2, 4.2, 0.8), G = 0.4;
+    const drv = (x, bottom) => [G, x + 5.2 - 0.5 - 10.05 * G, bottom];
+    switch (mode) {
+      case 'bus': return { pieces: [{ d: R(1.5, 3.5, 21, 13.5, 2.6), holes: [R(3.5, 6.8, 10.5, 4.2, 0.8), W(15.8, 6.8)] }], wheels: [C(6.5, 17.5, 2.1), C(17.5, 17.5, 2.1)], strokes: [], drv: drv(15.8, 11) };
+      case 'lrv': return { tf: down, pieces: [{ d: R(1.5, 5, 21, 12, 3.2), holes: [R(3.5, 7.5, 11, 4.2, 0.8), W(15.3, 7.5)] }, { d: this.RT(10, 4.2, 4.9, 1.2, 0.4), holes: [] }], wheels: [C(5.5, 17.5, 1.5), C(9, 17.5, 1.5), C(15, 17.5, 1.5), C(18.5, 17.5, 1.5)], strokes: [['M13.75 4.83L8.6 2.9L12.6 1.5', 1.2], ['M10.6 1.5H14.6', 1.3], rail], drv: drv(15.3, 11.7) };
+      case 'streetcar': return { tf: down, pieces: [{ d: R(2, 5.5, 20, 11.5, 4), holes: [R(4, 8, 3, 4.2, 0.8), R(7.8, 8, 3, 4.2, 0.8), R(11.6, 8, 3, 4.2, 0.8), W(15.9, 8)] }, { d: this.RT(13.2, 4.6, 3.6, 1.3, 0.4), holes: [] }], wheels: [C(7, 17.3, 1.7), C(17, 17.3, 1.7)], strokes: ['M15.56 5.4L6.4 1.6', 'M5.4 1.6H7.6', rail], drv: drv(15.9, 12.2) };
+      case 'cable': return { tf: 'translate(0.36 0) ' + down + ' rotate(-9 12 14)', pieces: [{ d: this.RT(6, 2.8, 12, 2.6, 0.6), holes: [] }, { d: R(1.5, 5, 21, 2.4, 0.7), holes: [] }, { d: this.RB(3.5, 7, 17, 10, 0.9), holes: [R(4.8, 8.3, 2.6, 4.2, 0.8), R(8.1, 8.3, 2.6, 4.2, 0.8), R(11.4, 8.3, 2.6, 4.2, 0.8), W(14.6, 8.3)] }], wheels: [C(7.5, 17.3, 1.7), C(16.5, 17.3, 1.7)], strokes: ['M2.5 19.6H21.5'], drv: drv(14.6, 12.5) };
+      case 'bart': return { tf: down, pieces: [{ d: 'M1.5 16.2V8Q1.5 5.5 4 5.5H15.5Q17.2 5.5 18.3 6.9L22.2 12.3Q22.5 12.8 22.5 13.6V16.2Q22.5 17 21.7 17H2.3Q1.5 17 1.5 16.2Z', holes: [R(3.5, 8, 10, 4.2, 0.8), 'M15.8 7.6H17.1Q17.5 7.6 17.75 7.95L20.35 11.5Q20.7 12.2 19.9 12.2H15.8Q15 12.2 15 11.4V8.4Q15 7.6 15.8 7.6Z'] }], wheels: [C(5, 17.5, 1.5), C(8.2, 17.5, 1.5), C(14.8, 17.5, 1.5), C(18, 17.5, 1.5)], strokes: [rail], drv: [G, 15.5, 12.2] };
+      case 'ferry': return { pieces: [{ d: 'M1.5 13.5H22.5L20.55 17.48Q20.2 18.2 19.4 18.2H4.6Q3.8 18.2 3.45 17.48Z', holes: [] }, { d: this.RT(4.5, 9, 14, 4.9, 0.8), holes: [R(5.8, 10, 2.2, 2, 0.4), R(9, 10, 2.2, 2, 0.4), R(12.2, 10, 2.2, 2, 0.4), R(15.4, 10, 2.2, 2, 0.4)] }, { d: this.RT(8, 4.7, 7.5, 4.7, 0.8), holes: [R(11, 5.4, 3.8, 3.2, 0.5)] }, { d: this.RT(9.6, 2.3, 1.8, 2.8, 0.3), holes: [] }], wheels: [], strokes: ['M1.5 19.6q2.625-1.6 5.25 0t5.25 0t5.25 0t5.25 0'], drv: [0.36, 11.1, 8.6] };
+    }
+  }
+  icon2(mode) {
+    const g = this.geo2(mode), parts = [];
+    g.pieces.forEach(p => parts.push({ d: p.d + p.holes.join(''), fill: 'currentColor', stroke: 'none', sw: 0 }));
+    g.wheels.forEach(d => parts.push({ d, fill: 'currentColor', stroke: 'none', sw: 0 }));
+    g.strokes.forEach(s => { const [d, sw] = Array.isArray(s) ? s : [s, 1.6]; parts.push({ d, fill: 'none', stroke: 'currentColor', sw }); });
+    parts.push({ d: this.gerbil(g.drv[0], g.drv[1], g.drv[2] - 8 * g.drv[0]), fill: 'currentColor', stroke: 'none', sw: 0 });
+    return { tf: 'translate(12 12) scale(1.06) translate(-12 -10.75) ' + (g.tf || ''), parts };
+  }
+
+  renderVals() {
+    const modes = [['bus', 'Bus'], ['lrv', 'Light rail'], ['streetcar', 'Streetcar'], ['cable', 'Cable car'], ['bart', 'BART'], ['ferry', 'Ferry']];
+    const chipDefs = [['BART', '#f2c500', '#111214', 'bart'], ['48', '#bf2b45', '#ffffff', 'bus'], ['22', '#4a4f55', '#ffffff', 'bus'], ['N', '#bf2b45', '#ffffff', 'lrv'], ['F', '#bf2b45', '#ffffff', 'streetcar'], ['PH', '#bf2b45', '#ffffff', 'cable'], ['Larkspur', '#0f75bc', '#ffffff', 'ferry']];
+    const themes = [
+      { bg: '#f2f2f3', fg: '#1d1f20', muted: '#55575a', rule: 'rgba(29,31,32,.14)', late: 'oklch(0.5 0.18 28)' },
+      { bg: '#1c2128', fg: '#d9dfe7', muted: '#9ba5b2', rule: 'rgba(205,217,229,.13)', late: 'oklch(0.77 0.13 28)' }
+    ];
+    const defs = [
+      ['a', 'Line', 'Outline at 1.6 stroke, matching the Lucide-style interface icons. Quietest; windows get soft at 16 px.'],
+      ['b', 'Solid pictogram', 'Filled shapes with cut-out windows, like station signage. Holds up best at 16 px and in sun.'],
+      ['c', 'Solid, friendly', 'The pictogram with softer corners, chunkier wheels, a headlight, a cable car on a hill and a puffing ferry.']
+    ];
+    const build = (id, s, name, note, gerbil, big) => {
+      const icons = modes.map(([m, label]) => ({ label, ...this.icon(m, s, gerbil) }));
+      const chips = chipDefs.map(([label, bg, fg, m]) => ({ label, bg, fg, ic: this.icon(m, s, gerbil) }));
+      const bart = this.icon('bart', s, gerbil);
+      return { id, name, note, themes: themes.map(t => ({ ...t, big, icons, chips, bart })) };
+    };
+    const chips5 = [['BART', '#f2c500', 'bart'], ['48', '#00858a', 'bus'], ['J', '#faa634', 'lrv'], ['K', '#569bbe', 'lrv'], ['L', '#92278f', 'lrv'], ['M', '#008752', 'lrv'], ['N', '#00539b', 'lrv'], ['T', '#d31245', 'lrv'], ['S', '#ffcc00', 'lrv'], ['F', '#f0e68c', 'streetcar'], ['PH', '#8c5a2b', 'cable'], ['Larkspur', '#0f75bc', 'ferry']]
+      .map(([label, bg, m]) => ({ label, bg, fg: this.fg(bg), ic: this.icon2(m) }));
+    const icons5 = modes.map(([m, label]) => ({ label, ...this.icon2(m) }));
+    const opt5 = { id: '5a', name: 'Pictogram + gerbil, v2', note: 'Bigger bodies, wheels and water pulled up; cable car tilted on its hill; Muni Metro line colors', themes: themes.map(t => ({ ...t, big: 56, icons: icons5, chips: chips5, bart: this.icon2('bart') })) };
+    const turns = [
+      { tid: 't5', n: '5', title: 'Refined: 4a body, 4b cable car tilt, Muni line colors',
+        intro: 'Bodies grow to fill more of the 24 px square (bus 13.5 px tall, up from 11), with wheels half inside the body and the ferry’s wave tucked into the hull. Every cab window is the same size and every gerbil the same size, seated on the window’s bottom edge with the same clearance at the front and top. Side windows match the cab window height, and rail wheels sink slightly into the rail, the same way the ferry hull meets its wave. Chips use Muni’s line colors: J orange, K light blue, L purple, M green, N blue, T red, S yellow, F the heritage streetcar cream. Muni doesn’t assign colors to cable cars, so PH uses a placeholder brown. Text on each chip switches between dark and white for contrast.',
+        next: '“lock 5a and apply it with the utility pass” · “wheels a touch smaller” · “gerbil only from 20 px up”',
+        options: [opt5] },
+      { tid: 't4', n: '4', title: 'Gerbil drivers',
+        intro: 'A gerbil head in profile, facing right, in the front window of each vehicle: domed crown, big round ear, long snout and a cut-out eye, in the same fill as the vehicle. Front windows are a little larger to fit it. Shown larger at 56 px. It reads at 20 px; at 16 px it becomes a dark spot in the window, which keeps the icon clean in dense rows.',
+        next: '“pictogram with gerbils, ears a bit bigger” · “gerbil only on the big saved-search icons” · “apply 4a and start the utility pass”',
+        options: [build('4a', 'b', 'Pictogram + gerbil', 'Drivers in the solid signage style', true, 56), build('4b', 'c', 'Friendly + gerbil', 'Drivers in the softer style', true, 56)] },
+      { tid: 't3', n: '3', title: 'Mode icons: three styles',
+        intro: 'Six modes (bus covers trolley bus), all side views facing right on a 24 px grid. Rail vehicles sit on a rail line and the ferry on a wave; road vehicles have no ground line, so mode reads from the base of the icon too. Each icon takes the text color of whatever it sits on, so it works inside line-colored chips. Shown at 40, 20 and 16 px, in context, light and dark.',
+        next: '“the pictogram with headlights from the friendly set” · “front views instead” · “add Caltrain and SMART”',
+        options: defs.map(([s, name, note]) => build('3' + s, s, name, note, false, 40)) }
+    ];
+    return { turns };
+  }
+}
+</script>
+</body>
+</html>

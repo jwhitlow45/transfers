@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><meta name="design_doc_mode" content="canvas"><style>
+body{margin:0;background:#e7e8ea;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#1d1f20}
+a{color:#416180}a:hover{color:#1d1f20}
+</style></helmet>
+
+<section id="t6" style="padding:40px 44px 36px;border-bottom:1px solid rgba(0,0,0,.1)">
+  <div style="display:flex;align-items:baseline;gap:10px;margin:0 0 6px">
+    <a href="#t6" style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1d1f20;color:#fff;text-decoration:none">6</a>
+    <span style="font-size:15px;font-weight:700">Utility pass, with mode icons</span>
+  </div>
+  <p style="margin:0 0 24px;max-width:760px;font-size:14px;line-height:1.5;color:#55575a;text-wrap:pretty">Corner registration marks are gone. Card and field edges are solid 1.5 px at higher contrast, so they hold in sun. Each bus header is a reversed band, so the next bus is findable without reading. Countdowns and transfer minutes are heavier. Every route chip carries its mode icon (the 5a set from Mode Icons). The bus segment of each time bar takes the route color. On wide screens, transfer points sit side by side and saved searches tile. Each train row and bus card has one spoken summary for screen readers, including the BART line color. The prototype and states below use this version.</p>
+  <div id="6a" style="display:flex;flex-direction:column;gap:10px;width:max-content;align-self:flex-start">
+    <div style="display:flex;align-items:baseline;gap:8px;font-size:13px;color:#55575a"><a href="#6a" style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1d1f20;text-decoration:none">6a</a><strong style="color:#1d1f20">Utility</strong> Work to home in light and dark, the 22 search, typed search results, and a desktop browser width</div>
+    <div style="display:flex;flex-wrap:wrap;gap:16px">
+      <dc-import name="TransfersApp2" theme="light" preset="live" framed="{{ true }}" hint-size="390px,820px" style="width:390px;height:820px;border:1px solid rgba(0,0,0,.15)"></dc-import>
+      <dc-import name="TransfersApp2" theme="dark" preset="live" framed="{{ true }}" hint-size="390px,820px" style="width:390px;height:820px;border:1px solid rgba(0,0,0,.15)"></dc-import>
+      <dc-import name="TransfersApp2" theme="light" preset="route" framed="{{ true }}" hint-size="390px,820px" style="width:390px;height:820px;border:1px solid rgba(0,0,0,.15)"></dc-import>
+      <dc-import name="TransfersApp2" theme="dark" preset="typing" screen="search" framed="{{ true }}" hint-size="390px,820px" style="width:390px;height:820px;border:1px solid rgba(0,0,0,.15)"></dc-import>
+      <dc-import name="TransfersApp2" theme="light" preset="route" framed="{{ true }}" hint-size="1280px,800px" style="flex:none;width:1280px;min-width:1280px;height:800px;border:1px solid rgba(0,0,0,.15)"></dc-import>
+    </div>
+  </div>
+  <p style="margin:24px 0 0;font-size:13px;color:#55575a">Try next: "use the route color for the bus segment of the bar" · "write the handoff from <a href="#6a">6a</a>"</p>
+</section>
+
+<section id="proto" style="padding:40px 44px 36px;border-bottom:1px solid rgba(0,0,0,.1)">
+  <div style="font-size:15px;font-weight:700;margin-bottom:6px">Prototype</div>
+  <p style="margin:0 0 24px;max-width:760px;font-size:14px;line-height:1.5;color:#55575a;text-wrap:pretty">Clock starts at 4:34 PM and ticks; data refreshes every 30 s. Tap a saved search, rename one with the pencil, or type “24th” or “13477” in To. On results: open alerts, the transfer window, and trip settings. Uses the <a href="#6a">6a</a> utility version.</p>
+  <div style="display:flex;flex-wrap:wrap;gap:16px">
+    <dc-import name="TransfersApp2" theme="light" screen="search" preset="live" framed="{{ true }}" hint-size="390px,820px" style="width:390px;height:820px;border:1px solid rgba(0,0,0,.15)"></dc-import>
+    <dc-import name="TransfersApp2" theme="dark" screen="search" preset="live" framed="{{ true }}" hint-size="390px,820px" style="width:390px;height:820px;border:1px solid rgba(0,0,0,.15)"></dc-import>
+  </div>
+</section>
+
+<section id="states" style="padding:40px 44px 60px">
+  <div style="font-size:15px;font-weight:700;margin-bottom:6px">States</div>
+  <p style="margin:0 0 28px;max-width:760px;font-size:14px;line-height:1.5;color:#55575a">Every state from the brief, light and dark, in the <a href="#6a">6a</a> utility version.</p>
+  <div style="display:flex;flex-wrap:wrap;gap:48px 56px;align-items:flex-start">
+    <sc-for list="{{ states }}" as="st" hint-placeholder-count="4">
+      <div style="display:flex;flex-direction:column;gap:10px;max-width:796px">
+        <div style="display:flex;align-items:baseline;gap:8px;font-size:13px;color:#55575a"><span style="font:600 11px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1d1f20">{{ st.n }}</span><strong style="color:#1d1f20">{{ st.label }}</strong>{{ st.note }}</div>
+        <div style="display:flex;gap:16px">
+          <sc-if value="{{ showLight }}" hint-placeholder-val="{{ true }}">
+            <dc-import name="TransfersApp2" theme="light" screen="{{ st.screen }}" preset="{{ st.preset }}" sheet="{{ st.sheet }}" framed="{{ true }}" hint-size="390px,820px" style="width:390px;height:820px;border:1px solid rgba(0,0,0,.15)"></dc-import>
+          </sc-if>
+          <sc-if value="{{ showDark }}" hint-placeholder-val="{{ true }}">
+            <dc-import name="TransfersApp2" theme="dark" screen="{{ st.screen }}" preset="{{ st.preset }}" sheet="{{ st.sheet }}" framed="{{ true }}" hint-size="390px,820px" style="width:390px;height:820px;border:1px solid rgba(0,0,0,.15)"></dc-import>
+          </sc-if>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;galleryThemes&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;both&quot;,&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;both&quot;,&quot;tsType&quot;:&quot;'both'|'light'|'dark'&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const gv = this.props.cardStyle || 'd';
+    const th = this.props.galleryThemes || 'both';
+    const S = [
+      ['Search, home', 'search', 'live', 'none', 'Saved searches lead with a live leave-in countdown'],
+      ['Search, typing', 'search', 'typing', 'none', 'Same-name stops told apart by code, agency, direction, routes'],
+      ['Results, live', 'results', 'live', 'none', 'Stop-moved alert on the boarding stop, open by default'],
+      ['Loading, first visit', 'results', 'loading', 'none', 'No cache: skeleton in the shape of the results'],
+      ['Loading, return visit', 'results', 'refreshing', 'none', 'Cached results at once, refresh bar in the header'],
+      ['Offline', 'results', 'offline', 'none', 'Last results kept; countdowns run on the device'],
+      ['No connection in window', 'results', 'empty', 'none', 'Window 4–6 min; one tap widens to the nearest fit'],
+      ['To a route, canceled trip', 'results', 'route', 'none', 'Two transfer points for the 22; one canceled bus'],
+      ['Scheduled only', 'results', 'scheduled', 'none', 'SamTrans 120 past the live horizon: dashed tag, ~ countdown'],
+      ['One agency feed down', 'results', 'outage', 'none', 'Muni scheduled, BART live'],
+      ['Alerts, all types', 'results', 'alerts', 'none', 'Stop moved, elevator, reroute, notice'],
+      ['Transfer window sheet', 'results', 'live', 'window', 'Quick steppers from the bottom bar'],
+      ['Trip settings', 'results', 'live', 'settings', 'Saved with the search']
+    ];
+    return {
+      gv, gvName: { d: '2a Ledger + time bar', a: '1a Ledger', b: '1b Timeline', c: '1c Board' }[gv],
+      showLight: th !== 'dark', showDark: th !== 'light',
+      states: S.map((x, i) => ({ n: String(i + 1).padStart(2, '0'), label: x[0], screen: x[1], preset: x[2], sheet: x[3], note: x[4] }))
+    };
+  }
+}
+</script>
+</body>
+</html>
