@@ -152,11 +152,12 @@ function placeLeg(schedule: Schedule, live: Live, request: TrackRequest, now: nu
   // watch where they got on, the picture follows the ride on from the vehicle, and the stop
   // watched is drawn only if it falls within.
   const aboard = vehicleAt > targetAt && markedAt.some((index) => index >= vehicleAt);
-  const keep = aboard ? [] : [targetAt];
-  const from = span
-    ? Math.min(pinnedFrom!, behind, ...keep)
-    : Math.max(0, Math.min(coming || aboard ? behind : targetAt - STOPS_BEFORE, ...markedAt));
-  const to = span ? Math.max(span[1], vehicleAt, ...keep) : Math.min(stops.length - 1, Math.max(aboard ? -1 : targetAt + 1, vehicleAt, ...markedAt));
+  // A pinned picture reaches forward for the stop watched, when a loop moves it to a later visit,
+  // but never back: a stop before where it starts was left out on purpose, by a fit or the zoom in
+  // after boarding, and stays out whatever the vehicle's position does later.
+  const ahead = span && targetAt >= pinnedFrom! ? [targetAt] : [];
+  const from = span ? Math.min(pinnedFrom!, behind) : Math.max(0, Math.min(coming || aboard ? behind : targetAt - STOPS_BEFORE, ...markedAt));
+  const to = span ? Math.max(span[1], vehicleAt, ...ahead) : Math.min(stops.length - 1, Math.max(aboard ? -1 : targetAt + 1, vehicleAt, ...markedAt));
   const shown = stops.slice(from, to + 1);
   const centered = span ? stops.slice(pinnedFrom!, span[1] + 1) : shown;
   return { trip, pattern, target, stops, shape, passes, rt, expected, reported, estimate, vehicle, missing, vehicleAt, targetAt, coming, marked, from, to, shown, centered };

@@ -303,8 +303,11 @@ test('opened from the boarding time, a map fitted after boarding follows the rid
   for (const fitOnBoard of [true, false]) {
     const fitted = trackVehicle(schedule, vehicle, { ...request, fitOnBoard }, NOW);
     deepStrictEqual([fitted.span, fitted.targetIndex, fitted.marks, fitted.passed], [[3, 5], null, [null, 2], true]);
-    // Pinned to that, it holds rather than reaching back for the stop watched.
+    // Pinned to that, it holds rather than reaching back for the stop watched, also once the
+    // position is lost or the vehicle has passed the transfer.
     const pinned = trackVehicle(schedule, vehicle, { ...request, fitOnBoard, span: fitted.span }, NOW);
-    deepStrictEqual(pinned.span, [3, 5]);
+    const lost = trackVehicle(schedule, { vehicles: null }, { ...request, fitOnBoard, span: fitted.span }, NOW);
+    const beyond = trackVehicle(schedule, at({ lon: lon(5.5), stopId: '105' }), { ...request, fitOnBoard, span: [3, 4] }, NOW);
+    deepStrictEqual([pinned.span, lost.span, lost.targetIndex, beyond.span, beyond.targetIndex], [[3, 5], [3, 5], null, [3, 5], null]);
   }
 });
