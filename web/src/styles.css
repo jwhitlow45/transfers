@@ -293,7 +293,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-bottombar__open { flex: 1; display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: 0 var(--space-4); }
 .tf-bottombar__open strong { font-size: 18px; }
 .tf-bottombar__value { display: inline-flex; align-items: center; gap: var(--space-3); }
-.tf-bottombar__save { flex: none; width: var(--tap-primary); display: grid; place-items: center; }
+.tf-bottombar__icon { flex: none; width: var(--tap-primary); display: grid; place-items: center; }
 
 /* ── sheet ─────────────────────────────────────────── */
 .tf-sheet { position: absolute; inset: 0; z-index: 10; display: flex; flex-direction: column; justify-content: flex-end; }
@@ -442,6 +442,12 @@ button.tf-band:hover { filter: brightness(1.12); }
 .tf-livestatus--stale .tf-stat--live { color: var(--caution); font-weight: var(--weight-bold); }
 .tf-livestatus--stale .tf-stat--live .tf-dot { background: transparent; border-color: var(--caution); }
 .tf-tip { position: absolute; top: calc(100% + 4px); left: 0; z-index: 6; width: max-content; max-width: min(260px, 80vw); padding: var(--space-2) var(--space-3); background: var(--field); color: var(--on-field); font-size: var(--text-sm); font-weight: var(--weight-regular); line-height: 1.35; white-space: normal; }
+/* Results keep back in the bottom bar, so the title and the status line start at the gutter,
+   and the status items spread across the full width. The end items' tips open inward. */
+.tf-header--no-back .tf-header__row { padding-left: var(--space-5); }
+.tf-header--no-back .tf-livestatus { justify-content: space-between; padding-left: var(--space-3); padding-right: var(--space-3); }
+.tf-header--no-back .tf-stat:last-child:not(.tf-sr + .tf-stat) .tf-tip { left: auto; right: 0; }
+.tf-header--no-back .tf-stat:not(.tf-sr + .tf-stat):not(:last-child) .tf-tip { left: 50%; transform: translateX(-50%); }
 
 /* ── gestures ─────────────────────────────────────── */
 /* A handle on whatever drags up or down: the sheet, and the bottom bar that opens it. */
@@ -463,3 +469,9 @@ button.tf-band:hover { filter: brightness(1.12); }
 .tf-along__head { display: flex; align-items: center; gap: var(--space-2); }
 .tf-along__way { padding: var(--space-3) var(--space-4); border-bottom: var(--border-hair) solid var(--divider); }
 .tf-result--compact { min-height: var(--tap); padding-block: var(--space-2); gap: 2px; }
+/* With back and save beside it, the settings button fits "Transfer window" only on wide screens,
+   "Window" on most phones, and no label on the narrowest. */
+.tf-bottombar__open { white-space: nowrap; }
+.tf-bottombar__short { display: none; }
+@media (max-width: 429px) { .tf-bottombar__long { display: none; } .tf-bottombar__short { display: inline; } }
+@media (max-width: 359px) { .tf-bottombar__label { display: none; } }

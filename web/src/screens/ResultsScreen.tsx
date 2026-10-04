@@ -128,7 +128,6 @@ export function ResultsScreen({ search }: { search: Search }) {
             ...(hide > 0 ? [{ key: 'hide', icon: <IconHidden />, short: `<${hide}m`, full: `Hiding departures that leave in under ${hide} minutes` }] : []),
           ]}
           accent={saved?.color}
-          onBack={() => navigate('/')}
           onRefresh={refresh}
         />
         <main class="tf-page" id="main">
@@ -197,7 +196,7 @@ export function ResultsScreen({ search }: { search: Search }) {
           <DataCredit />
         </main>
       </div>
-      <BottomBar windowText={summary.windowText} saved={saved !== null} onOpen={() => setSettingsOpen(true)} onToggleSaved={toggleSaved} />
+      <BottomBar windowText={summary.windowText} saved={saved !== null} onBack={() => navigate('/')} onOpen={() => setSettingsOpen(true)} onToggleSaved={toggleSaved} />
       {settingsOpen && (
         <TripSettingsSheet
           search={search}

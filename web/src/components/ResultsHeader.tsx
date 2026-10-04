@@ -80,8 +80,9 @@ function liveStatusSentence(feed: FeedState, seconds: number | null, stale: bool
   return ago ? `Live times, updated ${ago}` : 'Live times';
 }
 
-// Sticky header for every screen but search: back, a title, and the live status. Screens with
-// live data pass onRefresh to be refreshed by pulling down.
+// Sticky header for every screen but search: back, a title, and the live status. Results leave
+// out onBack, since its back button sits in the bottom bar. Screens with live data pass
+// onRefresh to be refreshed by pulling down.
 export function ScreenHeader({ title, feed, secondsSinceUpdate, stale, items, accent, onBack, onRefresh }: {
   title: ComponentChildren;
   stale?: boolean;
@@ -90,15 +91,17 @@ export function ScreenHeader({ title, feed, secondsSinceUpdate, stale, items, ac
   accent?: string | undefined;
   feed?: FeedState;
   secondsSinceUpdate?: number | null;
-  onBack: () => void;
+  onBack?: () => void;
   onRefresh?: () => void;
 }) {
   return (
-    <header class="tf-header" style={accent ? { '--saved-color': accent } : undefined} data-accent={accent ? 'true' : undefined}>
+    <header class={`tf-header${onBack ? '' : ' tf-header--no-back'}`} style={accent ? { '--saved-color': accent } : undefined} data-accent={accent ? 'true' : undefined}>
       <div class="tf-header__row">
-        <button type="button" class="tf-btn-icon" onClick={onBack} aria-label="Back to search">
-          <IconBack />
-        </button>
+        {onBack && (
+          <button type="button" class="tf-btn-icon" onClick={onBack} aria-label="Back to search">
+            <IconBack />
+          </button>
+        )}
         <h1 class="tf-chain">{title}</h1>
       </div>
       {feed && (
