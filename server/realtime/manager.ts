@@ -34,14 +34,16 @@ export class Realtime {
   }
 
   // The current snapshot, fetching first when there is none or it has gone stale, such as on
-  // the first request after the site sat idle.
+  // the first request after the site sat idle. During an outage this retries no sooner than
+  // the timer would, since every failed request still counts against the keys.
   async current() {
     const now = nowSeconds();
     this.lastDemand = now;
     this.schedule();
+    const due = (feed: { fetchedAt: number; failedAt: number }, seconds: number) => now - feed.fetchedAt > seconds * 2 && now - Math.max(feed.fetchedAt, feed.failedAt) >= seconds;
     const waits: Promise<void>[] = [];
-    if (now - this.trips.fetchedAt > this.tripSeconds * 2 && now - this.trips.failedAt > 10) waits.push(this.refresh('trips'));
-    if (now - this.alerts511.fetchedAt > ALERT_SECONDS * 2 && now - this.alerts511.failedAt > 10) waits.push(this.refresh('alerts'));
+    if (due(this.trips, this.tripSeconds)) waits.push(this.refresh('trips'));
+    if (due(this.alerts511, ALERT_SECONDS)) waits.push(this.refresh('alerts'));
     // Waiting is bounded, so a slow feed delays the first page by seconds, not indefinitely.
     if (waits.length > 0) await Promise.race([Promise.allSettled(waits), new Promise((resolve) => setTimeout(resolve, 8000))]);
     return {
