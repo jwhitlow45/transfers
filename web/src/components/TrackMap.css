@@ -10,6 +10,12 @@
 .tf-track__vehicle { stroke: var(--bg); }
 .tf-track__vehicle--estimate { fill-opacity: .55; stroke: var(--text); }
 .tf-track__heading { fill: var(--text); stroke: var(--bg); }
+/* A slash through a stop the vehicle has passed: a line in the text color inside a wider one in
+   the background's, so it shows across a solid square as well as an open one. */
+.tf-track__slash-edge { stroke: var(--bg); }
+.tf-track__slash { stroke: var(--text); }
+.tf-track__mark--passed .tf-track__stop-dot { position: relative; }
+.tf-track__mark--passed .tf-track__stop-dot::after { content: ''; position: absolute; left: -4px; right: -4px; top: calc(50% - 1px); height: 2px; background: var(--text); box-shadow: 0 0 0 1.5px var(--bg); transform: rotate(-45deg); }
 .tf-track__age { margin-top: var(--space-2); font-size: var(--text-sm); color: var(--muted); }
 .tf-track__age--old { color: var(--late); font-weight: 650; }
 .tf-track__stops { list-style: none; margin: var(--space-3) 0 0; padding: 0; }

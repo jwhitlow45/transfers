@@ -134,7 +134,7 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
       <p class="tf-track__headline" aria-live="polite">
         {headline}
       </p>
-      <LineMap data={data} color={color} label={headline} labels={labels} />
+      <LineMap data={data} color={color} label={headline} labels={labels} passedAt={passedAt} />
       {ageLine && <p class={`tf-track__age${age !== null && age > OLD_SECONDS ? ' tf-track__age--old' : ''}`}>{ageLine}</p>}
       {feed === 'offline' && <p class="tf-track__age tf-track__age--old">Offline. This is the last update received.</p>}
       <ol class="tf-track__stops">{rows.map((row) => (Array.isArray(row) ? (row.length > 1 ? fold(row) : item(row[0]!)) : item(row)))}</ol>
@@ -146,7 +146,7 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
 // The line, its stops, the rider's stops as squares, and the vehicle pointing the way it heads.
 // Sizes are in meters, scaled to the picture, so a long ride and a short one look alike. North is
 // up.
-function LineMap({ data, color, label, labels }: { data: TrackResponse; color: string; label: string; labels: Map<number, Mark['kind'][]> }) {
+function LineMap({ data, color, label, labels, passedAt }: { data: TrackResponse; color: string; label: string; labels: Map<number, Mark['kind'][]>; passedAt: (index: number) => boolean }) {
   const points: [number, number][] = [...data.line, ...data.path.map(({ x, y }): [number, number] => [x, y]), ...(data.vehicle ? [[data.vehicle.x, data.vehicle.y] as [number, number]] : [])];
   const xs = points.map(([x]) => x);
   // SVG's y axis points down.
@@ -164,15 +164,26 @@ function LineMap({ data, color, label, labels }: { data: TrackResponse; color: s
   return (
     <svg class="tf-track__map" viewBox={`${left} ${top} ${width} ${height}`} role="img" aria-label={label}>
       <polyline points={data.line.map(([x, y]) => `${x},${-y}`).join(' ')} fill="none" stroke={color} stroke-width={unit * 0.9} stroke-linecap="round" stroke-linejoin="round" />
+      {/* The vehicle's next stop is filled with its color, as in the list. */}
       {data.path.map(({ x, y }, index) => (
-        <circle key={index} cx={x} cy={-y} r={unit * 0.8} class="tf-track__stop" stroke-width={unit * 0.35} />
+        <circle key={index} cx={x} cy={-y} r={unit * 0.8} class="tf-track__stop" stroke-width={unit * 0.35} style={index === data.nextIndex ? { fill: color } : undefined} />
       ))}
-      {/* The rider's stops as squares: solid where they get on, open where they transfer. */}
+      {/* The rider's stops as squares: solid where they get on, open where they transfer, and struck
+          through once the vehicle has passed them. */}
       {[...labels].map(([index, kinds]) => {
         const place = data.path[index]!;
         const kind = kinds[0]!;
+        const half = unit * 1.4;
         return (
-          <rect key={index} x={place.x - unit * 1.4} y={-place.y - unit * 1.4} width={unit * 2.8} height={unit * 2.8} class={`tf-track__square--${kind}`} stroke-width={unit * (kind === 'yours' ? 0.45 : 0.7)} />
+          <g key={index} transform={`translate(${place.x} ${-place.y})`}>
+            <rect x={-half} y={-half} width={half * 2} height={half * 2} class={`tf-track__square--${kind}`} stroke-width={unit * (kind === 'yours' ? 0.45 : 0.7)} style={index === data.nextIndex ? { fill: color } : undefined} />
+            {passedAt(index) && (
+              <>
+                <line x1={-half * 1.5} y1={half * 1.5} x2={half * 1.5} y2={-half * 1.5} class="tf-track__slash-edge" stroke-width={unit * 1.1} stroke-linecap="round" />
+                <line x1={-half * 1.5} y1={half * 1.5} x2={half * 1.5} y2={-half * 1.5} class="tf-track__slash" stroke-width={unit * 0.45} stroke-linecap="round" />
+              </>
+            )}
+          </g>
         );
       })}
       {data.vehicle && (
