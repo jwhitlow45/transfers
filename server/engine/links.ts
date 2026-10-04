@@ -18,6 +18,8 @@ const CALIBRATED_MINUTES: Record<string, number> = {
 // Between BART and Muni Metro platforms inside a shared station: up or down a level, through
 // both sets of fare gates.
 const SHARED_STATION_SECONDS = 150;
+// A walk board nearer From wins over a busier one if it has at least this share of its trips.
+const BUSY_SHARE = 0.75;
 
 export type BoardPattern = { pattern: PatternRow; position: number; stop: StopRow };
 export type FirstLegPattern = { pattern: PatternRow; origin: number; alight: number };
@@ -80,13 +82,27 @@ type Pick = {
   minutes: number;
 };
 
-type Context = { schedule: Schedule; maxWalk: number; speed: number | undefined; namedStop: boolean; splitSystems: boolean };
+type Context = {
+  schedule: Schedule;
+  maxWalk: number;
+  speed: number | undefined;
+  namedStop: boolean;
+  splitSystems: boolean;
+  // Where a vehicle boarded at `position` reaches the rider's destination: the position, or -1
+  // when it never does. With no destination, where the pattern ends.
+  ridesTo: (pattern: PatternRow, position: number) => number;
+};
 
 export function findLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow } | { route: RouteRow }, settings: LinkSettings = {}): Link[] {
   const running = settings.running ?? null;
   const runs = (pattern: PatternRow) => !running || running.has(pattern.id);
   const reaches = settings.reaches ?? null;
-  const getsThere = (pattern: PatternRow, position: number) => !reaches || pattern.stops.slice(position + 1).some((id) => reaches.has(id));
+  const ridesTo = (pattern: PatternRow, position: number) => {
+    if (!reaches) return pattern.stops.length - 1;
+    for (let at = position + 1; at < pattern.stops.length; at++) if (reaches.has(pattern.stops[at]!)) return at;
+    return -1;
+  };
+  const getsThere = (pattern: PatternRow, position: number) => ridesTo(pattern, position) !== -1;
   const context: Context = {
     schedule,
     maxWalk: settings.maxWalkMeters ?? DEFAULT_MAX_WALK_METERS,
@@ -94,6 +110,7 @@ export function findLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow
     namedStop: 'stop' in to,
     // Riders choose BART or Muni Metro only where both leave from one station.
     splitSystems: schedule.sharedMembers.has(from.id),
+    ridesTo,
   };
   const origins = schedule.boardingStops(from, settings.fromAgencies ?? null);
   const targets = ('stop' in to ? stopTargets(schedule, to.stop, settings.toAgencies ?? null) : routeTargets(schedule, to.route))
@@ -114,6 +131,7 @@ export function findLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow
   const walks = new Map<number, Link>();
   for (const target of targets) {
     const walk = walkLink(context, origins, target);
+    if (walk === 'pointless') continue;
     if (!walk) {
       links.push(...rideLinks(context, feeders, target));
       continue;
@@ -151,16 +169,23 @@ const isStation = (stop: StopRow) => stop.access === 'bart' || stop.access === '
 
 // The route already stops at or near From. For a named stop, that means any stop the route
 // makes on the way to it, since the rider can board there and ride straight through. Of the
-// stops in range, the one most trips use wins, then the nearest, so a quiet branch at the
-// nearest pole does not hide the main service one pole over. A stop where the route is about
-// to end, within a walk of From, does not count.
-function walkLink(context: Context, origins: StopRow[], target: Target): Link | null {
+// stops in range, the nearest wins unless it carries under BUSY_SHARE of the busiest one's
+// trips, so a quiet branch at the nearest pole does not hide the main service one pole over,
+// and a busier stop a block away does not pull the rider off a stop nearly every vehicle
+// makes. J chose this over always the busiest or always the nearest. Two boardings are ones nobody
+// takes: where the vehicle then passes closer to From, which the rider could have boarded
+// there, and where it ends within a walk of From. When every stop in range is one of those,
+// the route goes nowhere useful from From in this direction, and riding to it elsewhere would
+// make no more sense, so the answer is 'pointless' rather than no walk.
+function walkLink(context: Context, origins: StopRow[], target: Target): Link | 'pointless' | null {
   const { schedule, maxWalk } = context;
   const candidates = new Map<number, Map<string, BoardPattern>>();
   for (const board of target.stops) {
     for (const { pattern, position } of board.patterns) {
       const last = context.namedStop ? position : pattern.stops.length - 2;
       for (let at = 0; at <= last; at++) {
+        // A stop past the destination is no place to board for it.
+        if (context.ridesTo(pattern, at) === -1) continue;
         const stop = schedule.stop(pattern.stops[at]!);
         const list = candidates.get(stop.id) ?? new Map<string, BoardPattern>();
         list.set(`${pattern.id}|${at}`, { pattern, position: at, stop });
@@ -168,7 +193,8 @@ function walkLink(context: Context, origins: StopRow[], target: Target): Link | 
       }
     }
   }
-  let best: { stop: StopRow; meters: number; trips: number; patterns: BoardPattern[] } | null = null;
+  const usable: { stop: StopRow; meters: number; trips: number; patterns: BoardPattern[] }[] = [];
+  let inRange = false;
   for (const [id, byPattern] of candidates) {
     const stop = schedule.stop(id);
     let meters = Infinity;
@@ -178,13 +204,16 @@ function walkLink(context: Context, origins: StopRow[], target: Target): Link | 
       if (walk.meters <= limit) meters = Math.min(meters, walk.meters);
     }
     if (meters === Infinity) continue;
-    const patterns = [...byPattern.values()].filter(({ pattern, position }) => !endsNear(schedule, pattern, position, stop, maxWalk));
+    inRange = true;
+    const patterns = [...byPattern.values()].filter(
+      ({ pattern, position }) => !origins.some((origin) => endsNear(schedule, pattern, position, origin, maxWalk)) && !passesCloser(schedule, pattern, position, context.ridesTo(pattern, position), origins, maxWalk),
+    );
     if (patterns.length === 0) continue;
-    const trips = patterns.reduce((sum, { pattern }) => sum + pattern.trips, 0);
-    if (best && (trips < best.trips || (trips === best.trips && meters >= best.meters))) continue;
-    best = { stop, meters, trips, patterns };
+    usable.push({ stop, meters, trips: patterns.reduce((sum, { pattern }) => sum + pattern.trips, 0), patterns });
   }
-  if (!best) return null;
+  const busiest = Math.max(0, ...usable.map(({ trips }) => trips));
+  const best = usable.filter(({ trips }) => trips >= busiest * BUSY_SHARE).sort((a, b) => a.meters - b.meters || b.trips - a.trips)[0];
+  if (!best) return inRange ? 'pointless' : null;
   const seconds = transferSeconds({ exit: 'street', entry: best.stop.access, meters: best.meters, ...(context.speed ? { speed: context.speed } : {}) });
   return {
     key: `walk|${target.routes.map(({ id }) => id).join(',')}|${target.direction}|${best.stop.id}`,
@@ -337,6 +366,19 @@ function endsNear(schedule: Schedule, pattern: PatternRow, position: number, ali
 
 // The target pattern, after boarding, comes back near From or a stop the rider already rode
 // through, where they could have boarded it instead.
+// Whether a vehicle boarded at `position` stops within half a walk of From, and closer to it than
+// where it was boarded, before the rider gets off at `last`. A loop that passes From only after
+// the rider's destination does not count.
+function passesCloser(schedule: Schedule, pattern: PatternRow, position: number, last: number, origins: StopRow[], maxWalk: number) {
+  const away = (at: number) => Math.min(...origins.map((origin) => distanceMeters(schedule.stop(pattern.stops[at]!), origin)));
+  const boarded = away(position);
+  for (let at = position + 1; at <= last; at++) {
+    const later = away(at);
+    if (later <= maxWalk / 2 && later < boarded) return true;
+  }
+  return false;
+}
+
 function doublesBack(schedule: Schedule, pattern: PatternRow, position: number, ridden: StopRow[], maxWalk: number) {
   if (ridden.length === 0) return false;
   for (let at = position + 1; at < pattern.stops.length; at++) {
