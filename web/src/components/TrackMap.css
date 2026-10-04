@@ -17,3 +17,10 @@
 .tf-track__yours .tf-track__stop-dot { border-radius: 0; background: var(--text); }
 .tf-track__tag { font-size: var(--text-sm); font-weight: 650; color: var(--muted); }
 .tf-track__tag--yours { color: var(--text); }
+.tf-track__stops .tf-track__fold { display: block; padding: 0; }
+.tf-track__stops--between { margin: 0; }
+.tf-track__more { display: flex; align-items: center; gap: var(--space-2); width: 100%; min-height: var(--tap-min); padding: var(--space-2) 0; color: var(--muted); font-weight: 650; text-align: left; }
+/* A dotted stretch of line where the stop dots would be, standing for the stops folded away. */
+.tf-track__more-line { flex: none; width: 10px; height: 20px; background: repeating-linear-gradient(var(--muted) 0 2px, transparent 2px 5px) center / 2px 100% no-repeat; }
+.tf-track__more svg { transition: transform var(--motion-fast); }
+.tf-track__more[aria-expanded="true"] svg { transform: rotate(180deg); }

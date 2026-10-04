@@ -1,9 +1,12 @@
+import { useId, useState } from 'preact/hooks';
 import type { TrackResponse } from '../../../shared/api.ts';
 import { useNow, usePoll } from '../hooks.ts';
+import { IconChevron } from '../icons/ui.tsx';
 import { routeColor } from '../lib/color.ts';
 import { ageText, clockSkewMs } from '../lib/freshness.ts';
 import type { Tracked } from '../track.tsx';
 import { shortStopName } from '../view.ts';
+import { Collapse } from './Collapse.tsx';
 import './TrackMap.css';
 
 // Vehicles report about every 30 seconds. The server asks 511 no more often than that however
@@ -19,6 +22,8 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
   // Not kept in storage: a position from an earlier visit is no use.
   const { data, error, fetchedAt, feed } = usePoll<TrackResponse>(url, REFRESH_MS, null, false);
   const now = useNow() + clockSkewMs(data?.generatedAt, fetchedAt);
+  const [showBetween, setShowBetween] = useState(false);
+  const between = useId();
   if (!data) {
     return <p class="tf-muted">{error ?? (feed === 'offline' ? 'Offline. The map shows once you are back online.' : 'Finding the vehicle…')}</p>;
   }
@@ -35,6 +40,26 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
   // Some vehicles send no time with their position. Theirs counts from when the server got it.
   const reportedAt = data.vehicle ? (data.vehicle.at ?? data.dataAt) : null;
   const age = reportedAt === null ? null : Math.max(0, Math.floor(now / 1000 - reportedAt));
+  // The stops listed from the rider's toward the vehicle: the rider's first and the vehicle's next
+  // stop last, with the stops between folded into one row that opens on a tap. With no position,
+  // the stops before the rider's, nearest first.
+  const { targetIndex, nextIndex } = data;
+  const step = nextIndex !== null && nextIndex > targetIndex ? 1 : -1;
+  const order: number[] = [];
+  for (let index = targetIndex; step === 1 ? index <= nextIndex! : index >= (nextIndex ?? 0); index += step) order.push(index);
+  const middle = nextIndex === null ? order.slice(1) : order.slice(1, -1);
+  const last = nextIndex !== null && order.length > 1 ? order.at(-1) : undefined;
+  // One stop takes no more room than a row saying so.
+  const fold = nextIndex !== null && middle.length > 1;
+  // By position, since a loop's path can hold one stop twice.
+  const item = (index: number) => (
+    <li key={index} class={index === targetIndex ? 'tf-track__yours' : ''}>
+      <span class="tf-track__stop-dot" aria-hidden="true" style={index === nextIndex ? { background: color } : undefined} />
+      <span class="tf-track__stop-name">{shortStopName(data.stops[data.path[index]!.stop], data.path[index]!.stop)}</span>
+      {index === nextIndex && <span class="tf-track__tag">Next stop</span>}
+      {index === targetIndex && <span class="tf-track__tag tf-track__tag--yours">Your stop</span>}
+    </li>
+  );
   return (
     <div class="tf-track">
       <p class="tf-track__toward">Toward {data.headsign}</p>
@@ -49,22 +74,31 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
       )}
       {feed === 'offline' && <p class="tf-track__age tf-track__age--old">Offline. This is the last position received.</p>}
       <ol class="tf-track__stops">
-        {data.path.map(({ stop }, index) => (
-          <li key={stop} class={index === data.targetIndex ? 'tf-track__yours' : ''}>
-            <span class="tf-track__stop-dot" aria-hidden="true" style={index === data.nextIndex ? { background: color } : undefined} />
-            <span class="tf-track__stop-name">{shortStopName(data.stops[stop], stop)}</span>
-            {index === data.nextIndex && <span class="tf-track__tag">Next stop</span>}
-            {index === data.targetIndex && <span class="tf-track__tag tf-track__tag--yours">Your stop</span>}
+        {item(order[0]!)}
+        {fold ? (
+          <li class="tf-track__fold">
+            <button type="button" class="tf-track__more" aria-expanded={showBetween} aria-controls={between} onClick={() => setShowBetween(!showBetween)}>
+              <span class="tf-track__more-line" aria-hidden="true" />
+              {middle.length} stops
+              <IconChevron size={16} />
+            </button>
+            <Collapse open={showBetween} id={between}>
+              <ol class="tf-track__stops tf-track__stops--between">{middle.map(item)}</ol>
+            </Collapse>
           </li>
-        ))}
+        ) : (
+          middle.map(item)
+        )}
+        {last !== undefined && item(last)}
       </ol>
       {error && <p class="tf-muted">{error}</p>}
     </div>
   );
 }
 
-// The line, its stops, the rider's stop as a square, and the vehicle pointing the way it heads. Sizes are in
-// meters, scaled to the picture, so a long ride and a short one look alike. North is up.
+// The line, its stops, the rider's stop as a square, and the vehicle pointing the way it heads.
+// Sizes are in meters, scaled to the picture, so a long ride and a short one look alike. North is
+// up.
 function Map({ data, color, label }: { data: TrackResponse; color: string; label: string }) {
   const points: [number, number][] = [...data.line, ...data.path.map(({ x, y }): [number, number] => [x, y]), ...(data.vehicle ? [[data.vehicle.x, data.vehicle.y] as [number, number]] : [])];
   const xs = points.map(([x]) => x);
