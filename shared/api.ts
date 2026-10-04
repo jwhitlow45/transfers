@@ -165,6 +165,11 @@ export type Notice =
   | { kind: 'filtered' }
   | { kind: 'walkable'; stop: string; meters: number };
 
+// An elevator or escalator out of service at a BART station the trip uses, for riders who asked:
+// the station, the stop keys in this response that are at it, where the outage is, why, and when
+// BART expects it back ("10/23/2026"), when bart.gov says.
+export type AccessOutage = { station: string; stops: string[]; kind: 'elevator' | 'escalator'; location: string; reason: string | null; returns: string | null };
+
 export type TripResponse = {
   notice?: Notice;
   generatedAt: number;
@@ -180,6 +185,8 @@ export type TripResponse = {
   routes: Record<string, Route>;
   stops: Record<string, Stop>;
   alerts: Alert[];
+  // Present when the rider asked for step-free travel or escalator outages.
+  access?: AccessOutage[];
   feeds: FeedStatus[];
 };
 

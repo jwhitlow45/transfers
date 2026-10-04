@@ -44,9 +44,14 @@ export type DeviceSettings = {
   showHidden: boolean;
   // Whether a live map zooms in once the vehicle leaves the rider's stop.
   mapFitOnBoard: boolean;
+  // A rider who needs elevators: their outages at the trip's stations first, and more time to
+  // change at stations.
+  stepFree: boolean;
+  // A rider who relies on escalators: their outages at the trip's stations too.
+  escalatorOutages: boolean;
 };
 
-export const DEFAULT_SETTINGS: DeviceSettings = { walkSpeed: 1.4, maxWalk: 300, min: null, max: null, hide: 0, theme: 'system', cards: 'expanded', modeIcons: true, motion: 'system', showHidden: false, mapFitOnBoard: true };
+export const DEFAULT_SETTINGS: DeviceSettings = { walkSpeed: 1.4, maxWalk: 300, min: null, max: null, hide: 0, theme: 'system', cards: 'expanded', modeIcons: true, motion: 'system', showHidden: false, mapFitOnBoard: true, stepFree: false, escalatorOutages: false };
 
 // Minutes as the time settings allow them. Settings and searches saved before the 30 minute cap
 // can hold more, which the server would quietly treat as 30 while the page said otherwise.

@@ -132,9 +132,23 @@ export function SettingsScreen() {
             <div class="tf-setting__help">Sections opening and closing, sheets sliding, and the refresh bar. Match this device follows its reduce motion setting.</div>
             <Choices label="Animations" options={MOTIONS.map(({ value, label }) => ({ key: value, text: label }))} selected={settings.motion} onChoose={(motion) => update({ motion })} />
           </div>
+          <div class="tf-setting">
+            <div class="tf-setting__label">Step-free travel</div>
+            <div class="tf-setting__help">Lists elevator outages at your stations first, marks the transfers they affect, and allows 3 more minutes to change at BART and Muni Metro stations. BART outages come by station; Muni's come from its service alerts.</div>
+            <div class="tf-filters">
+              <Toggle pressed={settings.stepFree} onToggle={() => update({ stepFree: !settings.stepFree })}>
+                I use elevators
+              </Toggle>
+            </div>
+          </div>
           <div class="tf-setting tf-setting--last">
-            <div class="tf-setting__label">Step-free routes</div>
-            <div class="tf-setting__help">Coming later: elevator routes through stations, longer transfers, and elevator outages first.</div>
+            <div class="tf-setting__label">Escalator outages</div>
+            <div class="tf-setting__help">Marks escalators out of service at BART stations on your trip, from bart.gov's status pages.</div>
+            <div class="tf-filters">
+              <Toggle pressed={settings.escalatorOutages} onToggle={() => update({ escalatorOutages: !settings.escalatorOutages })}>
+                Show escalator outages
+              </Toggle>
+            </div>
           </div>
         </section>
       </main>

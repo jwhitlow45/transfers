@@ -148,7 +148,7 @@ export function ResultsScreen({ search }: { search: Search }) {
               </a>
             </div>
           )}
-          {data && <AlertList key={data.from} alerts={viewAlerts(data, summary.boarding)} />}
+          {data && <AlertList key={data.from} alerts={viewAlerts(data, summary.boarding, settings.stepFree)} />}
           {data && ((data.systems?.from?.length ?? 0) > 1 || search.fromSystem) && (
             <SystemSwitcher
               label={`From ${shortStopName(data.stops[data.from])}, ride`}

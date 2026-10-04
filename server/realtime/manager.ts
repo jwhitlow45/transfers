@@ -1,11 +1,14 @@
 import { AGENCIES, type Agency } from '../config.ts';
 import { nowSeconds } from '../time.ts';
+import { BART_ELEVATOR_ADVISORY_URL, type Outage, bartStatusTableUrl, parseElevatorAdvisory, parseStatusTable } from './access.ts';
 import { decodeFeed } from './feed.ts';
 import { type KeyPool, pollSeconds } from './keys.ts';
 import { type RtAlert, type TripSnapshot, type VehicleSnapshot, buildAlerts, buildTripSnapshot, buildVehicleSnapshot } from './snapshot.ts';
 
 const BART_ALERTS_URL = 'https://api.bart.gov/gtfsrt/alerts.aspx';
 const ALERT_SECONDS = 60;
+// Elevator and escalator outages change over hours, not minutes.
+const ACCESS_SECONDS = 5 * 60;
 // Polling stops this long after the last request, so an idle site spends no 511 requests.
 const IDLE_SECONDS = 5 * 60;
 // Checks every second, so each refresh lands on its interval rather than up to 5 seconds late.
@@ -22,6 +25,7 @@ export class Realtime {
   private alerts511: FeedState<RtAlert[]> = { value: null, fetchedAt: 0, failedAt: 0, error: null };
   private alertsBart: FeedState<RtAlert[]> = { value: null, fetchedAt: 0, failedAt: 0, error: null };
   private vehicles: FeedState<VehicleSnapshot> = { value: null, fetchedAt: 0, failedAt: 0, error: null };
+  private access: { elevators: Outage[] | null; escalators: Outage[] | null; fetchedAt: number; failedAt: number } = { elevators: null, escalators: null, fetchedAt: 0, failedAt: 0 };
   private lastDemand = 0;
   private timer: NodeJS.Timeout | null = null;
   private inFlight = new Map<string, Promise<void>>();
@@ -76,6 +80,17 @@ export class Realtime {
     return this.vehicles.value;
   }
 
+  // Elevator and escalator outages at BART stations, fetched only when a rider asks for them, at
+  // most every five minutes. Null when none have been fetched.
+  async accessOutages(): Promise<Outage[] | null> {
+    const now = nowSeconds();
+    if (now - Math.max(this.access.fetchedAt, this.access.failedAt) >= ACCESS_SECONDS) {
+      await Promise.race([this.refresh('access'), new Promise((resolve) => setTimeout(resolve, 8000))]);
+    }
+    const { elevators, escalators } = this.access;
+    return elevators === null && escalators === null ? null : [...(elevators ?? []), ...(escalators ?? [])];
+  }
+
   private schedule() {
     if (this.timer) return;
     const tick = () => {
@@ -93,10 +108,10 @@ export class Realtime {
     this.timer.unref();
   }
 
-  private refresh(feed: 'trips' | 'alerts' | 'vehicles') {
+  private refresh(feed: 'trips' | 'alerts' | 'vehicles' | 'access') {
     const existing = this.inFlight.get(feed);
     if (existing) return existing;
-    const fetchFeed = { trips: () => this.fetchTrips(), alerts: () => this.fetchAlerts(), vehicles: () => this.fetchVehicles() }[feed];
+    const fetchFeed = { trips: () => this.fetchTrips(), alerts: () => this.fetchAlerts(), vehicles: () => this.fetchVehicles(), access: () => this.fetchAccess() }[feed];
     const work = fetchFeed().finally(() => this.inFlight.delete(feed));
     this.inFlight.set(feed, work);
     return work;
@@ -122,6 +137,29 @@ export class Realtime {
       this.vehicles = { ...this.vehicles, failedAt: started, error: String(error) };
       console.error('Vehicle positions failed:', error);
     }
+  }
+
+  // Elevators from BART's advisory, or from bart.gov's table when it answers, which adds each
+  // one's reason and return date. Escalators from bart.gov's table alone. A source that fails keeps
+  // its last answer, until the next good one.
+  private async fetchAccess() {
+    const started = nowSeconds();
+    const json = (url: string) =>
+      this.fetchImpl(url, { signal: AbortSignal.timeout(15_000) }).then((response) => {
+        if (!response.ok) throw new Error(`${new URL(url).host} answered ${response.status}`);
+        return response.json() as Promise<unknown>;
+      });
+    const [advisory, elevatorTable, escalatorTable] = await Promise.allSettled([
+      json(BART_ELEVATOR_ADVISORY_URL),
+      json(bartStatusTableUrl('elevator')),
+      json(bartStatusTableUrl('escalator')),
+    ]);
+    const elevators =
+      elevatorTable.status === 'fulfilled' ? parseStatusTable(elevatorTable.value, 'elevator') : advisory.status === 'fulfilled' ? parseElevatorAdvisory(advisory.value) : this.access.elevators;
+    const escalators = escalatorTable.status === 'fulfilled' ? parseStatusTable(escalatorTable.value, 'escalator') : this.access.escalators;
+    const failed = advisory.status === 'rejected' && elevatorTable.status === 'rejected';
+    if (failed) console.error('BART elevator status failed:', advisory.reason);
+    this.access = { elevators, escalators, fetchedAt: failed ? this.access.fetchedAt : started, failedAt: failed ? started : 0 };
   }
 
   private async fetchAlerts() {

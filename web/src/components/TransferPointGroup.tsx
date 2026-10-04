@@ -3,6 +3,7 @@ import type { Group, Route } from '../../../shared/api.ts';
 import { walkMinutes } from '../format.ts';
 import { type CardContext, alightVerb, familyName, firstNoun, firstWord, pointId, visibleDepartures } from '../lib/results.ts';
 import { agencyName, shortStopName, windowText } from '../view.ts';
+import { IconWarn } from '../icons/ui.tsx';
 import { DepartureCard } from './DepartureCard.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import { StopLink } from './StopLink.tsx';
@@ -35,6 +36,16 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
   const boardLink = <StopLink stop={board}>{boardName}</StopLink>;
   const place = joined([board?.direction, <>at {boardLink}</>, board?.code ? `stop ${board.code}` : station]);
   const firstOpen = departures.find(({ canceled }) => !canceled)?.trip;
+  // By station, so one with both out says so once: "Elevator and escalator out at 24th St Mission".
+  const outageKinds = new Map<string, Set<string>>();
+  for (const { kind, station, stops } of data.access ?? []) {
+    if (!stops.includes(group.alight) && !stops.includes(group.board)) continue;
+    outageKinds.set(station, (outageKinds.get(station) ?? new Set()).add(kind));
+  }
+  const outages = [...outageKinds].map(([station, kinds]) => {
+    const what = [...kinds].sort().join(' and ');
+    return `${what[0]!.toUpperCase()}${what.slice(1)} out at ${shortStopName(data.stops[station], 'this station')}`;
+  });
   const walk = group.kind === 'walk';
   // Rows that get off at another stop may walk farther than the group's own stop.
   const shortest = walkMinutes(group.walkMeters);
@@ -79,6 +90,13 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
         </h2>
         <div class="tf-group__meta">{place}</div>
         <div class="tf-group__off">{off}</div>
+        {/* An elevator or escalator out where the rider gets off or changes, for riders who asked. */}
+        {outages.length > 0 && (
+          <div class="tf-group__access">
+            <IconWarn size={14} />
+            {outages.join(' · ')}
+          </div>
+        )}
       </div>
       {departures.length === 0 && walk ? (
         <div class="tf-empty">

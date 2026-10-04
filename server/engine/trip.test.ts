@@ -374,3 +374,21 @@ test('a walk group leaves out departures sooner than the rider asked to hide', (
   strictEqual(group.kind, 'walk');
   ok(group.departures.length > 0 && group.departures.every(({ at }) => at >= NOW + 30 * 60));
 });
+
+test('step-free travel allows more time to change at a station and lists elevator outages on the trip', () => {
+  const outages = [
+    { station: '24th', kind: 'elevator' as const, location: 'Street to Concourse', reason: 'Repair', returns: '10/23/2026' },
+    { station: 'mont', kind: 'escalator' as const, location: 'Platform', reason: 'Repair', returns: null },
+    // Glen Park is not on this trip.
+    { station: 'glen', kind: 'elevator' as const, location: 'Station', reason: null, returns: null },
+  ];
+  const plain = planTrip(schedule, { ...realtime(), access: outages }, { from: 'BA:901209', to: 'SF:13477' }, NOW);
+  deepStrictEqual([plain.groups[0]?.window.min, plain.access], [3, undefined]);
+  // Getting off BART at 24th St, three more minutes, and 24th St's elevator outage.
+  const stepFree = planTrip(schedule, { ...realtime(), access: outages }, { from: 'BA:901209', to: 'SF:13477', stepFree: true }, NOW);
+  strictEqual(stepFree.groups[0]?.window.min, 6);
+  deepStrictEqual(stepFree.access, [{ station: 'BA:901609', stops: ['BA:901609'], kind: 'elevator', location: 'Street to Concourse', reason: 'Repair', returns: '10/23/2026' }]);
+  // Escalators too: Montgomery's, where the rider gets on, listed first, in the order of the trip.
+  const both = planTrip(schedule, { ...realtime(), access: outages }, { from: 'BA:901209', to: 'SF:13477', stepFree: true, escalators: true }, NOW);
+  deepStrictEqual(both.access?.map(({ station, kind, stops }) => `${kind} ${station} ${stops.join(',')}`), ['escalator BA:901209 BA:901209', 'elevator BA:901609 BA:901609']);
+});

@@ -41,8 +41,11 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
       return sendJson(request, response, search(schedule, url.searchParams.get('q') ?? '', { routes: url.searchParams.get('kind') !== 'stop', ...(near ? { near } : {}) }));
     }
     case '/api/trip': {
+      const trip = tripRequest(url.searchParams);
       const view = await realtimeView();
-      return sendJson(request, response, planTrip(schedule, view, tripRequest(url.searchParams), nowSeconds()));
+      // Elevator and escalator outages are fetched only for riders who asked for them.
+      if (trip.stepFree || trip.escalators) view.access = await realtime.accessOutages();
+      return sendJson(request, response, planTrip(schedule, view, trip, nowSeconds()));
     }
     case '/api/vehicle': {
       const trip = url.searchParams.get('trip');
@@ -101,6 +104,8 @@ function tripRequest(params: URLSearchParams, from = params.get('from'), to = pa
   if (first) request.firstRoutes = first.split(',');
   if (second) request.secondRoutes = second.split(',');
   if (params.get('hidden') === '1') request.hidden = true;
+  if (params.get('stepfree') === '1') request.stepFree = true;
+  if (params.get('escalators') === '1') request.escalators = true;
   // BART or Muni Metro at a shared station: "BA", "SF", or both.
   const agencies = (name: string) => (params.get(name) ?? '').split(',').filter((agency): agency is 'BA' | 'SF' => agency === 'BA' || agency === 'SF');
   const fromAgencies = agencies('fm');

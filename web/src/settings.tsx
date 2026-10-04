@@ -57,10 +57,12 @@ export function tripApiUrl(search: Search, settings: DeviceSettings, showHidden:
   if (search.fromSystem) params.set('fm', search.fromSystem);
   if (search.toSystem) params.set('tm', search.toSystem);
   if (showHidden) params.set('hidden', '1');
+  if (settings.stepFree) params.set('stepfree', '1');
+  if (settings.escalatorOutages) params.set('escalators', '1');
   return `/api/trip?${params}`;
 }
 
 // Whether the server's inlined results answer the same question this device would ask.
 export function matchesServerDefaults(settings: DeviceSettings) {
-  return settings.maxWalk === DEFAULT_SETTINGS.maxWalk && settings.walkSpeed === DEFAULT_SETTINGS.walkSpeed && settings.min === null && settings.max === null && settings.hide === 0 && !settings.showHidden;
+  return settings.maxWalk === DEFAULT_SETTINGS.maxWalk && settings.walkSpeed === DEFAULT_SETTINGS.walkSpeed && settings.min === null && settings.max === null && settings.hide === 0 && !settings.showHidden && !settings.stepFree && !settings.escalatorOutages;
 }

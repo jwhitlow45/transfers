@@ -4,7 +4,7 @@ Transfers runs on `ssh server` like screamr.ai: three containers from `docker-co
 
 - **web** (`transfers_web`): Caddy on port 8080. Serves the built frontend and proxies `/api` and `/t` to the API. Its only networks are `transfers-edge` (joined by cloudflared) and `transfers-app`.
 - **api**: Node. Keeps the schedule database and 511 key usage in the `transfers-data` volume. It has no route off the machine except the egress proxy.
-- **egress**: Squid, allowing HTTPS to `api.511.org` and `api.bart.gov` only.
+- **egress**: Squid, allowing HTTPS to `api.511.org`, `api.bart.gov`, and `www.bart.gov` (its elevator and escalator status tables) only.
 
 The internal networks use Docker's `isolated` gateway mode, which needs Docker 28 or later (the server runs 29.7). Docker Desktop 27 on a Mac rejects it, so local runs need an override that drops that option.
 
@@ -65,6 +65,12 @@ cd ~/docker_compose/transfers && git pull && docker compose up -d --build
 ```
 
 The schedule database and key usage survive in the volume. The schedule rebuilds itself daily around 3:30 AM Pacific.
+
+After a change to `docker/squid.conf`, restart the proxy too, since it reads the file only when it starts:
+
+```sh
+cd ~/docker_compose/transfers && docker compose restart egress
+```
 
 ## Checking on it
 

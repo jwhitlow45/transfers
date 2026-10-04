@@ -258,6 +258,8 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-group { display: flex; flex-direction: column; gap: var(--space-4); margin-top: var(--space-2); }
 .tf-group__title { margin: 0; font-size: 18px; font-weight: var(--weight-bold); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); }
 .tf-group__meta { font-size: var(--text-base); color: var(--muted); margin-top: 2px; }
+/* An elevator or escalator out where the rider changes, set off like the late tag. */
+.tf-group__access { display: inline-flex; align-items: center; gap: 6px; margin-top: var(--space-2); padding: 3px var(--space-2); background: var(--late-tint); color: var(--late); font-size: var(--text-sm); font-weight: 650; }
 
 .tf-card { border: var(--border-strong) solid var(--line); position: relative; }
 .tf-band { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3) var(--space-4); background: var(--field); color: var(--on-field); }

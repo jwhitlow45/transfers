@@ -1,5 +1,7 @@
-import { type Alert, type AlertRelevance, type AgencyId, type Departure, type DestinationsResponse, type FeedStatus, type Group, MAX_MINUTES, type Notice, type TripResponse } from '../../shared/api.ts';
+import { type AccessOutage, type Alert, type AlertRelevance, type AgencyId, type Departure, type DestinationsResponse, type FeedStatus, type Group, MAX_MINUTES, type Notice, type TripResponse } from '../../shared/api.ts';
 import type { Agency } from '../config.ts';
+import { bartStationCode } from '../bart-stations.ts';
+import type { Outage } from '../realtime/access.ts';
 import type { RtAlert, TripSnapshot } from '../realtime/snapshot.ts';
 import { type Schedule, type StopRow, routeKeyOf, stopKeyOf } from '../schedule.ts';
 import { type FirstLeg, type PairingOptions, type SecondLeg, pairConnections } from './connections.ts';
@@ -23,6 +25,10 @@ export type TripRequest = {
   firstRoutes?: string[];
   secondRoutes?: string[];
   hidden?: boolean;
+  // A rider who needs elevators: their outages along the trip, and more time to change at stations.
+  stepFree?: boolean;
+  // A rider who relies on escalators: their outages along the trip.
+  escalators?: boolean;
   // At a shared station: ride from or catch BART, Muni Metro, or both when absent.
   fromAgencies?: Agency[];
   toAgencies?: Agency[];
@@ -33,7 +39,13 @@ export type RealtimeView = {
   alerts: RtAlert[];
   status: (agency: Agency) => FeedStatus['state'];
   updatedAt: number | null;
+  // BART's elevator and escalator outages, when the rider asked for them.
+  access?: Outage[] | null;
 };
+
+// Changing at a station step-free means waiting for and riding elevators, so the rider gets this
+// much more on the transfer minimum.
+const STEP_FREE_MINUTES = 3;
 
 export class RequestError extends Error {
   readonly status: number;
@@ -131,7 +143,8 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
     const routes = link.routes.filter((route) => !secondFilter || secondFilter.has(routeKeyOf(route)));
     if (routes.length === 0) continue;
     const linkForRoutes = routes.length === link.routes.length ? link : { ...link, routes };
-    const min = Math.min(MAX_MINUTES, request.min ?? link.defaultMinutes);
+    const atStation = [link.alight, link.board].some(({ access }) => access === 'bart' || access === 'subway');
+    const min = Math.min(MAX_MINUTES, (request.min ?? link.defaultMinutes) + (request.stepFree && link.kind === 'ride' && atStation ? STEP_FREE_MINUTES : 0));
     const feeders = link.firstLegs
       .filter(({ pattern }) => !firstFilter || firstFilter.has(routeKeyOf(schedule.route(pattern.route))))
       .map(({ pattern, origin }) => ({ pattern, position: origin }));
@@ -216,8 +229,39 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
       }
       return alerts;
     })(),
+    ...(request.stepFree || request.escalators
+      ? {
+          access: stationOutages(
+            schedule,
+            tables,
+            realtime.access ?? [],
+            request,
+            [stopKeyOf(from), ...groups.flatMap(({ alight, board, departures }) => [alight, board, ...departures.flatMap(({ connections }) => connections.flatMap(({ alight }) => (alight ? [alight] : [])))]), ...(destination ? [stopKeyOf(destination)] : []), ...(toStop ? [stopKeyOf(toStop)] : [])],
+          ),
+        }
+      : {}),
     feeds: [...agencies].map((agency) => ({ agency, state: realtime.status(agency), updatedAt: realtime.updatedAt })),
   };
+}
+
+// The outages the rider asked about at the BART stations behind the given stop keys, each with
+// every key that leads to its station, so the page can mark the groups it touches.
+function stationOutages(schedule: Schedule, tables: Tables, outages: Outage[], request: TripRequest, keys: string[]): AccessOutage[] {
+  const kinds = new Set<Outage['kind']>([...(request.stepFree ? ['elevator' as const] : []), ...(request.escalators ? ['escalator' as const] : [])]);
+  const found = new Map<Outage, AccessOutage>();
+  for (const key of new Set(keys)) {
+    const stop = schedule.stopsByKey.get(key);
+    const station = stop ? schedule.stationOf(stop) : null;
+    const code = station?.agency === 'BA' ? bartStationCode(station) : null;
+    if (!station || !code) continue;
+    for (const outage of outages) {
+      if (outage.station !== code || !kinds.has(outage.kind)) continue;
+      const entry = found.get(outage) ?? { station: tables.stop(station), stops: [], kind: outage.kind, location: outage.location, reason: outage.reason, returns: outage.returns };
+      entry.stops.push(key);
+      found.set(outage, entry);
+    }
+  }
+  return [...found.values()];
 }
 
 // With a destination set, only routes that get there count, and a transfer point none of whose
