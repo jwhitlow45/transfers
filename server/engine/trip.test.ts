@@ -276,6 +276,18 @@ test('stop orders merge with short runs placed where they join', () => {
   deepStrictEqual(mergeOrder([[1, 2], [7, 8]]), [1, 2, 7, 8]);
 });
 
+test('a walk group with a destination boards where the route still reaches it, and says so when none does', () => {
+  // From 24th & Valencia the 48 needs no transfer, and it reaches Potrero.
+  const reaches = planTrip(schedule, realtime(), { from: 'SF:13486', to: 'route:SF:48', dest: 'SF:13500' }, NOW);
+  deepStrictEqual(reaches.groups.map(({ kind, board }) => `${kind} ${board}`), ['walk SF:13486']);
+  strictEqual(reaches.notice, undefined);
+  // Valencia is where the 48 starts here, so nothing reaches it. That is the destination's
+  // doing, not a gap in service.
+  const behind = planTrip(schedule, realtime(), { from: 'SF:13486', to: 'route:SF:48', dest: 'SF:13486' }, NOW);
+  deepStrictEqual(behind.groups, []);
+  deepStrictEqual(behind.notice, { kind: 'destination' });
+});
+
 test('when the route to catch runs but nothing from From does, the notice says so', () => {
   const afternoon = DAY + 14 * 3600;
   const response = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477' }, afternoon);

@@ -115,7 +115,7 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
   const tables = new Tables(schedule);
   const allLinks = cachedLinks(schedule, from, to, request, now);
   const links = destination ? towardDestination(schedule, allLinks, destination, toStop ?? null) : allLinks;
-  const notice = links.length > 0 ? undefined : emptyNotice(schedule, from, to, request, now);
+  const notice = links.length > 0 ? undefined : emptyNotice(schedule, from, to, request, destination, toStop ?? null, now);
   const firstFilter = request.firstRoutes?.length ? new Set(request.firstRoutes) : null;
   const secondFilter = request.secondRoutes?.length ? new Set(request.secondRoutes) : null;
   const context = { schedule, snapshot: realtime.trips, now };
@@ -308,8 +308,10 @@ function walkDepartures(second: SecondLeg[], now: number, walkMinutes: number): 
 // Why a trip has no groups. The links over every pattern, running or not, say what would work
 // at another hour. When the routes to transfer to are not running, the notice is about them.
 // When they are, it is the routes from From that are not, and the notice says so.
-function emptyNotice(schedule: Schedule, from: StopRow, to: { stop: StopRow } | { route: RouteRow }, request: TripRequest, now: number): Notice {
-  const always = cachedLinks(schedule, from, to, request, null);
+function emptyNotice(schedule: Schedule, from: StopRow, to: { stop: StopRow } | { route: RouteRow }, request: TripRequest, destination: StopRow | null, toStop: StopRow | null, now: number): Notice {
+  // The same links as the results would have at any hour, so the reason matches what they show.
+  const all = cachedLinks(schedule, from, to, request, null);
+  const always = destination ? towardDestination(schedule, all, destination, toStop) : all;
   if (always.length === 0) {
     const { dest: _dest, ...withoutDestination } = request;
     return request.dest && cachedLinks(schedule, from, to, withoutDestination, null).length > 0 ? { kind: 'destination' } : { kind: 'unreachable' };
@@ -318,6 +320,8 @@ function emptyNotice(schedule: Schedule, from: StopRow, to: { stop: StopRow } | 
   const targets = [...new Set(always.flatMap(({ boardPatterns }) => boardPatterns.map(({ pattern }) => pattern.id)))];
   if (!targets.some((id) => running.has(id))) return { kind: 'idle', side: 'to', next: schedule.nextStart(targets, now) };
   const feeders = [...new Set(always.flatMap(({ firstLegs }) => firstLegs.map(({ pattern }) => pattern.id)))];
+  // Walks board nothing at From, so From's own service is never the reason.
+  if (feeders.length === 0) return { kind: 'idle', side: 'to', next: schedule.nextStart(targets, now) };
   return { kind: 'idle', side: 'from', next: schedule.nextStart(feeders, now) };
 }
 
