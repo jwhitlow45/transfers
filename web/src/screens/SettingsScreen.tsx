@@ -95,7 +95,7 @@ export function SettingsScreen() {
           </div>
           <div class="tf-setting">
             <div class="tf-setting__label">Transit icons</div>
-            <div class="tf-setting__help">The bus, train, and boat pictures beside route names</div>
+            <div class="tf-setting__help">The vehicle pictures beside route names</div>
             <div class="tf-filters">
               <Toggle pressed={settings.modeIcons} onToggle={() => update({ modeIcons: !settings.modeIcons })}>
                 Show transit icons
