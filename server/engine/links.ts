@@ -24,8 +24,9 @@ export type FirstLegPattern = { pattern: PatternRow; origin: number; alight: num
 
 // How to reach one direction of a route the rider wants.
 //   ride: take a first vehicle from the From stop, get off at one of `alights`, walk, and board
-//     at `board`. BART platforms in one station, or a shared station's BART and Muni Metro
-//     platforms, pool into one transfer point, and `alight` is then the station.
+//     at `board`. Every first-leg pattern that reaches `board` pools in, wherever it lets the
+//     rider off, and `alight` is the busiest one's stop (or its station). Connections name their
+//     own stop when it differs.
 //   walk: the route already stops at or near From, so the rider walks to `board` with no first
 //     vehicle at all.
 export type Link = {
@@ -56,6 +57,9 @@ export type LinkSettings = {
   toAgencies?: ReadonlySet<Agency>;
   // Patterns running around now (Schedule.runningPatterns). Without it, every pattern counts.
   running?: ReadonlySet<number>;
+  // Stop ids the rider wants to reach after boarding. Only target patterns that go on to one
+  // of them count, so the transfer point is chosen among routes that get there.
+  reaches?: ReadonlySet<number>;
 };
 
 type BoardStop = { stop: StopRow; patterns: { pattern: PatternRow; position: number }[] };
@@ -76,17 +80,28 @@ type Pick = {
   minutes: number;
 };
 
-type Context = { schedule: Schedule; maxWalk: number; speed: number | undefined; namedStop: boolean };
+type Context = { schedule: Schedule; maxWalk: number; speed: number | undefined; namedStop: boolean; splitSystems: boolean };
 
 export function findLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow } | { route: RouteRow }, settings: LinkSettings = {}): Link[] {
   const running = settings.running ?? null;
   const runs = (pattern: PatternRow) => !running || running.has(pattern.id);
-  const context: Context = { schedule, maxWalk: settings.maxWalkMeters ?? DEFAULT_MAX_WALK_METERS, speed: settings.walkSpeed, namedStop: 'stop' in to };
+  const reaches = settings.reaches ?? null;
+  const getsThere = (pattern: PatternRow, position: number) => !reaches || pattern.stops.slice(position + 1).some((id) => reaches.has(id));
+  const context: Context = {
+    schedule,
+    maxWalk: settings.maxWalkMeters ?? DEFAULT_MAX_WALK_METERS,
+    speed: settings.walkSpeed,
+    namedStop: 'stop' in to,
+    // Riders choose BART or Muni Metro only where both leave from one station.
+    splitSystems: schedule.sharedMembers.has(from.id),
+  };
   const origins = schedule.boardingStops(from, settings.fromAgencies ?? null);
   const targets = ('stop' in to ? stopTargets(schedule, to.stop, settings.toAgencies ?? null) : routeTargets(schedule, to.route))
     .map((target) => ({
       ...target,
-      stops: target.stops.map((board) => ({ ...board, patterns: board.patterns.filter(({ pattern }) => runs(pattern)) })).filter(({ patterns }) => patterns.length > 0),
+      stops: target.stops
+        .map((board) => ({ ...board, patterns: board.patterns.filter(({ pattern, position }) => runs(pattern) && getsThere(pattern, position)) }))
+        .filter(({ patterns }) => patterns.length > 0),
     }))
     .filter(({ stops }) => stops.length > 0);
   const feeders: Feeder[] = origins.flatMap((originStop) =>
@@ -135,30 +150,39 @@ export function findLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow
 const isStation = (stop: StopRow) => stop.access === 'bart' || stop.access === 'subway' || stop.kind === 'station';
 
 // The route already stops at or near From. For a named stop, that means any stop the route
-// makes on the way to it, since the rider can board there and ride straight through.
+// makes on the way to it, since the rider can board there and ride straight through. Of the
+// stops in range, the one most trips use wins, then the nearest, so a quiet branch at the
+// nearest pole does not hide the main service one pole over. A stop where the route is about
+// to end, within a walk of From, does not count.
 function walkLink(context: Context, origins: StopRow[], target: Target): Link | null {
   const { schedule, maxWalk } = context;
-  const candidates = new Map<number, BoardPattern[]>();
+  const candidates = new Map<number, Map<string, BoardPattern>>();
   for (const board of target.stops) {
     for (const { pattern, position } of board.patterns) {
       const last = context.namedStop ? position : pattern.stops.length - 2;
       for (let at = 0; at <= last; at++) {
         const stop = schedule.stop(pattern.stops[at]!);
-        const list = candidates.get(stop.id) ?? [];
-        list.push({ pattern, position: at, stop });
+        const list = candidates.get(stop.id) ?? new Map<string, BoardPattern>();
+        list.set(`${pattern.id}|${at}`, { pattern, position: at, stop });
         candidates.set(stop.id, list);
       }
     }
   }
-  let best: { stop: StopRow; meters: number; patterns: BoardPattern[] } | null = null;
-  for (const [id, patterns] of candidates) {
+  let best: { stop: StopRow; meters: number; trips: number; patterns: BoardPattern[] } | null = null;
+  for (const [id, byPattern] of candidates) {
     const stop = schedule.stop(id);
+    let meters = Infinity;
     for (const origin of origins) {
       const walk = walkBetween(schedule, origin, stop);
       const limit = walk.involvesStation ? maxWalk * STATION_WALK_FACTOR : maxWalk;
-      if (walk.meters > limit || (best && walk.meters >= best.meters)) continue;
-      best = { stop, meters: walk.meters, patterns };
+      if (walk.meters <= limit) meters = Math.min(meters, walk.meters);
     }
+    if (meters === Infinity) continue;
+    const patterns = [...byPattern.values()].filter(({ pattern, position }) => !endsNear(schedule, pattern, position, stop, maxWalk));
+    if (patterns.length === 0) continue;
+    const trips = patterns.reduce((sum, { pattern }) => sum + pattern.trips, 0);
+    if (best && (trips < best.trips || (trips === best.trips && meters >= best.meters))) continue;
+    best = { stop, meters, trips, patterns };
   }
   if (!best) return null;
   const seconds = transferSeconds({ exit: 'street', entry: best.stop.access, meters: best.meters, ...(context.speed ? { speed: context.speed } : {}) });
@@ -180,8 +204,8 @@ function walkLink(context: Context, origins: StopRow[], target: Target): Link | 
   };
 }
 
-// One transfer point per target, per system the rider can start on (BART and Muni Metro at a
-// shared station each find their own). Each first-leg pattern offers its first good meeting
+// One transfer point per target, and at a shared station one per system the rider can start
+// on, since the page lets them pick BART or Muni Metro there. Each first-leg pattern offers its first good meeting
 // place with the target. The board stop most first-leg trips can use wins, and every pattern
 // that can reach that stop pools into it.
 function rideLinks(context: Context, feeders: Feeder[], target: Target): Link[] {
@@ -193,7 +217,7 @@ function rideLinks(context: Context, feeders: Feeder[], target: Target): Link[] 
   });
   const bySystem = new Map<string, Pick[]>();
   for (const pick of picks) {
-    const system = systemOf(schedule.route(pick.feeder.pattern.route));
+    const system = context.splitSystems ? systemOf(schedule.route(pick.feeder.pattern.route)) : 'all';
     bySystem.set(system, [...(bySystem.get(system) ?? []), pick]);
   }
 
@@ -246,7 +270,6 @@ function addPicks(schedule: Schedule, picks: Pick[], target: Target): Link {
   // Getting off in one station, on any of its platforms, is getting off at the station.
   const stations = new Set(alights.map((stop) => schedule.stationOf(stop).id));
   const busiest = [...picks].sort((a, b) => b.feeder.pattern.trips - a.feeder.pattern.trips)[0]!;
-  const feederRoutes = new Set([...firstLegs.values()].map(({ pattern }) => pattern.route));
   return {
     key: `ride|${target.routes.map(({ id }) => id).join(',')}|${target.direction}|${board.id}`,
     kind: 'ride',
@@ -254,7 +277,7 @@ function addPicks(schedule: Schedule, picks: Pick[], target: Target): Link {
     alights,
     board,
     boards: [board],
-    routes: target.routes.filter(({ id }) => !feederRoutes.has(id)),
+    routes: target.routes,
     direction: target.direction,
     headsign: target.headsign,
     boardPatterns: [...boardPatterns.values()],
@@ -279,7 +302,7 @@ function firstContact(context: Context, feeder: Feeder, target: Target, onlyBoar
   const run: Pick[] = [];
   for (let position = feeder.position + 1; position < pattern.stops.length; position++) {
     const alight = schedule.stop(pattern.stops[position]!);
-    const ridden = [feeder.originStop, ...run.map((pick) => pick.alight)];
+    const ridden = pattern.stops.slice(feeder.position, position).map((id) => schedule.stop(id));
     let best: Pick | null = null;
     for (const board of boards) {
       const walk = walkBetween(schedule, alight, board.stop);
@@ -312,8 +335,8 @@ function endsNear(schedule: Schedule, pattern: PatternRow, position: number, ali
   return true;
 }
 
-// The target pattern, after boarding, comes back near a stop the rider already rode through,
-// where they could have boarded it instead.
+// The target pattern, after boarding, comes back near From or a stop the rider already rode
+// through, where they could have boarded it instead.
 function doublesBack(schedule: Schedule, pattern: PatternRow, position: number, ridden: StopRow[], maxWalk: number) {
   if (ridden.length === 0) return false;
   for (let at = position + 1; at < pattern.stops.length; at++) {
@@ -406,7 +429,7 @@ function routeTargets(schedule: Schedule, route: RouteRow): Target[] {
   });
 }
 
-function bartSiblings(schedule: Schedule, route: RouteRow) {
+export function bartSiblings(schedule: Schedule, route: RouteRow) {
   const line = route.shortName.replace(/-[NS]$/, '');
   return [...schedule.routes.values()].filter((other) => other.agency === 'BA' && other.shortName.replace(/-[NS]$/, '') === line);
 }

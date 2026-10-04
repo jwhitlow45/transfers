@@ -68,8 +68,10 @@ export class Realtime {
       this.timer = null;
       const now = nowSeconds();
       if (now - this.lastDemand > IDLE_SECONDS) return;
-      if (now - this.trips.fetchedAt >= this.tripSeconds) void this.refresh('trips');
-      if (now - this.alerts511.fetchedAt >= ALERT_SECONDS) void this.refresh('alerts');
+      // A failed fetch waits a full interval too. 511 counts failed requests against the key, so
+      // retrying every tick through an outage would spend the hour's allowance in minutes.
+      if (now - Math.max(this.trips.fetchedAt, this.trips.failedAt) >= this.tripSeconds) void this.refresh('trips');
+      if (now - Math.max(this.alerts511.fetchedAt, this.alerts511.failedAt) >= ALERT_SECONDS) void this.refresh('alerts');
       this.timer = setTimeout(tick, TICK_MS);
       this.timer.unref();
     };

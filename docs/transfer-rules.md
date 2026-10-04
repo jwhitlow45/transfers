@@ -1,6 +1,6 @@
 # Transfer rules
 
-Status: agreed with J on 2026-10-03, except where marked "Open".
+Status: the inputs, the window rules, and the terminal version's rules are agreed with J (2026-10-03). The thresholds under "Choosing the transfer point" are implementation choices, marked Open until J settles them.
 
 ## Inputs
 
@@ -25,13 +25,13 @@ Riders set the street limit in device settings, and the station limit scales wit
 
 ### Choosing the transfer point
 
-Reworked on 2026-10-03 after six reviewers walked through live trips and found pages full of points no one would use.
+Reworked on 2026-10-03 after six reviewers walked through live trips and found pages full of points no one would use. Open: every threshold in this section (3 hours, 60 seconds, 2 minutes, 150 m, half the walk) is an implementation choice J has not settled.
 
 1. **Only what runs.** Patterns count only if a trip starts within three hours either side of now. Owl and bus-substitute patterns otherwise crowd the day, and the reverse at night. A target with nothing running gets "isn't running now, runs again Mon 7:15 AM".
-2. **Walk before riding.** If the target route stops within the usual walking range of From (or, for a named stop, anywhere on its way there), the group is a walk: "No transfer needed: the 48 stops here", or "walk 2 min to Van Ness & Sutter", with its departures. No ride is offered for that target. Riding straight to a named stop pools every route that does it into one group, showing when each reaches the stop.
+2. **Walk before riding.** If the target route stops within the usual walking range of From (or, for a named stop, anywhere on its way there), the group is a walk: "No transfer needed: the 48 stops here", or "walk 2 min to Van Ness & Sutter", with its departures. No ride is offered for that target. Of the stops in range, the one most trips use wins, then the nearest. Riding straight to a named stop pools every route that does it into one group, showing when each reaches the stop. Walk groups honor "hide departures under N" but not the transfer window, which measures time between two vehicles.
 3. **First meeting place.** Along each first-leg pattern, the first run of stops within walking range of the target gives the point. Within that run, the earliest stop whose transfer is within a minute of the quickest, so the rider is not sent further for a slightly shorter walk. A stop only counts if it is closer to the target than From.
-4. **No pointless boarding.** A board stop is dropped when the target ends within walking range of where the rider got off, when the target later comes back near From or near a stop the rider just rode through (they could have boarded there), or when it comes back much closer to the alight stop than the walk to board it.
-5. **One point per direction.** Of the first-leg patterns' points, the board stop most first-leg trips can use wins, and every pattern that can reach it pools in. At a shared station, BART and Muni Metro each pick their own, and pool when they pick the same stop. A pick needing more than two minutes over the quickest is left out rather than widening everyone's window.
+4. **No pointless boarding.** A board stop is dropped when the target ends within walking range of where the rider got off, when the target later passes within 150 m of From or of any stop the rider rode through (they could have boarded there), or when it comes back within half the walk distance of the alight stop. A walk group skips a stop where the target is about to end, too.
+5. **One point per direction.** Of the first-leg patterns' points, the board stop most first-leg trips can use wins, and every pattern that can reach it pools in, wherever each lets the rider off. A row names its own stop when it differs from the group's. Only at a shared station do BART and Muni Metro each pick their own (J's choice, 2026-10-03), pooling when they pick the same stop. A pick needing more than two minutes over the quickest is left out rather than widening everyone's window. With a destination set, only routes that go on to it are considered when choosing.
 6. **Stations.** Getting off on any platform of one station is getting off at the station. When To is a rail station, departures group by platform, with every line in one group, since a rider transferring to BART cares which way the train goes.
 
 Directions read as riders say them: BART uses each line's last stop ("Antioch, Richmond"), not its headsigns, which name stations behind the rider. A trip ending early says where it goes.

@@ -1,6 +1,6 @@
 import type { RtTrip, TripSnapshot } from '../realtime/snapshot.ts';
 import { stopKey, tripKey } from '../realtime/snapshot.ts';
-import { type PatternRow, type Schedule, type StopRow, routeKeyOf } from '../schedule.ts';
+import { type PatternRow, type Schedule, type StopRow, routeKeyOf, stopKeyOf } from '../schedule.ts';
 import type { FirstLeg, SecondLeg } from './connections.ts';
 import { type Link, destinationOf } from './links.ts';
 
@@ -48,14 +48,19 @@ export function firstLegs(context: VehicleContext, link: Link, routeFilter: Set<
         // A known trip on a pattern this transfer point does not use belongs to another group.
         const candidates = pattern ? (alightFor.has(pattern.id) ? [alightFor.get(pattern.id)!] : []) : link.alights;
         let arrives: TimeAt | null = null;
+        let alightAt: StopRow | null = null;
         for (const alight of candidates) {
           arrives = timeAfter(context, trip, index, staticTrip, pattern, alight);
-          if (arrives) break;
+          if (arrives) {
+            alightAt = alight;
+            break;
+          }
         }
         if (!departs || !arrives || arrives.at < departs.at) continue;
         legs.set(tripKey(trip.agency, trip.tripId), {
           trip: tripKey(trip.agency, trip.tripId),
           route: routeKeyOf(schedule.route(routeId)),
+          ...(alightAt ? { alight: stopKeyOf(alightAt) } : {}),
           departs: departs.at,
           departDelay: departs.delay,
           arrives: arrives.at,
@@ -72,7 +77,7 @@ export function firstLegs(context: VehicleContext, link: Link, routeFilter: Set<
     for (const trip of schedule.scheduledTrips(pattern, origin, now - 60, now + FIRST_LEG_HORIZON, [alight, 0])) {
       if (legs.has(trip.key)) continue;
       const realtime = snapshot?.trips.get(trip.key);
-      if (realtime && (realtime.canceled || passed(schedule, realtime, pattern, origin))) continue;
+      if (realtime && (realtime.canceled || gone(schedule, realtime, pattern, origin) || skips(schedule, realtime, pattern, alight))) continue;
       if (!realtime && (trip.times.get(0)?.departure ?? Infinity) < now) underway.add(trip.key);
       const departs = trip.times.get(origin);
       const arrives = trip.times.get(alight);
@@ -80,6 +85,7 @@ export function firstLegs(context: VehicleContext, link: Link, routeFilter: Set<
       legs.set(trip.key, {
         trip: trip.key,
         route: routeKeyOf(schedule.route(pattern.route)),
+        alight: stopKeyOf(schedule.stop(pattern.stops[alight]!)),
         departs: departs.departure,
         departDelay: null,
         arrives: arrives.arrival,
@@ -152,7 +158,7 @@ export function secondLegs(context: VehicleContext, link: Link, destination: Sto
       // A trip the feed knows but that does not list this stop has passed it, unless the feed
       // canceled it, or its predictions simply stop short of this stop (SamTrans and Golden Gate
       // predict about an hour ahead, and a long route's trip is on the road longer than that).
-      if (realtime && !realtime.canceled && passed(schedule, realtime, pattern, position)) continue;
+      if (realtime && !realtime.canceled && gone(schedule, realtime, pattern, position)) continue;
       if (!realtime && (trip.times.get(0)?.departure ?? Infinity) < now) underway.add(trip.key);
       const at = trip.times.get(position);
       if (!at) continue;
@@ -174,24 +180,36 @@ export function secondLegs(context: VehicleContext, link: Link, destination: Sto
   return withoutGhosts([...legs.values()], underway, ({ at }) => at);
 }
 
-// Whether a trip the feed knows has already passed `position` on its pattern. The feed lists
-// only the stops still ahead, so the trip has passed when its first listed stop comes later.
-// A trip whose listed stops all come before `position` has not reached it yet: its
-// predictions just do not reach that far.
-function passed(schedule: Schedule, trip: RtTrip, pattern: PatternRow, position: number) {
-  const first = trip.stops[0];
-  if (!first) return false;
-  const stop = schedule.stopsByKey.get(stopKey(trip.agency, first.stopId));
-  const at = stop ? pattern.stops.indexOf(stop.id) : -1;
-  return at > position;
+// Whether a trip the feed knows will not be at `position` on its pattern: the feed lists that
+// stop (as skipped, since a listed time would have matched already), or the trip has passed it.
+// The feed lists only the stops still ahead, so the trip has passed when the first listed stop
+// on its pattern comes later. Stops off the pattern, such as a detour's, say nothing either way.
+// A trip whose listed stops all come before `position` has not reached it yet: its predictions
+// just do not reach that far.
+function gone(schedule: Schedule, trip: RtTrip, pattern: PatternRow, position: number) {
+  if (skips(schedule, trip, pattern, position)) return true;
+  for (const listed of trip.stops) {
+    const stop = schedule.stopsByKey.get(stopKey(trip.agency, listed.stopId));
+    const at = stop ? pattern.stops.indexOf(stop.id) : -1;
+    if (at !== -1) return at > position;
+  }
+  return false;
+}
+
+function skips(schedule: Schedule, trip: RtTrip, pattern: PatternRow, position: number) {
+  const stop = schedule.stop(pattern.stops[position]!);
+  return trip.stops.some((listed) => listed.skipped && listed.stopId === stop.stopId);
 }
 
 // A scheduled trip that should be under way but is missing from the feed, within three minutes
 // of a live trip on the same route, is most likely that same bus running on another trip's
 // timetable. Showing both lists one bus twice.
-function withoutGhosts<T extends { trip: string; route: string; live: boolean }>(legs: T[], underway: Set<string>, time: (leg: T) => number) {
+// A canceled trip is live news but no bus, so it is never taken as the ghost's real bus.
+function withoutGhosts<T extends { trip: string; route: string; live: boolean; canceled: boolean }>(legs: T[], underway: Set<string>, time: (leg: T) => number) {
   return legs.filter(
-    (leg) => !underway.has(leg.trip) || !legs.some((other) => other.live && other.route === leg.route && Math.abs(time(other) - time(leg)) <= 180),
+    (leg) =>
+      !underway.has(leg.trip) ||
+      !legs.some((other) => other.live && !other.canceled && other.route === leg.route && Math.abs(time(other) - time(leg)) <= 180),
   );
 }
 

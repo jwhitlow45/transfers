@@ -4,6 +4,8 @@ import type { Connection, Departure, HiddenReason } from '../../shared/api.ts';
 export type FirstLeg = {
   trip: string;
   route: string;
+  // The stop key where this vehicle lets the rider off. Pooled groups get off at different stops.
+  alight?: string;
   departs: number;
   departDelay: number | null;
   arrives: number;
@@ -61,6 +63,7 @@ export function pairConnections(firstLegs: FirstLeg[], secondLegs: SecondLeg[], 
       arrives: vehicle.arrives,
       arriveDelay: vehicle.arriveDelay,
       live: vehicle.live,
+      ...(vehicle.alight ? { alight: vehicle.alight } : {}),
     };
     const connect = (departure: SecondLeg, reason?: HiddenReason) => {
       const connection: Connection = { ...base, transfer: minutesBetween(vehicle.arrives, departure.at) };

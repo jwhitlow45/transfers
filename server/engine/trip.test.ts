@@ -34,6 +34,12 @@ function feeds() {
   }
   const muniTrips: string[] = [];
   const muniTimes: string[] = [];
+  // Three afternoon 48s, when BART in this network does not run.
+  for (let n = 10; n < 13; n++) {
+    const at = 14 * 3600 + (n - 10) * 900;
+    muniTrips.push(`48,all,m${n},22nd St + Iowa St,1,,`);
+    muniTimes.push(`m${n},${clock(at - 120)},${clock(at - 120)},13486,1`, `m${n},${clock(at)},${clock(at)},13477,2`, `m${n},${clock(at + 600)},${clock(at + 600)},13500,3`);
+  }
   // The N runs under Market St through Montgomery, sharing the station with BART, out to Church.
   for (let n = 0; n < 8; n++) {
     const leaves = 7.5 * 3600 + 300 + n * 600;
@@ -200,10 +206,10 @@ test('a route not running for hours says when it starts', () => {
   const afternoon = DAY + 14 * 3600;
   const response = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'route:SF:N' }, afternoon);
   strictEqual(response.groups.length, 0);
-  deepStrictEqual(response.notice, { kind: 'idle', next: DAY + 86_400 + 7.5 * 3600 + 300 });
+  deepStrictEqual(response.notice, { kind: 'idle', side: 'to', next: DAY + 86_400 + 7.5 * 3600 + 300 });
 });
 
-test('suggests the smallest symmetric widening when nothing connects', () => {
+test('suggests the smallest raise of the maximum when nothing connects', () => {
   // Trains reach 24th St on the 8s and scheduled buses come on the 2s and 7s, so transfers run
   // 4, 9, 14, ... minutes. The live bus 2 minutes late adds 6 and 16. A 7 to 8 minute window
   // finds none, and 7 to 9 finds the 9s.
@@ -249,4 +255,40 @@ test('search finds a shared station once, by name', () => {
   deepStrictEqual(montgomery.map((result) => (result.type === 'stop' ? result.key : result.route)), ['BA:901209']);
   // Its Muni Metro platform still answers to its own code.
   deepStrictEqual(search(schedule, '16994', { routes: false }).results.map((result) => (result.type === 'stop' ? result.key : '')), ['SF:16994']);
+});
+
+test('when the route to catch runs but nothing from From does, the notice says so', () => {
+  const afternoon = DAY + 14 * 3600;
+  const response = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477' }, afternoon);
+  deepStrictEqual(response.notice, { kind: 'idle', side: 'from', next: DAY + 86_400 + 7.5 * 3600 });
+});
+
+test('a bus the feed says skips the stop does not come back as scheduled', () => {
+  const busAt = (n: number) => DAY + 7.5 * 3600 + 120 + n * 900;
+  const feed: FeedObject = {
+    header: { gtfsRealtimeVersion: '2.0', timestamp: NOW },
+    entity: [
+      {
+        id: 'm4',
+        tripUpdate: {
+          trip: { tripId: 'SF:m4', routeId: 'SF:48' },
+          stopTimeUpdate: [
+            { stopId: '13477', scheduleRelationship: 'SKIPPED' as const },
+            { stopId: '13500', arrival: { time: busAt(4) + 600, delay: 0 } },
+          ],
+        },
+      },
+    ],
+  };
+  const decoded = decodeFeed(encodeFeed(feed));
+  const agencies = new Set<Agency>(['SF', 'BA']);
+  const view = { trips: buildTripSnapshot(decoded, NOW, agencies), alerts: [], status: () => 'live' as const, updatedAt: NOW };
+  const trips = planTrip(schedule, view, { from: 'BA:901209', to: 'SF:13477' }, NOW).groups[0]!.departures.map(({ trip }) => trip);
+  ok(!trips.includes('SF:m4'), `got ${trips.join(', ')}`);
+});
+
+test('a walk group leaves out departures sooner than the rider asked to hide', () => {
+  const group = planTrip(schedule, realtime(), { from: 'SF:13486', to: 'route:SF:48', hide: 30 }, NOW).groups[0]!;
+  strictEqual(group.kind, 'walk');
+  ok(group.departures.length > 0 && group.departures.every(({ at }) => at >= NOW + 30 * 60));
 });

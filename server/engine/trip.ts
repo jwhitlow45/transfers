@@ -54,7 +54,9 @@ function cachedLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow } | 
   if (!cache) linkCache.set(schedule, (cache = new Map()));
   const { walk, speed, fromAgencies, toAgencies } = request;
   const when = now === null ? 'all' : Math.floor(now / 900);
-  const key = `${from.id}|${'stop' in to ? `s${to.stop.id}` : `r${to.route.id}`}|${walk ?? ''}|${speed ?? ''}|${fromAgencies?.join() ?? ''}|${toAgencies?.join() ?? ''}|${when}`;
+  // The destination shapes the choice: a transfer point is picked among routes that get there.
+  const destination = request.dest ? schedule.stopsByKey.get(request.dest) : undefined;
+  const key = `${from.id}|${'stop' in to ? `s${to.stop.id}` : `r${to.route.id}`}|${walk ?? ''}|${speed ?? ''}|${fromAgencies?.join() ?? ''}|${toAgencies?.join() ?? ''}|${destination?.id ?? ''}|${when}`;
   let links = cache.get(key);
   if (!links) {
     links = findLinks(schedule, from, to, {
@@ -63,6 +65,7 @@ function cachedLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow } | 
       ...(fromAgencies?.length ? { fromAgencies: new Set(fromAgencies) } : {}),
       ...(toAgencies?.length ? { toAgencies: new Set(toAgencies) } : {}),
       ...(now === null ? {} : { running: schedule.runningPatterns(now) }),
+      ...(destination ? { reaches: new Set(schedule.boardingStops(destination).map(({ id }) => id)) } : {}),
     });
     if (cache.size > 500) cache.delete(cache.keys().next().value!);
     cache.set(key, links);
@@ -85,7 +88,8 @@ export function destinations(schedule: Schedule, request: TripRequest): Destinat
   const { from, to } = resolveEnds(schedule, request);
   const tables = new Tables(schedule);
   const groups: DestinationsResponse['groups'] = [];
-  for (const link of cachedLinks(schedule, from, to, request, null)) {
+  const { dest: _dest, ...withoutDestination } = request;
+  for (const link of cachedLinks(schedule, from, to, withoutDestination, null)) {
     const stops: string[] = [];
     const seen = new Set<number>();
     for (const { pattern, position } of [...link.boardPatterns].sort((a, b) => b.pattern.trips - a.pattern.trips)) {
@@ -111,7 +115,7 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
   const tables = new Tables(schedule);
   const allLinks = cachedLinks(schedule, from, to, request, now);
   const links = destination ? towardDestination(schedule, allLinks, destination, toStop ?? null) : allLinks;
-  const notice = links.length > 0 ? undefined : emptyNotice(schedule, from, to, request, allLinks.length > 0 && destination !== null, now);
+  const notice = links.length > 0 ? undefined : emptyNotice(schedule, from, to, request, now);
   const firstFilter = request.firstRoutes?.length ? new Set(request.firstRoutes) : null;
   const secondFilter = request.secondRoutes?.length ? new Set(request.secondRoutes) : null;
   const context = { schedule, snapshot: realtime.trips, now };
@@ -137,15 +141,25 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
     let departures: Departure[];
     let widen: { min: number; max: number } | null = null;
     if (link.kind === 'walk') {
-      departures = walkDepartures(second, now, link.defaultMinutes);
+      // The rider's "hide departures under N" counts here too, alongside the walk itself.
+      departures = walkDepartures(second, now, Math.max(link.defaultMinutes, request.hide ?? 0));
     } else {
       const first = firstLegs(context, linkForRoutes, firstFilter);
       const pairing = { now, min, max, hide: request.hide ?? 0, count: DEPARTURES_PER_GROUP, showHidden: request.hidden ?? false };
       departures = pairConnections(first, second, pairing);
       widen = connects(departures) ? null : widenWindow(first, second, pairing);
     }
-    // A trip going somewhere other than the group's usual destination says where.
-    for (const departure of departures) if (departure.toward === link.headsign) delete departure.toward;
+    // A trip going somewhere other than the group's usual destination says where. A vehicle
+    // letting the rider off somewhere other than the group's stop (or its station) says where.
+    const groupStation = schedule.stationOf(link.alight).id;
+    for (const departure of departures) {
+      if (departure.toward === link.headsign) delete departure.toward;
+      for (const connection of departure.connections) {
+        const stop = connection.alight ? schedule.stopsByKey.get(connection.alight) : undefined;
+        if (!stop || schedule.stationOf(stop).id === groupStation) delete connection.alight;
+        else connection.alight = tables.stop(schedule.stationOf(stop));
+      }
+    }
     for (const departure of departures) {
       tables.route(departure.route);
       for (const connection of departure.connections) tables.route(connection.route);
@@ -171,6 +185,7 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
     }
     agencies.add(link.board.agency);
   }
+  const filtered = groups.length === 0 && links.length > 0 && !notice ? ({ kind: 'filtered' } as const) : undefined;
   tables.stop(from);
   if (toStop) tables.stop(toStop);
   if (toRoute) tables.route(toRoute);
@@ -183,7 +198,7 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
     generatedAt: now,
     dataAt: realtime.updatedAt,
     systems: feasibleSystems(schedule, from, to, request, destination, now),
-    ...(notice ? { notice } : {}),
+    ...(notice ? { notice } : filtered ? { notice: filtered } : {}),
     from: stopKeyOf(from),
     to: toStop ? { stop: stopKeyOf(toStop) } : { route: routeKeyOf(toRoute!) },
     groups,
@@ -214,8 +229,10 @@ function towardDestination(schedule: Schedule, links: Link[], destination: StopR
     return [{ ...link, boardPatterns, routes: link.routes.filter(({ id }) => routeIds.has(id)) }];
   });
   if (!toStop || !schedule.sharedMembers.has(toStop.id)) return reaching;
+  // A walk group boards where the route already is, so it keeps its own stop.
   const pooled = new Map<string, Link>();
-  for (const link of reaching) {
+  const walks = reaching.filter(({ kind }) => kind === 'walk');
+  for (const link of reaching.filter(({ kind }) => kind === 'ride')) {
     const key = `${link.kind}|${link.alight.id}`;
     const current = pooled.get(key);
     if (!current) {
@@ -234,7 +251,7 @@ function towardDestination(schedule: Schedule, links: Link[], destination: StopR
       stopsRidden: Math.min(current.stopsRidden, link.stopsRidden),
     });
   }
-  return [...pooled.values()];
+  return [...walks, ...pooled.values()];
 }
 
 // At a shared station, which systems give a transfer within the usual walk, tried one at a
@@ -245,7 +262,8 @@ function feasibleSystems(schedule: Schedule, from: StopRow, to: { stop: StopRow 
   const works = (change: Partial<TripRequest>) => {
     const links = cachedLinks(schedule, from, to, { ...request, ...change }, now);
     const toStop = 'stop' in to ? to.stop : null;
-    return (destination ? towardDestination(schedule, links, destination, toStop) : links).some(({ long }) => !long);
+    // A walk group needs no transfer, so it does not make a system a real choice.
+    return (destination ? towardDestination(schedule, links, destination, toStop) : links).some(({ kind, long }) => kind === 'ride' && !long);
   };
   if (schedule.sharedMembers.has(from.id)) systems.from = (['BA', 'SF'] as const).filter((agency) => works({ fromAgencies: [agency] }));
   if ('stop' in to && schedule.sharedMembers.has(to.stop.id)) systems.to = (['BA', 'SF'] as const).filter((agency) => works({ toAgencies: [agency] }));
@@ -285,16 +303,20 @@ function walkDepartures(second: SecondLeg[], now: number, walkMinutes: number): 
     }));
 }
 
-// Why a trip has no groups: the routes are not running for a while (and when they next start),
-// nothing reaches the destination, or nothing comes within a walk at all.
-function emptyNotice(schedule: Schedule, from: StopRow, to: { stop: StopRow } | { route: RouteRow }, request: TripRequest, destinationOnly: boolean, now: number): Notice {
-  if (destinationOnly) return { kind: 'destination' };
-  if (cachedLinks(schedule, from, to, request, null).length === 0) return { kind: 'unreachable' };
-  const patterns =
-    'route' in to
-      ? [...schedule.patterns.values()].filter(({ route }) => route === to.route.id || schedule.route(route).shortName.replace(/-[NS]$/, '') === to.route.shortName.replace(/-[NS]$/, '') && to.route.agency === 'BA').map(({ id }) => id)
-      : schedule.boardingStops(to.stop).flatMap(({ id }) => (schedule.patternsByStop.get(id) ?? []).map(({ pattern }) => pattern.id));
-  return { kind: 'idle', next: schedule.nextStart(patterns, now) };
+// Why a trip has no groups. The links over every pattern, running or not, say what would work
+// at another hour. When the routes to transfer to are not running, the notice is about them.
+// When they are, it is the routes from From that are not, and the notice says so.
+function emptyNotice(schedule: Schedule, from: StopRow, to: { stop: StopRow } | { route: RouteRow }, request: TripRequest, now: number): Notice {
+  const always = cachedLinks(schedule, from, to, request, null);
+  if (always.length === 0) {
+    const { dest: _dest, ...withoutDestination } = request;
+    return request.dest && cachedLinks(schedule, from, to, withoutDestination, null).length > 0 ? { kind: 'destination' } : { kind: 'unreachable' };
+  }
+  const running = schedule.runningPatterns(now);
+  const targets = [...new Set(always.flatMap(({ boardPatterns }) => boardPatterns.map(({ pattern }) => pattern.id)))];
+  if (!targets.some((id) => running.has(id))) return { kind: 'idle', side: 'to', next: schedule.nextStart(targets, now) };
+  const feeders = [...new Set(always.flatMap(({ firstLegs }) => firstLegs.map(({ pattern }) => pattern.id)))];
+  return { kind: 'idle', side: 'from', next: schedule.nextStart(feeders, now) };
 }
 
 // Alerts that name a stop on the trip (for a route on the trip, or for every route there),

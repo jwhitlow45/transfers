@@ -71,6 +71,9 @@ export type Connection = {
   live: boolean;
   // Whole minutes from arriving to the second vehicle reaching the boarding stop, rounded down.
   transfer: number;
+  // Where this vehicle lets the rider off, when it is not the group's alight stop. A group pools
+  // first routes that reach its boarding stop from different stops.
+  alight?: string;
   hidden?: HiddenReason;
 };
 
@@ -105,8 +108,8 @@ export type Group = {
   firstRoutes: string[];
   // Minutes, after defaults.
   window: { min: number; max: number };
-  // When nothing connects in the window: the smallest window, widened by the same amount on
-  // both ends, that would find a connection.
+  // When nothing connects in the window: the window with the smallest raise of its maximum that
+  // would find a connection. The minimum stays, since it is the time the walk takes.
   widen?: { min: number; max: number };
   departures: Departure[];
 };
@@ -131,13 +134,17 @@ export type Alert = {
 };
 
 // live: predictions are current. stale: the last fetch failed, so predictions are aging.
-// schedule: this agency publishes no predictions, so times are scheduled. down: no data.
+// schedule: this agency publishes no predictions, so times are scheduled. down: there is no data.
 export type FeedStatus = { agency: AgencyId; state: 'live' | 'stale' | 'schedule' | 'down'; updatedAt: number | null };
 
-// Why a trip found nothing. idle: the routes are not running for a while; next is when they
-// start again, if within three days. destination: nothing from here reaches the destination.
-// unreachable: no route from From comes within a walk of To.
-export type Notice = { kind: 'idle'; next: number | null } | { kind: 'destination' } | { kind: 'unreachable' };
+// Why a trip found nothing.
+//   idle: routes that would work are not running for a while. side says whether it is the
+//     routes to transfer to or the routes from From. next is when they start again, within
+//     three days.
+//   destination: nothing from here reaches the destination.
+//   unreachable: no route from From comes within a walk of To.
+//   filtered: transfers exist, but the rider's route filters hide them all.
+export type Notice = { kind: 'idle'; side: 'to' | 'from'; next: number | null } | { kind: 'destination' } | { kind: 'unreachable' } | { kind: 'filtered' };
 
 export type TripResponse = {
   notice?: Notice;

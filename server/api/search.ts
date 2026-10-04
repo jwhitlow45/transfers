@@ -25,8 +25,8 @@ export function search(schedule: Schedule, text: string, options: { routes: bool
       .filter((stop) => isSearchable(stop) && stop.agency !== 'BA' && stop.code?.startsWith(query) && schedule.stopRoutes.has(stop.id))
       .sort((a, b) => (a.code?.length ?? 0) - (b.code?.length ?? 0) || (a.code ?? '').localeCompare(b.code ?? ''));
   } else {
-    // One or two letters ("N") match stop names only, or every stop a route by that letter
-    // serves would match through its route list.
+    // One or two letters ("N") match stop names and codes only, or every stop a route by that
+    // letter serves would match through its route list.
     const match = searchQuery(query, query.trim().length <= 2 ? ['name', 'code'] : undefined);
     const ids = match
       ? all<{ id: number }>(schedule.db, 'SELECT rowid AS id FROM stop_search WHERE stop_search MATCH ? ORDER BY rank LIMIT 60', match)
