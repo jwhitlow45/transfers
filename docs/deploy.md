@@ -56,7 +56,7 @@ The internal networks use Docker's `isolated` gateway mode, which needs Docker 2
    sudo iptables -I INPUT 1 -i br-trf-egress -j DROP && sudo netfilter-persistent save
    ```
 
-7. Within 30 days of a public launch, 511's data agreement (section 2g) asks for documentation of the site. Email transitdata@511.org with the URL and a short description.
+7. Within 30 days of a public launch, 511's data agreement (section 2g) asks for documentation of the site, such as its live URL and screenshots, and for evidence of the "Data provided by 511.org" credit that section 5b requires. Section 6 directs notices to developerresources@511.org.
 
 ## Updating
 
