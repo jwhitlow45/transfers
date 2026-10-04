@@ -13,7 +13,6 @@ export function routeView(route: RouteRow): Route {
     longName: route.longName,
     mode: route.mode,
     color: route.color,
-    textColor: route.textColor,
   };
 }
 
@@ -35,8 +34,6 @@ export function stopView(schedule: Schedule, stop: StopRow): Stop {
     code: stop.agency === 'BA' || !/^\d+$/.test(stop.code ?? '') ? null : stop.code,
     name: stop.name.replace(/`/g, '’'),
     direction: stop.kind === 'station' || stop.bearing === null ? null : compassLabel(stop.bearing),
-    lat: stop.lat,
-    lon: stop.lon,
     mode: stopMode(schedule, stop),
     ...(schedule.sharedMembers.has(stop.id) ? { serves: ['BA', 'SF'] as const satisfies AgencyId[] } : {}),
     ...bartCode(stop),

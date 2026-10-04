@@ -16,9 +16,8 @@ export type Route = {
   name: string;
   longName: string;
   mode: Mode;
-  // Hex without the leading #
+  // Hex without the leading #. The page picks text color for contrast itself.
   color: string | null;
-  textColor: string | null;
 };
 
 export type Stop = {
@@ -30,8 +29,6 @@ export type Stop = {
   name: string;
   // "Eastbound"
   direction: string | null;
-  lat: number;
-  lon: number;
   mode: Mode;
   // A shared downtown station, where BART and Muni Metro both stop: ["BA", "SF"].
   serves?: AgencyId[];
