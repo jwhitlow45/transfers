@@ -11,6 +11,7 @@ import { StopLink } from '../components/StopLink.tsx';
 import { clock, minutesUntil } from '../format.ts';
 import { useNow, usePoll } from '../hooks.ts';
 import { IconLocation } from '../icons/ui.tsx';
+import { stopLetterColor } from '../lib/color.ts';
 import { ageText, clockSkewMs, freshness } from '../lib/freshness.ts';
 import { type LocationProblem, type Position, locate, locationProblemText, takeHanded } from '../lib/location.ts';
 import { useSwipeBack } from '../gestures.ts';
@@ -89,6 +90,13 @@ function NearbyResults({ position, onRelocate }: { position: Position; onRelocat
   const fresh = freshness(now, fetchedAt === null ? null : fetchedAt + skew, data?.dataAt ?? null);
   const showStale = fresh.stale && settled;
   const secondsSinceUpdate = fresh.ageSeconds ?? (fetchedAt === null ? null : Math.max(0, Math.floor((now - (fetchedAt + skew)) / 1000)));
+  // The server leaves out routes with nothing coming. A row whose last arrival has passed since
+  // is hidden too, until a refresh brings more.
+  const rows = (data?.nearby ?? []).map((row) => ({ row, arrivals: row.arrivals.filter(({ at }) => minutesUntil(at, now) >= 0) })).filter(({ arrivals }) => arrivals.length > 0);
+  // A letter for each stop, nearest first, on its cards and its marker on the map, which tells
+  // apart stops that share a name and shows which routes use the same one.
+  const letters: Record<string, string> = {};
+  for (const { row } of rows) letters[row.stop] ??= String.fromCharCode(65 + Object.keys(letters).length);
   const pick = (row: NearbyStop, as: 'from' | 'to') => {
     const stop = data?.stops[row.stop];
     if (!stop) return;
@@ -121,22 +129,24 @@ function NearbyResults({ position, onRelocate }: { position: Position; onRelocat
           </div>
         )}
         {!data && feed === 'loading' && <SkeletonResults />}
-        {data && <Schematic schematic={data.schematic} routes={data.routes} />}
-        {data && data.nearby.length === 0 && (
+        {data && <Schematic schematic={data.schematic} routes={data.routes} letters={letters} />}
+        {data && rows.length === 0 && (
           <div class="tf-empty">
-            <div class="tf-empty__title">No stops within a few blocks</div>
+            <div class="tf-empty__title">{data.schematic.stops.length > 0 ? 'Nothing leaves stops within a few blocks in the next few hours' : 'No stops within a few blocks'}</div>
           </div>
         )}
         {data && (
           <div class="tf-near-grid">
-            {data.nearby.map((row) => {
+            {rows.map(({ row, arrivals }) => {
               const stop = data.stops[row.stop];
               const routes = row.routes.map((key) => data.routes[key]).filter((route) => route !== undefined);
-              const arrivals = row.arrivals.filter(({ at }) => minutesUntil(at, now) >= 0);
               return (
                 <article key={`${row.stop}|${row.routes.join(',')}|${row.direction}`} class="tf-near" aria-label={`${routes.map(({ name }) => name).join(', ')} toward ${row.headsign}`}>
                   <div class="tf-near__head">
                     <h2 class="tf-group__title">
+                      <span class="tf-stop-letter" style={{ background: stopLetterColor(letters[row.stop]!) }} aria-hidden="true">
+                        {letters[row.stop]}
+                      </span>
                       {routes.map((route) => (
                         <RouteChip key={route.key} route={route} iconSize={18} label={routes.length > 1 && route.agency === 'BA' ? route.name : undefined} />
                       ))}
@@ -152,7 +162,6 @@ function NearbyResults({ position, onRelocate }: { position: Position; onRelocat
                     </div>
                   </div>
                   <ul class="tf-near__times" aria-label="Next arrivals">
-                    {arrivals.length === 0 && <li class="tf-muted">No arrivals in the next few hours</li>}
                     {arrivals.map((arrival) => {
                       const minutes = minutesUntil(arrival.at, now);
                       const route = data.routes[arrival.route];

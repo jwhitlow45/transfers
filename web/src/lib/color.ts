@@ -71,6 +71,12 @@ export function resolveRouteColor(color: string, inView: string[]): string {
   return color;
 }
 
+// A nearby stop's letter is colored the same on its cards and its map marker, so the eye can
+// match them without reading. Dark enough for white letters (5:1 or more), and nearest stops,
+// which come first, differ most in hue.
+const STOP_COLORS = ['#c62828', '#1565c0', '#2e7d32', '#7b1fa2', '#a85200', '#00796b', '#ad1457', '#5d4037'];
+export const stopLetterColor = (letter: string) => STOP_COLORS[(letter.charCodeAt(0) - 65) % STOP_COLORS.length]!;
+
 // Colors a saved search can wear, named for the picker's labels.
 export const SAVED_COLORS = [
   { color: '#00858a', name: 'Teal' },

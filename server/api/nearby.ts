@@ -49,7 +49,8 @@ export function nearby(schedule: Schedule, realtime: RealtimeView, center: Point
 
   const context = { schedule, snapshot: realtime.trips, now };
   const groups: NearbyStop[] = [];
-  for (const candidate of rows.sort((a, b) => a.meters - b.meters).slice(0, MAX_GROUPS)) {
+  for (const candidate of rows.sort((a, b) => a.meters - b.meters)) {
+    if (groups.length === MAX_GROUPS) break;
     const routes = candidate.routes.map((id) => schedule.route(id));
     const routeIds = new Set(candidate.routes);
     const link: Link = {
@@ -76,6 +77,8 @@ export function nearby(schedule: Schedule, realtime: RealtimeView, center: Point
       .sort((a, b) => a.at - b.at)
       .slice(0, ARRIVALS_PER_STOP)
       .map(({ trip, route, at, delay, live }) => ({ trip, route: tables.route(schedule.routesByKey.get(route)!), at, delay, live }));
+    // A route not running for hours, such as an owl route by day, makes room for one that is.
+    if (arrivals.length === 0) continue;
     groups.push({
       stop: tables.stop(candidate.stop.parent !== null && candidate.stop.access === 'bart' ? schedule.stop(candidate.stop.parent) : candidate.stop),
       routes: routes.map((route) => tables.route(route)),

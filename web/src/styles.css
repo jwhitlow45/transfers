@@ -261,6 +261,8 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-group { display: flex; flex-direction: column; gap: var(--space-4); margin-top: var(--space-2); }
 .tf-group__title { margin: 0; font-size: 18px; font-weight: var(--weight-bold); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); }
 .tf-group__meta { font-size: var(--text-base); color: var(--muted); margin-top: 2px; }
+/* A nearby stop's letter, in its color, as its marker on the map shows it. As tall as a route chip. */
+.tf-stop-letter { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 1.4em; height: 1.4em; color: #fff; font-size: inherit; font-weight: var(--weight-heavy); line-height: 1; }
 /* An elevator or escalator out where the rider changes, set off like the late tag. */
 .tf-group__access { display: inline-flex; align-items: center; gap: 6px; margin-top: var(--space-2); padding: 3px var(--space-2); background: var(--late-tint); color: var(--late); font-size: var(--text-sm); font-weight: 650; }
 
@@ -378,6 +380,15 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-schematic { margin: 0; border: var(--border-strong) solid var(--line); max-width: var(--form-max); }
 .tf-schematic svg { display: block; width: 100%; height: auto; max-height: 340px; }
 .tf-schematic__stop { fill: var(--bg); stroke: var(--text); }
+.tf-schematic__marker { stroke: var(--bg); }
+.tf-schematic__other { stroke: var(--muted); opacity: .4; }
+.tf-schematic__letter { fill: #fff; font-weight: var(--weight-heavy); }
+.tf-schematic__frame { position: relative; }
+/* Inside the map's bottom right corner, like the live map's Fit button. */
+.tf-schematic__zoom { position: absolute; right: var(--space-2); bottom: var(--space-2); display: flex; }
+/* Taps in quick succession zoom the map step by step rather than the page. */
+.tf-schematic__zoom button { touch-action: manipulation; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 36px; background: var(--bg); color: var(--text); border: var(--border-hair) solid var(--line); }
+.tf-schematic__zoom button + button { border-left: 0; }
 .tf-schematic__you { fill: var(--accent); stroke: var(--bg); }
 .tf-schematic figcaption { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); font-size: var(--text-sm); color: var(--muted); border-top: var(--border-hair) solid var(--divider); }
 .tf-schematic__you-key { width: 10px; height: 10px; border-radius: var(--radius-dot); background: var(--accent); }
