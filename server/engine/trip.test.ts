@@ -426,3 +426,24 @@ test('nearby leaves out a route with nothing coming, and keeps its stop on the m
   ok(response.nearby.every(({ arrivals }) => arrivals.length > 0));
   ok(response.schematic.stops.some(({ stop }) => stop === 'BA:901609'));
 });
+
+test('nearby shows a route at its next nearest stop when nothing comes to the nearest', () => {
+  // An early 48 starts at 24th & Capp, 92 m east of 24th & Mission, where no other 48 stops.
+  const network = feeds();
+  const muni = network.get('SF')!;
+  muni.set('trips.txt', `${muni.get('trips.txt')}48,all,early,22nd St + Iowa St,1,,\n`);
+  muni.set('stop_times.txt', `${muni.get('stop_times.txt')}${[['13478', 0], ['13477', 120], ['13500', 720]].map(([stop, after], n) => `early,${clock(5.5 * 3600 + Number(after))},${clock(5.5 * 3600 + Number(after))},${stop},${n + 1}`).join('\n')}\n`);
+  const path = join(mkdtempSync(join(tmpdir(), 'early-')), 'schedule.db');
+  buildScheduleDatabase(network, path);
+  const early = new Schedule(path);
+  try {
+    const response = nearby(early, realtime(), { lat: 37.752178, lon: -122.4175 }, 400, NOW);
+    const row = response.nearby.find(({ routes }) => routes.includes('SF:48'));
+    strictEqual(row?.stop, 'SF:13477');
+    ok(row.arrivals.length > 0);
+    // The stop it shows at is on the map, and so is the idle nearest one, as another stop.
+    ok(['SF:13477', 'SF:13478'].every((key) => response.schematic.stops.some(({ stop }) => stop === key)));
+  } finally {
+    early.close();
+  }
+});
