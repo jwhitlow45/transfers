@@ -10,6 +10,7 @@ import { buildAlerts, buildTripSnapshot } from '../realtime/snapshot.ts';
 import { all } from '../db.ts';
 import { Schedule } from '../schedule.ts';
 import { serviceDayStart } from '../time.ts';
+import { nearby } from '../api/nearby.ts';
 import { mergeOrder, search } from '../api/search.ts';
 import { destinations, planTrip } from './trip.ts';
 
@@ -412,4 +413,16 @@ test("a rider who chose Muni Metro at a shared station is not shown BART's platf
   // From the shared station with no system chosen, but only the N leaves it toward Church.
   const onlyMetro = planTrip(schedule, { ...realtime(), access: outages }, { from: 'BA:901209', to: 'SF:16998', stepFree: true }, NOW);
   deepStrictEqual(onlyMetro.access?.map(({ location }) => location), ['Street to Concourse']);
+});
+
+test('nearby leaves out a route with nothing coming, and keeps its stop on the map', () => {
+  const station = { lat: 37.752419, lon: -122.418468 };
+  const routesAt = (now: number) => nearby(schedule, realtime(), station, 400, now).nearby.map(({ routes }) => routes.join(','));
+  deepStrictEqual(routesAt(NOW), ['BA:Yellow-S', 'SF:48']);
+  // The fixture's trains run only in the morning, and afternoon 48s start at 2 PM.
+  const afternoon = DAY + 13.5 * 3600;
+  const response = nearby(schedule, realtime(), station, 400, afternoon);
+  deepStrictEqual(response.nearby.map(({ routes }) => routes.join(',')), ['SF:48']);
+  ok(response.nearby.every(({ arrivals }) => arrivals.length > 0));
+  ok(response.schematic.stops.some(({ stop }) => stop === 'BA:901609'));
 });

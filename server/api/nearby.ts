@@ -12,7 +12,8 @@ const MAX_GROUPS = 16;
 const ARRIVALS_PER_STOP = 3;
 
 // Stops near the rider, one per route and direction (the nearest), each with its next arrivals,
-// plus a schematic of the stops and route lines around them.
+// plus a schematic of the stops and route lines around them. A route with nothing coming within
+// the arrivals' horizon is left out, making room for one farther off.
 export function nearby(schedule: Schedule, realtime: RealtimeView, center: Point, radius: number, now: number): NearbyResponse {
   const tables = new Tables(schedule);
   type Candidate = { stop: StopRow; meters: number; route: number; direction: number | null; headsign: string; trips: number };

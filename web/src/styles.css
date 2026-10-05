@@ -389,6 +389,7 @@ button:disabled { opacity: .45; cursor: default; }
 /* Taps in quick succession zoom the map step by step rather than the page. */
 .tf-schematic__zoom button { touch-action: manipulation; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 36px; background: var(--bg); color: var(--text); border: var(--border-hair) solid var(--line); }
 .tf-schematic__zoom button + button { border-left: 0; }
+.tf-schematic__zoom button[aria-disabled="true"] { opacity: .45; cursor: default; }
 .tf-schematic__you { fill: var(--accent); stroke: var(--bg); }
 .tf-schematic figcaption { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); font-size: var(--text-sm); color: var(--muted); border-top: var(--border-hair) solid var(--divider); }
 .tf-schematic__you-key { width: 10px; height: 10px; border-radius: var(--radius-dot); background: var(--accent); }

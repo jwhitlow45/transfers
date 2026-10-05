@@ -199,6 +199,7 @@ export type NearbyStop = {
   direction: number | null;
   headsign: string;
   meters: number;
+  // Never empty: a route with nothing coming is left out.
   arrivals: NearbyArrival[];
 };
 
