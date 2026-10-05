@@ -95,15 +95,17 @@ export function SavedSearchCard({ name, color, chain, named, windowText, next, l
             onOpen();
           }}
         >
-          {(named || windowText) && (
+          {(named || windowText || loading) && (
             <span class="tf-saved__chain">
               {named && <span>{chain}</span>}
-              {windowText && (
+              {windowText ? (
                 <span class="tf-saved__window">
                   <span class="tf-sr">Transfer window </span>
                   <IconTransfer />
                   {windowText}
                 </span>
+              ) : (
+                loading && <span class="tf-skeleton__text" style={{ width: '4.5em' }} />
               )}
             </span>
           )}
@@ -113,6 +115,9 @@ export function SavedSearchCard({ name, color, chain, named, windowText, next, l
             <span class="tf-saved__count">
               <span class="tf-row__lead">{!next ? (loading ? 'Checking' : 'No connection') : now ? 'Arriving' : 'Arrives in'}</span>
               {next && <span class="tf-row__num">{now ? 'Now' : next.minutes}</span>}
+              {loading && <span class="tf-row__num tf-skeleton__text" style={{ width: '1.3em', height: '1em' }} />}
+              {/* Most answers are minutes away, with "min" under the number. */}
+              {loading && <span class="tf-row__unit tf-skeleton__text" style={{ width: '2em' }} />}
               {next && !now && <span class="tf-row__unit">min</span>}
             </span>
             {next ? (
@@ -135,8 +140,19 @@ export function SavedSearchCard({ name, color, chain, named, windowText, next, l
                   {next.transfer === null && <span class="tf-saved__xfer">No transfer needed</span>}
                 </span>
               </span>
+            ) : loading ? (
+              // Until the first answer, the shape of one, so the card opens at the height it keeps
+              // rather than growing under the rider's thumb.
+              <span class="tf-saved__next">
+                <span class="tf-sr">Getting live predictions…</span>
+                <span class="tf-saved__drawn" aria-hidden="true">
+                  <span class="tf-saved__time tf-skeleton__text" style={{ width: '10em' }} />
+                  <span class="tf-saved__xfer tf-skeleton__text" style={{ width: '9em' }} />
+                  <span class="tf-saved__time tf-skeleton__text" style={{ width: '10em' }} />
+                </span>
+              </span>
             ) : (
-              <span class="tf-saved__next tf-muted">{loading ? 'Getting live predictions…' : 'Open to widen the window'}</span>
+              <span class="tf-saved__next tf-muted">Open to widen the window</span>
             )}
           </span>
           {staleText && (
