@@ -50,6 +50,15 @@ export const IconPin = ({ size = 16, filled = false }: Props & { filled?: boolea
     </>,
     size,
   );
+// The pin, struck through, for a trip just unpinned.
+export const IconUnpin = ({ size = 16 }: Props) =>
+  icon(
+    <>
+      <path d="M9.5 3.5h5l-.5 6 3 3.5h-10l3-3.5z" />
+      <path d="M12 13v7.5M4 4l16 16" />
+    </>,
+    size,
+  );
 export const IconLocation = ({ size = 20 }: Props) =>
   icon(
     <>

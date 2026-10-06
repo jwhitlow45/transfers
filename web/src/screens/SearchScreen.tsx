@@ -79,7 +79,7 @@ export function SearchScreen() {
   // Unpinned by the rider, rather than on its own, says so with Undo, as on results.
   const pinFromHome = (search: Search, previous: Pin, next: Pin | null) => {
     updatePin(search, next);
-    if (!next) setToast({ id: ++toastId.current, text: 'Unpinned', about: 'pin', undo: () => updatePin(search, previous) });
+    if (!next) setToast({ id: ++toastId.current, text: 'Unpinned', about: 'unpin', undo: () => updatePin(search, previous) });
   };
   // Bumped when a recent search is removed, so the list reads storage again.
   const [, setRecentVersion] = useState(0);

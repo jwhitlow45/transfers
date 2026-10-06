@@ -123,7 +123,7 @@ export function ResultsScreen({ search }: { search: Search }) {
     const route = leg && data?.routes[leg.route];
     const was = leg?.on && route ? `the ${chipLabel(route)} at ${clock(leg.on.at)}` : 'the trip pinned before';
     const text = !next ? 'Unpinned' : previous && !samePin(previous, next) ? `Pinned in place of ${was}` : 'Pinned to the top';
-    setToast({ id: ++toastId.current, text, about: 'pin', undo: () => changePin(previous) });
+    setToast({ id: ++toastId.current, text, about: next ? 'pin' : 'unpin', undo: () => changePin(previous) });
   };
   // Notices the rider dismissed stay hidden here and on every other search, until the Notices
   // page puts them back. Dismissing says so, with Undo.
@@ -249,12 +249,7 @@ export function ResultsScreen({ search }: { search: Search }) {
               ))}
             </div>
           )}
-          {data && <AlertList key={data.from} alerts={alerts} onDismiss={dismiss} />}
-          {dismissedHere > 0 && (
-            <a class="tf-notices-link" href="/notices" onClick={(event) => (event.preventDefault(), navigate('/notices'))}>
-              {dismissedHere === 1 ? '1 dismissed notice' : `${dismissedHere} dismissed notices`}
-            </a>
-          )}
+          {data && <AlertList key={data.from} alerts={alerts} dismissed={dismissedHere} onDismiss={dismiss} />}
           {data && ((data.systems?.from?.length ?? 0) > 1 || search.fromSystem) && (
             <SystemSwitcher
               label={`From ${shortStopName(data.stops[data.from])}, ride`}

@@ -1,13 +1,16 @@
 import { useState } from 'preact/hooks';
 import { motionOff } from '../gestures.ts';
-import { IconChevron, IconInfo, IconWarn } from '../icons/ui.tsx';
+import { navigate } from '../router.ts';
+import { IconChevron, IconChevronRight, IconInfo, IconWarn } from '../icons/ui.tsx';
 import type { ViewAlert } from '../lib/alerts.ts';
 import { Collapse } from './Collapse.tsx';
 
 // Inline, collapsible, ordered by importance. Alerts on the rider's boarding stop open at first.
 // Folded, each is one line, since riders often have a notice from each agency above their
-// results. Opened, each can be dismissed, and the Notices page puts it back.
-export function AlertList({ alerts, onDismiss }: { alerts: ViewAlert[]; onDismiss: (alert: ViewAlert) => void }) {
+// results. Opened, each can be dismissed, and the Notices page puts it back. The list ends in a
+// quieter row counting this trip's dismissed notices, which opens that page, and holds the
+// notices' place when every one is dismissed.
+export function AlertList({ alerts, dismissed, onDismiss }: { alerts: ViewAlert[]; dismissed: number; onDismiss: (alert: ViewAlert) => void }) {
   const [open, setOpen] = useState<Record<string, boolean>>(() => Object.fromEntries(alerts.filter(({ startOpen }) => startOpen).map(({ id }) => [id, true])));
   // A dismissed notice closes as a folded one does before it goes, so what is below slides up
   // rather than jumping.
@@ -22,7 +25,7 @@ export function AlertList({ alerts, onDismiss }: { alerts: ViewAlert[]; onDismis
       motionOff() ? 0 : LEAVE_MS,
     );
   };
-  if (alerts.length === 0) return null;
+  if (alerts.length === 0 && dismissed === 0) return null;
   return (
     <section class="tf-alerts" aria-label="Service alerts">
       {alerts.map((alert) => {
@@ -66,6 +69,17 @@ export function AlertList({ alerts, onDismiss }: { alerts: ViewAlert[]; onDismis
           </Collapse>
         );
       })}
+      {dismissed > 0 && (
+        <a class="tf-alert tf-alert--dismissed" href="/notices" onClick={(event) => (event.preventDefault(), navigate('/notices'))}>
+          <span class="tf-alert__icon">
+            <IconInfo />
+          </span>
+          <span class="tf-kicker">{dismissed === 1 ? '1 dismissed notice' : `${dismissed} dismissed notices`}</span>
+          <span class="tf-alert__chev">
+            <IconChevronRight />
+          </span>
+        </a>
+      )}
     </section>
   );
 }
