@@ -41,6 +41,15 @@ export const IconBookmark = ({ size = 22, filled = false }: Props & { filled?: b
     <path d="M6 3.5h12v17l-6-4.5-6 4.5z" />
   </svg>
 );
+// A pushpin, filled once pinned. Not in the handoff. Drawn to match the set above.
+export const IconPin = ({ size = 16, filled = false }: Props & { filled?: boolean }) =>
+  icon(
+    <>
+      <path d="M9.5 3.5h5l-.5 6 3 3.5h-10l3-3.5z" fill={filled ? 'currentColor' : 'none'} />
+      <path d="M12 13v7.5" />
+    </>,
+    size,
+  );
 export const IconLocation = ({ size = 20 }: Props) =>
   icon(
     <>

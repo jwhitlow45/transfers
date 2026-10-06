@@ -1,10 +1,12 @@
 import type { Connection, Departure } from '../../../shared/api.ts';
 import { clock, minutesUntil } from '../format.ts';
 import { type CardContext, isTight } from '../lib/results.ts';
+import { IconPin } from '../icons/ui.tsx';
 import { TimeLink } from '../track.tsx';
 import { chipLabel, shortStopName, spokenRoute, statusOf } from '../view.ts';
 import { RouteChip } from './RouteChip.tsx';
 import { StopLink } from './StopLink.tsx';
+import { PinToggle } from './PinToggle.tsx';
 import { StatusTag } from './StatusTag.tsx';
 import { TimeBar } from './TimeBar.tsx';
 
@@ -47,13 +49,34 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
     { stop: context.data.from, kind: 'yours' as const },
     { stop: offStop, kind: 'transfer' as const },
   ];
-  // The second vehicle this one connects to, drawn on the same map.
-  const transfer = { trip: departure.trip, stop: board, color: secondColor, minutes: connection.transfer };
+  // The second vehicle this one connects to, drawn on the same map, on to the destination.
+  const destination = departure.destination !== undefined ? context.destination : undefined;
+  const transfer = { trip: departure.trip, stop: board, color: secondColor, minutes: connection.transfer, ...(destination ? { destination } : {}) };
+  const { pin } = context;
+  const pinned = pin?.first?.trip === connection.trip && pin.second.trip === departure.trip && pin.second.board === board;
+  const setPinned = (on: boolean) =>
+    context.onPin(on ? { first: { trip: connection.trip, alight: offStop }, second: { trip: departure.trip, board }, at: departure.at, ends: departure.destination ?? departure.at } : null);
+  const secondRoute = context.data.routes[departure.route];
+  const pinLabel = `${route ? chipLabel(route) : 'vehicle'} at ${clock(connection.departs)} to the ${secondRoute ? chipLabel(secondRoute) : 'vehicle'} at ${clock(departure.at)}`;
   return (
-    <div role="listitem" class={`tf-row${tight ? ' tf-row--tight' : ''}${hidden ? ' tf-row--hidden' : ''}`}>
+    <div role="listitem" class={`tf-row${tight ? ' tf-row--tight' : ''}${hidden ? ' tf-row--hidden' : ''}${pinned ? ' tf-row--pinned' : ''}`}>
       <span class="tf-sr">{spoken}</span>
+      {/* First, so what follows lies over it and takes no taps but its links' (see styles.css). */}
+      <PinToggle pinned={pinned} label={pinLabel} onToggle={() => setPinned(!pinned)} />
       <div aria-hidden="true">
-        <div class="tf-row__lead">{now ? 'Arriving' : 'Arrives in'}</div>
+        {/* Pinned says so in words where the countdown's kicker was. */}
+        <div class="tf-row__lead">
+          {pinned ? (
+            <>
+              <IconPin filled size={13} />
+              Pinned
+            </>
+          ) : now ? (
+            'Arriving'
+          ) : (
+            'Arrives in'
+          )}
+        </div>
         <div class="tf-row__num">{now ? 'Now' : minutes}</div>
         {!now && <div class="tf-row__unit">min</div>}
       </div>
@@ -62,7 +85,14 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
       <div class="tf-row__main">
         <div class="tf-row__line">
           <RouteChip route={route} hidden />
-          <TimeLink trip={connection.trip} stop={context.data.stops[context.data.from]} title={`${route ? chipLabel(route) : 'Vehicle'} at ${clock(connection.departs)}`} marks={marks} transfer={transfer}>
+          <TimeLink
+            trip={connection.trip}
+            stop={context.data.stops[context.data.from]}
+            title={`${route ? chipLabel(route) : 'Vehicle'} at ${clock(connection.departs)}`}
+            marks={marks}
+            transfer={transfer}
+            pin={{ pinned, label: pinLabel, set: setPinned }}
+          >
             {clock(connection.departs)}
           </TimeLink>
         </div>

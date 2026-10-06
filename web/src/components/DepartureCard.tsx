@@ -1,12 +1,13 @@
 import { useId } from 'preact/hooks';
 import type { Departure, Group } from '../../../shared/api.ts';
-import { IconChevron } from '../icons/ui.tsx';
+import { IconChevron, IconPin } from '../icons/ui.tsx';
 import { clock, minutesUntil } from '../format.ts';
-import type { CardContext } from '../lib/results.ts';
+import { type CardContext, hintKey } from '../lib/results.ts';
 import { TimeLink } from '../track.tsx';
 import { chipLabel, spokenRoute, statusOf } from '../view.ts';
 import { Collapse } from './Collapse.tsx';
 import { ConnectionRow } from './ConnectionRow.tsx';
+import { PinToggle } from './PinToggle.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import { StatusTag } from './StatusTag.tsx';
 import { TimeTicks } from './TimeBar.tsx';
@@ -46,6 +47,10 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
   }
   const status = statusOf(departure.delay, departure.live);
   const minutes = minutesUntil(departure.at, context.now);
+  // With no first vehicle, the departure itself is the trip to pin, by tapping its band.
+  const walkPinned = walk && context.pin !== null && !context.pin.first && context.pin.second.trip === departure.trip && context.pin.second.board === group.board;
+  const setWalkPinned = (on: boolean) => context.onPin(on ? { second: { trip: departure.trip, board: group.board }, at: departure.at, ends: departure.destination ?? departure.at } : null);
+  const walkPinLabel = `the ${route ? chipLabel(route) : 'vehicle'} at ${clock(departure.at)}`;
   const destinationName = context.destinationName ?? (walk ? context.toName : null);
   const destination = destinationName && departure.destination ? `${destinationName} ${clock(departure.destination)}` : null;
   const toward = departure.toward ? `To ${departure.toward}` : null;
@@ -72,6 +77,8 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
               // A route already at From is boarded there. Otherwise the rider boards it where they
               // transfer, and From shows only if this route passes it too.
               marks={walk ? [{ stop: group.board, kind: 'yours' }] : [{ stop: context.data.from, kind: 'yours' }, { stop: group.board, kind: 'transfer' }]}
+              // A band with rows under it pins no one trip, so only a walk card's map can pin.
+              {...(walk ? { pin: { pinned: walkPinned, label: walkPinLabel, set: setWalkPinned } } : {})}
             >
               {clock(departure.at)}
             </TimeLink>
@@ -89,7 +96,14 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
       </span>
       <span class="tf-band__right" aria-hidden="true">
         <span class="tf-band__in">{minutes < 1 ? 'Now' : `${minutes} min`}</span>
-        <span class="tf-band__inlabel">away</span>
+        {walkPinned ? (
+          <span class="tf-band__inlabel tf-band__inlabel--pinned">
+            <IconPin filled size={13} />
+            Pinned
+          </span>
+        ) : (
+          <span class="tf-band__inlabel">away</span>
+        )}
         {!walk && (
           <span class="tf-band__chev">
             <IconChevron size={18} />
@@ -102,8 +116,9 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
     return (
       <article class="tf-card tf-card--walk">
         <h3 class="tf-card__heading">
-          <span class="tf-band">
+          <span class={`tf-band${walkPinned ? ' tf-band--pinned' : ''}`}>
             <span class="tf-sr">{spoken}</span>
+            <PinToggle pinned={walkPinned} label={walkPinLabel} onToggle={() => setWalkPinned(!walkPinned)} />
             {band}
           </span>
         </h3>
@@ -126,6 +141,12 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
           smoothly. */}
       <Collapse open={expanded} id={panel}>
         <TimeTicks scaleMinutes={context.scaleMinutes} />
+        {context.pinHint !== null && context.pinHint === hintKey(group, departure.trip) && (
+          <p class="tf-pin-hint">
+            <IconPin size={14} />
+            Tap a connection to pin it to the top
+          </p>
+        )}
         <div role="list" aria-label={`Connecting ${noun[1]}`}>
           {departure.connections.map((connection) => (
             <ConnectionRow

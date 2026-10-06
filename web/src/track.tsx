@@ -3,16 +3,21 @@ import { useContext, useEffect, useState } from 'preact/hooks';
 import type { Stop } from '../../shared/api.ts';
 import { DataCredit } from './components/DataCredit.tsx';
 import { Sheet } from './components/Sheet.tsx';
+import { IconPin } from './icons/ui.tsx';
 
 // A vehicle the rider asked to follow to a stop. The title is what they tapped, such as "49 at
 // 8:12", so the sheet names it before the map arrives. The color is the route's on the page they
 // tapped it on, where results pick colors that tell routes apart. `marks` are the rider's stops
-// on the way, in the order their journey makes them: where they get on, and where they change.
-export type Mark = { stop: string; kind: 'yours' | 'transfer' };
-// The vehicle the rider changes to, where they board it, its color on the page, and the minutes
-// the rider has to make it.
-export type Transfer = { trip: string; stop: string; color?: string; minutes?: number };
-export type Tracked = { trip: string; stop: string; title: string; color?: string; marks?: Mark[]; transfer?: Transfer };
+// on the way, in the order their journey makes them: where they get on, where they change, and
+// where they are going, when they set a destination.
+export type Mark = { stop: string; kind: 'yours' | 'transfer' | 'destination' };
+// The vehicle the rider changes to, where they board it, its color on the page, the minutes the
+// rider has to make it, and the destination they ride it to, when they set one.
+export type Transfer = { trip: string; stop: string; color?: string; minutes?: number; destination?: string };
+// `pin` pins the trip the rider opened the map from, when it is one trip they can pin, from the
+// sheet's header: its state when opened, what it pins for screen readers, and pinning or not.
+export type PinAction = { pinned: boolean; label: string; set: (on: boolean) => void };
+export type Tracked = { trip: string; stop: string; title: string; color?: string; marks?: Mark[]; transfer?: Transfer; pin?: PinAction };
 
 type MapComponent = FunctionComponent<{ tracked: Tracked }>;
 
@@ -50,7 +55,7 @@ export function TrackProvider({ children }: { children: ComponentChildren }) {
       {tracked && (
         // 511's agreement asks for its credit beside its data, and the page's own credit is under
         // the sheet.
-        <Sheet title={tracked.title} footer={<DataCredit />} onClose={() => setTracked(null)}>
+        <Sheet title={tracked.title} footer={<DataCredit />} action={tracked.pin && <SheetPin pin={tracked.pin} />} onClose={() => setTracked(null)}>
           {map ? (
             <map.Map key={`${tracked.trip}|${tracked.stop}`} tracked={tracked} />
           ) : failed ? (
@@ -76,13 +81,48 @@ export function TrackProvider({ children }: { children: ComponentChildren }) {
 
 // A vehicle's time at a stop, which opens its live map. For BART and the ferry, which report no
 // positions, the map places the vehicle by when it is due at its stops.
-export function TimeLink({ trip, stop, title, color, marks, transfer, children }: { trip: string; stop: Stop | undefined; title: string; color?: string; marks?: Mark[]; transfer?: Transfer; children: ComponentChildren }) {
+export function TimeLink({ trip, stop, title, color, marks, transfer, pin, children }: {
+  trip: string;
+  stop: Stop | undefined;
+  title: string;
+  color?: string;
+  marks?: Mark[];
+  transfer?: Transfer;
+  pin?: PinAction;
+  children: ComponentChildren;
+}) {
   const open = useContext(TrackContext);
   if (!stop) return <>{children}</>;
   return (
-    <button type="button" class="tf-time-link" onClick={() => open({ trip, stop: stop.key, title, ...(color ? { color } : {}), ...(marks ? { marks } : {}), ...(transfer ? { transfer } : {}) })}>
+    <button
+      type="button"
+      class="tf-time-link"
+      onClick={() => open({ trip, stop: stop.key, title, ...(color ? { color } : {}), ...(marks ? { marks } : {}), ...(transfer ? { transfer } : {}), ...(pin ? { pin } : {}) })}
+    >
       {children}
       <span class="tf-sr">, follow on a map</span>
+    </button>
+  );
+}
+
+// Pins the trip from the map's sheet, beside Close. It sits in the sheet, not the map, so it works
+// while the map loads or when it cannot. The sheet covers the page, so nothing else pins while it
+// is open, and the button keeps its own state.
+function SheetPin({ pin }: { pin: PinAction }) {
+  const [pinned, setPinned] = useState(pin.pinned);
+  return (
+    <button
+      type="button"
+      class="tf-filter tf-sheet__pin"
+      aria-pressed={pinned}
+      aria-label={`Pin ${pin.label}`}
+      onClick={() => {
+        pin.set(!pinned);
+        setPinned(!pinned);
+      }}
+    >
+      <IconPin filled={pinned} size={16} />
+      Pin
     </button>
   );
 }

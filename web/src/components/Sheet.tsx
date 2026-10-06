@@ -15,7 +15,15 @@ const CLOSE_FLING = 0.4;
 // closes the sheet however far it is scrolled, like the comments on YouTube Shorts. In the
 // settings, a drag down closes it only from the top of their scroll, so scrolling back up never
 // closes it by surprise.
-export function Sheet({ title, subtitle, footer, onClose, children }: { title: string; subtitle?: string; footer?: ComponentChildren; onClose: () => void; children: ComponentChildren }) {
+// `action` is a control beside Close, such as pinning the trip a map follows.
+export function Sheet({ title, subtitle, footer, action, onClose, children }: {
+  title: string;
+  subtitle?: string;
+  footer?: ComponentChildren;
+  action?: ComponentChildren;
+  onClose: () => void;
+  children: ComponentChildren;
+}) {
   const panel = useRef<HTMLDivElement>(null);
   const body = useRef<HTMLDivElement>(null);
   const scrim = useRef<HTMLDivElement>(null);
@@ -75,6 +83,7 @@ export function Sheet({ title, subtitle, footer, onClose, children }: { title: s
           <div class="tf-sheet__inner">
             <div class="tf-sheet__head">
               <h2>{title}</h2>
+              {action}
               <button type="button" class="tf-btn-icon" onClick={onClose} aria-label="Close">
                 <IconClose />
               </button>

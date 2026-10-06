@@ -49,9 +49,31 @@ export type DeviceSettings = {
   stepFree: boolean;
   // A rider who relies on escalators: their outages at the trip's stations too.
   escalatorOutages: boolean;
+  // Whether a pinned trip unpins itself, and how many minutes after it ends.
+  autoUnpin: boolean;
+  unpinAfter: number;
 };
 
-export const DEFAULT_SETTINGS: DeviceSettings = { walkSpeed: 1.4, maxWalk: 300, min: null, max: null, hide: 0, theme: 'system', cards: 'expanded', modeIcons: true, motion: 'system', showHidden: false, mapFitOnBoard: true, stepFree: false, escalatorOutages: false };
+export const DEFAULT_SETTINGS: DeviceSettings = {
+  walkSpeed: 1.4,
+  maxWalk: 300,
+  min: null,
+  max: null,
+  hide: 0,
+  theme: 'system',
+  cards: 'expanded',
+  modeIcons: true,
+  motion: 'system',
+  showHidden: false,
+  mapFitOnBoard: true,
+  stepFree: false,
+  escalatorOutages: false,
+  autoUnpin: true,
+  unpinAfter: 30,
+};
+
+// The longest a pinned trip can stay after it ends before unpinning itself.
+export const MAX_UNPIN_MINUTES = 120;
 
 // Minutes as the time settings allow them. Settings and searches saved before the 30 minute cap
 // can hold more, which the server would quietly treat as 30 while the page said otherwise.
@@ -99,6 +121,39 @@ export type SavedSearch = Search & { id: string; name: string; color?: string; r
 export type RecentSearch = Search & { at: number; via?: string };
 
 export const searchId = (search: Search) => `${search.from}>${search.to}`;
+
+// A trip pinned to a search's results, kept until the rider unpins it or, with that setting on,
+// a while after it ends. The vehicle to transfer to and where it is boarded, with the first
+// vehicle and where it is left unless the route is already at From. Kept by From and To only, so
+// it stays through other changes to the search, and follows a new destination. `at` is when the
+// second vehicle was due where it is boarded when pinned, which tells the server which day's run
+// is meant. `ends` is when the trip ends by the latest times seen: arriving at the destination,
+// or with none set, boarding the second vehicle.
+export type Pin = { first?: { trip: string; alight: string }; second: { trip: string; board: string }; at: number; ends: number };
+
+export function loadPin(search: Search): Pin | null {
+  return read<Record<string, Pin>>('pins', {})[searchId(search)] ?? null;
+}
+
+export function savePin(search: Search, pin: Pin | null) {
+  const { [searchId(search)]: _old, ...others } = read<Record<string, Pin>>('pins', {});
+  write('pins', pin ? { ...others, [searchId(search)]: pin } : others);
+}
+
+// Results tell a rider that tapping a connection pins it on their first few visits, until they
+// first pin one. Each call counts a visit and says whether to show the hint on it.
+const PIN_HINT_VISITS = 3;
+
+export function takePinHint() {
+  const left = read<number>('pinHint', PIN_HINT_VISITS);
+  if (left <= 0) return false;
+  write('pinHint', left - 1);
+  return true;
+}
+
+export function clearPinHint() {
+  write('pinHint', 0);
+}
 
 export function loadSaved(): SavedSearch[] {
   return read<SavedSearch[]>('saved', []).map(clampTimes);

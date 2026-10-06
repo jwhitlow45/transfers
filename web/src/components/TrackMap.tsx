@@ -18,7 +18,7 @@ const REFRESH_MS = 15_000;
 // A position older than this is shown as old: the vehicle has likely moved on since.
 const OLD_SECONDS = 120;
 
-const MARK_LABEL = { yours: 'Your stop', transfer: 'Transfer stop' };
+const MARK_LABEL = { yours: 'Your stop', transfer: 'Transfer stop', destination: 'Destination' };
 
 const MISSING = {
   'not-started': 'Not under way yet. It shows here once its trip starts.',
@@ -41,6 +41,8 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
     marks.map(({ stop }) => `&mark=${encodeURIComponent(stop)}`).join('') +
     (spans ? `&from=${spans.main[0]}&to=${spans.main[1]}` : '') +
     (transfer ? `&ttrip=${encodeURIComponent(transfer.trip)}&tstop=${encodeURIComponent(transfer.stop)}` : '') +
+    // The second vehicle's stops: where the rider boards it and, with a destination, where they leave it.
+    (transfer?.destination ? `&tmark=${encodeURIComponent(transfer.stop)}&tmark=${encodeURIComponent(transfer.destination)}` : '') +
     (spans?.transfer ? `&tfrom=${spans.transfer[0]}&tto=${spans.transfer[1]}` : '') +
     (settings.mapFitOnBoard ? '&autofit=1' : '');
   // Not kept in storage: a position from an earlier visit is no use.
@@ -87,6 +89,8 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
   const nextRoute = next ? data.routes[next.route] : undefined;
   const nextColor = transfer?.color ?? (nextRoute ? routeColor(nextRoute) : 'currentColor');
   const nextLabels = next ? new Map<number, Mark['kind'][]>(next.targetIndex === null ? [] : [[next.targetIndex, ['transfer']]]) : null;
+  const destinationIndex = transfer?.destination ? next?.marks[1] : null;
+  if (nextLabels && destinationIndex !== null && destinationIndex !== undefined && !nextLabels.has(destinationIndex)) nextLabels.set(destinationIndex, ['destination']);
   // The transfer as it stands now: from the first vehicle reaching the stop the rider gets off at
   // to the second reaching where they board, as the results count it. Without both times, the
   // figure from when the rider tapped.
@@ -204,8 +208,8 @@ function LegMarks({ drawn: { leg, color, labels }, unit }: { drawn: Drawn; unit:
       {leg.path.map(({ x, y }, index) => (
         <circle key={index} cx={x} cy={-y} r={unit * 0.8} class="tf-track__stop" stroke-width={unit * 0.35} style={index === leg.nextIndex ? { fill: color } : undefined} />
       ))}
-      {/* The rider's stops as squares: solid where they get on, open where they transfer, and struck
-          through once the vehicle has passed them. */}
+      {/* The rider's stops as squares: solid where they get on, open where they transfer, solid in a
+          ring at their destination, and struck through once the vehicle has passed them. */}
       {[...labels].map(([index, kinds]) => {
         const place = leg.path[index];
         if (!place) return null;
@@ -213,7 +217,8 @@ function LegMarks({ drawn: { leg, color, labels }, unit }: { drawn: Drawn; unit:
         const half = unit * 1.4;
         return (
           <g key={`mark-${index}`} transform={`translate(${place.x} ${-place.y})`}>
-            <rect x={-half} y={-half} width={half * 2} height={half * 2} class={`tf-track__square--${kind}`} stroke-width={unit * (kind === 'yours' ? 0.45 : 0.7)} style={index === leg.nextIndex ? { fill: color } : undefined} />
+            {kind === 'destination' && <rect x={-half * 1.7} y={-half * 1.7} width={half * 3.4} height={half * 3.4} class="tf-track__square-ring" stroke-width={unit * 0.45} />}
+            <rect x={-half} y={-half} width={half * 2} height={half * 2} class={`tf-track__square--${kind}`} stroke-width={unit * (kind === 'transfer' ? 0.7 : 0.45)} style={index === leg.nextIndex ? { fill: color } : undefined} />
             {passedAt(leg, index) && (
               <>
                 <line x1={-half * 1.5} y1={half * 1.5} x2={half * 1.5} y2={-half * 1.5} class="tf-track__slash-edge" stroke-width={unit * 1.1} stroke-linecap="round" />

@@ -39,7 +39,7 @@ export function trackTarget(schedule: Schedule, request: TrackRequest) {
 // so on a loop the transfer never comes before boarding. The journey is the first fit still under
 // way when the vehicle gets where it is going, or else the last. A stop the trip does not make,
 // or not in that order, is left out.
-function markVisits(schedule: Schedule, patternStops: number[], keys: string[], vehicleAt: number) {
+export function markVisits(schedule: Schedule, patternStops: number[], keys: string[], vehicleAt: number) {
   const visits = keys.map((key) => {
     const stop = schedule.stopsByKey.get(key);
     return stop ? visitsTo(schedule, patternStops, stop) : [];
@@ -257,9 +257,9 @@ type Estimate =
 // When the trip is due at each stop: the feed's predicted time where it lists the stop, or else
 // the schedule plus the latest delay before it, as GTFS-realtime says delays carry forward. A
 // prediction with only a time carries the delay it implies. Without the trip in the feed, the
-// schedule alone.
-function expectedTimes(schedule: Schedule, tripRow: number, stops: StopRow[], rt: RtTrip | undefined, now: number) {
-  const scheduled = stops.map((_, index) => schedule.scheduledTimeAt(tripRow, index, now));
+// schedule alone. `near` picks the day's run the schedule means, the one running nearest it.
+export function expectedTimes(schedule: Schedule, tripRow: number, stops: StopRow[], rt: RtTrip | undefined, now: number, near = now) {
+  const scheduled = stops.map((_, index) => schedule.scheduledTimeAt(tripRow, index, near));
   // The feed's stops matched to positions in order. The feed drops visits already made, so a stop
   // a loop makes twice is told apart by the update's stop sequence, or else by which visit is
   // scheduled nearest its predicted time. The schedule keeps positions rather than GTFS
@@ -276,7 +276,7 @@ function expectedTimes(schedule: Schedule, tripRow: number, stops: StopRow[], rt
     listed.set(at, update);
     from = at + 1;
   }
-  if (listed.size === 0) return { times: scheduled, predicted: false };
+  if (listed.size === 0) return { times: scheduled, scheduled, predicted: false };
   const delayAt = (index: number, update: RtStopTime) => update.delay ?? (update.time !== null && scheduled[index] !== null ? update.time - scheduled[index]! : null);
   const first = Math.min(...listed.keys());
   let delay = delayAt(first, listed.get(first)!) ?? 0;
@@ -290,7 +290,7 @@ function expectedTimes(schedule: Schedule, tripRow: number, stops: StopRow[], rt
     if (update?.time !== null && update?.time !== undefined) return update.time;
     return time === null ? null : time + delay;
   });
-  return { times, predicted: true };
+  return { times, scheduled, predicted: true };
 }
 
 // The point a share of the way along the line from one shape point to another, and the way the

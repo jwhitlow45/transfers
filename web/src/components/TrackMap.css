@@ -11,6 +11,9 @@
 .tf-track__stop { fill: var(--bg); stroke: var(--text); }
 .tf-track__square--yours { fill: var(--text); stroke: var(--bg); }
 .tf-track__square--transfer { fill: var(--bg); stroke: var(--text); }
+/* The end of the ride: filled like the rider's stop, inside a ring. */
+.tf-track__square--destination { fill: var(--text); stroke: var(--bg); }
+.tf-track__square-ring { fill: none; stroke: var(--text); }
 .tf-track__vehicle { stroke: var(--bg); }
 .tf-track__vehicle--estimate { fill-opacity: .55; stroke: var(--text); }
 .tf-track__heading { fill: var(--text); stroke: var(--bg); }
@@ -36,6 +39,7 @@
    connections: still the rider's stop, but no longer one to catch it at. */
 .tf-track__stops .tf-track__mark--yours.tf-track__mark--passed { background: repeating-linear-gradient(135deg, transparent 0 7px, color-mix(in srgb, var(--text) 5%, transparent) 7px 14px); box-shadow: inset 4px 0 var(--muted); }
 .tf-track__mark--transfer .tf-track__stop-dot { border-width: 3px; }
+.tf-track__mark--destination .tf-track__stop-dot { background: var(--text); box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--text); }
 .tf-track__tag { font-size: var(--text-sm); font-weight: 650; color: var(--muted); }
 .tf-track__tag--mark { color: var(--text); }
 .tf-track__when { flex: none; min-width: 4.5em; display: flex; flex-direction: column; align-items: flex-end; font-variant-numeric: tabular-nums; }

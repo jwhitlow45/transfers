@@ -4,7 +4,7 @@ import { MinutesSlider, WindowSlider } from '../components/Slider.tsx';
 import { useSwipeBack } from '../gestures.ts';
 import { navigate } from '../router.ts';
 import { useSettings } from '../settings.tsx';
-import { type DeviceSettings, clearCached } from '../storage.ts';
+import { type DeviceSettings, MAX_UNPIN_MINUTES, clearCached } from '../storage.ts';
 
 const SPEEDS = [
   { value: 0.9, label: 'Unhurried' },
@@ -101,6 +101,29 @@ export function SettingsScreen() {
               </Toggle>
             </div>
           </div>
+        </section>
+
+        <section class="tf-section tf-section--tight" aria-labelledby="pinned-heading">
+          <h2 id="pinned-heading">Pinned trips</h2>
+          <div class="tf-setting">
+            <div class="tf-setting__label">Unpin when done</div>
+            <div class="tf-setting__help">A trip ends when you reach your destination, or with none set, when you board the vehicle you transfer to.</div>
+            <div class="tf-filters">
+              <Toggle pressed={settings.autoUnpin} onToggle={() => update({ autoUnpin: !settings.autoUnpin })}>
+                Unpin after the trip ends
+              </Toggle>
+            </div>
+          </div>
+          {settings.autoUnpin && (
+            <MinutesSlider
+              label="Unpin this long after it ends"
+              help="Until then the trip stays at the top of its results"
+              value={settings.unpinAfter}
+              max={MAX_UNPIN_MINUTES}
+              step={5}
+              onChange={(value) => update({ unpinAfter: value })}
+            />
+          )}
         </section>
 
         <section class="tf-section tf-section--tight" aria-labelledby="look-heading">

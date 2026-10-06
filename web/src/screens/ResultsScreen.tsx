@@ -1,28 +1,31 @@
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { TripResponse } from '../../../shared/api.ts';
 import { takeInitialData } from '../api.ts';
 import { AlertList } from '../components/AlertList.tsx';
 import { FeedOutageBanner, OfflineBanner, StaleBanner } from '../components/Banners.tsx';
+import { PinnedCard } from '../components/PinnedCard.tsx';
 import { BottomBar } from '../components/BottomBar.tsx';
 import { DataCredit } from '../components/DataCredit.tsx';
 import { DirectionSwitcher, SystemSwitcher } from '../components/DirectionSwitcher.tsx';
 import { ScreenHeader, TripChain, liveStatusText } from '../components/ResultsHeader.tsx';
 import { RouteChip } from '../components/RouteChip.tsx';
 import { SkeletonResults } from '../components/SkeletonResults.tsx';
+import { Toast, type ToastMessage } from '../components/Toast.tsx';
 import { TransferPointGroup } from '../components/TransferPointGroup.tsx';
 import { type SearchUpdate, TripSettingsSheet } from '../components/TripSettingsSheet.tsx';
 import { useSwipeBack } from '../gestures.ts';
 import { useNow, usePoll } from '../hooks.ts';
 import { defaultSavedColor } from '../lib/color.ts';
-import { walkMinutes } from '../format.ts';
+import { clock, walkMinutes } from '../format.ts';
 import { viewAlerts } from '../lib/alerts.ts';
+import { pinnedEnd, pinnedFor, samePin } from '../lib/pinned.ts';
 import { ageText, clockSkewMs, freshness } from '../lib/freshness.ts';
 import { IconHidden, IconTransfer } from '../icons/ui.tsx';
-import { type CardContext, chooseDirection, directionChoices, pageColors, pointId, scaleFor, visibleDepartures } from '../lib/results.ts';
+import { type CardContext, chooseDirection, directionChoices, hintKey, pageColors, pointId, scaleFor, visibleDepartures } from '../lib/results.ts';
 import { summarize } from '../lib/summary.ts';
 import { navigate, tripPath } from '../router.ts';
 import { matchesServerDefaults, tripApiUrl, useSettings } from '../settings.tsx';
-import { type Search, findSaved, loadSaved, rememberRecent, removeSaved, saveSearch, updateSaved } from '../storage.ts';
+import { type Pin, type Search, clearPinHint, findSaved, loadPin, loadSaved, rememberRecent, removeSaved, savePin, saveSearch, takePinHint, updateSaved } from '../storage.ts';
 import { agencyOnly, chipLabel, shortStopName } from '../view.ts';
 
 // The server puts the first trip's results in the page. They seed only the first visit, as of
@@ -49,12 +52,19 @@ export function ResultsScreen({ search }: { search: Search }) {
   const openAtFirst = (first: boolean) => settings.cards === 'expanded' || (settings.cards === 'first' && first);
   const isExpanded = (card: string, first: boolean) => toggled[card] ?? openAtFirst(first);
   const toggleCard = (card: string, first: boolean) => setToggled((current) => ({ ...current, [card]: !(current[card] ?? openAtFirst(first)) }));
-  const url = tripApiUrl(search, settings, showHidden);
+  // The trip the rider pinned to these results, which the results request follows too.
+  const [pin, setPin] = useState(() => loadPin(search));
+  const changePin = (next: Pin | null) => {
+    savePin(search, next);
+    setPin(next);
+  };
+  const url = tripApiUrl(search, settings, showHidden, pin);
   // Results the server put in the page answer this request only if nothing differs from its defaults.
   const initial = useMemo(() => {
     const page = initialData;
     initialData = null;
-    const matches = page && page.from === search.from && tripTo(page.to) === search.to && matchesServerDefaults(settings) && !search.firstRoutes && !search.secondRoutes;
+    // Nor do they follow a pinned trip.
+    const matches = page && page.from === search.from && tripTo(page.to) === search.to && matchesServerDefaults(settings) && !search.firstRoutes && !search.secondRoutes && !pin;
     return matches ? { data: page, fetchedAt: initialAt } : null;
   }, []);
   const { data, error, fetchedAt, feed, settled, refresh } = usePoll<TripResponse>(url, 30_000, initial);
@@ -68,6 +78,38 @@ export function ResultsScreen({ search }: { search: Search }) {
   useEffect(() => {
     if (data) rememberRecent(search, summary.via ?? undefined);
   }, [Boolean(data), summary.via]);
+
+  // The pinned trip as its vehicles run now. When it ends moves with them, and with a new
+  // destination, and decides when it unpins itself.
+  const pinned = pin && data ? pinnedFor(pin, data, search.dest) : null;
+  const pinnedEnds = pinned ? pinnedEnd(pinned) : null;
+  useEffect(() => {
+    if (pin && pinnedEnds !== null && pinnedEnds !== pin.ends) changePin({ ...pin, ends: pinnedEnds });
+  }, [pinnedEnds]);
+  // Whether this visit shows how to pin, counted once per visit, until the rider first pins.
+  const [hint, setHint] = useState(() => !pin && takePinHint());
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+  const toastId = useRef(0);
+  // Pinning from a row, the pinned card, or a map's sheet says what happened, with Undo putting
+  // back whatever was pinned before, in case the tap was not meant.
+  const pinFromResults = (next: Pin | null) => {
+    const previous = pin;
+    changePin(next);
+    if (next) {
+      clearPinHint();
+      setHint(false);
+    }
+    const leg = pinned?.first ?? pinned?.second;
+    const route = leg && data?.routes[leg.route];
+    const was = leg?.on && route ? `the ${chipLabel(route)} at ${clock(leg.on.at)}` : 'the trip pinned before';
+    const text = !next ? 'Unpinned' : previous && !samePin(previous, next) ? `Pinned in place of ${was}` : 'Pinned to the top';
+    setToast({ id: ++toastId.current, text, undo: () => changePin(previous) });
+  };
+  const unpinAt = pin && settings.autoUnpin ? (pin.ends + settings.unpinAfter * 60) * 1000 : null;
+  const expired = unpinAt !== null && now >= unpinAt;
+  useEffect(() => {
+    if (expired) changePin(null);
+  }, [expired]);
 
   useSwipeBack(() => navigate('/'));
 
@@ -88,6 +130,11 @@ export function ResultsScreen({ search }: { search: Search }) {
 
   const groups = summary.groups;
   const scaleMinutes = scaleFor(groups, now);
+  // Groups with something to catch first, then by the soonest departure.
+  const firstAt = (group: (typeof groups)[number]) => visibleDepartures(group, now, showHidden).find(({ canceled }) => !canceled)?.at ?? Infinity;
+  const ordered = [...groups].sort((a, b) => firstAt(a) - firstAt(b));
+  // The first card with connections says how to pin.
+  const hintGroup = hint ? ordered.find((group) => group.kind !== 'walk') : undefined;
   const context: CardContext = {
     data: data!,
     now,
@@ -98,13 +145,14 @@ export function ResultsScreen({ search }: { search: Search }) {
     toName: data && 'stop' in data.to ? shortStopName(data.stops[data.to.stop]) : null,
     showHidden,
     colorOf: data ? pageColors(groups, data) : () => '#55575a',
+    destination: search.dest,
+    pin,
+    onPin: pinFromResults,
+    pinHint: hintGroup ? hintKey(hintGroup, visibleDepartures(hintGroup, now, showHidden)[0]?.trip) : null,
   };
   const secondsSinceUpdate = fresh.ageSeconds ?? (fetchedAt === null ? null : Math.max(0, Math.floor((now - (fetchedAt + skew)) / 1000)));
   const window = summary.window ?? { min: search.min ?? 3, max: search.max ?? 12 };
   const hide = search.hide ?? settings.hide;
-  // Groups with something to catch first, then by the soonest departure.
-  const firstAt = (group: (typeof groups)[number]) => visibleDepartures(group, now, showHidden).find(({ canceled }) => !canceled)?.at ?? Infinity;
-  const ordered = [...groups].sort((a, b) => firstAt(a) - firstAt(b));
   const footer = saved ? `Saved with “${saved.name}”` : 'Applies to this search. Save it to keep these settings.';
   const outages = (data?.feeds ?? []).filter(({ state }) => state === 'down' || state === 'stale');
   const liveAgencies = (data?.feeds ?? []).filter(({ state }) => state === 'live').map(({ agency }) => agencyOnly(agency));
@@ -114,7 +162,8 @@ export function ResultsScreen({ search }: { search: Search }) {
   const toColor = summary.toRoute && data ? context.colorOf(summary.toRoute.key) : undefined;
   const toChip = summary.toRoute ? <RouteChip route={summary.toRoute} {...(toColor ? { color: toColor } : {})} /> : <span>{summary.to}</span>;
   const params = new URLSearchParams(url.split('?')[1]);
-  params.delete('hidden');
+  // The destinations a trip can have do not depend on what is shown or pinned.
+  for (const name of ['hidden', 'p1', 'pa', 'p2', 'pb', 'pt']) params.delete(name);
   const destinationsUrl = `/api/destinations?${params}`;
 
   return (
@@ -147,6 +196,9 @@ export function ResultsScreen({ search }: { search: Search }) {
                 Search again
               </a>
             </div>
+          )}
+          {pin && data && !expired && (
+            <PinnedCard pin={pin} pinned={pinned} data={data} destination={search.dest} colorOf={context.colorOf} now={now} unpinAt={unpinAt} onPin={pinFromResults} />
           )}
           {data && <AlertList key={data.from} alerts={viewAlerts(data, summary.boarding, { elevators: settings.stepFree, escalators: settings.escalatorOutages })} />}
           {data && ((data.systems?.from?.length ?? 0) > 1 || search.fromSystem) && (
@@ -200,7 +252,9 @@ export function ResultsScreen({ search }: { search: Search }) {
           <DataCredit />
         </main>
       </div>
-      <BottomBar windowText={summary.windowText} saved={saved !== null} onBack={() => navigate('/')} onOpen={() => setSettingsOpen(true)} onToggleSaved={toggleSaved} />
+      <BottomBar windowText={summary.windowText} saved={saved !== null} onBack={() => navigate('/')} onOpen={() => setSettingsOpen(true)} onToggleSaved={toggleSaved}>
+        <Toast message={toast} onDone={() => setToast(null)} />
+      </BottomBar>
       {settingsOpen && (
         <TripSettingsSheet
           search={search}

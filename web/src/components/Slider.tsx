@@ -2,8 +2,8 @@ import { useEffect, useId, useRef, useState } from 'preact/hooks';
 import { MAX_MINUTES } from '../../../shared/api.ts';
 
 const spoken = (minutes: number) => `${minutes} minute${minutes === 1 ? '' : 's'}`;
-// Where a value sits along the track, as a share of the way from 0 to MAX_MINUTES.
-const along = (minutes: number) => minutes / MAX_MINUTES;
+// Where a value sits along the track, as a share of the way from 0 to its end.
+const along = (minutes: number, max = MAX_MINUTES) => minutes / max;
 
 // A slider's value as shown while it moves, and committed once it settles: when a thumb is let
 // go, when the slider loses focus, or a moment after the last arrow key. A drag or a run of key
@@ -51,8 +51,8 @@ function useSettling<T>(value: T, same: (a: T, b: T) => boolean, onChange: (valu
 
 const SETTLE_MS = 300;
 
-// Minutes as a full-width slider from 0 to MAX_MINUTES.
-export function MinutesSlider({ label, help, value, onChange }: { label: string; help: string; value: number; onChange: (value: number) => void }) {
+// Minutes as a full-width slider from 0 to MAX_MINUTES, or to `max` in steps of `step`.
+export function MinutesSlider({ label, help, value, max = MAX_MINUTES, step = 1, onChange }: { label: string; help: string; value: number; max?: number; step?: number; onChange: (value: number) => void }) {
   const id = useId();
   const [shown, setShown, commit, settle] = useSettling(value, (a, b) => a === b, onChange);
   return (
@@ -66,13 +66,13 @@ export function MinutesSlider({ label, help, value, onChange }: { label: string;
         </output>
       </div>
       <div class="tf-setting__help">{help}</div>
-      <div class="tf-slider" style={{ '--from': 0, '--to': along(shown) }}>
+      <div class="tf-slider" style={{ '--from': 0, '--to': along(shown, max) }}>
         <input
           id={id}
           type="range"
           min={0}
-          max={MAX_MINUTES}
-          step={1}
+          max={max}
+          step={step}
           value={shown}
           aria-valuetext={spoken(shown)}
           {...settle}

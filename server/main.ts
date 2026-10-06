@@ -58,7 +58,9 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
       const transferTrip = url.searchParams.get('ttrip');
       const transferStop = url.searchParams.get('tstop');
       const transferSpan = spanParam(url.searchParams, 't');
-      const transfer = transferTrip && transferStop ? { trip: transferTrip, stop: transferStop, ...(transferSpan ? { span: transferSpan } : {}) } : undefined;
+      // Its own marks: where the rider boards it and, with a destination, where they leave it.
+      const transferMarks = url.searchParams.getAll('tmark').slice(0, MAX_MARKS);
+      const transfer = transferTrip && transferStop ? { trip: transferTrip, stop: transferStop, ...(transferMarks.length ? { marks: transferMarks } : {}), ...(transferSpan ? { span: transferSpan } : {}) } : undefined;
       const span = spanParam(url.searchParams, '');
       const marks = url.searchParams.getAll('mark').slice(0, MAX_MARKS);
       const fitOnBoard = url.searchParams.get('autofit') === '1';
@@ -113,6 +115,11 @@ function tripRequest(params: URLSearchParams, from = params.get('from'), to = pa
   const toAgencies = agencies('tm');
   if (fromAgencies.length) request.fromAgencies = fromAgencies;
   if (toAgencies.length) request.toAgencies = toAgencies;
+  // A pinned trip: the vehicle to transfer to and where it is boarded, with the first vehicle and
+  // where the rider leaves it unless the route is already at From, and when the run was due.
+  const [catchTrip, board, firstTrip, alight] = ['p2', 'pb', 'p1', 'pa'].map((name) => params.get(name));
+  const at = numberParam(params, 'pt');
+  if (catchTrip && board && at !== undefined) request.pin = { second: { trip: catchTrip, board }, at, ...(firstTrip && alight ? { first: { trip: firstTrip, alight } } : {}) };
   return request;
 }
 

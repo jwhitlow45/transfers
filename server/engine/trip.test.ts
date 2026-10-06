@@ -447,3 +447,39 @@ test('nearby shows a route at its next nearest stop when nothing comes to the ne
     early.close();
   }
 });
+
+test('a pinned trip follows its vehicles where the rider gets on and off, and the destination the search has now', () => {
+  const plain = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477' }, NOW);
+  const group = plain.groups[0]!;
+  const departure = group.departures.find(({ connections, canceled }) => !canceled && connections.some(({ live }) => live))!;
+  const connection = departure.connections.find(({ live }) => live)!;
+  const pin = { first: { trip: connection.trip, alight: group.alight }, second: { trip: departure.trip, board: group.board }, at: departure.at };
+  const pinned = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477', pin }, NOW).pinned!;
+  deepStrictEqual(pinned.first, {
+    trip: connection.trip,
+    route: connection.route,
+    on: { stop: 'BA:901209', at: connection.departs, delay: 0 },
+    off: { stop: group.alight, at: connection.arrives, delay: 0 },
+    live: true,
+  });
+  deepStrictEqual(pinned.second?.on, { stop: group.board, at: departure.at, delay: departure.delay });
+  strictEqual(pinned.second?.off, null);
+  // A destination set later is where the second vehicle's part of the trip ends: the 48 reaches
+  // Potrero 10 minutes after 24th St.
+  const toPotrero = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477', dest: 'SF:13500', pin }, NOW).pinned!;
+  strictEqual(toPotrero.second?.off?.at, departure.at + 600);
+  strictEqual(toPotrero.second?.off?.stop, 'SF:13500');
+});
+
+test("a pinned trip from another day keeps to that day's schedule, and a canceled one says so", () => {
+  const plain = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477' }, NOW);
+  const group = plain.groups[0]!;
+  const departure = group.departures.find(({ canceled, live }) => !canceled && !live)!;
+  const yesterday = { second: { trip: departure.trip, board: group.board }, at: departure.at - 86_400 };
+  const old = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477', pin: yesterday }, NOW).pinned!;
+  deepStrictEqual(old.second?.on, { stop: group.board, at: departure.at - 86_400, delay: null });
+  strictEqual(old.second?.live, false);
+  // Bus m5, due at 8:47, is canceled in the feed.
+  const canceled = { second: { trip: 'SF:m5', board: group.board }, at: DAY + 8 * 3600 + 47 * 60 };
+  strictEqual(planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477', pin: canceled }, NOW).pinned?.second?.canceled, true);
+});

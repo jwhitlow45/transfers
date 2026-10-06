@@ -170,6 +170,20 @@ export type Notice =
 // BART expects it back ("10/23/2026"), when bart.gov says.
 export type AccessOutage = { station: string; stops: string[]; kind: 'elevator' | 'escalator'; location: string; reason: string | null; returns: string | null };
 
+// Where one vehicle of a pinned trip is due, or about when it left: a stop key, unix seconds, and
+// seconds late (negative early), null without a prediction.
+export type PinnedStop = { stop: string; at: number; delay: number | null };
+
+// One vehicle of a pinned trip, where the rider gets on and where they get off. `off` is null for
+// the last vehicle when no destination is set or the trip does not reach it. A stop is null when
+// the trip skips it, or for a trip the schedule lacks, once the feed no longer lists it.
+export type PinnedLeg = { trip: string; route: string; on: PinnedStop | null; off: PinnedStop | null; live: boolean; canceled?: boolean };
+
+// A trip the rider pinned to follow until they unpin it, as its vehicles run now. `first` is
+// absent for a route already at From, and a leg is null when neither the schedule nor the feed
+// knows its trip.
+export type PinnedTrip = { first?: PinnedLeg | null; second: PinnedLeg | null };
+
 export type TripResponse = {
   notice?: Notice;
   generatedAt: number;
@@ -187,6 +201,8 @@ export type TripResponse = {
   alerts: Alert[];
   // Present when the rider asked for step-free travel or escalator outages.
   access?: AccessOutage[];
+  // Present when the request named a pinned trip.
+  pinned?: PinnedTrip;
   feeds: FeedStatus[];
 };
 

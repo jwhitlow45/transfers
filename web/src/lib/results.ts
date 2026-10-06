@@ -2,6 +2,7 @@ import type { Connection, Departure, Group, TripResponse } from '../../../shared
 import { minutesUntil } from '../format.ts';
 import { chipLabel } from '../view.ts';
 import { resolveRouteColor, routeColor } from './color.ts';
+import type { Pin } from '../storage.ts';
 
 // A transfer point's identity, for the rider's on and off filter.
 export const pointId = (group: Group) => `${group.alight}>${group.board}>${group.direction ?? ''}>${group.routes.join('+')}`;
@@ -13,12 +14,23 @@ export type CardContext = {
   scaleMinutes: number;
   // Unix seconds to a position on the shared time scale, 0 to 100.
   pct: (unixSeconds: number) => number;
+  // The search's destination stop key and name, when it has one.
+  destination: string | undefined;
   destinationName: string | null;
   // The To stop's name, for walk groups that ride straight to it.
   toName: string | null;
   showHidden: boolean;
   colorOf: (routeKey: string) => string;
+  // The trip pinned to these results, and pinning one, or unpinning with null.
+  pin: Pin | null;
+  onPin: (pin: Pin | null) => void;
+  // The card that says how to pin, on a rider's first visits, by hintKey.
+  pinHint: string | null;
 };
+
+// A departure's card: one trip can appear in two groups, such as BART's and Muni Metro's at a
+// shared station.
+export const hintKey = (group: Group, trip: string | undefined) => (trip === undefined ? null : `${pointId(group)}|${trip}`);
 
 const MAX_DEPARTURES = 3;
 

@@ -1,7 +1,7 @@
 import { createContext } from 'preact';
 import { useContext, useLayoutEffect, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
-import { DEFAULT_SETTINGS, type DeviceSettings, type Search, loadSettings, saveSettings } from './storage.ts';
+import { DEFAULT_SETTINGS, type DeviceSettings, type Pin, type Search, loadSettings, saveSettings } from './storage.ts';
 
 const SettingsContext = createContext<{ settings: DeviceSettings; update: (change: Partial<DeviceSettings>) => void }>({
   settings: DEFAULT_SETTINGS,
@@ -41,7 +41,7 @@ export function SettingsProvider({ children }: { children: ComponentChildren }) 
 export const useSettings = () => useContext(SettingsContext);
 
 // The API request for a search: its own settings first, then the device's.
-export function tripApiUrl(search: Search, settings: DeviceSettings, showHidden: boolean) {
+export function tripApiUrl(search: Search, settings: DeviceSettings, showHidden: boolean, pin: Pin | null = null) {
   const params = new URLSearchParams({ from: search.from, to: search.to });
   const min = search.min ?? settings.min;
   const max = search.max ?? settings.max;
@@ -59,6 +59,15 @@ export function tripApiUrl(search: Search, settings: DeviceSettings, showHidden:
   if (showHidden) params.set('hidden', '1');
   if (settings.stepFree) params.set('stepfree', '1');
   if (settings.escalatorOutages) params.set('escalators', '1');
+  if (pin) {
+    params.set('p2', pin.second.trip);
+    params.set('pb', pin.second.board);
+    params.set('pt', String(pin.at));
+    if (pin.first) {
+      params.set('p1', pin.first.trip);
+      params.set('pa', pin.first.alight);
+    }
+  }
   return `/api/trip?${params}`;
 }
 

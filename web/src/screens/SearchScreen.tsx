@@ -219,6 +219,7 @@ function HowItWorks({ open: openAtFirst }: { open: boolean }) {
           the bus.
         </p>
         <p>You set the transfer window, the shortest and longest transfer you will accept, so it shows tight connections a trip planner would leave out.</p>
+        <p>Tap a connection to pin it to the top of its results, where it stays and updates live until you unpin it.</p>
       </Collapse>
     </div>
   );

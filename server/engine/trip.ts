@@ -6,6 +6,7 @@ import type { RtAlert, TripSnapshot } from '../realtime/snapshot.ts';
 import { type Schedule, type StopRow, routeKeyOf, stopKeyOf } from '../schedule.ts';
 import { type FirstLeg, type PairingOptions, type SecondLeg, pairConnections } from './connections.ts';
 import { type Link, findLinks } from './links.ts';
+import { type PinRequest, pinnedTrip } from './pinned.ts';
 import type { RouteRow } from '../schedule.ts';
 import { firstLegs, secondLegs } from './vehicles.ts';
 import { Tables } from './views.ts';
@@ -32,6 +33,8 @@ export type TripRequest = {
   // At a shared station: ride from or catch BART, Muni Metro, or both when absent.
   fromAgencies?: Agency[];
   toAgencies?: Agency[];
+  // A trip the rider pinned, followed in the response as its vehicles run.
+  pin?: PinRequest;
 };
 
 export type RealtimeView = {
@@ -238,6 +241,7 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
     from: stopKeyOf(from),
     to: toStop ? { stop: stopKeyOf(toStop) } : { route: routeKeyOf(toRoute!) },
     groups,
+    ...(request.pin ? { pinned: pinnedTrip(schedule, realtime.trips, request.pin, stopKeyOf(from), destination ? stopKeyOf(destination) : undefined, tables, now) } : {}),
     routes: tables.routes,
     stops: tables.stops,
     alerts: (() => {
