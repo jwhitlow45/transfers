@@ -2,23 +2,27 @@ import type { ComponentChildren } from 'preact';
 import type { PinnedLeg, PinnedStop, PinnedTrip, TripResponse } from '../../../shared/api.ts';
 import type { Pin } from '../storage.ts';
 import { clock, minutesUntil } from '../format.ts';
-import { IconClose, IconPin, IconTransfer } from '../icons/ui.tsx';
+import { IconClose, IconPin } from '../icons/ui.tsx';
 import { type PinnedPhase, pinnedPhase, pinnedTransfer } from '../lib/pinned.ts';
 import { type Mark, TimeLink } from '../track.tsx';
 import { chipLabel, dayLabel, shortStopName, statusOf } from '../view.ts';
 import { RouteChip } from './RouteChip.tsx';
 import { StatusTag } from './StatusTag.tsx';
+import { TimeBar } from './TimeBar.tsx';
 
-// The trip the rider pinned, at the top of its results until they unpin it: what happens next,
-// then each vehicle's times where they get on and off, live, with the transfer between. Each time
-// opens its vehicle's map, watching the stop that matters at this point of the trip.
-export function PinnedCard({ pin, pinned, data, destination, colorOf, now, unpinAt, onPin }: {
+// The trip the rider pinned, at the top of its results until they unpin it, drawn as its row is
+// once pinned: a countdown to what happens next, each vehicle's live times where the rider gets
+// on and off, the transfer between them, and the time bar. Each time opens its vehicle's map,
+// watching the stop that matters at this point of the trip.
+export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, unpinAt, onPin }: {
   pin: Pin;
   pinned: PinnedTrip | null;
   data: TripResponse;
   // The search's destination stop, when it has one.
   destination: string | undefined;
   colorOf: (routeKey: string) => string;
+  // Unix seconds to a place on the results' shared time scale.
+  pct: (unixSeconds: number) => number;
   // Milliseconds, on the server's clock.
   now: number;
   // When it unpins itself, with that setting on.
@@ -26,15 +30,14 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, now, unpin
   // Unpins with null, and pins this trip again after its map's sheet unpinned it.
   onPin: (pin: Pin | null) => void;
 }) {
-  const onUnpin = () => onPin(null);
   const head = (tags: ComponentChildren) => (
     <div class="tf-pinned__head">
       <span class="tf-kicker tf-pinned__kicker">
-        <IconPin filled size={14} />
+        <IconPin filled size={13} />
         Pinned
       </span>
       {tags}
-      <button type="button" class="tf-pinned__unpin" onClick={onUnpin}>
+      <button type="button" class="tf-pinned__unpin" onClick={() => onPin(null)}>
         <IconClose size={16} />
         Unpin
       </button>
@@ -45,7 +48,7 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, now, unpin
     return (
       <section class="tf-pinned" aria-label="Pinned trip">
         {head(null)}
-        <p class="tf-pinned__status">Times for this trip are not available right now.</p>
+        <p class="tf-pinned__note">Times for this trip are not available right now.</p>
       </section>
     );
   }
@@ -60,7 +63,7 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, now, unpin
   const missed = transfer !== null && transfer < 0;
   const canceled = [first, second].find((leg) => leg?.canceled);
   const status = canceled ? `The ${label(canceled)} at ${clock(canceled.on?.at ?? canceled.off!.at)} is canceled` : statusText(phase, first, second, name, label, now);
-  const past = (stop: PinnedStop | null | undefined) => stop !== null && stop !== undefined && stop.at * 1000 <= now;
+  const countdown = countdownOf(phase, first, second, now);
   // The maps' sheets can unpin the trip, and pin it again.
   const sheetPin = { pinned: true, label: `the ${first ? `${label(first)} at ${clock(first.on!.at)} to the ` : ''}${label(second)} at ${clock(second.on!.at)}`, set: (on: boolean) => onPin(on ? pin : null) };
 
@@ -93,48 +96,113 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, now, unpin
       {clock(stop.at)}
     </TimeLink>
   );
-  const step = (key: string, chip: ComponentChildren, stop: PinnedStop, link: (stop: PinnedStop) => ComponentChildren, what: string, leg: PinnedLeg | null) => [
-    <span key={`${key}-chip`} class="tf-pinned__chip">
-      {chip}
-    </span>,
-    <div key={key} class={`tf-pinned__step${past(stop) ? ' tf-pinned__step--past' : ''}`}>
-      <span class="tf-pinned__time">{link(stop)}</span>
-      {leg && <StatusTag status={statusOf(stop.delay, leg.live, leg.canceled)} plain />}
-      <span class="tf-pinned__what">{what}</span>
-    </div>,
-  ];
-  const routeChip = (leg: PinnedLeg) => <RouteChip route={data.routes[leg.route]} size="sm" color={colorOf(leg.route)} />;
+  const vehicle = (leg: PinnedLeg, stop: PinnedStop, link: (stop: PinnedStop) => ComponentChildren) => (
+    <>
+      <div class="tf-row__line">
+        <RouteChip route={data.routes[leg.route]} color={colorOf(leg.route)} hidden />
+        {link(stop)}
+      </div>
+      <StatusTag status={statusOf(stop.delay, leg.live, leg.canceled)} plain hidden />
+    </>
+  );
+  // Everything shown, in one sentence for screen readers, who then reach only the links.
+  const spoken = [
+    `Pinned trip. ${status}.`,
+    first && `${label(first)} at ${clock(first.on!.at)}, ${statusOf(first.on!.delay, first.live, first.canceled).label}.`,
+    first?.off && `Off at ${name(first.off)} ${clock(first.off.at)}.`,
+    transfer !== null && (missed ? `Transfer missed by ${-transfer} minutes.` : `${transfer} minute transfer.`),
+    `${label(second)} at ${clock(second.on.at)} from ${name(second.on)}, ${statusOf(second.on.delay, second.live, second.canceled).label}.`,
+    second.off && `Arrives at ${name(second.off)} ${clock(second.off.at)}.`,
+  ]
+    .filter(Boolean)
+    .join(' ');
   return (
     <section class="tf-pinned" aria-label="Pinned trip">
       {head(
         <>
-          {missed && <span class="tf-tight">Transfer missed</span>}
+          {missed && <span class="tf-tight">Missed</span>}
           {canceled && <span class="tf-tight">Canceled</span>}
         </>,
       )}
-      {/* Not a live region: it counts down each minute, which would interrupt a screen reader. */}
-      <p class="tf-pinned__status">{status}</p>
-      <div class="tf-pinned__steps">
-        {first && step('first-on', routeChip(first), first.on!, firstLink, `from ${name(first.on!)}`, first)}
-        {first?.off && step('first-off', null, first.off, firstLink, `off at ${name(first.off)}`, null)}
-        {first && transfer !== null && [
-          <span key="xfer-chip" />,
-          <div key="xfer" class={`tf-pinned__xfer${missed ? ' tf-pinned__xfer--missed' : ''}`}>
-            <IconTransfer />
-            {missed ? `Transfer missed by ${-transfer} min` : `${transfer} min transfer`}
-          </div>,
-        ]}
-        {step('second-on', routeChip(second), second.on, secondLink, `from ${name(second.on)}`, second)}
-        {second.off && step('second-off', null, second.off, secondLink, `arrive at ${name(second.off)}`, null)}
+      <div class="tf-row tf-pinned__row">
+        <span class="tf-sr">{spoken}</span>
+        <div aria-hidden="true">
+          <div class="tf-row__lead">{countdown.lead}</div>
+          <div class="tf-row__num">{countdown.num}</div>
+          {countdown.unit && <div class="tf-row__unit">min</div>}
+        </div>
+        <div class="tf-row__main">
+          {first && vehicle(first, first.on!, firstLink)}
+          {first?.off && (
+            <div class="tf-row__off" aria-hidden="true">
+              Off {clock(first.off.at)} at {name(first.off)}
+            </div>
+          )}
+          <div class={first ? 'tf-pinned__second' : undefined}>
+            {vehicle(second, second.on, secondLink)}
+            <div class="tf-row__off" aria-hidden="true">
+              at {name(second.on)}
+            </div>
+            {second.off && (
+              <div class="tf-row__off" aria-hidden="true">
+                Arrive <span class="tf-pinned__arrive">{clock(second.off.at)}</span> at {name(second.off)}
+              </div>
+            )}
+          </div>
+        </div>
+        <div class="tf-row__xfer" aria-hidden="true">
+          {transfer !== null &&
+            (missed ? (
+              <>
+                <div class="tf-row__xfer-min tf-pinned__missed">Missed</div>
+                <div class="tf-row__xfer-label">by {-transfer} min</div>
+              </>
+            ) : (
+              <>
+                <div class="tf-row__xfer-min">{transfer} min</div>
+                <div class="tf-row__xfer-label">transfer</div>
+              </>
+            ))}
+        </div>
+        {first?.off && (
+          <TimeBar
+            rideStart={pct(first.on!.at)}
+            rideEnd={pct(first.off.at)}
+            gapEnd={pct(second.on.at)}
+            busEnd={pct(second.off?.at ?? second.on.at + 8 * 60)}
+            busColor={colorOf(second.route)}
+          />
+        )}
       </div>
       {destination && !second.off && (
         <p class="tf-pinned__note">
           This {label(second)} does not stop at {shortStopName(data.stops[destination], 'your destination')}.
         </p>
       )}
-      {phase === 'done' && unpinAt !== null && <p class="tf-pinned__unpins">Unpins at {clock(unpinAt / 1000)}</p>}
+      {phase === 'done' && unpinAt !== null && <p class="tf-pinned__note">Unpins at {clock(unpinAt / 1000)}</p>}
     </section>
   );
+}
+
+// The countdown column, as a row's, to what happens next: the first vehicle leaving, getting off
+// it, the second leaving, and arriving at the destination. Under a minute it says so in words.
+function countdownOf(phase: PinnedPhase, first: PinnedLeg | null, second: PinnedLeg, now: number) {
+  const until = (stop: PinnedStop, lead: string, soon: string) => {
+    const minutes = minutesUntil(stop.at, now);
+    return minutes < 1 ? { lead: soon, num: 'Now', unit: false } : { lead, num: String(minutes), unit: true };
+  };
+  switch (phase) {
+    case 'wait':
+      return until(first!.on!, 'Leaves in', 'Leaving');
+    case 'ride':
+      return until(first!.off!, 'Off in', 'Getting off');
+    case 'change':
+      return until(second.on!, 'Board in', 'Boarding');
+    case 'ride-second':
+      return until(second.off!, 'Arrive in', 'Arriving');
+    case 'done':
+      return { lead: 'Done', num: '✓', unit: false };
+  }
 }
 
 function statusText(phase: PinnedPhase, first: PinnedLeg | null, second: PinnedLeg, name: (stop: PinnedStop) => string, label: (leg: PinnedLeg) => string, now: number) {

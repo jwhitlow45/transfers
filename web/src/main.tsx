@@ -2,6 +2,7 @@ import { render } from 'preact';
 import { useEffect } from 'preact/hooks';
 import { usePage } from './router.ts';
 import { NearbyScreen } from './screens/NearbyScreen.tsx';
+import { NoticesScreen } from './screens/NoticesScreen.tsx';
 import { ResultsScreen } from './screens/ResultsScreen.tsx';
 import { SearchScreen } from './screens/SearchScreen.tsx';
 import { SettingsScreen } from './screens/SettingsScreen.tsx';
@@ -25,6 +26,7 @@ function App() {
           {page.name === 'trip' && <ResultsScreen key={searchId(page.search)} search={page.search} />}
           {page.name === 'nearby' && <NearbyScreen />}
           {page.name === 'settings' && <SettingsScreen />}
+          {page.name === 'notices' && <NoticesScreen />}
         </TrackProvider>
       </div>
     </SettingsProvider>

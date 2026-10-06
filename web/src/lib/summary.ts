@@ -12,7 +12,8 @@ export type Leg = { route: Route | undefined; at: number; status: Status };
 export type NextConnection = { minutes: number; legs: Leg[]; transfer: number | null; line: string };
 
 // The parts of a trip that headers, saved cards, and recent searches all describe.
-export function summarize(search: Search, data: TripResponse | null, now: number) {
+// `dismissed` are the ids of notices the rider dismissed, which alert counts leave out.
+export function summarize(search: Search, data: TripResponse | null, now: number, dismissed: ReadonlySet<string> = new Set()) {
   const groups = (data?.groups ?? []).filter((group) => !search.off?.includes(pointId(group)));
   const from = data ? shortStopName(data.stops[data.from], search.fromLabel) : search.fromLabel;
   const alights = [...new Set(groups.filter(({ kind }) => kind !== 'walk').map(({ alight }) => alight))];
@@ -73,7 +74,7 @@ export function summarize(search: Search, data: TripResponse | null, now: number
   }
 
   const boarding = new Set([data?.from, ...groups.map(({ board }) => board)].filter((key) => key !== undefined));
-  const severeAlerts = (data?.alerts ?? []).filter(({ relevance, stops }) => relevance === 'stop' && stops.some((stop) => boarding.has(stop))).length;
+  const severeAlerts = (data?.alerts ?? []).filter(({ id, relevance, stops }) => relevance === 'stop' && stops.some((stop) => boarding.has(stop)) && !dismissed.has(id)).length;
 
   // The route a saved search is about: the one transferred to, in the color the results give it.
   const lineColor = data && (toRouteShown ?? (groups[0] ? data.routes[groups[0].routes[0]!] : undefined)) ? pageColors(groups, data)((toRouteShown ?? data.routes[groups[0]!.routes[0]!])!.key) : null;

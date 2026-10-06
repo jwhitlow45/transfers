@@ -5,7 +5,8 @@ export type Page =
   | { name: 'home' }
   | { name: 'trip'; search: Search }
   | { name: 'nearby' }
-  | { name: 'settings' };
+  | { name: 'settings' }
+  | { name: 'notices' };
 
 // Trip links carry the whole search, so a saved link or home screen shortcut opens it directly:
 // /t/BA:901209/SF:13477?min=3&max=12
@@ -66,6 +67,7 @@ export function parsePage(location: Location): Page {
   }
   if (location.pathname === '/nearby') return { name: 'nearby' };
   if (location.pathname === '/settings') return { name: 'settings' };
+  if (location.pathname === '/notices') return { name: 'notices' };
   return { name: 'home' };
 }
 

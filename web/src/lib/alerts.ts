@@ -3,8 +3,24 @@ import { agencyOnly, chipLabel, shortStopName } from '../view.ts';
 
 export type Severity = 'severe' | 'warning' | 'info';
 // `startOpen` opens the alert at first. `kickerOnly` folds it to its kicker alone, as an outage's
-// kicker already says what and where.
-export type ViewAlert = { id: string; severity: Severity; kicker: string; title: string; body: string | null; meta: string; url: string | null; startOpen: boolean; kickerOnly: boolean };
+// kicker already says what and where. `until` is when the agency says it ends, in unix seconds.
+// `outage` marks one of BART's elevator or escalator outages.
+export type ViewAlert = {
+  id: string;
+  severity: Severity;
+  kicker: string;
+  title: string;
+  body: string | null;
+  meta: string;
+  url: string | null;
+  startOpen: boolean;
+  kickerOnly: boolean;
+  until: number | null;
+  outage?: 'elevator' | 'escalator';
+};
+
+// What a notice is, for saying it was dismissed or restored: "Elevator outage", or "Notice".
+export const noticeName = ({ outage }: { outage?: ViewAlert['outage'] }) => (outage ? `${outage === 'elevator' ? 'Elevator' : 'Escalator'} outage` : 'Notice');
 
 const date = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric' });
 
@@ -45,6 +61,8 @@ function outageView(outage: AccessOutage, data: TripResponse, id: string): ViewA
     url: station?.bart ? `https://www.bart.gov/stations/${station.bart}/accessible` : null,
     startOpen: false,
     kickerOnly: true,
+    until: null,
+    outage: outage.kind,
   };
 }
 
@@ -82,5 +100,5 @@ function toView(alert: Alert, data: TripResponse, boardingStops: Set<string>, ne
     if (kicker.startsWith('Notice')) kicker = `Station access · ${routeNames || agencyOnly(alert.agency)}`;
   }
   const until = alert.activeUntil ? ` · Until ${date.format(alert.activeUntil * 1000)}` : '';
-  return { id: alert.id, severity, kicker, title: alert.header, body: alert.description, meta: `${agencyOnly(alert.agency)}${until}`, url: alert.url, startOpen: severity === 'severe' && !relied, kickerOnly: false };
+  return { id: alert.id, severity, kicker, title: alert.header, body: alert.description, meta: `${agencyOnly(alert.agency)}${until}`, url: alert.url, startOpen: severity === 'severe' && !relied, kickerOnly: false, until: alert.activeUntil };
 }

@@ -177,6 +177,13 @@ export function SettingsScreen() {
 
         <section class="tf-section tf-section--tight" aria-labelledby="app-heading">
           <h2 id="app-heading">App</h2>
+          <div class="tf-setting">
+            <div class="tf-setting__label">Dismissed notices</div>
+            <div class="tf-setting__help">Notices you dismiss stay hidden on every trip until you restore them.</div>
+            <a class="tf-link-button" href="/notices" onClick={(event) => (event.preventDefault(), navigate('/notices'))}>
+              Show dismissed notices
+            </a>
+          </div>
           <div class="tf-setting tf-setting--last">
             <div class="tf-setting__label">Force refresh</div>
             <div class="tf-setting__help">The site keeps a copy of itself and your last results so it opens offline. This clears both and reloads, for when something looks out of date. Your settings and saved trips stay.</div>

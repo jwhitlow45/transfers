@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { SearchResponse, TripResponse } from '../../../shared/api.ts';
 import { getJson } from '../api.ts';
 import { Collapse } from '../components/Collapse.tsx';
@@ -16,7 +16,7 @@ import { type LocationProblem, handOver, locate, locationProblemText } from '../
 import { summarize } from '../lib/summary.ts';
 import { navigate, tripPath } from '../router.ts';
 import { tripApiUrl, useSettings } from '../settings.tsx';
-import { type SavedSearch, loadFields, loadRecent, loadSaved, removeRecent, removeSaved, saveFields, saveSaved, searchId } from '../storage.ts';
+import { type SavedSearch, loadDismissed, loadFields, loadRecent, loadSaved, removeRecent, removeSaved, saveFields, saveSaved, searchId } from '../storage.ts';
 import { chipLabel, dayLabel, shortStopName } from '../view.ts';
 
 // A picked stop or route. `short` is what headers and lists call it.
@@ -236,7 +236,9 @@ function SavedTrip({ search, now, onEdit, onColorless, onRemove }: {
   const { settings } = useSettings();
   const { data, feed, fetchedAt, settled } = usePoll<TripResponse>(tripApiUrl(search, settings, false), 30_000);
   const skew = clockSkewMs(data?.generatedAt, fetchedAt);
-  const summary = summarize(search, data, now + skew);
+  // Read once per visit to Home: dismissing happens on results.
+  const dismissed = useMemo(() => new Set(loadDismissed().map(({ id }) => id)), []);
+  const summary = summarize(search, data, now + skew, dismissed);
   const fresh = freshness(now + skew, fetchedAt === null ? null : fetchedAt + skew, data?.dataAt ?? null);
   useEffect(() => {
     if (!search.color && data) onColorless(summary.lineColor);

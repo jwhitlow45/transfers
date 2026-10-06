@@ -140,6 +140,43 @@ export function savePin(search: Search, pin: Pin | null) {
   write('pins', pin ? { ...others, [searchId(search)]: pin } : others);
 }
 
+// A notice the rider dismissed, kept as it read then, so the Notices page can show it and put it
+// back. Notices are dismissed by id, so one is gone from every search that would show it.
+export type DismissedNotice = {
+  id: string;
+  kicker: string;
+  title: string;
+  body: string | null;
+  meta: string;
+  url?: string | null;
+  // How it showed, for the note that says it was dismissed or restored. Absent on older saves.
+  severity?: 'severe' | 'warning' | 'info';
+  outage?: 'elevator' | 'escalator';
+  at: number;
+  until: number | null;
+};
+
+// A dismissed notice is forgotten once the agency says it has ended, or after this long, so the
+// list does not grow without end.
+const DISMISSED_DAYS = 60;
+
+export function loadDismissed(): DismissedNotice[] {
+  const now = Date.now() / 1000;
+  return read<DismissedNotice[]>('dismissed', []).filter(({ at, until }) => (until === null || until > now) && now - at < DISMISSED_DAYS * 86_400);
+}
+
+export function dismissNotice(notice: Omit<DismissedNotice, 'at'>) {
+  write('dismissed', [{ ...notice, at: Math.floor(Date.now() / 1000) }, ...loadDismissed().filter(({ id }) => id !== notice.id)]);
+}
+
+export function restoreNotice(id: string) {
+  write('dismissed', loadDismissed().filter((notice) => notice.id !== id));
+}
+
+export function restoreAllNotices() {
+  write('dismissed', []);
+}
+
 // Results tell a rider that tapping a connection pins it on their first few visits, until they
 // first pin one. Each call counts a visit and says whether to show the hint on it.
 const PIN_HINT_VISITS = 3;

@@ -17,7 +17,7 @@ import { useSwipeBack } from '../gestures.ts';
 import { useNow, usePoll } from '../hooks.ts';
 import { defaultSavedColor } from '../lib/color.ts';
 import { clock, walkMinutes } from '../format.ts';
-import { viewAlerts } from '../lib/alerts.ts';
+import { type ViewAlert, noticeName, viewAlerts } from '../lib/alerts.ts';
 import { pinnedEnd, pinnedFor, samePin } from '../lib/pinned.ts';
 import { ageText, clockSkewMs, freshness } from '../lib/freshness.ts';
 import { IconHidden, IconTransfer } from '../icons/ui.tsx';
@@ -25,7 +25,23 @@ import { type CardContext, chooseDirection, directionChoices, hintKey, pageColor
 import { summarize } from '../lib/summary.ts';
 import { navigate, tripPath } from '../router.ts';
 import { matchesServerDefaults, tripApiUrl, useSettings } from '../settings.tsx';
-import { type Pin, type Search, clearPinHint, findSaved, loadPin, loadSaved, rememberRecent, removeSaved, savePin, saveSearch, takePinHint, updateSaved } from '../storage.ts';
+import {
+  type Pin,
+  type Search,
+  clearPinHint,
+  dismissNotice,
+  findSaved,
+  loadDismissed,
+  loadPin,
+  loadSaved,
+  rememberRecent,
+  removeSaved,
+  restoreNotice,
+  savePin,
+  saveSearch,
+  takePinHint,
+  updateSaved,
+} from '../storage.ts';
 import { agencyOnly, chipLabel, shortStopName } from '../view.ts';
 
 // The server puts the first trip's results in the page. They seed only the first visit, as of
@@ -103,7 +119,28 @@ export function ResultsScreen({ search }: { search: Search }) {
     const route = leg && data?.routes[leg.route];
     const was = leg?.on && route ? `the ${chipLabel(route)} at ${clock(leg.on.at)}` : 'the trip pinned before';
     const text = !next ? 'Unpinned' : previous && !samePin(previous, next) ? `Pinned in place of ${was}` : 'Pinned to the top';
-    setToast({ id: ++toastId.current, text, undo: () => changePin(previous) });
+    setToast({ id: ++toastId.current, text, about: 'pin', undo: () => changePin(previous) });
+  };
+  // Notices the rider dismissed stay hidden here and on every other search, until the Notices
+  // page puts them back. Dismissing says so, with Undo.
+  const [dismissed, setDismissed] = useState(loadDismissed);
+  const dismissedIds = new Set(dismissed.map(({ id }) => id));
+  const allAlerts = data ? viewAlerts(data, summary.boarding, { elevators: settings.stepFree, escalators: settings.escalatorOutages }) : [];
+  const alerts = allAlerts.filter(({ id }) => !dismissedIds.has(id));
+  const dismissedHere = allAlerts.length - alerts.length;
+  const dismiss = (alert: ViewAlert) => {
+    const { id, kicker, title, body, meta, url, until, severity, outage } = alert;
+    dismissNotice({ id, kicker, title, body, meta, url, until, severity, ...(outage ? { outage } : {}) });
+    setDismissed(loadDismissed());
+    setToast({
+      id: ++toastId.current,
+      text: `${noticeName(alert)} dismissed`,
+      about: { severity },
+      undo: () => {
+        restoreNotice(id);
+        setDismissed(loadDismissed());
+      },
+    });
   };
   const unpinAt = pin && settings.autoUnpin ? (pin.ends + settings.unpinAfter * 60) * 1000 : null;
   const expired = unpinAt !== null && now >= unpinAt;
@@ -198,9 +235,14 @@ export function ResultsScreen({ search }: { search: Search }) {
             </div>
           )}
           {pin && data && !expired && (
-            <PinnedCard pin={pin} pinned={pinned} data={data} destination={search.dest} colorOf={context.colorOf} now={now} unpinAt={unpinAt} onPin={pinFromResults} />
+            <PinnedCard pin={pin} pinned={pinned} data={data} destination={search.dest} colorOf={context.colorOf} pct={context.pct} now={now} unpinAt={unpinAt} onPin={pinFromResults} />
           )}
-          {data && <AlertList key={data.from} alerts={viewAlerts(data, summary.boarding, { elevators: settings.stepFree, escalators: settings.escalatorOutages })} />}
+          {data && <AlertList key={data.from} alerts={alerts} onDismiss={dismiss} />}
+          {dismissedHere > 0 && (
+            <a class="tf-notices-link" href="/notices" onClick={(event) => (event.preventDefault(), navigate('/notices'))}>
+              {dismissedHere === 1 ? '1 dismissed notice' : `${dismissedHere} dismissed notices`}
+            </a>
+          )}
           {data && ((data.systems?.from?.length ?? 0) > 1 || search.fromSystem) && (
             <SystemSwitcher
               label={`From ${shortStopName(data.stops[data.from])}, ride`}

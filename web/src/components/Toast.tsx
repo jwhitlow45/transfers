@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'preact/hooks';
-import { IconPin } from '../icons/ui.tsx';
+import { IconInfo, IconPin, IconWarn } from '../icons/ui.tsx';
 
-export type ToastMessage = { id: number; text: string; undo?: () => void };
+// `about` picks the look: a pinned trip, or a notice, which looks as the notice did, by its
+// severity, with its icon and colors.
+export type ToastMessage = { id: number; text: string; about: 'pin' | { severity: 'severe' | 'warning' | 'info' }; undo?: () => void };
 
 // How long a toast stays, unless the rider is pointing at it or has focus in it.
 const TOAST_MS = 5000;
 
-// A short note above the bottom bar after the rider pins or unpins a trip, with Undo for a tap
-// they did not mean. The region is always there, so screen readers announce what fills it, and
-// it never takes focus.
-export function Toast({ message, onDone }: { message: ToastMessage | null; onDone: () => void }) {
+// A short note at the bottom of the screen after the rider pins or unpins a trip, or dismisses or
+// restores a notice, with Undo for a tap they did not mean. The region is always there, so screen
+// readers announce what fills it, and it never takes focus. `page` places it on a screen with no
+// bottom bar to sit above.
+export function Toast({ message, page = false, onDone }: { message: ToastMessage | null; page?: boolean; onDone: () => void }) {
   const [held, setHeld] = useState(false);
   useEffect(() => {
     if (!message || held) return;
@@ -18,7 +21,7 @@ export function Toast({ message, onDone }: { message: ToastMessage | null; onDon
   }, [message?.id, held]);
   return (
     <div
-      class="tf-toast-region"
+      class={`tf-toast-region${page ? ' tf-toast-region--page' : ''}`}
       role="status"
       onMouseEnter={() => setHeld(true)}
       onMouseLeave={() => setHeld(false)}
@@ -26,9 +29,13 @@ export function Toast({ message, onDone }: { message: ToastMessage | null; onDon
       onFocusOut={() => setHeld(false)}
     >
       {message && (
-        <div key={message.id} class="tf-toast">
+        // One element whatever it says, so a note replacing another changes in place rather than
+        // blinking out and fading back in.
+        <div class={`tf-toast${message.about === 'pin' ? '' : ` tf-toast--notice tf-toast--${message.about.severity}`}`}>
           <span class="tf-toast__text">
-            <IconPin filled size={15} />
+            <span class="tf-toast__icon">
+              {message.about === 'pin' ? <IconPin filled size={15} /> : message.about.severity === 'info' ? <IconInfo size={18} /> : <IconWarn size={18} />}
+            </span>
             {message.text}
           </span>
           {message.undo && (
