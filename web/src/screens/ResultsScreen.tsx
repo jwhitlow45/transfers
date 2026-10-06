@@ -3,6 +3,7 @@ import type { TripResponse } from '../../../shared/api.ts';
 import { takeInitialData } from '../api.ts';
 import { AlertList } from '../components/AlertList.tsx';
 import { FeedOutageBanner, OfflineBanner, StaleBanner } from '../components/Banners.tsx';
+import { OutageSheet, OutageTag } from '../components/Outages.tsx';
 import { PinnedCard } from '../components/PinnedCard.tsx';
 import { BottomBar } from '../components/BottomBar.tsx';
 import { DataCredit } from '../components/DataCredit.tsx';
@@ -17,7 +18,8 @@ import { useSwipeBack } from '../gestures.ts';
 import { useNow, usePinEnds, usePoll } from '../hooks.ts';
 import { defaultSavedColor } from '../lib/color.ts';
 import { clock, walkMinutes } from '../format.ts';
-import { type ViewAlert, noticeName, viewAlerts } from '../lib/alerts.ts';
+import { type ViewAlert, viewAlerts } from '../lib/alerts.ts';
+import { type StationOutages, groupStops, outagesByStation } from '../lib/outages.ts';
 import { pinnedEnd, pinnedFor, samePin } from '../lib/pinned.ts';
 import { ageText, clockSkewMs, freshness } from '../lib/freshness.ts';
 import { IconHidden, IconTransfer } from '../icons/ui.tsx';
@@ -130,14 +132,13 @@ export function ResultsScreen({ search }: { search: Search }) {
   const allAlerts = data ? viewAlerts(data, summary.boarding, { elevators: settings.stepFree, escalators: settings.escalatorOutages }) : [];
   const alerts = allAlerts.filter(({ id }) => !dismissedIds.has(id));
   const dismissedHere = allAlerts.length - alerts.length;
-  const dismiss = (alert: ViewAlert) => {
-    const { id, kicker, title, body, meta, url, until, severity, outage } = alert;
-    dismissNotice({ id, kicker, title, body, meta, url, until, severity, ...(outage ? { outage } : {}) });
+  const dismiss = ({ id, kicker, title, body, meta, url, until, severity }: ViewAlert) => {
+    dismissNotice({ id, kicker, title, body, meta, url, until, severity });
     setDismissed(loadDismissed());
     setToast({
       id: ++toastId.current,
-      text: `${noticeName(alert)} dismissed`,
-      about: { severity },
+      text: 'Notice dismissed',
+      about: 'notice',
       undo: () => {
         restoreNotice(id);
         setDismissed(loadDismissed());
@@ -167,6 +168,12 @@ export function ResultsScreen({ search }: { search: Search }) {
   // Groups with something to catch first, then by the soonest departure.
   const firstAt = (group: (typeof groups)[number]) => visibleDepartures(group, now, showHidden).find(({ canceled }) => !canceled)?.at ?? Infinity;
   const ordered = [...groups].sort((a, b) => firstAt(a) - firstAt(b));
+  // Elevator and escalator outages: each transfer point tags those where it gets off or changes,
+  // and the rest, such as where the rider starts or is going, lead the results. Each opens what
+  // BART says about it.
+  const [outagesOpen, setOutagesOpen] = useState<StationOutages | null>(null);
+  const tagged = new Set(ordered.flatMap((group) => [...groupStops(group)]));
+  const untagged = outagesByStation((data?.access ?? []).filter(({ stops }) => !stops.some((stop) => tagged.has(stop))));
   // The first card with connections says how to pin.
   const hintGroup = hint ? ordered.find((group) => group.kind !== 'walk') : undefined;
   const context: CardContext = {
@@ -183,6 +190,7 @@ export function ResultsScreen({ search }: { search: Search }) {
     pin,
     onPin: pinFromResults,
     pinHint: hintGroup ? hintKey(hintGroup, visibleDepartures(hintGroup, now, showHidden)[0]?.trip) : null,
+    showOutages: setOutagesOpen,
   };
   const secondsSinceUpdate = fresh.ageSeconds ?? (fetchedAt === null ? null : Math.max(0, Math.floor((now - (fetchedAt + skew)) / 1000)));
   const window = summary.window ?? { min: search.min ?? 3, max: search.max ?? 12 };
@@ -233,6 +241,13 @@ export function ResultsScreen({ search }: { search: Search }) {
           )}
           {pin && data && !expired && (
             <PinnedCard pin={pin} pinned={pinned} data={data} destination={search.dest} colorOf={context.colorOf} pct={context.pct} now={now} unpinAt={unpinAt} onPin={pinFromResults} />
+          )}
+          {data && untagged.length > 0 && (
+            <div class="tf-outage-tags tf-outage-tags--lead">
+              {untagged.map((station) => (
+                <OutageTag key={station.station} outages={station} data={data} onOpen={() => setOutagesOpen(station)} />
+              ))}
+            </div>
           )}
           {data && <AlertList key={data.from} alerts={alerts} onDismiss={dismiss} />}
           {dismissedHere > 0 && (
@@ -294,6 +309,7 @@ export function ResultsScreen({ search }: { search: Search }) {
       <BottomBar windowText={summary.windowText} saved={saved !== null} onBack={() => goBack()} onOpen={() => setSettingsOpen(true)} onToggleSaved={toggleSaved}>
         <Toast message={toast} onDone={() => setToast(null)} />
       </BottomBar>
+      {outagesOpen && data && <OutageSheet outages={outagesOpen} data={data} onClose={() => setOutagesOpen(null)} />}
       {settingsOpen && (
         <TripSettingsSheet
           search={search}

@@ -156,9 +156,8 @@ export type DismissedNotice = {
   body: string | null;
   meta: string;
   url?: string | null;
-  // How it showed, for the note that says it was dismissed or restored. Absent on older saves.
+  // How it showed, so the Notices page shows it the same. Absent on older saves.
   severity?: 'severe' | 'warning' | 'info';
-  outage?: 'elevator' | 'escalator';
   at: number;
   until: number | null;
 };

@@ -6,8 +6,7 @@ import { Collapse } from './Collapse.tsx';
 
 // Inline, collapsible, ordered by importance. Alerts on the rider's boarding stop open at first.
 // Folded, each is one line, since riders often have a notice from each agency above their
-// results. An elevator or escalator outage starts folded to its kicker alone. Opened, each can be
-// dismissed, and the Notices page puts it back.
+// results. Opened, each can be dismissed, and the Notices page puts it back.
 export function AlertList({ alerts, onDismiss }: { alerts: ViewAlert[]; onDismiss: (alert: ViewAlert) => void }) {
   const [open, setOpen] = useState<Record<string, boolean>>(() => Object.fromEntries(alerts.filter(({ startOpen }) => startOpen).map(({ id }) => [id, true])));
   // A dismissed notice closes as a folded one does before it goes, so what is below slides up
@@ -31,7 +30,7 @@ export function AlertList({ alerts, onDismiss }: { alerts: ViewAlert[]; onDismis
         const panel = `alert-${alert.id.replace(/[^\w-]/g, '_')}`;
         return (
           <Collapse key={alert.id} open={!leaving.has(alert.id)}>
-            <div class={`tf-alert tf-alert--${alert.severity}${alert.kickerOnly ? ' tf-alert--kicker-only' : ''}`} data-open={String(isOpen)}>
+            <div class={`tf-alert tf-alert--${alert.severity}`} data-open={String(isOpen)}>
               <button type="button" class="tf-alert__toggle" aria-expanded={isOpen} aria-controls={panel} onClick={() => setOpen((current) => ({ ...current, [alert.id]: !isOpen }))}>
                 <span class="tf-alert__icon">{alert.severity === 'info' ? <IconInfo /> : <IconWarn />}</span>
                 <span class="tf-alert__text">

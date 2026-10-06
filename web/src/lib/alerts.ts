@@ -1,26 +1,9 @@
-import type { AccessOutage, Alert, TripResponse } from '../../../shared/api.ts';
+import type { Alert, TripResponse } from '../../../shared/api.ts';
 import { agencyOnly, chipLabel, shortStopName } from '../view.ts';
 
 export type Severity = 'severe' | 'warning' | 'info';
-// `startOpen` opens the alert at first. `kickerOnly` folds it to its kicker alone, as an outage's
-// kicker already says what and where. `until` is when the agency says it ends, in unix seconds.
-// `outage` marks one of BART's elevator or escalator outages.
-export type ViewAlert = {
-  id: string;
-  severity: Severity;
-  kicker: string;
-  title: string;
-  body: string | null;
-  meta: string;
-  url: string | null;
-  startOpen: boolean;
-  kickerOnly: boolean;
-  until: number | null;
-  outage?: 'elevator' | 'escalator';
-};
-
-// What a notice is, for saying it was dismissed or restored: "Elevator outage", or "Notice".
-export const noticeName = ({ outage }: { outage?: ViewAlert['outage'] }) => (outage ? `${outage === 'elevator' ? 'Elevator' : 'Escalator'} outage` : 'Notice');
+// `startOpen` opens the alert at first. `until` is when the agency says it ends, in unix seconds.
+export type ViewAlert = { id: string; severity: Severity; kicker: string; title: string; body: string | null; meta: string; url: string | null; startOpen: boolean; until: number | null };
 
 const date = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric' });
 
@@ -28,42 +11,12 @@ const date = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles',
 export type Needs = { elevators: boolean; escalators: boolean };
 
 // Severe: names a stop the rider boards at. Warning: another stop on the trip, a reroute, or
-// station access. Info: everything else, such as agency-wide notices. BART's elevator and
-// escalator outages at the rider's stations, when they asked for them, come first, and an alert
-// about an elevator or escalator the rider relies on counts as severe.
+// station access. Info: everything else, such as agency-wide notices. An alert about an elevator
+// or escalator the rider relies on counts as severe. BART's own elevator and escalator outages
+// are not notices: the results tag them where they matter (see Outages.tsx).
 export function viewAlerts(data: TripResponse, boardingStops: Set<string>, needs: Needs = { elevators: false, escalators: false }): ViewAlert[] {
   const order: Record<Severity, number> = { severe: 0, warning: 1, info: 2 };
-  const alerts = data.alerts.map((alert) => toView(alert, data, boardingStops, needs)).sort((a, b) => order[a.severity] - order[b.severity]);
-  // By what the outage is, not its place in the list, so one the rider opened stays open when
-  // another clears. Two the same in every way are told apart by count.
-  const seen = new Map<string, number>();
-  const outages = (data.access ?? []).map((outage) => {
-    const id = `access-${outage.kind}-${outage.station}-${outage.location}-${outage.reason}-${outage.returns}`;
-    const count = (seen.get(id) ?? 0) + 1;
-    seen.set(id, count);
-    return outageView(outage, data, count > 1 ? `${id}-${count}` : id);
-  });
-  return [...outages, ...alerts];
-}
-
-function outageView(outage: AccessOutage, data: TripResponse, id: string): ViewAlert {
-  const station = data.stops[outage.station];
-  // "10/23/2026", a date, so read at noon UTC to land on the same day in California.
-  const [month, day, year] = (outage.returns ?? '').split('/').map(Number);
-  const back = month && day && year ? ` · Back about ${date.format(Date.UTC(year, month - 1, day, 12))}` : '';
-  return {
-    id,
-    severity: 'severe',
-    kicker: `${outage.kind === 'elevator' ? 'Elevator' : 'Escalator'} out · ${shortStopName(station, 'BART')}`,
-    title: outage.location,
-    body: outage.reason ? `${outage.reason}.` : null,
-    meta: `BART${back}`,
-    url: station?.bart ? `https://www.bart.gov/stations/${station.bart}/accessible` : null,
-    startOpen: false,
-    kickerOnly: true,
-    until: null,
-    outage: outage.kind,
-  };
+  return data.alerts.map((alert) => toView(alert, data, boardingStops, needs)).sort((a, b) => order[a.severity] - order[b.severity]);
 }
 
 function toView(alert: Alert, data: TripResponse, boardingStops: Set<string>, needs: Needs): ViewAlert {
@@ -100,5 +53,5 @@ function toView(alert: Alert, data: TripResponse, boardingStops: Set<string>, ne
     if (kicker.startsWith('Notice')) kicker = `Station access · ${routeNames || agencyOnly(alert.agency)}`;
   }
   const until = alert.activeUntil ? ` · Until ${date.format(alert.activeUntil * 1000)}` : '';
-  return { id: alert.id, severity, kicker, title: alert.header, body: alert.description, meta: `${agencyOnly(alert.agency)}${until}`, url: alert.url, startOpen: severity === 'severe' && !relied, kickerOnly: false, until: alert.activeUntil };
+  return { id: alert.id, severity, kicker, title: alert.header, body: alert.description, meta: `${agencyOnly(alert.agency)}${until}`, url: alert.url, startOpen: severity === 'severe' && !relied, until: alert.activeUntil };
 }

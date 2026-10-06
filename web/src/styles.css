@@ -254,8 +254,6 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-alert[data-open="false"] .tf-alert__sep { flex: none; display: inline; color: var(--muted); }
 .tf-alert[data-open="false"] .tf-alert__title { flex: 1 1 0; }
 .tf-alert[data-open="false"] :is(.tf-kicker, .tf-alert__title) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tf-alert--kicker-only[data-open="false"] :is(.tf-alert__sep, .tf-alert__title) { display: none; }
-.tf-alert--kicker-only[data-open="false"] .tf-kicker { max-width: none; }
 .tf-alert__body { padding: 0 var(--space-4) var(--space-3) 42px; font-size: 15px; text-wrap: pretty; }
 .tf-alert__meta { margin-top: 6px; font-size: var(--text-sm); color: var(--muted); }
 .tf-alert__foot { display: flex; align-items: center; gap: var(--space-2); margin-top: 6px; }
@@ -292,7 +290,17 @@ button:disabled { opacity: .45; cursor: default; }
 /* A nearby stop's letter, in its color, as its marker on the map shows it. As tall as a route chip. */
 .tf-stop-letter { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 1.4em; height: 1.4em; color: #fff; font-size: inherit; font-weight: var(--weight-heavy); line-height: 1; }
 /* An elevator or escalator out where the rider changes, set off like the late tag. */
-.tf-group__access { display: inline-flex; align-items: center; gap: 6px; margin-top: var(--space-2); padding: 3px var(--space-2); background: var(--late-tint); color: var(--late); font-size: var(--text-sm); font-weight: 650; }
+/* An elevator or escalator out on the trip: a tag that stays while it lasts and opens BART's
+   word on it, with a tap area taller than it looks. */
+.tf-outage-tags { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }
+.tf-outage-tags--lead { margin-top: 0; }
+.tf-outage-tag { position: relative; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 6px 0 var(--space-2); background: var(--late-tint); color: var(--late); font-size: var(--text-sm); font-weight: 650; text-align: left; }
+.tf-outage-tag::after { content: ''; position: absolute; inset: -6px 0; }
+.tf-outages { list-style: none; margin: var(--space-3) 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
+.tf-outage { padding: var(--space-3) var(--space-4); border: 1px solid var(--late); background: var(--late-tint); }
+.tf-outage__kicker { display: flex; align-items: center; gap: 6px; color: var(--late); }
+.tf-outage .tf-kicker { color: var(--late); }
+.tf-outage__where { margin-top: 2px; font-weight: var(--weight-bold); }
 
 .tf-card { border: var(--border-strong) solid var(--line); position: relative; }
 .tf-band { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3) var(--space-4); background: var(--field); color: var(--on-field); }
@@ -430,13 +438,6 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-toast__text { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
 .tf-toast__undo { min-height: var(--tap-min); padding: 0 var(--space-3); color: var(--on-field); font-weight: var(--weight-bold); text-decoration: underline; text-underline-offset: 3px; }
 .tf-toast__icon { flex: none; display: inline-flex; }
-/* A notice's note looks as the notice did: its border, tint, and icon color by severity. */
-.tf-toast--notice { border-color: var(--line); background: var(--bg); color: var(--text); }
-.tf-toast--notice .tf-toast__undo { color: var(--accent-ink); }
-.tf-toast--warning { border-color: var(--caution); }
-.tf-toast--warning .tf-toast__icon { color: var(--caution); }
-.tf-toast--severe { border-color: var(--late); background: var(--late-tint); }
-.tf-toast--severe .tf-toast__icon { color: var(--late); }
 .tf-sheet__pin { padding: 0 var(--space-3); }
 
 /* The pinned trip, above the results, drawn as its row is once pinned: the same tint and accent

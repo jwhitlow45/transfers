@@ -20,8 +20,8 @@ const data = (access: TripResponse['access'], alerts: Alert[] = []): TripRespons
   ...(access ? { access } : {}),
 });
 
-test('outages come first, folded to their kicker, with the return date and the station page', () => {
-  const [first, second] = viewAlerts(
+test("BART's elevator and escalator outages are not notices, which the results tag instead", () => {
+  const alerts = viewAlerts(
     data(
       [{ station: 'BA:901609', stops: ['BA:901609'], kind: 'elevator', location: 'Station', reason: 'Modernization', returns: '10/23/2026' }],
       [notice('n1', 'Hardly Strictly Bluegrass')],
@@ -29,17 +29,9 @@ test('outages come first, folded to their kicker, with the return date and the s
     new Set(),
   );
   deepStrictEqual(
-    [first?.kicker, first?.title, first?.body, first?.meta, first?.url, first?.startOpen, first?.kickerOnly],
-    ['Elevator out · 24th St Mission', 'Station', 'Modernization.', 'BART · Back about Oct 23', 'https://www.bart.gov/stations/24th/accessible', false, true],
+    alerts.map(({ kicker }) => kicker),
+    ['Notice · Muni'],
   );
-  strictEqual(second?.kicker, 'Notice · Muni');
-});
-
-test('an outage keeps its id when another one before it clears', () => {
-  const millbrae = { station: 'BA:901609', stops: ['BA:901609'], kind: 'escalator' as const, location: 'Platform', reason: 'Repair', returns: null };
-  const before = viewAlerts(data([{ ...millbrae, reason: 'Modernization' }, millbrae]), new Set());
-  const after = viewAlerts(data([millbrae]), new Set());
-  strictEqual(after[0]?.id, before[1]?.id);
 });
 
 test('each setting raises only alerts about what it covers, folded and labeled as station access', () => {

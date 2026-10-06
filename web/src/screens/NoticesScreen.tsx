@@ -6,7 +6,6 @@ import { IconInfo, IconWarn } from '../icons/ui.tsx';
 import { useSwipeBack } from '../gestures.ts';
 import { goBack } from '../router.ts';
 import { type DismissedNotice, dismissNotice, loadDismissed, restoreAllNotices, restoreNotice } from '../storage.ts';
-import { noticeName } from '../lib/alerts.ts';
 import { dayLabel } from '../view.ts';
 
 // Notices the rider dismissed from results, newest first, as they read then, each with a way to
@@ -27,18 +26,13 @@ export function NoticesScreen() {
   const restore = (notice: DismissedNotice) => {
     restoreNotice(notice.id);
     reload();
-    setToast({ id: ++toastId.current, text: `${noticeName(notice)} restored`, about: { severity: notice.severity ?? 'info' }, undo: () => redismiss([notice]) });
+    setToast({ id: ++toastId.current, text: 'Notice restored', about: 'notice', undo: () => redismiss([notice]) });
   };
   const restoreAll = () => {
     const all = notices;
     restoreAllNotices();
     reload();
-    setToast({
-      id: ++toastId.current,
-      text: all.length === 1 ? `${noticeName(all[0]!)} restored` : `${all.length} notices restored`,
-      about: { severity: all.length === 1 ? (all[0]!.severity ?? 'info') : 'info' },
-      undo: () => redismiss(all),
-    });
+    setToast({ id: ++toastId.current, text: all.length === 1 ? 'Notice restored' : `${all.length} notices restored`, about: 'notice', undo: () => redismiss(all) });
   };
   const now = Date.now();
   return (

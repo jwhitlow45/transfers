@@ -3,6 +3,7 @@ import { minutesUntil } from '../format.ts';
 import { chipLabel } from '../view.ts';
 import { resolveRouteColor, routeColor } from './color.ts';
 import type { Pin } from '../storage.ts';
+import type { StationOutages } from './outages.ts';
 
 // A transfer point's identity, for the rider's on and off filter.
 export const pointId = (group: Group) => `${group.alight}>${group.board}>${group.direction ?? ''}>${group.routes.join('+')}`;
@@ -26,6 +27,8 @@ export type CardContext = {
   onPin: (pin: Pin | null) => void;
   // The card that says how to pin, on a rider's first visits, by hintKey.
   pinHint: string | null;
+  // Opens what BART says about a station's elevator or escalator outages.
+  showOutages: (outages: StationOutages) => void;
 };
 
 // A departure's card: one trip can appear in two groups, such as BART's and Muni Metro's at a

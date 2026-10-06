@@ -1,10 +1,11 @@
 import { type ComponentChildren, Fragment } from 'preact';
 import type { Group, Route } from '../../../shared/api.ts';
 import { walkMinutes } from '../format.ts';
-import { IconWarn } from '../icons/ui.tsx';
+import { groupStops, outagesByStation } from '../lib/outages.ts';
 import { type CardContext, alightVerb, familyName, firstNoun, firstWord, pointId, visibleDepartures } from '../lib/results.ts';
 import { agencyName, shortStopName, windowText } from '../view.ts';
 import { DepartureCard } from './DepartureCard.tsx';
+import { OutageTag } from './Outages.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import { StopLink } from './StopLink.tsx';
 
@@ -37,17 +38,7 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
   const place = joined([board?.direction, <>at {boardLink}</>, board?.code ? `stop ${board.code}` : station]);
   const firstOpen = departures.find(({ canceled }) => !canceled)?.trip;
   // By station, so one with both out says so once: "Elevator and escalator out at 24th St Mission".
-  // The group's own stops, and any its rows get off at instead.
-  const groupStops = new Set([group.alight, group.board, ...group.departures.flatMap(({ connections }) => connections.flatMap(({ alight }) => (alight ? [alight] : [])))]);
-  const outageKinds = new Map<string, Set<string>>();
-  for (const { kind, station, stops } of data.access ?? []) {
-    if (!stops.some((stop) => groupStops.has(stop))) continue;
-    outageKinds.set(station, (outageKinds.get(station) ?? new Set()).add(kind));
-  }
-  const outages = [...outageKinds].map(([station, kinds]) => {
-    const what = [...kinds].sort().join(' and ');
-    return `${what[0]!.toUpperCase()}${what.slice(1)} out at ${shortStopName(data.stops[station], 'this station')}`;
-  });
+  const outages = outagesByStation(data.access ?? [], groupStops(group));
   const walk = group.kind === 'walk';
   // Rows that get off at another stop may walk farther than the group's own stop.
   const shortest = walkMinutes(group.walkMeters);
@@ -94,9 +85,10 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
         <div class="tf-group__off">{off}</div>
         {/* An elevator or escalator out where the rider gets off or changes, for riders who asked. */}
         {outages.length > 0 && (
-          <div class="tf-group__access">
-            <IconWarn size={14} />
-            {outages.join(' · ')}
+          <div class="tf-outage-tags">
+            {outages.map((station) => (
+              <OutageTag key={station.station} outages={station} data={data} onOpen={() => context.showOutages(station)} />
+            ))}
           </div>
         )}
       </div>
