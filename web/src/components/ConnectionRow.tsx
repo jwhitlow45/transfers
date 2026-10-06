@@ -1,6 +1,6 @@
 import type { Connection, Departure } from '../../../shared/api.ts';
 import { clock, minutesUntil } from '../format.ts';
-import { sameRun } from '../lib/pinned.ts';
+import { pinOf, sameRun } from '../lib/pinned.ts';
 import { type CardContext, isTight } from '../lib/results.ts';
 import { IconPin } from '../icons/ui.tsx';
 import { TimeLink } from '../track.tsx';
@@ -57,7 +57,7 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
   // The same vehicles, stops, and run: trip ids repeat every day.
   const pinned = pin?.first?.trip === connection.trip && pin.first.alight === offStop && pin.second.trip === departure.trip && pin.second.board === board && sameRun(pin.at, departure.at);
   const setPinned = (on: boolean) =>
-    context.onPin(on ? { first: { trip: connection.trip, alight: offStop }, second: { trip: departure.trip, board }, at: departure.at, ends: departure.destination ?? departure.at } : null);
+    context.onPin(on ? pinOf(departure, board, { connection, alight: offStop }) : null);
   const secondRoute = context.data.routes[departure.route];
   const pinLabel = `${route ? chipLabel(route) : 'vehicle'} at ${clock(connection.departs)} to the ${secondRoute ? chipLabel(secondRoute) : 'vehicle'} at ${clock(departure.at)}`;
   return (

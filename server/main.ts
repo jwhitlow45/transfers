@@ -116,10 +116,14 @@ function tripRequest(params: URLSearchParams, from = params.get('from'), to = pa
   if (fromAgencies.length) request.fromAgencies = fromAgencies;
   if (toAgencies.length) request.toAgencies = toAgencies;
   // A pinned trip: the vehicle to transfer to and where it is boarded, with the first vehicle and
-  // where the rider leaves it unless the route is already at From, and when the run was due.
+  // where the rider leaves it unless the route is already at From, and when each was scheduled there.
   const [catchTrip, board, firstTrip, alight] = ['p2', 'pb', 'p1', 'pa'].map((name) => params.get(name));
   const at = numberParam(params, 'pt');
-  if (catchTrip && board && at !== undefined) request.pin = { second: { trip: catchTrip, board }, at, ...(firstTrip && alight ? { first: { trip: firstTrip, alight } } : {}) };
+  const firstAt = numberParam(params, 'pf');
+  if (catchTrip && board && at !== undefined) {
+    const first = firstTrip && alight ? { first: { trip: firstTrip, alight, ...(firstAt !== undefined ? { at: firstAt } : {}) } } : {};
+    request.pin = { second: { trip: catchTrip, board }, at, ...first };
+  }
   return request;
 }
 

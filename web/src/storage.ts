@@ -2,7 +2,7 @@
 // (private windows, cleared site data), so every read falls back to defaults and every write
 // may fail quietly. Values are plain objects so they could move to an account later.
 
-import { MAX_MINUTES, type PinnedTrip } from '../../shared/api.ts';
+import { MAX_MINUTES, type PinRequest, type PinnedTrip } from '../../shared/api.ts';
 
 const PREFIX = 'transfers:';
 
@@ -124,14 +124,15 @@ export const searchId = (search: Search) => `${search.from}>${search.to}`;
 
 // A trip pinned to a search's results, kept until the rider unpins it or, with that setting on,
 // a while after it ends. The vehicle to transfer to and where it is boarded, with the first
-// vehicle and where it is left unless the route is already at From. Kept by From and To only, so
-// it stays through other changes to the search, and follows a new destination. `at` is when the
-// second vehicle was due where it is boarded when pinned, which tells the server which day's run
-// is meant. `ends` is when the trip ends by the latest times seen: arriving at the destination,
-// or with none set, boarding the second vehicle.
+// vehicle and where it is left unless the route is already at From, each with when it was
+// scheduled there (see PinRequest). Kept by From and To only, so it stays through other changes to
+// the search, and follows a new destination. Pins saved before the first vehicle's time was kept
+// lack it, and their `at` is when the second was due, predictions included. `ends` is when the trip
+// ends by the latest times seen: arriving at the destination, or with none set, boarding the second
+// vehicle.
 // `search` is the search it is pinned to as it stands now, so Home can show the pin and open its
 // results. Pins saved before it was kept lack it. `last` is the trip's times as last seen.
-export type Pin = { first?: { trip: string; alight: string }; second: { trip: string; board: string }; at: number; ends: number; search?: Search; last?: PinnedTrip };
+export type Pin = PinRequest & { ends: number; search?: Search; last?: PinnedTrip };
 
 export function loadPin(search: Search): Pin | null {
   return read<Record<string, Pin>>('pins', {})[searchId(search)] ?? null;

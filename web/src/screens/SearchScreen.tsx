@@ -267,10 +267,10 @@ function HowItWorks({ open: openAtFirst }: { open: boolean }) {
 function PinnedHome({ pin, now, onPin, onUpdate }: { pin: Pin & { search: Search }; now: number; onPin: (pin: Pin | null) => void; onUpdate: (pin: Pin | null) => void }) {
   const { settings } = useSettings();
   const { search } = pin;
-  const { data, fetchedAt, feed, settled } = usePoll<TripResponse>(tripApiUrl(search, settings, false, pin), 30_000, null, tripApiUrl(search, settings, false));
+  const { data, fetchedAt, feed, settled, answered } = usePoll<TripResponse>(tripApiUrl(search, settings, false, pin), 30_000, null, tripApiUrl(search, settings, false));
   const skew = clockSkewMs(data?.generatedAt, fetchedAt);
   const serverNow = now + skew;
-  const { pinned, unpinAt, expired } = usePinnedTrip(pin, data, search.dest, settings, serverNow, onUpdate);
+  const { pinned, unpinAt, expired } = usePinnedTrip(pin, data, answered, search.dest, settings, serverNow, onUpdate);
   // Times no longer live say so, as saved cards do, since Home has no banner to.
   const fresh = freshness(serverNow, fetchedAt === null ? null : fetchedAt + skew, data?.dataAt ?? null);
   const age = fresh.ageSeconds === null ? null : ageText(fresh.ageSeconds);

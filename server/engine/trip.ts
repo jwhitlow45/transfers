@@ -1,4 +1,4 @@
-import { type AccessOutage, type Alert, type AlertRelevance, type AgencyId, type Departure, type DestinationsResponse, type FeedStatus, type Group, MAX_MINUTES, type Notice, type TripResponse } from '../../shared/api.ts';
+import { type AccessOutage, type Alert, type AlertRelevance, type AgencyId, type Departure, type DestinationsResponse, type FeedStatus, type Group, MAX_MINUTES, type Notice, type PinRequest, type TripResponse } from '../../shared/api.ts';
 import type { Agency } from '../config.ts';
 import { bartStationCode } from '../bart-stations.ts';
 import type { Outage } from '../realtime/access.ts';
@@ -6,7 +6,7 @@ import type { RtAlert, TripSnapshot } from '../realtime/snapshot.ts';
 import { type Schedule, type StopRow, routeKeyOf, stopKeyOf } from '../schedule.ts';
 import { type FirstLeg, type PairingOptions, type SecondLeg, pairConnections } from './connections.ts';
 import { type Link, findLinks } from './links.ts';
-import { type PinRequest, pinnedTrip } from './pinned.ts';
+import { pinnedTrip } from './pinned.ts';
 import type { RouteRow } from '../schedule.ts';
 import { firstLegs, secondLegs } from './vehicles.ts';
 import { Tables } from './views.ts';
@@ -249,7 +249,9 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
     from: stopKeyOf(from),
     to: toStop ? { stop: stopKeyOf(toStop) } : { route: routeKeyOf(toRoute!) },
     groups,
-    ...(request.pin ? { pinned: pinnedTrip(schedule, realtime.trips, request.pin, stopKeyOf(from), pinnedDestination(schedule, request.pin, destination, toStop), tables, now) } : {}),
+    ...(request.pin
+      ? { pinned: pinnedTrip(schedule, realtime.trips, request.pin, stopKeyOf(from), pinnedDestination(schedule, request.pin, destination, toStop), tables, now), pin: request.pin }
+      : {}),
     routes: tables.routes,
     stops: tables.stops,
     alerts: (() => {

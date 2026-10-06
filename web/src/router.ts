@@ -84,34 +84,41 @@ let keys = 0;
 const newKey = () => `${Date.now().toString(36)}-${++keys}`;
 
 // Addresses the pages under an open sheet took on while it was open, such as from Trip settings,
-// by the page entry's key, put back when the rider returns to it. Kept for the tab's session, so a
-// reload with the sheet open loses none. Keys are never reused, so one left behind, as when the
-// rider jumps back past that page, can never touch another.
+// by the page entry's key, put back when the rider returns to it. Kept for the tab's session where
+// it can be, so a reload with the sheet open loses none. Keys are never reused, so one left behind,
+// as when the rider jumps back past that page, can never touch another.
 const MOVED = 'transfers:moved';
-const moved = (): Record<string, string> => {
-  try {
-    return JSON.parse(sessionStorage.getItem(MOVED) ?? '{}') as Record<string, string>;
-  } catch {
-    return {};
-  }
-};
+let moved: Record<string, string> = {};
+try {
+  moved = JSON.parse(sessionStorage.getItem(MOVED) ?? '{}') as Record<string, string>;
+} catch {
+  // Without storage, they last as long as the page.
+}
 const setMoved = (all: Record<string, string>) => {
+  // The latest few are all a tab needs.
+  moved = Object.fromEntries(Object.entries(all).slice(-20));
   try {
-    // The latest few are all a tab needs.
-    sessionStorage.setItem(MOVED, JSON.stringify(Object.fromEntries(Object.entries(all).slice(-20))));
+    sessionStorage.setItem(MOVED, JSON.stringify(moved));
   } catch {
-    // Without storage, the page under the sheet keeps its older address.
+    // Without storage, they last as long as the page.
   }
 };
+// The entries of the sheets open now, by key. Any other sheet's entry, which a reload with a sheet
+// open or the browser's Forward button lands on, has no sheet left to close, so it steps back to
+// the page under it.
+const openSheets = new Set<string>();
 addEventListener('popstate', () => {
-  const { key, sheet } = entry();
-  const { [key ?? '']: path, ...others } = moved();
-  if (path === undefined || sheet) return;
+  const { key = '', sheet } = entry();
+  if (sheet) {
+    if (!openSheets.has(key)) history.back();
+    return;
+  }
+  const { [key]: path, ...others } = moved;
+  if (path === undefined) return;
   setMoved(others);
   history.replaceState(history.state, '', path);
 });
-// The entry the page opened on gets a key, for a sheet over it to name. A reload with a sheet
-// open opens the page alone, so the sheet's entry steps back to the page's.
+// The entry the page opened on gets a key, for a sheet over it to name.
 if (!entry().key) history.replaceState({ ...entry(), key: newKey() }, '');
 if (entry().sheet) history.back();
 
@@ -121,7 +128,7 @@ export function navigate(path: string, options: { replace?: boolean; state?: Rec
     // Changed from inside a sheet: the sheet keeps its entry, and the page under it takes the
     // new address once the sheet closes.
     history.replaceState(current, '', path);
-    if (current.under) setMoved({ ...moved(), [current.under]: path });
+    if (current.under) setMoved({ ...moved, [current.under]: path });
   } else if (current.sheet || options.replace) {
     // A page left from inside a sheet takes the sheet's entry, so back returns to the page that
     // was under the sheet.
@@ -146,8 +153,12 @@ export function openSheetEntry() {
   const page = entry();
   const key = newKey();
   history.pushState({ ...page, depth: depth() + 1, key, sheet: true, under: page.key }, '');
+  openSheets.add(key);
   return key;
 }
+
+// The sheet with this entry has closed.
+export const closeSheetEntry = (key: string) => openSheets.delete(key);
 
 // Whether the entry is a sheet's still open, by its key.
 export const isSheetEntry = (key: string) => entry().sheet === true && entry().key === key;

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { getJson } from './api.ts';
 import type { TripResponse } from '../../shared/api.ts';
-import { pinnedDestination, pinnedEnd, pinnedFor, steadyPinned } from './lib/pinned.ts';
+import { pinnedEnd, pinnedNow } from './lib/pinned.ts';
 import { type DeviceSettings, type Pin, loadCached, saveCached } from './storage.ts';
 
 // The device clock, ticking every second so countdowns move offline too.
@@ -26,6 +26,10 @@ export type Polled<T> = {
   // five seconds. Data shown then is usually old, and a warning about it would flash for the
   // second the refresh takes, so warnings wait for this.
   settled: boolean;
+  // False until the refresh after opening, or after coming back into view, has answered or failed,
+  // however long that takes. Data shown before then may be from long ago, so nothing that cannot be
+  // undone, such as unpinning a trip, is decided from it.
+  answered: boolean;
   refresh: () => void;
 };
 
@@ -47,12 +51,13 @@ const SETTLE_MS = 5000;
 // as a pinned trip, share one stored copy rather than leaving one each.
 export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { data: T; fetchedAt: number } | null = null, remember: boolean | string = true): Polled<T> {
   const key = remember === true ? url : remember || null;
-  const [state, setState] = useState<Omit<Polled<T>, 'refresh' | 'settled'>>(() => {
+  const [state, setState] = useState<Omit<Polled<T>, 'refresh' | 'settled' | 'answered'>>(() => {
     const cached = key ? loadCached<T>(key) : null;
     const data = initial?.data ?? cached?.data ?? null;
     return { data, error: null, fetchedAt: initial?.fetchedAt ?? cached?.fetchedAt ?? null, feed: initial ? 'live' : data ? 'refreshing' : 'loading' };
   });
   const [settled, setSettled] = useState(Boolean(initial));
+  const [answered, setAnswered] = useState(Boolean(initial));
   const tick = useRef<() => void>(() => {});
   // When the page's own response arrived, until the first refresh is planned from it.
   const seeded = useRef(initial?.fetchedAt ?? null);
@@ -105,6 +110,7 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
         const data = await getJson<T>(url, { signal: request.signal, ...(key ? { cacheAs: key } : {}) });
         // New data shows at once. Only the refresh bar lingers.
         setState({ data, error: null, fetchedAt: Date.now(), feed: 'refreshing' });
+        setAnswered(true);
         clearTimeout(settle);
         settle = setTimeout(() => setState((current) => ({ ...current, feed: 'live' })), Math.max(0, MIN_REFRESH_MS - (Date.now() - started)));
       } catch (error) {
@@ -113,6 +119,7 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
         // A timeout or a network failure both mean the server could not be reached.
         const unreachable = timedOut || !navigator.onLine || error instanceof TypeError;
         setState((current) => ({ ...current, error: unreachable ? null : (error as Error).message, feed: unreachable ? 'offline' : 'live' }));
+        setAnswered(true);
       } finally {
         clearTimeout(giveUp);
         setSettled(true);
@@ -125,7 +132,11 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
     else plan(Math.max(0, intervalMs - (Date.now() - seeded.current)));
     seeded.current = null;
     const onVisible = () => {
-      if (document.visibilityState !== 'visible') return;
+      if (document.visibilityState !== 'visible') {
+        // Hidden, the page stops refreshing, so what it shows is old by the time it is back.
+        setAnswered(false);
+        return;
+      }
       unsettle();
       void fetchNow();
     };
@@ -143,16 +154,15 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
     };
   }, [url, intervalMs]);
 
-  return { ...state, settled, refresh: () => tick.current() };
+  return { ...state, settled, answered, refresh: () => tick.current() };
 }
 
-// A pinned trip as its vehicles run now: the response's, steadied with the times last seen (see
-// steadyPinned), or those alone before any answer for it. Keeps the pin's end and last times
+// A pinned trip as its vehicles run now (see pinnedNow). Keeps the pin's end and last times
 // current, and unpins it the set time after its end, counted from the latest times, with that
-// setting on. `now` is milliseconds on the server's clock.
-export function usePinnedTrip(pin: Pin | null, data: TripResponse | null, dest: string | undefined, settings: DeviceSettings, now: number, change: (pin: Pin | null) => void) {
-  const fresh = pin && data ? pinnedFor(pin, data, dest) : null;
-  const pinned = pin && fresh ? steadyPinned(fresh, pin.last, pin, pinnedDestination(pin, data!, dest)) : (pin?.last ?? null);
+// setting on. Only once `answered` (see Polled), so times from long ago cannot unpin a trip that is
+// running late. `now` is milliseconds on the server's clock.
+export function usePinnedTrip(pin: Pin | null, data: TripResponse | null, answered: boolean, dest: string | undefined, settings: DeviceSettings, now: number, change: (pin: Pin | null) => void) {
+  const { pinned, fresh } = pin ? pinnedNow(pin, data, dest) : { pinned: null, fresh: false };
   const ends = pinned ? pinnedEnd(pinned) : null;
   const seen = fresh && pinned ? JSON.stringify(pinned) : null;
   useEffect(() => {
@@ -161,7 +171,7 @@ export function usePinnedTrip(pin: Pin | null, data: TripResponse | null, dest: 
   }, [seen]);
   const end = ends ?? pin?.ends ?? null;
   const unpinAt = pin && settings.autoUnpin && end !== null ? (end + settings.unpinAfter * 60) * 1000 : null;
-  const expired = unpinAt !== null && now >= unpinAt;
+  const expired = answered && unpinAt !== null && now >= unpinAt;
   useEffect(() => {
     if (expired) change(null);
   }, [expired]);

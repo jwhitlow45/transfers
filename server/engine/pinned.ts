@@ -1,31 +1,28 @@
-import type { PinnedLeg, PinnedStop, PinnedTrip } from '../../shared/api.ts';
+import type { PinRequest, PinnedLeg, PinnedStop, PinnedTrip } from '../../shared/api.ts';
 import { type RtTrip, type TripSnapshot, stopKey } from '../realtime/snapshot.ts';
 import type { Schedule, StopRow } from '../schedule.ts';
 import { expectedTimes, visitsTo } from './track.ts';
 import type { Tables } from './views.ts';
 
-// A trip the rider pinned: each vehicle by trip key, and the stops where they leave it and board
-// the next. From and the destination come from the search, so changing the destination moves the
-// end of the trip. `at` is when the last vehicle was due where the rider boards it, as they
-// pinned it, which tells that day's run of each trip from the same trip on other days.
-export type PinRequest = { first?: { trip: string; alight: string }; second: { trip: string; board: string }; at: number };
-
 // Predictions are for a trip's run today. A run pinned further from now than this is another
 // day's, which keeps to its schedule.
 const SAME_RUN_SECONDS = 6 * 3600;
 
+// A trip the rider pinned, as its vehicles run now. From and the destination come from the
+// search, so changing the destination moves the end of the trip.
 export function pinnedTrip(schedule: Schedule, snapshot: TripSnapshot | null, pin: PinRequest, from: string, dest: string | undefined, tables: Tables, now: number): PinnedTrip {
-  const second = pinnedLeg(schedule, snapshot, pin.second.trip, pin.second.board, dest, { at: pin.at }, tables, now);
+  const second = pinnedLeg(schedule, snapshot, pin.second.trip, pin.second.board, dest, { on: pin.at }, tables, now);
   if (!pin.first) return { second };
-  return { first: pinnedLeg(schedule, snapshot, pin.first.trip, from, pin.first.alight, { before: pin.at }, tables, now), second };
+  // A pin from before the first vehicle's own time was kept names it by the second's, just after.
+  return { first: pinnedLeg(schedule, snapshot, pin.first.trip, from, pin.first.alight, { off: pin.first.at ?? pin.at }, tables, now), second };
 }
 
 // Which of a trip's visits to the rider's stops the pin means, on a trip that makes one twice, as
-// a loop does. Fixed by the pinned run's schedule rather than where the vehicle is, so the times
-// stay those of the same visits as it goes. The second vehicle boards at the visit due nearest the
-// pinned time. The first lets the rider off at the last visit before then, which they boarded at
-// the visit before that.
-type Anchor = { at: number } | { before: number };
+// a loop does: the one scheduled nearest the pinned time, where the rider gets on the second
+// vehicle and off the first. Fixed by the schedule rather than where the vehicle is, so the times
+// stay those of the same visits as it goes. The first vehicle picks the rider up at its visit to
+// From before that.
+type Anchor = { on: number } | { off: number };
 
 // When one vehicle is due where the rider gets on it and off it, as the live map works it out:
 // predictions where the feed has them, carried forward, and the schedule otherwise.
@@ -33,7 +30,7 @@ function pinnedLeg(schedule: Schedule, snapshot: TripSnapshot | null, trip: stri
   const onStop = schedule.stopsByKey.get(on);
   const offStop = off === undefined ? undefined : schedule.stopsByKey.get(off);
   if (!onStop) return null;
-  const near = 'at' in anchor ? anchor.at : anchor.before;
+  const near = 'on' in anchor ? anchor.on : anchor.off;
   const rt = Math.abs(near - now) <= SAME_RUN_SECONDS ? snapshot?.trips.get(trip) : undefined;
   const row = schedule.trips.get(trip);
   const pattern = row ? schedule.patterns.get(row.pattern) : undefined;
@@ -46,13 +43,12 @@ function pinnedLeg(schedule: Schedule, snapshot: TripSnapshot | null, trip: stri
   const nearest = (visits: number[], time: number) => (visits.length === 0 ? null : visits.reduce((best, index) => (gap(index, time) < gap(best, time) ? index : best)));
   let onAt: number | null;
   let offAt: number | null;
-  if ('at' in anchor) {
-    onAt = nearest(onVisits, anchor.at);
+  if ('on' in anchor) {
+    onAt = nearest(onVisits, anchor.on);
     offAt = onAt === null ? null : (offVisits.find((index) => index > onAt!) ?? null);
   } else {
-    const before = offVisits.filter((index) => (scheduled[index] ?? Infinity) <= anchor.before);
-    offAt = before.at(-1) ?? nearest(offVisits, anchor.before);
-    onAt = offAt === null ? nearest(onVisits, anchor.before) : ([...onVisits].reverse().find((index) => index < offAt!) ?? null);
+    offAt = nearest(offVisits, anchor.off);
+    onAt = offAt === null ? nearest(onVisits, anchor.off) : ([...onVisits].reverse().find((index) => index < offAt!) ?? null);
   }
   const at = (index: number | null | undefined, stop: StopRow): PinnedStop | null => {
     const time = index === null || index === undefined ? null : times[index];

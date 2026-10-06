@@ -1,7 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef } from 'preact/hooks';
 import { SLIDE_MS, motionOff, useDrag } from '../gestures.ts';
-import { isSheetEntry, openSheetEntry } from '../router.ts';
+import { closeSheetEntry, isSheetEntry, openSheetEntry } from '../router.ts';
 import { IconClose } from '../icons/ui.tsx';
 
 // A drag down closes the sheet past this share of its height, or this far, whichever is less.
@@ -38,7 +38,10 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
       if (!isSheetEntry(step.current)) latestClose.current();
     };
     addEventListener('popstate', onPop);
-    return () => removeEventListener('popstate', onPop);
+    return () => {
+      removeEventListener('popstate', onPop);
+      closeSheetEntry(step.current);
+    };
   }, []);
   // Its step back closes it, by way of the listener above. A page that replaced the step, such as
   // one a link in the sheet opened, leaves nothing to take back.

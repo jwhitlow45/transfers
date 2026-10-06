@@ -184,6 +184,13 @@ export type PinnedLeg = { trip: string; route: string; on: PinnedStop | null; of
 // knows its trip.
 export type PinnedTrip = { first?: PinnedLeg | null; second: PinnedLeg | null };
 
+// A trip the rider pinned, as a request names it: each vehicle by trip key, and the stops where
+// they leave the first and board the second. `at` is when the second was scheduled where it is
+// boarded, and `first.at` when the first was scheduled where it is left. Schedule times stay put as
+// predictions move, and tell that day's run from the same trip on other days, and on a loop that
+// stops there twice, which visit is meant. Pins from before `first.at` was kept lack it.
+export type PinRequest = { first?: { trip: string; alight: string; at?: number }; second: { trip: string; board: string }; at: number };
+
 export type TripResponse = {
   notice?: Notice;
   generatedAt: number;
@@ -201,8 +208,10 @@ export type TripResponse = {
   alerts: Alert[];
   // Present when the rider asked for step-free travel or escalator outages.
   access?: AccessOutage[];
-  // Present when the request named a pinned trip.
+  // Present when the request named a pinned trip, with the pin as it was named, so a page can tell
+  // an answer for a pin since replaced however little of the trip the answer still knows.
   pinned?: PinnedTrip;
+  pin?: PinRequest;
   feeds: FeedStatus[];
 };
 

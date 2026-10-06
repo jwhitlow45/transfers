@@ -2,7 +2,7 @@ import { useId } from 'preact/hooks';
 import type { Departure, Group } from '../../../shared/api.ts';
 import { IconChevron, IconPin } from '../icons/ui.tsx';
 import { clock, minutesUntil } from '../format.ts';
-import { sameRun } from '../lib/pinned.ts';
+import { pinOf, sameRun } from '../lib/pinned.ts';
 import { type CardContext, hintKey } from '../lib/results.ts';
 import { TimeLink } from '../track.tsx';
 import { chipLabel, spokenRoute, statusOf } from '../view.ts';
@@ -50,7 +50,7 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
   const minutes = minutesUntil(departure.at, context.now);
   // With no first vehicle, the departure itself is the trip to pin, by tapping its band.
   const walkPinned = walk && context.pin !== null && !context.pin.first && context.pin.second.trip === departure.trip && context.pin.second.board === group.board && sameRun(context.pin.at, departure.at);
-  const setWalkPinned = (on: boolean) => context.onPin(on ? { second: { trip: departure.trip, board: group.board }, at: departure.at, ends: departure.destination ?? departure.at } : null);
+  const setWalkPinned = (on: boolean) => context.onPin(on ? pinOf(departure, group.board) : null);
   const walkPinLabel = `the ${route ? chipLabel(route) : 'vehicle'} at ${clock(departure.at)}`;
   const destinationName = context.destinationName ?? (walk ? context.toName : null);
   const destination = destinationName && departure.destination ? `${destinationName} ${clock(departure.destination)}` : null;

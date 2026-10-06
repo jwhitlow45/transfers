@@ -129,7 +129,8 @@ after(() => {
 
 // Trains b6 to b8 are live and on time. Bus m4 (scheduled 8:32) runs 2 minutes late, bus m5
 // (8:47) is canceled, and the rest of the buses and trains are known only from the schedule.
-function realtime() {
+// `extra` adds to the feed.
+function realtime(extra: FeedObject['entity'] = []) {
   const stopUpdate = (stopId: string, time: number, delay: number) => ({ stopId, arrival: { time, delay } });
   const busAt = (n: number) => DAY + 7.5 * 3600 + 120 + n * 900;
   const feed: FeedObject = {
@@ -151,6 +152,7 @@ function realtime() {
           headerText: { translation: [{ text: '48 STOP TEMP. MOVED Board at 24th & Capp', language: 'en' }] },
         },
       },
+      ...extra,
     ],
   };
   // Through the real encoder and decoder, as the server reads it.
@@ -469,6 +471,8 @@ test('a pinned trip follows its vehicles where the rider gets on and off, and th
   const toPotrero = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477', dest: 'SF:13500', pin }, NOW).pinned!;
   strictEqual(toPotrero.second?.off?.at, departure.at + 600);
   strictEqual(toPotrero.second?.off?.stop, 'SF:13500');
+  // The answer names the pin it is for, so a page can tell it from one for a pin since replaced.
+  deepStrictEqual(planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477', pin }, NOW).pin, pin);
 });
 
 test("a pinned trip from another day keeps to that day's schedule, and a canceled one says so", () => {
@@ -511,6 +515,10 @@ test("a pinned loop keeps the visit it was pinned at once the vehicle has gone p
     strictEqual(at(NOW), DAY + 8 * 3600 + 600);
     // At 8:15, past the first visit and before the second.
     strictEqual(at(DAY + 8 * 3600 + 900), DAY + 8 * 3600 + 600);
+    // Running 8 minutes late, its first visit is due at 8:18, nearer the second's 8:20 on the
+    // schedule. The pin names the visit by its schedule, so it keeps the first.
+    const late = realtime([{ id: 'loop', tripUpdate: { trip: { tripId: 'SF:loop', routeId: 'SF:48' }, stopTimeUpdate: [{ stopId: '13486', stopSequence: 1, arrival: { time: DAY + 8 * 3600 + 1080, delay: 480 } }] } }]);
+    strictEqual(planTrip(looped, late, { from: 'BA:901209', to: 'route:SF:48', pin }, NOW).pinned?.second?.on?.at, DAY + 8 * 3600 + 1080);
   } finally {
     looped.close();
   }

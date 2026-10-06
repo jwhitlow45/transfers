@@ -91,7 +91,7 @@ export function ResultsScreen({ search }: { search: Search }) {
     return matches ? { data: page, fetchedAt: initialAt } : null;
   }, []);
   // Stored under the search's own address, so pinning adds no stored copy of its own.
-  const { data, error, fetchedAt, feed, settled, refresh } = usePoll<TripResponse>(url, 30_000, initial, tripApiUrl(search, settings, showHidden));
+  const { data, error, fetchedAt, feed, settled, answered, refresh } = usePoll<TripResponse>(url, 30_000, initial, tripApiUrl(search, settings, showHidden));
   // Every time on the page is the server's, so the clock is too.
   const skew = clockSkewMs(data?.generatedAt, fetchedAt);
   const now = deviceNow + skew;
@@ -105,7 +105,7 @@ export function ResultsScreen({ search }: { search: Search }) {
 
   // The pinned trip as its vehicles run now. When it ends moves with them, and with a new
   // destination, and decides when it unpins itself.
-  const { pinned, unpinAt, expired } = usePinnedTrip(pin, data, search.dest, settings, now, changePin);
+  const { pinned, unpinAt, expired } = usePinnedTrip(pin, data, answered, search.dest, settings, now, changePin);
   // Whether this visit shows how to pin, counted once per visit, until the rider first pins.
   const [hint, setHint] = useState(() => !pin && takePinHint());
   const [toast, setToast] = useState<ToastMessage | null>(null);
@@ -206,7 +206,7 @@ export function ResultsScreen({ search }: { search: Search }) {
   const toChip = summary.toRoute ? <RouteChip route={summary.toRoute} {...(toColor ? { color: toColor } : {})} /> : <span>{summary.to}</span>;
   const params = new URLSearchParams(url.split('?')[1]);
   // The destinations a trip can have do not depend on what is shown or pinned.
-  for (const name of ['hidden', 'p1', 'pa', 'p2', 'pb', 'pt']) params.delete(name);
+  for (const name of ['hidden', 'p1', 'pa', 'pf', 'p2', 'pb', 'pt']) params.delete(name);
   const destinationsUrl = `/api/destinations?${params}`;
 
   return (

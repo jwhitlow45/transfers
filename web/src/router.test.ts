@@ -32,12 +32,13 @@ class FakeHistory {
 }
 
 const storage = new Map<string, string>();
+const sessionStorage = { getItem: (key: string) => storage.get(key) ?? null, setItem: (key: string, value: string) => void storage.set(key, value) };
 // A fresh page on the same tab's history and session storage, as after a reload.
-async function load(history: FakeHistory) {
+async function load(history: FakeHistory, session: Pick<Storage, 'getItem' | 'setItem'> = sessionStorage) {
   const events = new EventTarget();
   Object.assign(globalThis, {
     history,
-    sessionStorage: { getItem: (key: string) => storage.get(key) ?? null, setItem: (key: string, value: string) => void storage.set(key, value) },
+    sessionStorage: session,
     addEventListener: events.addEventListener.bind(events),
     removeEventListener: events.removeEventListener.bind(events),
     dispatchEvent: events.dispatchEvent.bind(events),
@@ -105,4 +106,32 @@ test('a reload with a sheet open steps back to the page, keeps what changed in t
   strictEqual(next === sheet, false);
   history.back();
   strictEqual(after.isSheetEntry(next), false);
+});
+
+test('without session storage, an address changed inside a sheet still reaches the page under it', async () => {
+  const history = new FakeHistory();
+  const blocked = () => {
+    throw new Error('SecurityError');
+  };
+  const { navigate, openSheetEntry } = await load(history, { getItem: blocked, setItem: blocked });
+  navigate('/t/a/b?max=12');
+  openSheetEntry();
+  navigate('/t/a/b?max=20', { replace: true });
+  history.back();
+  strictEqual(history.url, '/t/a/b?max=20');
+});
+
+test("Forward onto a closed sheet's entry steps back to the page, and an open sheet's entry stays", async () => {
+  storage.clear();
+  const history = new FakeHistory();
+  const { navigate, openSheetEntry, closeSheetEntry, isSheetEntry } = await load(history);
+  navigate('/t/a/b');
+  const sheet = openSheetEntry();
+  history.back();
+  closeSheetEntry(sheet);
+  history.go(1);
+  deepStrictEqual([history.index, history.url], [1, '/t/a/b']);
+  const open = openSheetEntry();
+  navigate('/t/a/b?max=20', { replace: true });
+  strictEqual(isSheetEntry(open), true);
 });

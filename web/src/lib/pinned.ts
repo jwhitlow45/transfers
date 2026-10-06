@@ -1,4 +1,4 @@
-import type { PinnedLeg, PinnedTrip, TripResponse } from '../../../shared/api.ts';
+import type { Connection, Departure, PinRequest, PinnedLeg, PinnedTrip, TripResponse } from '../../../shared/api.ts';
 import type { Pin } from '../storage.ts';
 
 // When a pinned trip ends: arriving at the destination, or with none set, boarding the second
@@ -29,6 +29,19 @@ export function pinnedPhase(pinned: PinnedTrip, now: number): PinnedPhase {
 // Trip ids repeat every day, so the same trip is also the same run: due within half a day.
 export const sameRun = (a: number, b: number) => Math.abs(a - b) < 12 * 3600;
 
+// The pin for a departure, and unless the route is already at From, the vehicle that connects to
+// it and where the rider leaves that. Each is named by when it was scheduled where the rider changes
+// (see PinRequest): the prediction less its delay.
+export function pinOf(departure: Departure, board: string, first?: { connection: Connection; alight: string }): Pin {
+  const scheduled = (at: number, delay: number | null) => at - (delay ?? 0);
+  return {
+    ...(first ? { first: { trip: first.connection.trip, alight: first.alight, at: scheduled(first.connection.arrives, first.connection.arriveDelay) } } : {}),
+    second: { trip: departure.trip, board },
+    at: scheduled(departure.at, departure.delay),
+    ends: departure.destination ?? departure.at,
+  };
+}
+
 // Whether two pins are the same trip: the same vehicles, stops, and run.
 export const samePin = (a: Pin, b: Pin) =>
   a.second.trip === b.second.trip && a.second.board === b.second.board && a.first?.trip === b.first?.trip && a.first?.alight === b.first?.alight && sameRun(a.at, b.at);
@@ -46,19 +59,22 @@ export function pinnedTransfer(pinned: PinnedTrip): number | null {
   return off === undefined || on === undefined ? null : Math.floor((on - off) / 60);
 }
 
-// Whether the server's answer is for this pin: its vehicles, where it boards the second and leaves
-// the first, and its run. A refresh for a new pin shows the old answer until the new one comes.
-function answers(answered: PinnedTrip, pin: Pin) {
-  const { first, second } = answered;
-  if (second?.trip !== pin.second.trip || (first?.trip ?? null) !== (pin.first?.trip ?? null)) return false;
-  if (second.on && (second.on.stop !== pin.second.board || !sameRun(second.on.at, pin.at))) return false;
-  return !pin.first || !first?.off || first.off.stop === pin.first.alight;
-}
+// Whether the server's answer is for this pin, by the pin the answer names. A refresh for a new pin
+// shows the old answer until the new one comes, and a stored copy may hold one for a pin since
+// replaced.
+const answers = (asked: PinRequest | undefined, pin: Pin) =>
+  asked !== undefined &&
+  asked.at === pin.at &&
+  asked.second.trip === pin.second.trip &&
+  asked.second.board === pin.second.board &&
+  asked.first?.trip === pin.first?.trip &&
+  asked.first?.alight === pin.first?.alight &&
+  asked.first?.at === pin.first?.at;
 
 // The response's pinned trip when it is the one pinned now. Until an answer for a new pin
 // arrives, the results it was pinned from have the same vehicles' times, so the card shows at once.
 export function pinnedFor(pin: Pin, data: TripResponse, dest: string | undefined): PinnedTrip | null {
-  if (data.pinned && answers(data.pinned, pin)) return data.pinned;
+  if (data.pinned && answers(data.pin, pin)) return data.pinned;
   const end = pinnedDestination(pin, data, dest);
   for (const group of data.groups) {
     if (group.board !== pin.second.board) continue;
@@ -90,14 +106,23 @@ export function pinnedFor(pin: Pin, data: TripResponse, dest: string | undefined
 // A trip the schedule lacks is known only by the feed, which drops each stop once the vehicle has
 // passed it, and the trip once it has ended. Such a stop, or leg, keeps the time last seen, so
 // boarding does not wipe the trip. `end` is where the second leg ends now, and a kept arrival
-// counts only if it is still there.
+// counts only if it is still there. Times taken from the results before the server's first answer
+// do not say whether the trip is added, so a fresh leg's word counts over theirs.
 export function steadyPinned(fresh: PinnedTrip, last: PinnedTrip | undefined, pin: Pin, end: string | undefined): PinnedTrip {
   if (!last) return fresh;
   const keep = (now: PinnedLeg | null | undefined, before: PinnedLeg | null | undefined, offAt: string | undefined): PinnedLeg | null => {
-    if (!before?.added || (now && now.trip !== before.trip)) return now ?? null;
+    if (!before || (now && now.trip !== before.trip) || !(now ?? before).added) return now ?? null;
     if (!now) return { ...before, off: before.off?.stop === offAt ? before.off : null };
     return { ...now, on: now.on ?? before.on, off: now.off ?? (before.off?.stop === offAt ? before.off : null) };
   };
   const second = keep(fresh.second, last.second, end);
   return pin.first ? { first: keep(fresh.first, last.first, pin.first.alight), second } : { second };
+}
+
+// A pinned trip as its vehicles run now: the response's, steadied with the times last seen, or
+// those alone when the response has nothing for it. `fresh` is whether the response had it.
+export function pinnedNow(pin: Pin, data: TripResponse | null, dest: string | undefined): { pinned: PinnedTrip | null; fresh: boolean } {
+  const fresh = data ? pinnedFor(pin, data, dest) : null;
+  if (!fresh) return { pinned: pin.last ?? null, fresh: false };
+  return { pinned: steadyPinned(fresh, pin.last, pin, pinnedDestination(pin, data!, dest)), fresh: true };
 }

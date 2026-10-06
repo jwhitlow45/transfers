@@ -66,6 +66,7 @@ export function tripApiUrl(search: Search, settings: DeviceSettings, showHidden:
     if (pin.first) {
       params.set('p1', pin.first.trip);
       params.set('pa', pin.first.alight);
+      if (pin.first.at !== undefined) params.set('pf', String(pin.first.at));
     }
   }
   return `/api/trip?${params}`;
