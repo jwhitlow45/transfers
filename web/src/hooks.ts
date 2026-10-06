@@ -91,6 +91,11 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
       if (cached) setState((current) => ({ ...current, data: cached.data, fetchedAt: cached.fetchedAt }));
     }
 
+    // A refresh that answers while the page is hidden is old by the time the page is back, and the
+    // one sent then answers for it.
+    const answer = () => {
+      if (document.visibilityState === 'visible') setAnswered(true);
+    };
     const fetchNow = async () => {
       controller?.abort();
       controller = new AbortController();
@@ -110,7 +115,7 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
         const data = await getJson<T>(url, { signal: request.signal, ...(key ? { cacheAs: key } : {}) });
         // New data shows at once. Only the refresh bar lingers.
         setState({ data, error: null, fetchedAt: Date.now(), feed: 'refreshing' });
-        setAnswered(true);
+        answer();
         clearTimeout(settle);
         settle = setTimeout(() => setState((current) => ({ ...current, feed: 'live' })), Math.max(0, MIN_REFRESH_MS - (Date.now() - started)));
       } catch (error) {
@@ -119,7 +124,7 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
         // A timeout or a network failure both mean the server could not be reached.
         const unreachable = timedOut || !navigator.onLine || error instanceof TypeError;
         setState((current) => ({ ...current, error: unreachable ? null : (error as Error).message, feed: unreachable ? 'offline' : 'live' }));
-        setAnswered(true);
+        answer();
       } finally {
         clearTimeout(giveUp);
         setSettled(true);
@@ -132,11 +137,10 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
     else plan(Math.max(0, intervalMs - (Date.now() - seeded.current)));
     seeded.current = null;
     const onVisible = () => {
-      if (document.visibilityState !== 'visible') {
-        // Hidden, the page stops refreshing, so what it shows is old by the time it is back.
-        setAnswered(false);
-        return;
-      }
+      // Hidden, the page stops refreshing, so what it shows is old by the time it is back, until the
+      // refresh sent then answers.
+      setAnswered(false);
+      if (document.visibilityState !== 'visible') return;
       unsettle();
       void fetchNow();
     };

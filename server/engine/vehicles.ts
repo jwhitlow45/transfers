@@ -214,7 +214,7 @@ function withoutGhosts<T extends { trip: string; route: string; live: boolean; c
 }
 
 // A realtime trip's time at its stop `index`. Feeds may send only a delay, in which case the
-// schedule supplies the time.
+// schedule supplies the time, or only a time, in which case the schedule supplies the delay.
 function timeAt(
   context: VehicleContext,
   trip: RtTrip,
@@ -225,11 +225,24 @@ function timeAt(
 ): TimeAt | null {
   const stopTime = trip.stops[index];
   if (!stopTime || stopTime.skipped) return null;
-  if (stopTime.time !== null) return { at: stopTime.time, delay: stopTime.delay };
+  if (stopTime.time !== null) return { at: stopTime.time, delay: stopTime.delay ?? delayAt(context, stopTime.time, stopTime.sequence, staticTrip, pattern, stop) };
   if (stopTime.delay === null || !staticTrip || !pattern) return null;
   const position = pattern.stops.indexOf(stop.id);
   const scheduled = position === -1 ? null : context.schedule.scheduledTimeAt(staticTrip.row, position, context.now);
   return scheduled === null ? null : { at: scheduled + stopTime.delay, delay: stopTime.delay };
+}
+
+// How late a time the feed predicts without a delay runs, by the schedule, so the rider sees it
+// as from a feed that sends both, and a pin taking the time less the delay gets the schedule's. On
+// a loop that makes the stop twice, the visit is the one the update's stop sequence names, or else
+// the one scheduled nearest the time, as expectedTimes in track.ts matches them.
+function delayAt(context: VehicleContext, time: number, sequence: number | undefined, staticTrip: { row: number } | undefined, pattern: PatternRow | undefined, stop: StopRow) {
+  if (!staticTrip || !pattern) return null;
+  const visits = pattern.stops.flatMap((id, position) => (id === stop.id ? [position] : []));
+  const named = sequence !== undefined && visits.includes(sequence - 1) ? [sequence - 1] : visits;
+  const scheduled = named.map((position) => context.schedule.scheduledTimeAt(staticTrip.row, position, time)).filter((at) => at !== null);
+  if (scheduled.length === 0) return null;
+  return time - scheduled.reduce((best, at) => (Math.abs(time - at) < Math.abs(time - best) ? at : best));
 }
 
 // A realtime trip's time at a later stop. When the feed leaves that stop out, the schedule

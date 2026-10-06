@@ -533,6 +533,14 @@ test("a pinned loop keeps the visit it was pinned at once the vehicle has gone p
     // schedule. The pin names the visit by its schedule, so it keeps the first.
     const late = realtime([{ id: 'loop', tripUpdate: { trip: { tripId: 'SF:loop', routeId: 'SF:48' }, stopTimeUpdate: [{ stopId: '13486', stopSequence: 1, arrival: { time: DAY + 8 * 3600 + 1080, delay: 480 } }] } }]);
     strictEqual(planTrip(looped, late, { from: 'BA:901209', to: 'route:SF:48', pin }, NOW).pinned?.second?.on?.at, DAY + 8 * 3600 + 1080);
+    // A feed that sends the time alone: the results count the delay at the visit the update names,
+    // so a pin made from them, the time less the delay, names that visit too.
+    const timeOnly = realtime([{ id: 'loop', tripUpdate: { trip: { tripId: 'SF:loop', routeId: 'SF:48' }, stopTimeUpdate: [{ stopId: '13486', stopSequence: 1, arrival: { time: DAY + 8 * 3600 + 1080 } }] } }]);
+    const results = planTrip(looped, timeOnly, { from: 'SF:13486', to: 'route:SF:48' }, NOW);
+    const departure = results.groups.flatMap(({ departures }) => departures).find(({ trip }) => trip === 'SF:loop')!;
+    deepStrictEqual([departure.at, departure.delay], [DAY + 8 * 3600 + 1080, 480]);
+    const fromResults = { second: { trip: 'SF:loop', board: results.groups[0]!.board }, at: departure.at - departure.delay! };
+    strictEqual(planTrip(looped, timeOnly, { from: 'SF:13486', to: 'route:SF:48', pin: fromResults }, NOW).pinned?.second?.on?.at, DAY + 8 * 3600 + 1080);
   } finally {
     looped.close();
   }
