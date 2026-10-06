@@ -4,6 +4,7 @@ import { getJson } from '../api.ts';
 import { IconChevron } from '../icons/ui.tsx';
 import { routeColor } from '../lib/color.ts';
 import { pointId } from '../lib/results.ts';
+import { navigate } from '../router.ts';
 import type { Search } from '../storage.ts';
 import { chipLabel, shortStopName } from '../view.ts';
 import { Sheet, Toggle } from './Sheet.tsx';
@@ -165,6 +166,15 @@ export function TripSettingsSheet({ search, data, window, footer, chain, destina
           </div>
         </div>
       )}
+      {/* The rider's own settings, for every trip, are a page of their own. Opened from here, back
+          returns to these results. */}
+      <div class="tf-setting">
+        <div class="tf-setting__label">For every trip</div>
+        <div class="tf-setting__help">Walking speed, accessibility, pinned trips, and more.</div>
+        <a class="tf-link-button" href="/settings" onClick={(event) => (event.preventDefault(), navigate('/settings'))}>
+          Device settings
+        </a>
+      </div>
     </Sheet>
   );
 }

@@ -129,10 +129,17 @@ export const searchId = (search: Search) => `${search.from}>${search.to}`;
 // second vehicle was due where it is boarded when pinned, which tells the server which day's run
 // is meant. `ends` is when the trip ends by the latest times seen: arriving at the destination,
 // or with none set, boarding the second vehicle.
-export type Pin = { first?: { trip: string; alight: string }; second: { trip: string; board: string }; at: number; ends: number };
+// `search` is the search it is pinned to as it stands now, so Home can show the pin and open its
+// results. Pins saved before it was kept lack it.
+export type Pin = { first?: { trip: string; alight: string }; second: { trip: string; board: string }; at: number; ends: number; search?: Search };
 
 export function loadPin(search: Search): Pin | null {
   return read<Record<string, Pin>>('pins', {})[searchId(search)] ?? null;
+}
+
+// Every pin Home can show, with its search.
+export function loadPins(): (Pin & { search: Search })[] {
+  return Object.values(read<Record<string, Pin>>('pins', {})).filter((pin): pin is Pin & { search: Search } => pin.search !== undefined);
 }
 
 export function savePin(search: Search, pin: Pin | null) {

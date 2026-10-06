@@ -445,6 +445,8 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-pinned__head { display: flex; align-items: center; gap: var(--space-2); padding: 2px var(--space-4) 0; }
 .tf-pinned__head .tf-tight { margin-top: 0; }
 .tf-pinned__kicker { display: inline-flex; align-items: center; gap: 3px; color: var(--accent-ink); }
+/* On Home, the trip it is pinned to, opening its results. */
+.tf-pinned__trip { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-sm); font-weight: 650; color: var(--accent-ink); text-underline-offset: 3px; }
 .tf-pinned__unpin { display: inline-flex; align-items: center; gap: 4px; min-height: var(--tap-min); margin: 0 calc(-1 * var(--space-2)) 0 auto; padding: 0 var(--space-2); font-size: var(--text-sm); font-weight: 650; color: var(--muted); }
 .tf-pinned__row { border-top: 0; padding-top: var(--space-1); }
 .tf-pinned__second { margin-top: var(--space-2); }

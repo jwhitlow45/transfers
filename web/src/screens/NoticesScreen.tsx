@@ -4,7 +4,7 @@ import { Toast, type ToastMessage } from '../components/Toast.tsx';
 import { clock } from '../format.ts';
 import { IconInfo, IconWarn } from '../icons/ui.tsx';
 import { useSwipeBack } from '../gestures.ts';
-import { navigate } from '../router.ts';
+import { goBack } from '../router.ts';
 import { type DismissedNotice, dismissNotice, loadDismissed, restoreAllNotices, restoreNotice } from '../storage.ts';
 import { noticeName } from '../lib/alerts.ts';
 import { dayLabel } from '../view.ts';
@@ -12,8 +12,8 @@ import { dayLabel } from '../view.ts';
 // Notices the rider dismissed from results, newest first, as they read then, each with a way to
 // put it back on every trip it concerns. Reached from the results that hid one, and Settings.
 export function NoticesScreen() {
-  // Back to the results the rider came from, or home when they opened this page directly.
-  const back = () => (history.length > 1 ? history.back() : navigate('/'));
+  // Back to the results or Settings the rider came from, or home when they opened this page directly.
+  const back = () => goBack();
   useSwipeBack(back);
   const [notices, setNotices] = useState(loadDismissed);
   const [toast, setToast] = useState<ToastMessage | null>(null);

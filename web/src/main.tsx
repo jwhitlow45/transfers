@@ -22,7 +22,7 @@ function App() {
     <SettingsProvider>
       <div class="tf-app">
         <TrackProvider>
-          {page.name === 'home' && <SearchScreen key={history.state ? 'prefilled' : 'home'} />}
+          {page.name === 'home' && <SearchScreen key={history.state?.from || history.state?.to ? 'prefilled' : 'home'} />}
           {page.name === 'trip' && <ResultsScreen key={searchId(page.search)} search={page.search} />}
           {page.name === 'nearby' && <NearbyScreen />}
           {page.name === 'settings' && <SettingsScreen />}

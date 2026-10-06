@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { getJson } from './api.ts';
-import { loadCached, saveCached } from './storage.ts';
+import { type DeviceSettings, type Pin, loadCached, saveCached } from './storage.ts';
 
 // The device clock, ticking every second so countdowns move offline too.
 export function useNow(intervalMs = 1000) {
@@ -139,4 +139,19 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
   }, [url, intervalMs]);
 
   return { ...state, settled, refresh: () => tick.current() };
+}
+
+// Keeps a pin's end current with the latest times, `ends`, and unpins it the set time after,
+// with that setting on. `now` is milliseconds on the server's clock. Returns when it unpins, or
+// null, and whether that has passed.
+export function usePinEnds(pin: Pin | null, ends: number | null, settings: DeviceSettings, now: number, change: (pin: Pin | null) => void) {
+  useEffect(() => {
+    if (pin && ends !== null && ends !== pin.ends) change({ ...pin, ends });
+  }, [ends]);
+  const unpinAt = pin && settings.autoUnpin ? (pin.ends + settings.unpinAfter * 60) * 1000 : null;
+  const expired = unpinAt !== null && now >= unpinAt;
+  useEffect(() => {
+    if (expired) change(null);
+  }, [expired]);
+  return { unpinAt, expired };
 }

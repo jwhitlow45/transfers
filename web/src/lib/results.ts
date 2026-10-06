@@ -32,6 +32,9 @@ export type CardContext = {
 // shared station.
 export const hintKey = (group: Group, trip: string | undefined) => (trip === undefined ? null : `${pointId(group)}|${trip}`);
 
+// Unix seconds to a place on the shared time scale, 0 to 100, from now to `scaleMinutes` ahead.
+export const timeScale = (now: number, scaleMinutes: number) => (unixSeconds: number) => Math.max(0, Math.min(100, ((unixSeconds * 1000 - now) / 60_000 / scaleMinutes) * 100));
+
 const MAX_DEPARTURES = 3;
 
 // The server's answer, trimmed as the clock runs between refreshes: vehicles that have left

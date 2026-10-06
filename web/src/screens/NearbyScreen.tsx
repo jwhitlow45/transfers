@@ -15,7 +15,7 @@ import { stopLetterColor } from '../lib/color.ts';
 import { ageText, clockSkewMs, freshness } from '../lib/freshness.ts';
 import { type LocationProblem, type Position, locate, locationProblemText, takeHanded } from '../lib/location.ts';
 import { useSwipeBack } from '../gestures.ts';
-import { navigate } from '../router.ts';
+import { goBack, navigate } from '../router.ts';
 import { TimeLink } from '../track.tsx';
 import { agencyName, chipLabel, directionText, shortStopName, statusOf } from '../view.ts';
 import type { Picked } from './SearchScreen.tsx';
@@ -27,7 +27,7 @@ type Located = { state: 'idle' | 'asking' | LocationProblem } | { state: 'found'
 // button, never on page load.
 export function NearbyScreen() {
   // Here, not in NearbyResults, so the swipe works before and after the rider is found.
-  useSwipeBack(() => navigate('/'));
+  useSwipeBack(() => goBack());
   const [located, setLocated] = useState<Located>(() => {
     const position = takeHanded();
     return position ? { state: 'found', position } : { state: 'idle' };
@@ -58,7 +58,7 @@ export function NearbyScreen() {
   if (located.state === 'found') return <NearbyResults position={located.position} onRelocate={relocate} />;
   return (
     <div class="tf-scroll">
-      <ScreenHeader title="Nearby" onBack={() => navigate('/')} />
+      <ScreenHeader title="Nearby" onBack={() => goBack()} />
       <main class="tf-page tf-page--form" id="main">
         <div class="tf-empty">
           <div class="tf-empty__title">See the routes around you</div>
@@ -72,7 +72,7 @@ export function NearbyScreen() {
             <IconLocation />
             {located.state === 'asking' ? 'Finding you…' : 'Show nearby routes'}
           </button>
-          <a class="tf-link-button" href="/" onClick={(event) => (event.preventDefault(), navigate('/'))}>
+          <a class="tf-link-button" href="/" onClick={(event) => (event.preventDefault(), goBack())}>
             Search by name instead
           </a>
         </div>
@@ -102,8 +102,7 @@ function NearbyResults({ position, onRelocate }: { position: Position; onRelocat
     if (!stop) return;
     const meta = [agencyName(stop), stop.code ? `Stop ${stop.code}` : 'Station', directionText(stop, stop.agency === 'BA' ? undefined : row.headsign)].filter(Boolean).join(' · ');
     const picked: Picked = { key: stop.key, label: stop.name, meta, short: shortStopName(stop) + (stop.code ? ` (${stop.code})` : '') };
-    history.pushState({ [as]: picked }, '', '/');
-    dispatchEvent(new PopStateEvent('popstate'));
+    navigate('/', { state: { [as]: picked } });
   };
 
   return (
@@ -113,7 +112,7 @@ function NearbyResults({ position, onRelocate }: { position: Position; onRelocat
         feed={feed}
         secondsSinceUpdate={secondsSinceUpdate}
         stale={showStale}
-        onBack={() => navigate('/')}
+        onBack={() => goBack()}
         // A move of more than about 10 m makes a new request by itself, through the new position.
         onRefresh={() => {
           refresh();

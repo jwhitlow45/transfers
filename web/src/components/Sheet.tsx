@@ -1,6 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef } from 'preact/hooks';
 import { SLIDE_MS, motionOff, useDrag } from '../gestures.ts';
+import { isSheetEntry, openSheetEntry } from '../router.ts';
 import { IconClose } from '../icons/ui.tsx';
 
 // A drag down closes the sheet past this share of its height, or this far, whichever is less.
@@ -14,7 +15,8 @@ const CLOSE_FLING = 0.4;
 // handle and title, stays put while the settings under it scroll, and a drag down from there
 // closes the sheet however far it is scrolled, like the comments on YouTube Shorts. In the
 // settings, a drag down closes it only from the top of their scroll, so scrolling back up never
-// closes it by surprise.
+// closes it by surprise. It is a step in history of its own, so the system back closes it rather
+// than leaving the page under it, and closing it any other way takes that step back.
 // `action` is a control beside Close, such as pinning the trip a map follows.
 export function Sheet({ title, subtitle, footer, action, onClose, children }: {
   title: string;
@@ -27,6 +29,20 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
   const panel = useRef<HTMLDivElement>(null);
   const body = useRef<HTMLDivElement>(null);
   const scrim = useRef<HTMLDivElement>(null);
+  const step = useRef(0);
+  const latestClose = useRef(onClose);
+  latestClose.current = onClose;
+  useEffect(() => {
+    step.current = openSheetEntry();
+    const onPop = () => {
+      if (!isSheetEntry(step.current)) latestClose.current();
+    };
+    addEventListener('popstate', onPop);
+    return () => removeEventListener('popstate', onPop);
+  }, []);
+  // Its step back closes it, by way of the listener above. A page that replaced the step, such as
+  // one a link in the sheet opened, leaves nothing to take back.
+  const close = () => (isSheetEntry(step.current) ? history.back() : onClose());
   // Moves the panel down by offset px and fades the scrim to match. Styles are set directly, as
   // a render per touch event would lag behind the finger.
   const place = (offset: number, animated: boolean) => {
@@ -46,7 +62,7 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
       const height = panel.current?.offsetHeight ?? 0;
       if (!release || (release.distance < Math.min(height * CLOSE_SHARE, CLOSE_PX) && release.velocity < CLOSE_FLING)) return place(0, true);
       place(height, true);
-      setTimeout(onClose, motionOff() ? 0 : SLIDE_MS);
+      setTimeout(close, motionOff() ? 0 : SLIDE_MS);
     },
   });
   useEffect(() => {
@@ -57,7 +73,7 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'Escape') {
       event.preventDefault();
-      onClose();
+      close();
       return;
     }
     if (event.key !== 'Tab' || !panel.current) return;
@@ -76,7 +92,7 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
   };
   return (
     <div class="tf-sheet">
-      <div ref={scrim} class="tf-sheet__scrim" aria-hidden="true" onClick={onClose} />
+      <div ref={scrim} class="tf-sheet__scrim" aria-hidden="true" onClick={close} />
       <div ref={panel} class="tf-sheet__panel" role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} onKeyDown={onKeyDown}>
         <div class="tf-sheet__top">
           <div class="tf-grabber" aria-hidden="true" />
@@ -84,7 +100,7 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
             <div class="tf-sheet__head">
               <h2>{title}</h2>
               {action}
-              <button type="button" class="tf-btn-icon" onClick={onClose} aria-label="Close">
+              <button type="button" class="tf-btn-icon" onClick={close} aria-label="Close">
                 <IconClose />
               </button>
             </div>
@@ -95,7 +111,7 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
           <div class="tf-sheet__inner">
             {children}
             {footer && <div class="tf-sheet__saved">{footer}</div>}
-            <button type="button" class="tf-btn-primary tf-sheet__done" onClick={onClose}>
+            <button type="button" class="tf-btn-primary tf-sheet__done" onClick={close}>
               Done
             </button>
           </div>

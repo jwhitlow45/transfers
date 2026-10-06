@@ -71,11 +71,59 @@ export function parsePage(location: Location): Page {
   return { name: 'home' };
 }
 
-export function navigate(path: string, options: { replace?: boolean } = {}) {
-  if (options.replace) history.replaceState(null, '', path);
-  else history.pushState(null, '', path);
+// Each history entry the app makes counts how many of its own entries lie behind it, so back
+// can tell whether the one before is the app's, and an open sheet is an entry of its own, so the
+// system back closes it rather than leaving the page under it. `state` rides along, as Nearby
+// hands a picked stop to Home.
+type Entry = { depth?: number; sheet?: number } & Record<string, unknown>;
+const entry = () => (history.state ?? {}) as Entry;
+const depth = () => entry().depth ?? 0;
+
+// Addresses the pages under an open sheet took on while it was open, such as from Trip settings,
+// by depth, put back when the rider returns to them.
+const moved = new Map<number, string>();
+addEventListener('popstate', () => {
+  const path = moved.get(depth());
+  if (path === undefined || entry().sheet !== undefined) return;
+  moved.delete(depth());
+  history.replaceState(history.state, '', path);
+});
+
+export function navigate(path: string, options: { replace?: boolean; state?: Record<string, unknown> } = {}) {
+  const current = entry();
+  if (current.sheet !== undefined && options.replace) {
+    // Changed from inside a sheet: the sheet keeps its entry, and the page under it takes the
+    // new address once the sheet closes.
+    history.replaceState(current, '', path);
+    moved.set(depth() - 1, path);
+  } else if (current.sheet !== undefined || options.replace) {
+    // A page left from inside a sheet takes the sheet's entry, so back returns to the page that
+    // was under the sheet.
+    history.replaceState({ ...options.state, depth: depth() }, '', path);
+  } else {
+    history.pushState({ ...options.state, depth: depth() + 1 }, '', path);
+  }
   dispatchEvent(new PopStateEvent('popstate'));
 }
+
+// Back, as the system back does, when the entry before is the app's. Otherwise, as on a page
+// opened from a link, `fallback` in this page's place.
+export function goBack(fallback = '/') {
+  if (depth() > 0) history.back();
+  else navigate(fallback, { replace: true });
+}
+
+let sheets = 0;
+
+// An entry for a sheet opening over the page, with the page's address. Returns its id.
+export function openSheetEntry() {
+  const id = ++sheets;
+  history.pushState({ ...entry(), depth: depth() + 1, sheet: id }, '');
+  return id;
+}
+
+// Whether the entry is a sheet's still open, by its id.
+export const isSheetEntry = (id: number) => entry().sheet === id;
 
 export function usePage() {
   const [page, setPage] = useState(() => parsePage(location));

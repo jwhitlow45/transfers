@@ -2,7 +2,7 @@ import { ScreenHeader } from '../components/ResultsHeader.tsx';
 import { Choices, Toggle } from '../components/Sheet.tsx';
 import { MinutesSlider, WindowSlider } from '../components/Slider.tsx';
 import { useSwipeBack } from '../gestures.ts';
-import { navigate } from '../router.ts';
+import { goBack, navigate } from '../router.ts';
 import { useSettings } from '../settings.tsx';
 import { type DeviceSettings, MAX_UNPIN_MINUTES, clearCached } from '../storage.ts';
 
@@ -32,11 +32,11 @@ const THEMES: { value: DeviceSettings['theme']; label: string }[] = [
 // Settings stored on this device that apply to every search unless a search sets its own.
 export function SettingsScreen() {
   const { settings, update } = useSettings();
-  useSwipeBack(() => navigate('/'));
+  useSwipeBack(() => goBack());
   const automatic = settings.min === null && settings.max === null;
   return (
     <div class="tf-scroll">
-      <ScreenHeader title="Settings" onBack={() => navigate('/')} />
+      <ScreenHeader title="Settings" onBack={() => goBack()} />
       <main class="tf-page tf-page--form" id="main">
         <p class="tf-muted tf-settings__intro">Saved on this device only. Each search can override these from its trip settings.</p>
 

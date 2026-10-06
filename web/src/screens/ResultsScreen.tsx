@@ -14,16 +14,16 @@ import { Toast, type ToastMessage } from '../components/Toast.tsx';
 import { TransferPointGroup } from '../components/TransferPointGroup.tsx';
 import { type SearchUpdate, TripSettingsSheet } from '../components/TripSettingsSheet.tsx';
 import { useSwipeBack } from '../gestures.ts';
-import { useNow, usePoll } from '../hooks.ts';
+import { useNow, usePinEnds, usePoll } from '../hooks.ts';
 import { defaultSavedColor } from '../lib/color.ts';
 import { clock, walkMinutes } from '../format.ts';
 import { type ViewAlert, noticeName, viewAlerts } from '../lib/alerts.ts';
 import { pinnedEnd, pinnedFor, samePin } from '../lib/pinned.ts';
 import { ageText, clockSkewMs, freshness } from '../lib/freshness.ts';
 import { IconHidden, IconTransfer } from '../icons/ui.tsx';
-import { type CardContext, chooseDirection, directionChoices, hintKey, pageColors, pointId, scaleFor, visibleDepartures } from '../lib/results.ts';
+import { type CardContext, chooseDirection, directionChoices, hintKey, pageColors, pointId, scaleFor, timeScale, visibleDepartures } from '../lib/results.ts';
 import { summarize } from '../lib/summary.ts';
-import { navigate, tripPath } from '../router.ts';
+import { goBack, navigate, tripPath } from '../router.ts';
 import { matchesServerDefaults, tripApiUrl, useSettings } from '../settings.tsx';
 import {
   type Pin,
@@ -70,10 +70,15 @@ export function ResultsScreen({ search }: { search: Search }) {
   const toggleCard = (card: string, first: boolean) => setToggled((current) => ({ ...current, [card]: !(current[card] ?? openAtFirst(first)) }));
   // The trip the rider pinned to these results, which the results request follows too.
   const [pin, setPin] = useState(() => loadPin(search));
+  // Kept with the search as it stands, so Home can show the pin and open these results.
   const changePin = (next: Pin | null) => {
-    savePin(search, next);
-    setPin(next);
+    const kept = next && { ...next, search };
+    savePin(search, kept);
+    setPin(kept);
   };
+  useEffect(() => {
+    if (pin) changePin(pin);
+  }, [tripPath(search)]);
   const url = tripApiUrl(search, settings, showHidden, pin);
   // Results the server put in the page answer this request only if nothing differs from its defaults.
   const initial = useMemo(() => {
@@ -98,10 +103,7 @@ export function ResultsScreen({ search }: { search: Search }) {
   // The pinned trip as its vehicles run now. When it ends moves with them, and with a new
   // destination, and decides when it unpins itself.
   const pinned = pin && data ? pinnedFor(pin, data, search.dest) : null;
-  const pinnedEnds = pinned ? pinnedEnd(pinned) : null;
-  useEffect(() => {
-    if (pin && pinnedEnds !== null && pinnedEnds !== pin.ends) changePin({ ...pin, ends: pinnedEnds });
-  }, [pinnedEnds]);
+  const { unpinAt, expired } = usePinEnds(pin, pinned && pinnedEnd(pinned), settings, now, changePin);
   // Whether this visit shows how to pin, counted once per visit, until the rider first pins.
   const [hint, setHint] = useState(() => !pin && takePinHint());
   const [toast, setToast] = useState<ToastMessage | null>(null);
@@ -142,13 +144,8 @@ export function ResultsScreen({ search }: { search: Search }) {
       },
     });
   };
-  const unpinAt = pin && settings.autoUnpin ? (pin.ends + settings.unpinAfter * 60) * 1000 : null;
-  const expired = unpinAt !== null && now >= unpinAt;
-  useEffect(() => {
-    if (expired) changePin(null);
-  }, [expired]);
 
-  useSwipeBack(() => navigate('/'));
+  useSwipeBack(() => goBack());
 
   const update: SearchUpdate = (change) => {
     const next = change(search);
@@ -176,7 +173,7 @@ export function ResultsScreen({ search }: { search: Search }) {
     data: data!,
     now,
     scaleMinutes,
-    pct: (unixSeconds) => Math.max(0, Math.min(100, ((unixSeconds * 1000 - now) / 60_000 / scaleMinutes) * 100)),
+    pct: timeScale(now, scaleMinutes),
     destinationName: search.dest ? shortStopName(data?.stops[search.dest], search.destLabel ?? '') : null,
     // Riding straight to a named stop, the arrival there is what the rider is after.
     toName: data && 'stop' in data.to ? shortStopName(data.stops[data.to.stop]) : null,
@@ -229,7 +226,7 @@ export function ResultsScreen({ search }: { search: Search }) {
           {error && (
             <div class="tf-empty" role="alert">
               <div class="tf-empty__title">{/^No (stop|route)/.test(error) ? "This stop or route isn't in the schedule anymore" : error}</div>
-              <a class="tf-link-button" href="/" onClick={(event) => (event.preventDefault(), navigate('/'))}>
+              <a class="tf-link-button" href="/" onClick={(event) => (event.preventDefault(), goBack())}>
                 Search again
               </a>
             </div>
@@ -294,7 +291,7 @@ export function ResultsScreen({ search }: { search: Search }) {
           <DataCredit />
         </main>
       </div>
-      <BottomBar windowText={summary.windowText} saved={saved !== null} onBack={() => navigate('/')} onOpen={() => setSettingsOpen(true)} onToggleSaved={toggleSaved}>
+      <BottomBar windowText={summary.windowText} saved={saved !== null} onBack={() => goBack()} onOpen={() => setSettingsOpen(true)} onToggleSaved={toggleSaved}>
         <Toast message={toast} onDone={() => setToast(null)} />
       </BottomBar>
       {settingsOpen && (
