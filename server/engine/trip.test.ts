@@ -483,3 +483,35 @@ test("a pinned trip from another day keeps to that day's schedule, and a cancele
   const canceled = { second: { trip: 'SF:m5', board: group.board }, at: DAY + 8 * 3600 + 47 * 60 };
   strictEqual(planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477', pin: canceled }, NOW).pinned?.second?.canceled, true);
 });
+
+test('a pinned ride straight to a named To stop ends there, as its results do', () => {
+  // The 48 already stops at Valencia, From, and reaches 24th & Mission, To.
+  const plain = planTrip(schedule, realtime(), { from: 'SF:13486', to: 'SF:13477' }, NOW);
+  const group = plain.groups.find(({ kind }) => kind === 'walk')!;
+  const departure = group.departures.find(({ canceled, destination }) => !canceled && destination !== undefined)!;
+  const pin = { second: { trip: departure.trip, board: group.board }, at: departure.at };
+  const pinned = planTrip(schedule, realtime(), { from: 'SF:13486', to: 'SF:13477', pin }, NOW).pinned!;
+  deepStrictEqual(pinned.second?.off, { stop: 'SF:13477', at: departure.destination, delay: departure.delay });
+});
+
+test("a pinned loop keeps the visit it was pinned at once the vehicle has gone past it", () => {
+  // A 48 that leaves Valencia at 8:10, loops back past it at 8:20, and ends at Potrero.
+  const network = feeds();
+  const muni = network.get('SF')!;
+  muni.set('trips.txt', `${muni.get('trips.txt')}48,all,loop,22nd St + Iowa St,1,,\n`);
+  const visits: [string, number][] = [['13486', 8 * 3600 + 600], ['13477', 8 * 3600 + 720], ['13486', 8 * 3600 + 1200], ['13500', 8 * 3600 + 1800]];
+  muni.set('stop_times.txt', `${muni.get('stop_times.txt')}${visits.map(([stop, at], n) => `loop,${clock(at)},${clock(at)},${stop},${n + 1}`).join('\n')}\n`);
+  const path = join(mkdtempSync(join(tmpdir(), 'loop-')), 'schedule.db');
+  buildScheduleDatabase(network, path);
+  const looped = new Schedule(path);
+  try {
+    const pin = { second: { trip: 'SF:loop', board: 'SF:13486' }, at: DAY + 8 * 3600 + 600 };
+    // To a route, so nothing past boarding pins where the rider goes on it.
+    const at = (now: number) => planTrip(looped, realtime(), { from: 'BA:901209', to: 'route:SF:48', pin }, now).pinned?.second?.on?.at;
+    strictEqual(at(NOW), DAY + 8 * 3600 + 600);
+    // At 8:15, past the first visit and before the second.
+    strictEqual(at(DAY + 8 * 3600 + 900), DAY + 8 * 3600 + 600);
+  } finally {
+    looped.close();
+  }
+});

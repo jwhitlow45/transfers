@@ -123,6 +123,14 @@ export function destinations(schedule: Schedule, request: TripRequest): Destinat
   return { groups, routes: tables.routes, stops: tables.stops };
 }
 
+// Where a pinned trip ends: the destination, or riding a route already at From straight to a
+// named To stop, To, as the results count a departure's arrival (`reaching`).
+function pinnedDestination(schedule: Schedule, pin: PinRequest, destination: StopRow | null, toStop: StopRow | undefined) {
+  if (destination) return stopKeyOf(destination);
+  if (pin.first || !toStop || schedule.boardingStops(toStop).some((stop) => stopKeyOf(stop) === pin.second.board) || stopKeyOf(toStop) === pin.second.board) return undefined;
+  return stopKeyOf(toStop);
+}
+
 export function planTrip(schedule: Schedule, realtime: RealtimeView, request: TripRequest, now: number): TripResponse {
   const { from, to } = resolveEnds(schedule, request);
   const toStop = 'stop' in to ? to.stop : undefined;
@@ -241,7 +249,7 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
     from: stopKeyOf(from),
     to: toStop ? { stop: stopKeyOf(toStop) } : { route: routeKeyOf(toRoute!) },
     groups,
-    ...(request.pin ? { pinned: pinnedTrip(schedule, realtime.trips, request.pin, stopKeyOf(from), destination ? stopKeyOf(destination) : undefined, tables, now) } : {}),
+    ...(request.pin ? { pinned: pinnedTrip(schedule, realtime.trips, request.pin, stopKeyOf(from), pinnedDestination(schedule, request.pin, destination, toStop), tables, now) } : {}),
     routes: tables.routes,
     stops: tables.stops,
     alerts: (() => {

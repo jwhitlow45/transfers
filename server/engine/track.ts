@@ -64,7 +64,7 @@ export function markVisits(schedule: Schedule, patternStops: number[], keys: str
 }
 
 // Where along its stops a trip calls at a stop. A station is called at by its platforms.
-function visitsTo(schedule: Schedule, patternStops: number[], stop: StopRow) {
+export function visitsTo(schedule: Schedule, patternStops: number[], stop: StopRow) {
   const platforms = new Set(schedule.boardingStops(stop).map(({ id }) => id));
   return patternStops.flatMap((id, index) => (platforms.has(id) ? [index] : []));
 }

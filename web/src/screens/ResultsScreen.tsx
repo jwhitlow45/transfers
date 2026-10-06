@@ -15,12 +15,12 @@ import { Toast, type ToastMessage } from '../components/Toast.tsx';
 import { TransferPointGroup } from '../components/TransferPointGroup.tsx';
 import { type SearchUpdate, TripSettingsSheet } from '../components/TripSettingsSheet.tsx';
 import { useSwipeBack } from '../gestures.ts';
-import { useNow, usePinEnds, usePoll } from '../hooks.ts';
+import { useNow, usePinnedTrip, usePoll } from '../hooks.ts';
 import { defaultSavedColor } from '../lib/color.ts';
 import { clock, walkMinutes } from '../format.ts';
 import { type ViewAlert, viewAlerts } from '../lib/alerts.ts';
 import { type StationOutages, groupStops, outagesByStation } from '../lib/outages.ts';
-import { pinnedEnd, pinnedFor, samePin } from '../lib/pinned.ts';
+import { samePin } from '../lib/pinned.ts';
 import { ageText, clockSkewMs, freshness } from '../lib/freshness.ts';
 import { IconHidden, IconTransfer } from '../icons/ui.tsx';
 import { type CardContext, chooseDirection, directionChoices, hintKey, pageColors, pointId, scaleFor, timeScale, visibleDepartures } from '../lib/results.ts';
@@ -90,7 +90,8 @@ export function ResultsScreen({ search }: { search: Search }) {
     const matches = page && page.from === search.from && tripTo(page.to) === search.to && matchesServerDefaults(settings) && !search.firstRoutes && !search.secondRoutes && !pin;
     return matches ? { data: page, fetchedAt: initialAt } : null;
   }, []);
-  const { data, error, fetchedAt, feed, settled, refresh } = usePoll<TripResponse>(url, 30_000, initial);
+  // Stored under the search's own address, so pinning adds no stored copy of its own.
+  const { data, error, fetchedAt, feed, settled, refresh } = usePoll<TripResponse>(url, 30_000, initial, tripApiUrl(search, settings, showHidden));
   // Every time on the page is the server's, so the clock is too.
   const skew = clockSkewMs(data?.generatedAt, fetchedAt);
   const now = deviceNow + skew;
@@ -104,22 +105,22 @@ export function ResultsScreen({ search }: { search: Search }) {
 
   // The pinned trip as its vehicles run now. When it ends moves with them, and with a new
   // destination, and decides when it unpins itself.
-  const pinned = pin && data ? pinnedFor(pin, data, search.dest) : null;
-  const { unpinAt, expired } = usePinEnds(pin, pinned && pinnedEnd(pinned), settings, now, changePin);
+  const { pinned, unpinAt, expired } = usePinnedTrip(pin, data, search.dest, settings, now, changePin);
   // Whether this visit shows how to pin, counted once per visit, until the rider first pins.
   const [hint, setHint] = useState(() => !pin && takePinHint());
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const toastId = useRef(0);
   // Pinning from a row, the pinned card, or a map's sheet says what happened, with Undo putting
   // back whatever was pinned before, in case the tap was not meant.
+  // A map's sheet holds this from when it opened, so the pin it replaces is read as it is now.
   const pinFromResults = (next: Pin | null) => {
-    const previous = pin;
+    const previous = loadPin(search);
     changePin(next);
     if (next) {
       clearPinHint();
       setHint(false);
     }
-    const leg = pinned?.first ?? pinned?.second;
+    const leg = previous?.last?.first ?? previous?.last?.second;
     const route = leg && data?.routes[leg.route];
     const was = leg?.on && route ? `the ${chipLabel(route)} at ${clock(leg.on.at)}` : 'the trip pinned before';
     const text = !next ? 'Unpinned' : previous && !samePin(previous, next) ? `Pinned in place of ${was}` : 'Pinned to the top';
@@ -132,8 +133,8 @@ export function ResultsScreen({ search }: { search: Search }) {
   const allAlerts = data ? viewAlerts(data, summary.boarding, { elevators: settings.stepFree, escalators: settings.escalatorOutages }) : [];
   const alerts = allAlerts.filter(({ id }) => !dismissedIds.has(id));
   const dismissedHere = allAlerts.length - alerts.length;
-  const dismiss = ({ id, kicker, title, body, meta, url, until, severity }: ViewAlert) => {
-    dismissNotice({ id, kicker, title, body, meta, url, until, severity });
+  const dismiss = ({ id, kicker, title, body, meta, url, severity }: ViewAlert) => {
+    dismissNotice({ id, kicker, title, body, meta, url, severity });
     setDismissed(loadDismissed());
     setToast({
       id: ++toastId.current,

@@ -12,7 +12,8 @@ export class HttpError extends Error {
   }
 }
 
-export async function getJson<T>(url: string, options: { signal?: AbortSignal; remember?: boolean } = {}): Promise<T> {
+// `cacheAs` keeps the answer in storage under that key, for the next visit and offline.
+export async function getJson<T>(url: string, options: { signal?: AbortSignal; cacheAs?: string } = {}): Promise<T> {
   const known = etags.get(url);
   const response = await fetch(url, {
     ...(options.signal ? { signal: options.signal } : {}),
@@ -33,7 +34,7 @@ export async function getJson<T>(url: string, options: { signal?: AbortSignal; r
   const data = stamped((await response.json()) as T);
   const etag = response.headers.get('ETag');
   if (etag) etags.set(url, { etag, data });
-  if (options.remember) saveCached(url, data);
+  if (options.cacheAs) saveCached(options.cacheAs, data);
   return data;
 }
 

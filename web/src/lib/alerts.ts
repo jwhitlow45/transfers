@@ -2,8 +2,8 @@ import type { Alert, TripResponse } from '../../../shared/api.ts';
 import { agencyOnly, chipLabel, shortStopName } from '../view.ts';
 
 export type Severity = 'severe' | 'warning' | 'info';
-// `startOpen` opens the alert at first. `until` is when the agency says it ends, in unix seconds.
-export type ViewAlert = { id: string; severity: Severity; kicker: string; title: string; body: string | null; meta: string; url: string | null; startOpen: boolean; until: number | null };
+// `startOpen` opens the alert at first.
+export type ViewAlert = { id: string; severity: Severity; kicker: string; title: string; body: string | null; meta: string; url: string | null; startOpen: boolean };
 
 const date = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric' });
 
@@ -46,12 +46,13 @@ function toView(alert: Alert, data: TripResponse, boardingStops: Set<string>, ne
     const kind = access ? 'Station access' : alert.effect === 'DETOUR' ? 'Reroute' : 'Service change';
     kicker = `${kind}${routeNames ? ` · ${routeNames}` : ''}`;
   }
-  // Raised for a rider who relies on what it is about, but folded at first like BART's outages.
+  // Raised for a rider who relies on what it is about, but folded at first, as it is not about
+  // where they board.
   const relied = (needs.elevators && /elevator/i.test(alert.header)) || (needs.escalators && /escalator/i.test(alert.header));
   if (relied) {
     severity = 'severe';
     if (kicker.startsWith('Notice')) kicker = `Station access · ${routeNames || agencyOnly(alert.agency)}`;
   }
   const until = alert.activeUntil ? ` · Until ${date.format(alert.activeUntil * 1000)}` : '';
-  return { id: alert.id, severity, kicker, title: alert.header, body: alert.description, meta: `${agencyOnly(alert.agency)}${until}`, url: alert.url, startOpen: severity === 'severe' && !relied, until: alert.activeUntil };
+  return { id: alert.id, severity, kicker, title: alert.header, body: alert.description, meta: `${agencyOnly(alert.agency)}${until}`, url: alert.url, startOpen: severity === 'severe' && !relied };
 }

@@ -1,11 +1,12 @@
 import { useRef, useState } from 'preact/hooks';
 import { ScreenHeader } from '../components/ResultsHeader.tsx';
 import { Toast, type ToastMessage } from '../components/Toast.tsx';
+import { focusInstead } from '../focus.ts';
 import { clock } from '../format.ts';
 import { IconInfo, IconWarn } from '../icons/ui.tsx';
 import { useSwipeBack } from '../gestures.ts';
 import { goBack } from '../router.ts';
-import { type DismissedNotice, dismissNotice, loadDismissed, restoreAllNotices, restoreNotice } from '../storage.ts';
+import { DISMISSED_DAYS, type DismissedNotice, dismissNotice, loadDismissed, restoreAllNotices, restoreNotice } from '../storage.ts';
 import { dayLabel } from '../view.ts';
 
 // Notices the rider dismissed from results, newest first, as they read then, each with a way to
@@ -18,20 +19,28 @@ export function NoticesScreen() {
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const toastId = useRef(0);
   const reload = () => setNotices(loadDismissed());
-  // Undo dismisses them again, oldest first, so the newest stays first.
+  // Undo puts them back as they were, dismissed when they were.
   const redismiss = (list: DismissedNotice[]) => {
-    for (const { at: _at, ...notice } of [...list].reverse()) dismissNotice(notice);
+    for (const { at, ...notice } of list) dismissNotice(notice, at);
     reload();
   };
+  // Focus goes to the next notice's Restore, or the page's content once none are left.
+  const focusRestore = (place: number) =>
+    requestAnimationFrame(() => {
+      const buttons = document.querySelectorAll<HTMLElement>('.tf-notice__restore');
+      focusInstead(buttons[Math.min(place, buttons.length - 1)]);
+    });
   const restore = (notice: DismissedNotice) => {
     restoreNotice(notice.id);
     reload();
+    focusRestore(notices.indexOf(notice));
     setToast({ id: ++toastId.current, text: 'Notice restored', about: 'notice', undo: () => redismiss([notice]) });
   };
   const restoreAll = () => {
     const all = notices;
     restoreAllNotices();
     reload();
+    focusRestore(0);
     setToast({ id: ++toastId.current, text: all.length === 1 ? 'Notice restored' : `${all.length} notices restored`, about: 'notice', undo: () => redismiss(all) });
   };
   const now = Date.now();
@@ -47,7 +56,7 @@ export function NoticesScreen() {
             </div>
           ) : (
             <>
-              <p class="tf-muted tf-notices__intro">These stay hidden on every trip until you restore them, or the agency ends them.</p>
+              <p class="tf-muted tf-notices__intro">These stay hidden on every trip until you restore them, for up to {DISMISSED_DAYS} days.</p>
               <ul class="tf-notices">
                 {notices.map((notice) => (
                   // Colored, with its icon, as it was in the results.

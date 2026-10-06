@@ -1,7 +1,7 @@
 import { deepStrictEqual, strictEqual } from 'node:assert/strict';
 import { test } from 'node:test';
 import type { PinnedTrip, TripResponse } from '../../../shared/api.ts';
-import { pinnedEnd, pinnedFor, pinnedPhase, pinnedTransfer } from './pinned.ts';
+import { pinnedEnd, pinnedFor, pinnedPhase, pinnedTransfer, samePin, steadyPinned } from './pinned.ts';
 
 // BART from Montgomery at 8:00, off at 24th St at 8:08, then the 48 there at 8:17 to Potrero at 8:27.
 const trip: PinnedTrip = {
@@ -63,4 +63,29 @@ test('until the answer for a new pin arrives, the results it was pinned from sta
   strictEqual(pinnedFor(pin, { ...data, pinned: trip }, 'SF:13500'), trip);
   // An answer for a pin since replaced does not.
   strictEqual(pinnedFor({ ...pin, second: { ...pin.second, trip: 'SF:m4' } }, { ...data, pinned: trip }, undefined), null);
+});
+
+test("an answer for the same vehicles on another day's run, or at another stop, is not this pin's", () => {
+  const pin = { first: { trip: 'BA:b3', alight: 'BA:901609' }, second: { trip: 'SF:m3', board: 'SF:13477' }, at: 817, ends: 827 };
+  const data = { from: 'BA:901209', groups: [], pinned: trip } as unknown as TripResponse;
+  strictEqual(pinnedFor(pin, data, undefined), trip);
+  strictEqual(pinnedFor({ ...pin, at: 817 + 86_400 }, data, undefined), null);
+  strictEqual(pinnedFor({ ...pin, second: { ...pin.second, board: 'SF:13478' } }, data, undefined), null);
+  strictEqual(pinnedFor({ ...pin, first: { ...pin.first, alight: 'BA:901601' } }, data, undefined), null);
+  strictEqual(samePin(pin, { ...pin, at: 817 + 86_400 }), false);
+  strictEqual(samePin(pin, { ...pin, ends: 900 }), true);
+});
+
+test('a trip the schedule lacks keeps a stop the feed dropped once passed, and its arrival only while it is still the destination', () => {
+  const pin = { second: { trip: 'BA:extra', board: 'BA:901201' }, at: 800, ends: 830 };
+  const before = { second: { trip: 'BA:extra', route: 'BA:Yellow', on: { stop: 'BA:901201', at: 800, delay: 0 }, off: { stop: 'BA:901601', at: 830, delay: 0 }, live: true, added: true } };
+  const boarded = { second: { ...before.second, on: null } };
+  deepStrictEqual(steadyPinned(boarded, before, pin, 'BA:901601'), before);
+  // A new destination does not take the old one's arrival.
+  strictEqual(steadyPinned({ second: { ...boarded.second, off: null } }, before, pin, 'BA:902101').second?.off, null);
+  // Gone from the feed once it ends, it stays as last seen.
+  deepStrictEqual(steadyPinned({ second: null }, before, pin, 'BA:901601'), before);
+  // A scheduled trip's stop the feed says it skips is not filled in.
+  const scheduled = { second: { ...before.second, added: undefined } };
+  strictEqual(steadyPinned({ second: { ...scheduled.second, on: null } }, scheduled, pin, 'BA:901601').second?.on, null);
 });

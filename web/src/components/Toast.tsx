@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
+import { focusInstead } from '../focus.ts';
 import { motionOff } from '../gestures.ts';
 import { IconInfo, IconPin, IconUnpin } from '../icons/ui.tsx';
 
@@ -59,6 +60,8 @@ export function Toast({ message, page = false, onDone }: { message: ToastMessage
               onClick={() => {
                 shown.undo!();
                 onDone();
+                // Undo leaves with the note, so focus goes back to the page.
+                requestAnimationFrame(() => focusInstead(null));
               }}
             >
               Undo

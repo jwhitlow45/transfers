@@ -1,4 +1,5 @@
-import { useState } from 'preact/hooks';
+import { useRef, useState } from 'preact/hooks';
+import { focusInstead } from '../focus.ts';
 import { motionOff } from '../gestures.ts';
 import { navigate } from '../router.ts';
 import { IconChevron, IconChevronRight, IconInfo, IconWarn } from '../icons/ui.tsx';
@@ -15,19 +16,27 @@ export function AlertList({ alerts, dismissed, onDismiss }: { alerts: ViewAlert[
   // A dismissed notice closes as a folded one does before it goes, so what is below slides up
   // rather than jumping.
   const [leaving, setLeaving] = useState<ReadonlySet<string>>(new Set());
+  const section = useRef<HTMLElement>(null);
   const dismiss = (alert: ViewAlert) => {
+    const place = alerts.indexOf(alert);
     setLeaving((current) => new Set([...current, alert.id]));
     setTimeout(
       () => {
         onDismiss(alert);
         setLeaving((current) => new Set([...current].filter((id) => id !== alert.id)));
+        // Focus goes to what takes the notice's place: the next one, or the row counting dismissed
+        // ones.
+        requestAnimationFrame(() => {
+          const rows = section.current?.querySelectorAll<HTMLElement>('.tf-alert__toggle, .tf-alert--dismissed') ?? [];
+          if (!document.activeElement || document.activeElement === document.body) focusInstead(rows[Math.min(place, rows.length - 1)]);
+        });
       },
       motionOff() ? 0 : LEAVE_MS,
     );
   };
   if (alerts.length === 0 && dismissed === 0) return null;
   return (
-    <section class="tf-alerts" aria-label="Service alerts">
+    <section ref={section} class="tf-alerts" aria-label="Service alerts">
       {alerts.map((alert) => {
         const isOpen = open[alert.id] ?? alert.startOpen;
         const panel = `alert-${alert.id.replace(/[^\w-]/g, '_')}`;

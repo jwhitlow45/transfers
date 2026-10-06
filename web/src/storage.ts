@@ -2,7 +2,7 @@
 // (private windows, cleared site data), so every read falls back to defaults and every write
 // may fail quietly. Values are plain objects so they could move to an account later.
 
-import { MAX_MINUTES } from '../../shared/api.ts';
+import { MAX_MINUTES, type PinnedTrip } from '../../shared/api.ts';
 
 const PREFIX = 'transfers:';
 
@@ -44,8 +44,8 @@ export type DeviceSettings = {
   showHidden: boolean;
   // Whether a live map zooms in once the vehicle leaves the rider's stop.
   mapFitOnBoard: boolean;
-  // A rider who needs elevators: their outages at the trip's stations first, and more time to
-  // change at stations.
+  // A rider who needs elevators: their outages at the trip's stations tagged on the results, and
+  // more time to change at stations.
   stepFree: boolean;
   // A rider who relies on escalators: their outages at the trip's stations too.
   escalatorOutages: boolean;
@@ -130,8 +130,8 @@ export const searchId = (search: Search) => `${search.from}>${search.to}`;
 // is meant. `ends` is when the trip ends by the latest times seen: arriving at the destination,
 // or with none set, boarding the second vehicle.
 // `search` is the search it is pinned to as it stands now, so Home can show the pin and open its
-// results. Pins saved before it was kept lack it.
-export type Pin = { first?: { trip: string; alight: string }; second: { trip: string; board: string }; at: number; ends: number; search?: Search };
+// results. Pins saved before it was kept lack it. `last` is the trip's times as last seen.
+export type Pin = { first?: { trip: string; alight: string }; second: { trip: string; board: string }; at: number; ends: number; search?: Search; last?: PinnedTrip };
 
 export function loadPin(search: Search): Pin | null {
   return read<Record<string, Pin>>('pins', {})[searchId(search)] ?? null;
@@ -159,20 +159,22 @@ export type DismissedNotice = {
   // How it showed, so the Notices page shows it the same. Absent on older saves.
   severity?: 'severe' | 'warning' | 'info';
   at: number;
-  until: number | null;
 };
 
-// A dismissed notice is forgotten once the agency says it has ended, or after this long, so the
-// list does not grow without end.
-const DISMISSED_DAYS = 60;
+// A dismissed notice is forgotten after this long, so the list does not grow without end. Not
+// when the agency's notice ends: for one that recurs, such as nightly, that is only the end of
+// tonight's, and it would come back tomorrow.
+export const DISMISSED_DAYS = 60;
 
 export function loadDismissed(): DismissedNotice[] {
   const now = Date.now() / 1000;
-  return read<DismissedNotice[]>('dismissed', []).filter(({ at, until }) => (until === null || until > now) && now - at < DISMISSED_DAYS * 86_400);
+  return read<DismissedNotice[]>('dismissed', []).filter(({ at }) => now - at < DISMISSED_DAYS * 86_400);
 }
 
-export function dismissNotice(notice: Omit<DismissedNotice, 'at'>) {
-  write('dismissed', [{ ...notice, at: Math.floor(Date.now() / 1000) }, ...loadDismissed().filter(({ id }) => id !== notice.id)]);
+// Dismissed now, or with `at`, put back as dismissed then, as Undo after Restore does.
+export function dismissNotice(notice: Omit<DismissedNotice, 'at'>, at = Math.floor(Date.now() / 1000)) {
+  const others = loadDismissed().filter(({ id }) => id !== notice.id);
+  write('dismissed', [...others, { ...notice, at }].sort((a, b) => b.at - a.at));
 }
 
 export function restoreNotice(id: string) {

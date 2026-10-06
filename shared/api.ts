@@ -176,8 +176,8 @@ export type PinnedStop = { stop: string; at: number; delay: number | null };
 
 // One vehicle of a pinned trip, where the rider gets on and where they get off. `off` is null for
 // the last vehicle when no destination is set or the trip does not reach it. A stop is null when
-// the trip skips it, or for a trip the schedule lacks, once the feed no longer lists it.
-export type PinnedLeg = { trip: string; route: string; on: PinnedStop | null; off: PinnedStop | null; live: boolean; canceled?: boolean };
+// the trip skips it, or for a trip the schedule lacks (`added`), once the feed no longer lists it.
+export type PinnedLeg = { trip: string; route: string; on: PinnedStop | null; off: PinnedStop | null; live: boolean; canceled?: boolean; added?: boolean };
 
 // A trip the rider pinned to follow until they unpin it, as its vehicles run now. `first` is
 // absent for a route already at From, and a leg is null when neither the schedule nor the feed

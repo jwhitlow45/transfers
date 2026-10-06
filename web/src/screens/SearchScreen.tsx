@@ -10,12 +10,11 @@ import { SearchFields } from '../components/SearchFields.tsx';
 import { type SearchHit, StopResults, hitMeta, hitName } from '../components/StopResults.tsx';
 import { Toast, type ToastMessage } from '../components/Toast.tsx';
 import { clock } from '../format.ts';
-import { useNow, usePinEnds, usePoll } from '../hooks.ts';
+import { useNow, usePinnedTrip, usePoll } from '../hooks.ts';
 import { IconChevron, IconGear, IconLocation, IconPin } from '../icons/ui.tsx';
 import { defaultSavedColor } from '../lib/color.ts';
 import { ageText, clockSkewMs, freshness } from '../lib/freshness.ts';
 import { type LocationProblem, handOver, locate, locationProblemText } from '../lib/location.ts';
-import { pinnedEnd, pinnedFor } from '../lib/pinned.ts';
 import { pageColors, scaleFor, timeScale } from '../lib/results.ts';
 import { summarize } from '../lib/summary.ts';
 import { navigate, tripPath } from '../router.ts';
@@ -26,6 +25,7 @@ import {
   type Search,
   loadDismissed,
   loadFields,
+  loadPin,
   loadPins,
   loadRecent,
   loadSaved,
@@ -76,8 +76,10 @@ export function SearchScreen() {
     savePin(search, next && { ...next, search });
     setPins(loadPins());
   };
-  // Unpinned by the rider, rather than on its own, says so with Undo, as on results.
-  const pinFromHome = (search: Search, previous: Pin, next: Pin | null) => {
+  // Unpinned by the rider, rather than on its own, says so with Undo, as on results. A map's sheet
+  // holds this from when it opened, so the pin it replaces is read as it is now.
+  const pinFromHome = (search: Search, next: Pin | null) => {
+    const previous = loadPin(search);
     updatePin(search, next);
     if (!next) setToast({ id: ++toastId.current, text: 'Unpinned', about: 'unpin', undo: () => updatePin(search, previous) });
   };
@@ -159,7 +161,7 @@ export function SearchScreen() {
           </span>
         </div>
         {pins.map((pin) => (
-          <PinnedHome key={searchId(pin.search)} pin={pin} now={now} onPin={(next) => pinFromHome(pin.search, pin, next)} onUpdate={(next) => updatePin(pin.search, next)} />
+          <PinnedHome key={searchId(pin.search)} pin={pin} now={now} onPin={(next) => pinFromHome(pin.search, next)} onUpdate={(next) => updatePin(pin.search, next)} />
         ))}
         <SearchFields
           from={{ query: from.query, ...(from.picked ? { meta: from.picked.meta } : {}) }}
@@ -265,10 +267,14 @@ function HowItWorks({ open: openAtFirst }: { open: boolean }) {
 function PinnedHome({ pin, now, onPin, onUpdate }: { pin: Pin & { search: Search }; now: number; onPin: (pin: Pin | null) => void; onUpdate: (pin: Pin | null) => void }) {
   const { settings } = useSettings();
   const { search } = pin;
-  const { data, fetchedAt } = usePoll<TripResponse>(tripApiUrl(search, settings, false, pin), 30_000);
-  const serverNow = now + clockSkewMs(data?.generatedAt, fetchedAt);
-  const pinned = data ? pinnedFor(pin, data, search.dest) : null;
-  const { unpinAt, expired } = usePinEnds(pin, pinned && pinnedEnd(pinned), settings, serverNow, onUpdate);
+  const { data, fetchedAt, feed, settled } = usePoll<TripResponse>(tripApiUrl(search, settings, false, pin), 30_000, null, tripApiUrl(search, settings, false));
+  const skew = clockSkewMs(data?.generatedAt, fetchedAt);
+  const serverNow = now + skew;
+  const { pinned, unpinAt, expired } = usePinnedTrip(pin, data, search.dest, settings, serverNow, onUpdate);
+  // Times no longer live say so, as saved cards do, since Home has no banner to.
+  const fresh = freshness(serverNow, fetchedAt === null ? null : fetchedAt + skew, data?.dataAt ?? null);
+  const age = fresh.ageSeconds === null ? null : ageText(fresh.ageSeconds);
+  const status = feed === 'offline' ? `Offline${age ? ` · times ${age} old` : ''}` : fresh.stale && settled && age ? `Live times ${age} old` : null;
   const trip = { label: `${search.fromLabel} to ${search.toLabel}`, href: tripPath(search) };
   if (expired) return null;
   if (!data) {
@@ -300,6 +306,7 @@ function PinnedHome({ pin, now, onPin, onUpdate }: { pin: Pin & { search: Search
       unpinAt={unpinAt}
       onPin={onPin}
       trip={trip}
+      stale={status}
     />
   );
 }

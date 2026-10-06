@@ -2,7 +2,7 @@ import type { ComponentChildren } from 'preact';
 import type { PinnedLeg, PinnedStop, PinnedTrip, TripResponse } from '../../../shared/api.ts';
 import type { Pin } from '../storage.ts';
 import { clock, minutesUntil } from '../format.ts';
-import { IconClose, IconPin } from '../icons/ui.tsx';
+import { IconClose, IconPin, IconWarn } from '../icons/ui.tsx';
 import { type PinnedPhase, pinnedPhase, pinnedTransfer } from '../lib/pinned.ts';
 import { navigate } from '../router.ts';
 import { type Mark, TimeLink } from '../track.tsx';
@@ -15,7 +15,7 @@ import { TimeBar } from './TimeBar.tsx';
 // once pinned: a countdown to what happens next, each vehicle's live times where the rider gets
 // on and off, the transfer between them, and the time bar. Each time opens its vehicle's map,
 // watching the stop that matters at this point of the trip.
-export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, unpinAt, onPin, trip }: {
+export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, unpinAt, onPin, trip, stale }: {
   pin: Pin;
   pinned: PinnedTrip | null;
   data: TripResponse;
@@ -30,26 +30,36 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
   unpinAt: number | null;
   // Unpins with null, and pins this trip again after its map's sheet unpinned it.
   onPin: (pin: Pin | null) => void;
-  // On Home, the search it is pinned to, which opens its results.
+  // On Home, the search it is pinned to, which opens its results, and how old its times are when
+  // they are not live.
   trip?: { label: string; href: string };
+  stale?: string | null;
 }) {
   const head = (tags: ComponentChildren) => (
-    <div class="tf-pinned__head">
-      <span class="tf-kicker tf-pinned__kicker">
-        <IconPin filled size={13} />
-        Pinned
-      </span>
-      {trip && (
-        <a class="tf-pinned__trip" href={trip.href} onClick={(event) => (event.preventDefault(), navigate(trip.href))}>
-          {trip.label}
-        </a>
+    <>
+      <div class="tf-pinned__head">
+        <span class="tf-kicker tf-pinned__kicker">
+          <IconPin filled size={13} />
+          Pinned
+        </span>
+        {trip && (
+          <a class="tf-pinned__trip" href={trip.href} onClick={(event) => (event.preventDefault(), navigate(trip.href))}>
+            {trip.label}
+          </a>
+        )}
+        {tags}
+        <button type="button" class="tf-pinned__unpin" onClick={() => onPin(null)}>
+          <IconClose size={16} />
+          Unpin
+        </button>
+      </div>
+      {stale && (
+        <p class="tf-pinned__stale">
+          <IconWarn size={14} />
+          {stale}
+        </p>
       )}
-      {tags}
-      <button type="button" class="tf-pinned__unpin" onClick={() => onPin(null)}>
-        <IconClose size={16} />
-        Unpin
-      </button>
-    </div>
+    </>
   );
   const second = pinned?.second;
   if (!pinned || !second?.on || (pinned.first !== undefined && !pinned.first?.on)) {

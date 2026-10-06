@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { getJson } from './api.ts';
+import type { TripResponse } from '../../shared/api.ts';
+import { pinnedDestination, pinnedEnd, pinnedFor, steadyPinned } from './lib/pinned.ts';
 import { type DeviceSettings, type Pin, loadCached, saveCached } from './storage.ts';
 
 // The device clock, ticking every second so countdowns move offline too.
@@ -40,10 +42,13 @@ const SETTLE_MS = 5000;
 // never faster when data is old. Pages opening at different times keep their own rhythm, so
 // devices never line up into bursts.
 // `initial` is a response that arrived with the page, and when it arrived. `remember` false keeps
-// responses out of storage, for data that is no use on a later visit.
-export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { data: T; fetchedAt: number } | null = null, remember = true): Polled<T> {
+// responses out of storage, for data that is no use on a later visit. A string keeps them under
+// that key rather than the URL, so requests that differ only in what changes with every use, such
+// as a pinned trip, share one stored copy rather than leaving one each.
+export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { data: T; fetchedAt: number } | null = null, remember: boolean | string = true): Polled<T> {
+  const key = remember === true ? url : remember || null;
   const [state, setState] = useState<Omit<Polled<T>, 'refresh' | 'settled'>>(() => {
-    const cached = url && remember ? loadCached<T>(url) : null;
+    const cached = key ? loadCached<T>(key) : null;
     const data = initial?.data ?? cached?.data ?? null;
     return { data, error: null, fetchedAt: initial?.fetchedAt ?? cached?.fetchedAt ?? null, feed: initial ? 'live' : data ? 'refreshing' : 'loading' };
   });
@@ -60,7 +65,7 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
 
   useEffect(() => {
     // The page's own response is used once, so a later visit finds it with the rest.
-    if (initial && url) saveCached(url, initial.data, initial.fetchedAt);
+    if (initial && key) saveCached(key, initial.data, initial.fetchedAt);
     if (!initial) hold.current = setTimeout(() => setSettled(true), SETTLE_MS);
     return () => clearTimeout(hold.current);
   }, []);
@@ -74,10 +79,10 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
       clearTimeout(timer);
       timer = setTimeout(() => (document.visibilityState === 'visible' ? void fetchNow() : plan(intervalMs)), delay);
     };
-    if (seeded.current === null && remember) {
+    if (seeded.current === null && key) {
       // A changed setting is a new URL. Until its answer arrives, the previous results stay up
       // as refreshing, which beats flashing an empty screen.
-      const cached = loadCached<T>(url);
+      const cached = loadCached<T>(key);
       if (cached) setState((current) => ({ ...current, data: cached.data, fetchedAt: cached.fetchedAt }));
     }
 
@@ -97,7 +102,7 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
       }, REQUEST_TIMEOUT_MS);
       setState((current) => ({ ...current, feed: current.data ? 'refreshing' : 'loading' }));
       try {
-        const data = await getJson<T>(url, { signal: request.signal, remember });
+        const data = await getJson<T>(url, { signal: request.signal, ...(key ? { cacheAs: key } : {}) });
         // New data shows at once. Only the refresh bar lingers.
         setState({ data, error: null, fetchedAt: Date.now(), feed: 'refreshing' });
         clearTimeout(settle);
@@ -141,17 +146,24 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
   return { ...state, settled, refresh: () => tick.current() };
 }
 
-// Keeps a pin's end current with the latest times, `ends`, and unpins it the set time after,
-// with that setting on. `now` is milliseconds on the server's clock. Returns when it unpins, or
-// null, and whether that has passed.
-export function usePinEnds(pin: Pin | null, ends: number | null, settings: DeviceSettings, now: number, change: (pin: Pin | null) => void) {
+// A pinned trip as its vehicles run now: the response's, steadied with the times last seen (see
+// steadyPinned), or those alone before any answer for it. Keeps the pin's end and last times
+// current, and unpins it the set time after its end, counted from the latest times, with that
+// setting on. `now` is milliseconds on the server's clock.
+export function usePinnedTrip(pin: Pin | null, data: TripResponse | null, dest: string | undefined, settings: DeviceSettings, now: number, change: (pin: Pin | null) => void) {
+  const fresh = pin && data ? pinnedFor(pin, data, dest) : null;
+  const pinned = pin && fresh ? steadyPinned(fresh, pin.last, pin, pinnedDestination(pin, data!, dest)) : (pin?.last ?? null);
+  const ends = pinned ? pinnedEnd(pinned) : null;
+  const seen = fresh && pinned ? JSON.stringify(pinned) : null;
   useEffect(() => {
-    if (pin && ends !== null && ends !== pin.ends) change({ ...pin, ends });
-  }, [ends]);
-  const unpinAt = pin && settings.autoUnpin ? (pin.ends + settings.unpinAfter * 60) * 1000 : null;
+    if (!pin || !pinned || seen === null || seen === JSON.stringify(pin.last)) return;
+    change({ ...pin, last: pinned, ...(ends !== null ? { ends } : {}) });
+  }, [seen]);
+  const end = ends ?? pin?.ends ?? null;
+  const unpinAt = pin && settings.autoUnpin && end !== null ? (end + settings.unpinAfter * 60) * 1000 : null;
   const expired = unpinAt !== null && now >= unpinAt;
   useEffect(() => {
     if (expired) change(null);
   }, [expired]);
-  return { unpinAt, expired };
+  return { pinned, unpinAt, expired };
 }

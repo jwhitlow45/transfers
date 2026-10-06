@@ -29,7 +29,7 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
   const panel = useRef<HTMLDivElement>(null);
   const body = useRef<HTMLDivElement>(null);
   const scrim = useRef<HTMLDivElement>(null);
-  const step = useRef(0);
+  const step = useRef('');
   const latestClose = useRef(onClose);
   latestClose.current = onClose;
   useEffect(() => {
