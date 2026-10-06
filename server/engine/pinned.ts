@@ -36,7 +36,7 @@ function pinnedLeg(schedule: Schedule, snapshot: TripSnapshot | null, trip: stri
   const pattern = row ? schedule.patterns.get(row.pattern) : undefined;
   if (!row || !pattern) return rt ? addedLeg(schedule, rt, trip, onStop, offStop, tables) : null;
   const stops = pattern.stops.map((id) => schedule.stop(id));
-  const { times, scheduled, predicted } = expectedTimes(schedule, row.row, stops, rt, now, near);
+  const { times, scheduled, reported, predicted } = expectedTimes(schedule, row.row, stops, rt, now, near);
   const onVisits = visitsTo(schedule, pattern.stops, onStop);
   const offVisits = offStop ? visitsTo(schedule, pattern.stops, offStop) : [];
   const gap = (index: number, time: number) => Math.abs((scheduled[index] ?? Infinity) - time);
@@ -54,7 +54,9 @@ function pinnedLeg(schedule: Schedule, snapshot: TripSnapshot | null, trip: stri
     const time = index === null || index === undefined ? null : times[index];
     if (time === null || time === undefined) return null;
     const planned = scheduled[index!];
-    return { stop: tables.stop(stop), at: time, delay: predicted && planned !== null && planned !== undefined ? time - planned : null };
+    // As the results count it: the feed's own delay where it gives one.
+    const delay = !predicted ? null : (reported[index!] ?? (planned === null || planned === undefined ? null : time - planned));
+    return { stop: tables.stop(stop), at: time, delay };
   };
   return {
     trip,

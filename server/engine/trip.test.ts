@@ -475,6 +475,20 @@ test('a pinned trip follows its vehicles where the rider gets on and off, and th
   deepStrictEqual(planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477', pin }, NOW).pin, pin);
 });
 
+test('a pinned trip counts a delay as its results do, by the delay the feed gives', () => {
+  // Train b9 is due at 9:00 and 9:08 by the feed, a minute after the schedule here, which the feed
+  // counts as on time.
+  const leaves = DAY + 9 * 3600;
+  const update = (stopId: string, time: number) => ({ stopId, arrival: { time, delay: 0 } });
+  const late = realtime([{ id: 'b9', tripUpdate: { trip: { tripId: 'BA:b9', routeId: 'BA:Yellow-S' }, stopTimeUpdate: [update('901201', leaves + 60), update('901601', leaves + 540)] } }]);
+  const pin = { first: { trip: 'BA:b9', alight: 'BA:901609', at: leaves + 480 }, second: { trip: 'SF:m6', board: 'SF:13477' }, at: DAY + 9 * 3600 + 17 * 60 };
+  const pinned = planTrip(schedule, late, { from: 'BA:901209', to: 'SF:13477', pin }, NOW).pinned!;
+  deepStrictEqual([pinned.first?.on, pinned.first?.off], [
+    { stop: 'BA:901209', at: leaves + 60, delay: 0 },
+    { stop: 'BA:901609', at: leaves + 540, delay: 0 },
+  ]);
+});
+
 test("a pinned trip from another day keeps to that day's schedule, and a canceled one says so", () => {
   const plain = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477' }, NOW);
   const group = plain.groups[0]!;

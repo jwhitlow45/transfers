@@ -276,7 +276,10 @@ export function expectedTimes(schedule: Schedule, tripRow: number, stops: StopRo
     listed.set(at, update);
     from = at + 1;
   }
-  if (listed.size === 0) return { times: scheduled, scheduled, predicted: false };
+  // The feed's own delay at each stop it lists, which on BART can differ by a minute or so from its
+  // time less the schedule here. The results show this one.
+  const reported = scheduled.map((_, index) => listed.get(index)?.delay ?? null);
+  if (listed.size === 0) return { times: scheduled, scheduled, reported, predicted: false };
   const delayAt = (index: number, update: RtStopTime) => update.delay ?? (update.time !== null && scheduled[index] !== null ? update.time - scheduled[index]! : null);
   const first = Math.min(...listed.keys());
   let delay = delayAt(first, listed.get(first)!) ?? 0;
@@ -290,7 +293,7 @@ export function expectedTimes(schedule: Schedule, tripRow: number, stops: StopRo
     if (update?.time !== null && update?.time !== undefined) return update.time;
     return time === null ? null : time + delay;
   });
-  return { times, scheduled, predicted: true };
+  return { times, scheduled, reported, predicted: true };
 }
 
 // The point a share of the way along the line from one shape point to another, and the way the
