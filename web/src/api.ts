@@ -1,4 +1,5 @@
 import { saveCached } from './storage.ts';
+import { noticeBuild } from './update.ts';
 
 // The server tags each response, and a refresh that lands before the server's next feed
 // refresh comes back as an empty 304.
@@ -20,6 +21,7 @@ export async function getJson<T>(url: string, options: { signal?: AbortSignal; c
     // Tells the server this page takes the time from the header, so unchanged data can match.
     headers: { 'X-Reads-Generated-At': '1', ...(known ? { 'If-None-Match': known.etag } : {}) },
   });
+  noticeBuild(response.headers.get('X-Build'));
   // When the server sent this, for working out how far this device's clock is off. The body's
   // own time is old whenever the data is: on a 304, and on a 200 the browser rebuilt from its
   // cache after checking with the server. Behind a proxy that drops the header, the standard

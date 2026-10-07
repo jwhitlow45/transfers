@@ -9,10 +9,13 @@ import { SettingsScreen } from './screens/SettingsScreen.tsx';
 import { SettingsProvider } from './settings.tsx';
 import { searchId } from './storage.ts';
 import { TrackProvider } from './track.tsx';
+import { UpdatePill } from './components/UpdatePill.tsx';
+import { useUpdateAvailable } from './update.ts';
 import './styles.css';
 
 function App() {
   const page = usePage();
+  const update = useUpdateAvailable();
   // Each screen scrolls inside the app shell, so the page title is the only way a screen
   // change reaches a screen reader without moving focus.
   useEffect(() => {
@@ -20,7 +23,7 @@ function App() {
   }, [page]);
   return (
     <SettingsProvider>
-      <div class="tf-app">
+      <div class={`tf-app${update ? ' tf-app--update' : ''}`}>
         <TrackProvider>
           {page.name === 'home' && <SearchScreen key={history.state?.from || history.state?.to ? 'prefilled' : 'home'} />}
           {page.name === 'trip' && <ResultsScreen key={searchId(page.search)} search={page.search} />}
@@ -28,6 +31,7 @@ function App() {
           {page.name === 'settings' && <SettingsScreen />}
           {page.name === 'notices' && <NoticesScreen />}
         </TrackProvider>
+        <UpdatePill />
       </div>
     </SettingsProvider>
   );

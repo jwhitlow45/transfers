@@ -9,11 +9,30 @@ const outDir = join(import.meta.dirname, '..', 'dist');
 
 export default defineConfig({
   root: import.meta.dirname,
-  plugins: [preact(), serviceWorker(), precompress()],
+  plugins: [preact(), buildStamp(), serviceWorker(), precompress()],
   build: { outDir, emptyOutDir: true, target: 'es2022' },
   // Tailnet names are allowed so a phone can reach the dev server through `tailscale serve`.
   server: { proxy: { '/api': 'http://localhost:3000' }, allowedHosts: ['.ts.net'] },
 });
+
+// Stamps the page with its build's id: a hash of every built file's name, which carry content
+// hashes, so it changes exactly when anything shipped does. The server sends the same id from its
+// copy of the page, and a page with another asks the rider to refresh (see src/update.ts).
+function buildStamp(): Plugin {
+  return {
+    name: 'build-stamp',
+    apply: 'build',
+    transformIndexHtml: {
+      order: 'post',
+      handler(html, { bundle }) {
+        if (!bundle) return html;
+        const names = Object.keys(bundle).filter((name) => !name.endsWith('.html') && name !== 'sw.js').sort();
+        const id = createHash('sha256').update(names.join('\n')).digest('hex').slice(0, 12);
+        return { html, tags: [{ tag: 'meta', attrs: { name: 'build', content: id }, injectTo: 'head' }] };
+      },
+    },
+  };
+}
 
 // Writes sw.js listing the built files the app needs to open, so the service worker caches them
 // on the first visit and later visits open with no network at all. Chunks loaded only on demand,

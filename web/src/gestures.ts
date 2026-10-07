@@ -123,7 +123,8 @@ const BACK_FLING = 0.4;
 // slides with the rest.
 export function useSwipeBack(onBack: () => void) {
   const shell = () => document.querySelector<HTMLElement>('.tf-app');
-  const layers = () => [...(shell()?.children ?? [])].filter((layer): layer is HTMLElement => layer instanceof HTMLElement && !layer.classList.contains('tf-sheet'));
+  // A new version's pill belongs to the app, not the screen, so it stays put.
+  const layers = () => [...(shell()?.children ?? [])].filter((layer): layer is HTMLElement => layer instanceof HTMLElement && !layer.classList.contains('tf-sheet') && !layer.classList.contains('tf-update-region'));
   const slide = (offset: number, animated: boolean) => {
     for (const layer of layers()) {
       layer.style.transition = animated && !motionOff() ? `transform ${SLIDE_MS}ms ease-out` : 'none';

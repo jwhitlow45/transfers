@@ -4,7 +4,8 @@ import { MinutesSlider, WindowSlider } from '../components/Slider.tsx';
 import { useSwipeBack } from '../gestures.ts';
 import { goBack, navigate } from '../router.ts';
 import { useSettings } from '../settings.tsx';
-import { type DeviceSettings, MAX_UNPIN_MINUTES, clearCached } from '../storage.ts';
+import { type DeviceSettings, MAX_UNPIN_MINUTES } from '../storage.ts';
+import { forceRefresh, ownBuild } from '../update.ts';
 
 const SPEEDS = [
   { value: 0.9, label: 'Unhurried' },
@@ -190,23 +191,10 @@ export function SettingsScreen() {
             <button type="button" class="tf-btn-outline tf-force-refresh" onClick={() => void forceRefresh()}>
               Force refresh site
             </button>
+            {ownBuild && <div class="tf-setting__help tf-version">Version {ownBuild}</div>}
           </div>
         </section>
       </main>
     </div>
   );
-}
-
-// Drops the service worker and its copy of the site, and the stored responses, then reloads, so
-// the page and its data come fresh from the server.
-async function forceRefresh() {
-  try {
-    const registrations = (await navigator.serviceWorker?.getRegistrations()) ?? [];
-    await Promise.all(registrations.map((registration) => registration.unregister()));
-    if ('caches' in window) await Promise.all((await caches.keys()).map((name) => caches.delete(name)));
-  } catch {
-    // A browser that refuses still reloads below, which fetches what it can.
-  }
-  clearCached();
-  location.reload();
 }

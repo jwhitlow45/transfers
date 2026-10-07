@@ -51,6 +51,9 @@
      home indicator, which reports no inset. */
   --bottom-inset: calc(env(safe-area-inset-bottom) + min(env(safe-area-inset-bottom), 10px));
   --corner-inset: min(env(safe-area-inset-bottom), 8px);
+  /* Room a new version's pill (UpdatePill.tsx) needs at the bottom of the screen beyond the space
+     already under the bottom controls: none on a phone with a home indicator, whose inset holds it. */
+  --update-room: 0px;
 }
 
 :root, [data-theme="light"] {
@@ -127,11 +130,19 @@ button:disabled { opacity: .45; cursor: default; }
 /* ── app shell ─────────────────────────────────────── */
 .tf-app { position: relative; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
 .tf-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; }
+/* A newer version of the site, in one place on every screen: bottom center, in the space between
+   the bottom controls and the home indicator, or with no such space, in room the page makes for
+   it. Sheets open over it. */
+.tf-app--update { --update-room: calc(32px - min(var(--bottom-inset), 32px)); }
+/* Placed within the app shell rather than fixed to the screen: iOS drew a fixed pill behind the
+   screens, which scroll in layers of their own. */
+.tf-update-region { position: absolute; left: 0; right: 0; bottom: max(4px, calc(var(--bottom-inset) - 24px)); z-index: 5; display: flex; justify-content: center; pointer-events: none; }
+.tf-update-pill { pointer-events: auto; display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 var(--space-2); background: var(--bg); color: var(--accent-ink); border: var(--border-hair) solid color-mix(in srgb, var(--accent-ink) 55%, transparent); font-size: var(--text-sm); font-weight: var(--weight-semibold); white-space: nowrap; }
 /* Focused only in place of a control that went away (see focus.ts), which needs no ring. */
 #main:focus { outline: none; }
 .tf-page { max-width: var(--page-max); margin: 0 auto; padding: var(--space-5) var(--space-5) var(--space-6); display: flex; flex-direction: column; gap: var(--space-4); }
 /* A screen with no bottom bar, such as Settings, scrolls its last items clear of the home indicator. */
-.tf-app:not(:has(.tf-bottombar)) .tf-page { padding-bottom: calc(var(--space-6) + var(--bottom-inset)); }
+.tf-app:not(:has(.tf-bottombar)) .tf-page { padding-bottom: calc(var(--space-6) + var(--bottom-inset) + var(--update-room)); }
 .tf-page--form { max-width: var(--form-max); gap: var(--space-6); padding-bottom: 32px; }
 
 /* ── buttons ───────────────────────────────────────── */
@@ -141,6 +152,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-btn-outline { min-height: var(--tap-primary); border: var(--border-strong) solid var(--line); }
 .tf-btn-outline:hover, .tf-btn-icon:hover { background: color-mix(in srgb, var(--text) 7%, transparent); }
 .tf-force-refresh { width: 100%; margin-top: var(--space-2); font-weight: 650; }
+.tf-version { margin-top: var(--space-2); }
 
 /* ── route chip ────────────────────────────────────── */
 .tf-chip { display: inline-flex; align-items: center; gap: 4px; padding: 0 7px 0 5px; font-weight: var(--weight-bold); line-height: 1.4; white-space: nowrap; }
@@ -373,7 +385,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-credit { margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--divider); font-size: var(--text-sm); color: var(--muted); display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-1) var(--space-4); }
 
 /* ── bottom bar ────────────────────────────────────── */
-.tf-bottombar { flex: none; border-top: var(--border-strong) solid var(--line); background: var(--bg); padding: var(--space-2) calc(var(--space-3) + var(--corner-inset)) calc(var(--space-2) + var(--bottom-inset)); }
+.tf-bottombar { flex: none; border-top: var(--border-strong) solid var(--line); background: var(--bg); padding: var(--space-2) calc(var(--space-3) + var(--corner-inset)) calc(var(--space-2) + var(--bottom-inset) + var(--update-room)); }
 .tf-bottombar__inner { max-width: 560px; margin: 0 auto; display: flex; gap: var(--space-2); }
 .tf-bottombar__open { flex: 1; display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: 0 var(--space-4); }
 .tf-bottombar__open strong { font-size: 18px; }
@@ -453,7 +465,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-bottombar { position: relative; }
 .tf-toast-region { position: absolute; z-index: 5; left: var(--space-3); right: var(--space-3); bottom: calc(100% + var(--space-2)); max-width: 560px; margin: 0 auto; pointer-events: none; }
 /* On a screen with no bottom bar, at the bottom of the screen itself. */
-.tf-toast-region--page { position: fixed; bottom: calc(var(--space-3) + var(--bottom-inset)); }
+.tf-toast-region--page { position: fixed; bottom: calc(var(--space-3) + var(--bottom-inset) + var(--update-room)); }
 .tf-toast { display: flex; align-items: center; gap: var(--space-2); min-height: var(--tap); padding: 0 var(--space-1) 0 var(--space-4); border: 1px solid var(--line); background: var(--field); color: var(--on-field); font-size: 15px; font-weight: var(--weight-semibold); pointer-events: auto; animation: tf-toast-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1); }
 .tf-toast--leaving { animation: tf-toast-out 160ms ease-in forwards; pointer-events: none; }
 .tf-toast__text { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }

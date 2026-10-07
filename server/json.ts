@@ -1,5 +1,19 @@
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { join } from 'node:path';
+import { config } from './config.ts';
+
+// The id of the page this server ships, from the build's stamp in it, sent with every answer. A
+// page left open across a deploy compares it with its own and offers to refresh (see
+// web/src/update.ts). A server with no built page, as in development, sends none.
+const build = (() => {
+  try {
+    return readFileSync(join(config.webDist, 'index.html'), 'utf8').match(/<meta name="build" content="([^"]+)"/)?.[1] ?? null;
+  } catch {
+    return null;
+  }
+})();
 
 // Results change only when a feed refreshes or a vehicle leaves, so a refresh that lands before
 // the next feed refresh gets an empty 304. A response's time changes every second, so for a page that
@@ -16,6 +30,7 @@ export function sendJson(request: IncomingMessage, response: ServerResponse, bod
     .slice(0, 16)}"`;
   response.setHeader('Cache-Control', 'no-cache');
   response.setHeader('ETag', etag);
+  if (build) response.setHeader('X-Build', build);
   if (generatedAt !== undefined) response.setHeader('X-Generated-At', String(generatedAt));
   if (status === 200 && sentTags(request.headers['if-none-match']).includes(etag)) {
     response.writeHead(304).end();
