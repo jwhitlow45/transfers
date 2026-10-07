@@ -115,11 +115,18 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
           </div>
         )}
       </div>
-      {departures.length === 0 && walk ? (
+      {left.length > 0 && (
+        <Departed count={walk ? left.length : left.reduce((sum, { connections }) => sum + connections.length, 0)}>
+          {left.map(card)}
+        </Departed>
+      )}
+      {/* Rows that have left are no use to a rider still at From, so with only those, the group
+          says nothing connects, and offers what might. */}
+      {ahead.length === 0 && walk ? (
         <div class="tf-empty">
           <div class="tf-empty__title">No {routeLabel.replace(/^the /, '')} coming soon</div>
         </div>
-      ) : departures.length === 0 ? (
+      ) : ahead.length === 0 ? (
         <div class="tf-empty">
           <div class="tf-empty__title">
             No {firstWord(group, data)} connects to {routeLabel} within {windowText(group.window)}
@@ -137,14 +144,7 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
           )}
         </div>
       ) : (
-        <>
-          {left.length > 0 && (
-            <Departed count={walk ? left.length : left.reduce((sum, { connections }) => sum + connections.length, 0)}>
-              {left.map(card)}
-            </Departed>
-          )}
-          {ahead.map(card)}
-        </>
+        ahead.map(card)
       )}
     </section>
   );

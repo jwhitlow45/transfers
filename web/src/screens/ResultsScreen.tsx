@@ -283,22 +283,20 @@ export function ResultsScreen({ search }: { search: Search }) {
             <EmptyTrip data={data} search={search} summary={summary} maxWalk={settings.maxWalk} update={update} />
           ) : (
             data && (
-              <>
-                <div class="tf-groups">
-                  {ordered.map((group) => (
-                    <TransferPointGroup
-                      key={pointId(group)}
-                      group={group}
-                      context={context}
-                      isExpanded={isExpanded}
-                      onToggle={toggleCard}
-                      // Widening raises the maximum only. The minimum is the time the walk takes.
-                      onWiden={(widened) => update((current) => ({ ...current, max: widened.max }))}
-                      onShowHidden={() => setShowHidden(true)}
-                    />
-                  ))}
-                </div>
-              </>
+              <div class="tf-groups">
+                {ordered.map((group) => (
+                  <TransferPointGroup
+                    key={pointId(group)}
+                    group={group}
+                    context={context}
+                    isExpanded={isExpanded}
+                    onToggle={toggleCard}
+                    // Widening raises the maximum only. The minimum is the time the walk takes.
+                    onWiden={(widened) => update((current) => ({ ...current, max: widened.max }))}
+                    onShowHidden={() => setShowHidden(true)}
+                  />
+                ))}
+              </div>
             )
           )}
           <DataCredit />

@@ -251,6 +251,16 @@ test('a map pinned to its span keeps its stops in place as the vehicle moves on'
   strictEqual(later.vehicle!.x > first.vehicle!.x, true);
 });
 
+test('drawn whole, each trip runs from its first stop to its last, whatever span the map was pinned to', () => {
+  const stopsOf = (trip: string) => schedule.patterns.get(schedule.trips.get(trip)!.pattern)!.stops.length;
+  const request = { trip: 'SF:t1', stop: 'SF:104', span: [1, 5] as [number, number], whole: true, transfer: { trip: 'SF:l1', stop: 'SF:102', whole: true } };
+  const response = trackVehicle(schedule, at({ lon: lon(1.5), stopId: '102' }), request, EIGHT + 30);
+  deepStrictEqual([response.span, response.path.length], [[0, stopsOf('SF:t1') - 1], stopsOf('SF:t1')]);
+  deepStrictEqual(response.transfer?.span, [0, stopsOf('SF:l1') - 1]);
+  // The rider's stop keeps its place in the longer picture.
+  strictEqual(response.stops[response.path[response.targetIndex!]!.stop]!.name.includes('Stop 4'), true);
+});
+
 test('the vehicle the rider transfers to is drawn on the same picture, and one the schedule lacks is left off', () => {
   // Riding t1 to stop 2, then boarding the loop trip there.
   const request = { trip: 'SF:t1', stop: 'SF:101', marks: ['SF:101', 'SF:102'], transfer: { trip: 'SF:l1', stop: 'SF:102' } };

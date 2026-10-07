@@ -176,7 +176,7 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
     const max = Math.min(MAX_MINUTES, Math.max(min, request.max ?? defaultMaximum(min, headway)));
     // Riding straight to a named stop, the time each departure reaches it is the point.
     const reaching = link.kind === 'walk' && toStop && !schedule.boardingStops(toStop).includes(link.board) ? toStop : null;
-    const second = secondLegs(context, linkForRoutes, destination ?? reaching);
+    const second = secondLegs(context, linkForRoutes, destination ?? reaching, true);
     let departures: Departure[];
     let widen: { min: number; max: number } | null = null;
     if (link.kind === 'walk') {

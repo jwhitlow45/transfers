@@ -84,6 +84,15 @@ An earlier version widened by the second route's headway instead. That made Mont
 
 Riders can reveal what the window filtered out: transfers below the minimum, transfers above the maximum, and first vehicles leaving too soon to reach. They appear in place, de-emphasized, each labeled with its reason.
 
+## Vehicles that have left
+
+A rider who boards and then opens the app should still find the trip they are on, to pin it. So the results keep vehicles that have left, apart from the rest:
+
+- A first vehicle that has left From, within the last three hours, stays while the second vehicle it makes has yet to leave, or with a destination, to reach it. Each pairs with the departure it really made, which may itself have left, so it never moves on to a later one.
+- A second vehicle that has left where the rider boards it stays only with a destination, until it gets there. Without one, the rider's trip ends once they board.
+- A stop the feed no longer lists is one the vehicle has passed. Its time there is the schedule plus the delay at the first stop the feed does list, always before now, so the vehicle counts as gone.
+- They never count as leaving too soon, and they do not count toward the 3 departures shown. They fold into a collapsed "N departed" row at the top of their card, or with every vehicle on a card gone, a "N departed" section at the top of the transfer point.
+
 ## Past the live predictions
 
 Live predictions reach about 1 to 3 hours ahead (about 67 minutes for SamTrans). Past that, departures come from the static schedule and are labeled as scheduled. A trip the feed knows but has not predicted that far stays, at its scheduled time: it has only passed a stop when the feed's first listed stop comes after it. A scheduled trip that should be on the road but is missing from the feed, within three minutes of a live trip on the same route, is taken as that same bus and dropped.
@@ -102,9 +111,9 @@ Pages show how old the live data is, counted from when the server last got it fr
 
 - Every minute comparison uses whole minutes rounded down, the same number the rider sees.
 - Each first vehicle pairs with the first second-leg departure it can make.
-- Show the next 3 departures per second route (or per transfer point) that have at least one qualifying first vehicle. Drop disqualified pairings before choosing those 3.
+- Show the next 3 departures per second route (or per transfer point) that have at least one qualifying first vehicle still to leave From. Drop disqualified pairings before choosing those 3. Vehicles that have left come on top (see above).
 - Under each departure, list every first vehicle that makes it, in order.
-- Hide first vehicles leaving From sooner than a rider-set number of minutes (default 0, the terminal version used 3).
+- Hide first vehicles leaving From sooner than a rider-set number of minutes (default 0, the terminal version used 3), but never one that has already left.
 - Lateness is the feed's arrival delay at that stop, rounded to the nearest minute: "N min late", "N min early", or "delay unknown". Shown for every vehicle on both legs.
 - An optional destination stop shows when the second vehicle reaches it, only when that comes after the boarding stop.
 - Times display in America/Los_Angeles.

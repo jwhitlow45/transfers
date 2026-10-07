@@ -209,6 +209,27 @@ test('a train that has left From stays with its live arrival, as the rider may b
   deepStrictEqual(connection && [connection.departs, connection.arrives, connection.live, connection.hidden], [DAY + 7.5 * 3600 + 1260, DAY + 7.5 * 3600 + 1740, true, undefined]);
 });
 
+test('a vehicle the feed says has passed counts as gone even when the delay later on would have it leave after now', () => {
+  // Train b3 is due at Montgomery at 8:00, and the feed lists only 24th St, two minutes late.
+  // Two minutes on Montgomery's time would be 8:02, yet the feed says it has gone.
+  const b3 = { id: 'b3', tripUpdate: { trip: { tripId: 'BA:b3', routeId: 'BA:Yellow-S' }, stopTimeUpdate: [{ stopId: '901601', arrival: { time: DAY + 7.5 * 3600 + 1800 + 600, delay: 120 } }] } };
+  const group = planTrip(schedule, realtime([b3]), { from: 'BA:901209', to: 'SF:13477', hide: 10 }, NOW).groups[0]!;
+  const connection = group.departures.flatMap(({ connections }) => connections).find(({ trip }) => trip === 'BA:b3');
+  deepStrictEqual([connection !== undefined, connection?.hidden, (connection?.departs ?? Infinity) < NOW], [true, undefined, true]);
+  // Bus m2, due at Valencia at 8:00, is listed only at Potrero, a minute late: the rider may be on it.
+  const m2 = { id: 'm2', tripUpdate: { trip: { tripId: 'SF:m2', routeId: 'SF:48' }, stopTimeUpdate: [{ stopId: '13500', arrival: { time: DAY + 7.5 * 3600 + 120 + 1800 + 660, delay: 60 } }] } };
+  const walk = planTrip(schedule, realtime([m2]), { from: 'SF:13486', to: 'route:SF:48', dest: 'SF:13500' }, NOW).groups.find(({ kind }) => kind === 'walk')!;
+  strictEqual(walk.departures.some(({ trip }) => trip === 'SF:m2'), true);
+});
+
+test('a train that has left keeps the bus it really made, and goes once that bus has, rather than taking a later one', () => {
+  // At 8:05, trains b1 (7:40) and b2 (7:50) made bus m2, which left 24th St at 8:02. Train b3, which
+  // left at 8:00, makes m3 at 8:17. A wide window would let b1 and b2 reach m3 too.
+  const group = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477', max: 30 }, NOW + 300).groups[0]!;
+  deepStrictEqual(group.departures.find(({ trip }) => trip === 'SF:m3')?.connections.filter(({ departs }) => departs < NOW + 300).map(({ trip }) => trip), ['BA:b3']);
+  strictEqual(group.departures.some(({ trip }) => trip === 'SF:m2'), false);
+});
+
 test('a bus that has left the transfer stop stays until it reaches the destination, and without one, goes', () => {
   // At 8:05, bus m2 left 24th St at 8:02 and reaches Potrero at 8:12.
   const at = NOW + 300;

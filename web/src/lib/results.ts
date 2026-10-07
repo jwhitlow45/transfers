@@ -42,7 +42,7 @@ const MAX_DEPARTURES = 3;
 
 // When a row's ride ends, after which no one is on it: the second vehicle reaching the
 // destination, or with none, leaving where the rider boards it.
-export const rideEnd = (departure: Departure) => Math.max(departure.at, departure.destination ?? 0);
+const rideEnd = (departure: Departure) => Math.max(departure.at, departure.destination ?? 0);
 
 // Whether a departure's card has left entirely: its vehicle has left where the rider boards it,
 // or every vehicle that makes it has left From.
