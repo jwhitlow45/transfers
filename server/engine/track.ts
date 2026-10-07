@@ -17,7 +17,8 @@ const PASS_METERS = 60;
 // drawn again whatever the vehicle has done since, so the stops stay put while the vehicle moves.
 // `transfer` is the vehicle the rider changes to, and the stop where they board it. `fitOnBoard`
 // is the rider's setting to zoom a pinned map in once the vehicle leaves where they get on.
-type TrackRequest = { trip: string; stop: string; marks?: string[]; span?: [number, number]; transfer?: TrackRequest; fitOnBoard?: boolean };
+// `whole` draws the trip from its first stop to its last instead, whatever the span.
+type TrackRequest = { trip: string; stop: string; marks?: string[]; span?: [number, number]; transfer?: TrackRequest; fitOnBoard?: boolean; whole?: boolean };
 
 // The trip and where it visits the rider's stop, or a 404 when the trip is not in the schedule or
 // does not stop there. Called before waiting on 511 too, so a bad request is turned away at once.
@@ -156,10 +157,10 @@ function placeLeg(schedule: Schedule, live: Live, request: TrackRequest, now: nu
   // but never back: a stop before where it starts was left out on purpose, by a fit or the zoom in
   // after boarding, and stays out whatever the vehicle's position does later.
   const ahead = span && targetAt >= pinnedFrom! ? [targetAt] : [];
-  const from = span ? Math.min(pinnedFrom!, behind) : Math.max(0, Math.min(coming || aboard ? behind : targetAt - STOPS_BEFORE, ...markedAt));
-  const to = span ? Math.max(span[1], vehicleAt, ...ahead) : Math.min(stops.length - 1, Math.max(aboard ? -1 : targetAt + 1, vehicleAt, ...markedAt));
+  const from = request.whole ? 0 : span ? Math.min(pinnedFrom!, behind) : Math.max(0, Math.min(coming || aboard ? behind : targetAt - STOPS_BEFORE, ...markedAt));
+  const to = request.whole ? stops.length - 1 : span ? Math.max(span[1], vehicleAt, ...ahead) : Math.min(stops.length - 1, Math.max(aboard ? -1 : targetAt + 1, vehicleAt, ...markedAt));
   const shown = stops.slice(from, to + 1);
-  const centered = span ? stops.slice(pinnedFrom!, span[1] + 1) : shown;
+  const centered = span && !request.whole ? stops.slice(pinnedFrom!, span[1] + 1) : shown;
   return { trip, pattern, target, stops, shape, passes, rt, expected, reported, estimate, vehicle, missing, vehicleAt, targetAt, coming, marked, from, to, shown, centered };
 }
 

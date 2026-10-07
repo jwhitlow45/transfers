@@ -36,6 +36,9 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
   // The stretches of the trips the first answer drew. Later refreshes ask for the same ones, so
   // the map's stops stay where they are and only the vehicles move.
   const [spans, setSpans] = useState<{ main: [number, number]; transfer?: [number, number] } | null>(null);
+  // Each trip from its first stop to its last, for seeing where the lines go. The spans stay as
+  // they were, so turning it off goes back to the same picture.
+  const [whole, setWhole] = useState(false);
   const url =
     `/api/vehicle?trip=${encodeURIComponent(tracked.trip)}&stop=${encodeURIComponent(tracked.stop)}` +
     marks.map(({ stop }) => `&mark=${encodeURIComponent(stop)}`).join('') +
@@ -44,7 +47,8 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
     // The second vehicle's stops: where the rider boards it and, with a destination, where they leave it.
     (transfer?.destination ? `&tmark=${encodeURIComponent(transfer.stop)}&tmark=${encodeURIComponent(transfer.destination)}` : '') +
     (spans?.transfer ? `&tfrom=${spans.transfer[0]}&tto=${spans.transfer[1]}` : '') +
-    (settings.mapFitOnBoard ? '&autofit=1' : '');
+    (settings.mapFitOnBoard ? '&autofit=1' : '') +
+    (whole ? '&whole=1' : '');
   // Not kept in storage: a position from an earlier visit is no use.
   const { data, error, fetchedAt, feed } = usePoll<TrackResponse>(url, REFRESH_MS, null, false);
   // When the rider last asked to fit the map to the trip from here. Only an answer that arrives
@@ -54,7 +58,7 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
   // rider boarded, which then sticks. A span the server grew to take in a vehicle past it is not
   // pinned: the picture stays centered where it was, and the server grows it again as needed.
   useEffect(() => {
-    if (!data?.span || fetchedAt === null || fetchedAt <= refitAt) return;
+    if (whole || !data?.span || fetchedAt === null || fetchedAt <= refitAt) return;
     const zoomed = (now: [number, number] | undefined, pinned: [number, number] | undefined) => (now && (!pinned || now[0] > pinned[0]) ? now : pinned);
     const main = zoomed(data.span, spans?.main)!;
     const transfer = zoomed(data.transfer?.span, spans?.transfer);
@@ -63,7 +67,13 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
   }, [data, fetchedAt]);
   const refit = () => {
     setRefitAt(Date.now());
+    setWhole(false);
     setSpans(null);
+  };
+  // An answer drawn whole, still on screen until the next arrives, never pins the spans.
+  const toggleWhole = () => {
+    setRefitAt(Date.now());
+    setWhole(!whole);
   };
   const now = useNow() + clockSkewMs(data?.generatedAt, fetchedAt);
   if (!data) {
@@ -110,13 +120,23 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
       </p>
       <div class="tf-track__frame">
         <LineMap legs={legs} label={headline} />
-        {/* Drops the stops behind the vehicle and fits the map to the trip from where it is now. */}
-        <button type="button" class="tf-track__fit" onClick={refit} disabled={!spans} aria-label="Fit the map to the trip from here">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-            <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" />
-          </svg>
-          Fit
-        </button>
+        <div class="tf-track__controls">
+          <button type="button" class="tf-track__fit" aria-pressed={whole} aria-label="Full route" onClick={toggleWhole}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="5" cy="18" r="2" />
+              <circle cx="19" cy="6" r="2" />
+              <path d="M7 18h6a3 3 0 0 0 0-6h-2a3 3 0 0 1 0-6h6" />
+            </svg>
+            Full
+          </button>
+          {/* Drops the stops behind the vehicle and fits the map to the trip from where it is now. */}
+          <button type="button" class="tf-track__fit" onClick={refit} disabled={!spans && !whole} aria-label="Fit the map to the trip from here">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" />
+            </svg>
+            Fit
+          </button>
+        </div>
       </div>
       {ageLine && <p class={`tf-track__age${age !== null && age > OLD_SECONDS ? ' tf-track__age--old' : ''}`}>{ageLine}</p>}
       {feed === 'offline' && <p class="tf-track__age tf-track__age--old">Offline. This is the last update received.</p>}

@@ -60,11 +60,13 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
       const transferSpan = spanParam(url.searchParams, 't');
       // Its own marks: where the rider boards it and, with a destination, where they leave it.
       const transferMarks = url.searchParams.getAll('tmark').slice(0, MAX_MARKS);
-      const transfer = transferTrip && transferStop ? { trip: transferTrip, stop: transferStop, ...(transferMarks.length ? { marks: transferMarks } : {}), ...(transferSpan ? { span: transferSpan } : {}) } : undefined;
+      // Each trip drawn from its first stop to its last.
+      const whole = url.searchParams.get('whole') === '1';
+      const transfer = transferTrip && transferStop ? { trip: transferTrip, stop: transferStop, whole, ...(transferMarks.length ? { marks: transferMarks } : {}), ...(transferSpan ? { span: transferSpan } : {}) } : undefined;
       const span = spanParam(url.searchParams, '');
       const marks = url.searchParams.getAll('mark').slice(0, MAX_MARKS);
       const fitOnBoard = url.searchParams.get('autofit') === '1';
-      return sendJson(request, response, trackVehicle(schedule, { vehicles, trips }, { trip, stop, marks, fitOnBoard, ...(span ? { span } : {}), ...(transfer ? { transfer } : {}) }, nowSeconds()));
+      return sendJson(request, response, trackVehicle(schedule, { vehicles, trips }, { trip, stop, marks, fitOnBoard, whole, ...(span ? { span } : {}), ...(transfer ? { transfer } : {}) }, nowSeconds()));
     }
     case '/api/destinations':
       return sendJson(request, response, destinations(schedule, tripRequest(url.searchParams)));
