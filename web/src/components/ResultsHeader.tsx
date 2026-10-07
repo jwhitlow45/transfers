@@ -16,22 +16,6 @@ export function liveStatusText(feed: FeedState, secondsSinceUpdate: number | nul
   return secondsSinceUpdate === null ? 'Live' : `Updated ${ago(secondsSinceUpdate)}`;
 }
 
-// The same for a screen with no status line, such as Home.
-export function UpdateButton() {
-  const update = useUpdateAvailable();
-  if (!update) return null;
-  return (
-    <button type="button" class="tf-stat__button tf-update-button" aria-label={UPDATE.full} onClick={UPDATE.onPress}>
-      <span class="tf-stat__icon" aria-hidden="true">
-        {UPDATE.icon}
-      </span>
-      <span class="tf-stat__value" aria-hidden="true">
-        {UPDATE.short}
-      </span>
-    </button>
-  );
-}
-
 // One item of the status line: a symbol and a short value, with the full sentence on tap, or with
 // `onPress`, an action of its own.
 export type StatusItem = { key: string; icon: ComponentChildren; short: ComponentChildren; full: string; onPress?: () => void };
@@ -51,6 +35,30 @@ const UPDATE: StatusItem = {
   full: 'Update available. Tap to load the new version of Transfers',
   onPress: () => void forceRefresh(),
 };
+
+// The status line's update item, for a screen with no status line, such as Home, with a polite
+// region of its own, always there, so screen readers announce the update when it comes as the
+// status line would.
+export function UpdateButton() {
+  const update = useUpdateAvailable();
+  return (
+    <>
+      <span class="tf-sr" role="status">
+        {update ? 'An update to Transfers is available' : ''}
+      </span>
+      {update && (
+        <button type="button" class="tf-stat__button tf-update-button" aria-label={UPDATE.full} onClick={UPDATE.onPress}>
+          <span class="tf-stat__icon" aria-hidden="true">
+            {UPDATE.icon}
+          </span>
+          <span class="tf-stat__value" aria-hidden="true">
+            {UPDATE.short}
+          </span>
+        </button>
+      )}
+    </>
+  );
+}
 
 // The live status as one line of short items. Each one opens its full sentence on tap, and
 // screen readers hear the full sentence as its name. Only changes of state are announced: the
