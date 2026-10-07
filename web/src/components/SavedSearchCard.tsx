@@ -5,6 +5,7 @@ import { SAVED_COLORS } from '../lib/color.ts';
 import type { NextConnection } from '../lib/summary.ts';
 import { RouteChip } from './RouteChip.tsx';
 import { StatusTag } from './StatusTag.tsx';
+import { typeWithoutUndo } from '../typing.ts';
 
 // The main daily entry point: one tap opens results, and it leads with a live countdown. The
 // color stripe tells saved searches apart at a glance, and the pencil edits name and color.
@@ -42,6 +43,7 @@ export function SavedSearchCard({ name, color, chain, named, windowText, next, l
             autoFocus
             aria-label="Saved search name"
             value={draft.name}
+            onBeforeInput={typeWithoutUndo}
             onInput={(event) => setDraft({ ...draft, name: event.currentTarget.value })}
             onKeyDown={(event) => event.key === 'Enter' && done()}
           />

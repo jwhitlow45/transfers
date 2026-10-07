@@ -1,4 +1,5 @@
 import { IconSwap } from '../icons/ui.tsx';
+import { typeWithoutUndo } from '../typing.ts';
 
 // meta is "Muni · Stop 13477 · Eastbound, toward 22nd St + Iowa St" once a result is picked.
 export type FieldValue = { query: string; meta?: string };
@@ -15,6 +16,7 @@ function Field({ label, value, placeholder, onChange, onFocus }: { label: string
         autocapitalize="off"
         spellcheck={false}
         enterKeyHint="search"
+        onBeforeInput={typeWithoutUndo}
         onInput={(event) => onChange(event.currentTarget.value)}
         onFocus={onFocus}
       />
