@@ -14,6 +14,8 @@ export type VehicleContext = {
 // show three departures.
 const FIRST_LEG_HORIZON = 3 * 3600;
 const SECOND_LEG_HORIZON = 4 * 3600;
+// How far back to look for vehicles that have left, which the rider may be on.
+const UNDER_WAY_SECONDS = 2 * 3600;
 
 type TimeAt = { at: number; delay: number | null };
 
@@ -74,10 +76,30 @@ export function firstLegs(context: VehicleContext, link: Link, routeFilter: Set<
 
   for (const { pattern, origin, alight } of link.firstLegs) {
     if (!allowed(pattern.route)) continue;
-    for (const trip of schedule.scheduledTrips(pattern, origin, now - 60, now + FIRST_LEG_HORIZON, [alight, 0])) {
+    // Vehicles that have left From too, as the rider may be on one.
+    for (const trip of schedule.scheduledTrips(pattern, origin, now - UNDER_WAY_SECONDS, now + FIRST_LEG_HORIZON, [alight, 0])) {
       if (legs.has(trip.key)) continue;
       const realtime = snapshot?.trips.get(trip.key);
-      if (realtime && (realtime.canceled || gone(schedule, realtime, pattern, origin) || skips(schedule, realtime, pattern, alight))) continue;
+      if (realtime && (realtime.canceled || skips(schedule, realtime, pattern, alight))) continue;
+      const staticTrip = schedule.trips.get(trip.key);
+      if (realtime && staticTrip && gone(schedule, realtime, pattern, origin)) {
+        // Left From, so the feed no longer lists it there.
+        const departs = timeAtPosition(context, realtime, staticTrip, pattern, origin);
+        const arrives = timeAtPosition(context, realtime, staticTrip, pattern, alight);
+        if (!departs || !arrives || arrives.at < departs.at) continue;
+        legs.set(trip.key, {
+          trip: trip.key,
+          route: routeKeyOf(schedule.route(pattern.route)),
+          alight: stopKeyOf(schedule.stop(pattern.stops[alight]!)),
+          departs: departs.at,
+          departDelay: departs.delay,
+          arrives: arrives.at,
+          arriveDelay: arrives.delay,
+          live: true,
+          canceled: false,
+        });
+        continue;
+      }
       if (!realtime && (trip.times.get(0)?.departure ?? Infinity) < now) underway.add(trip.key);
       const departs = trip.times.get(origin);
       const arrives = trip.times.get(alight);
@@ -152,16 +174,39 @@ export function secondLegs(context: VehicleContext, link: Link, destination: Sto
   for (const { pattern, position } of link.boardPatterns) {
     if (!routeIds.has(pattern.route)) continue;
     const extra = destinationPositions(pattern, position);
-    for (const trip of schedule.scheduledTrips(pattern, position, now - 60, now + SECOND_LEG_HORIZON, [...extra, 0])) {
+    const reachesAt = extra[0];
+    // With a destination, vehicles that have left too, until they get there, as the rider may be
+    // on one. Without one, the rider's trip ends once they board.
+    const back = reachesAt === undefined ? 60 : UNDER_WAY_SECONDS;
+    for (const trip of schedule.scheduledTrips(pattern, position, now - back, now + SECOND_LEG_HORIZON, [...extra, 0])) {
       if (legs.has(trip.key)) continue;
       const realtime = snapshot?.trips.get(trip.key);
       // A trip the feed knows but that does not list this stop has passed it, unless the feed
       // canceled it, or its predictions simply stop short of this stop (SamTrans and Golden Gate
       // predict about an hour ahead, and a long route's trip is on the road longer than that).
-      if (realtime && !realtime.canceled && gone(schedule, realtime, pattern, position)) continue;
+      if (realtime && !realtime.canceled && gone(schedule, realtime, pattern, position)) {
+        const staticTrip = schedule.trips.get(trip.key);
+        if (reachesAt === undefined || !staticTrip || gone(schedule, realtime, pattern, reachesAt) || skips(schedule, realtime, pattern, reachesAt)) continue;
+        const at = timeAtPosition(context, realtime, staticTrip, pattern, position);
+        const reaches = timeAtPosition(context, realtime, staticTrip, pattern, reachesAt);
+        if (!at || !reaches || reaches.at < now) continue;
+        legs.set(trip.key, {
+          trip: trip.key,
+          route: routeKeyOf(schedule.route(pattern.route)),
+          toward: destinationOf(schedule, pattern, staticTrip.headsign),
+          at: at.at,
+          delay: at.delay,
+          live: true,
+          canceled: false,
+          destination: reaches.at,
+        });
+        continue;
+      }
       if (!realtime && (trip.times.get(0)?.departure ?? Infinity) < now) underway.add(trip.key);
       const at = trip.times.get(position);
       if (!at) continue;
+      // Gone by its timetable, it counts only while it has yet to reach the destination.
+      if (at.arrival < now - 60 && (reachesAt === undefined || (trip.times.get(reachesAt)?.arrival ?? -Infinity) < now)) continue;
       const leg: SecondLeg = {
         trip: trip.key,
         route: routeKeyOf(schedule.route(pattern.route)),
@@ -243,6 +288,31 @@ function delayAt(context: VehicleContext, time: number, sequence: number | undef
   const scheduled = named.map((position) => context.schedule.scheduledTimeAt(staticTrip.row, position, time)).filter((at) => at !== null);
   if (scheduled.length === 0) return null;
   return time - scheduled.reduce((best, at) => (Math.abs(time - at) < Math.abs(time - best) ? at : best));
+}
+
+// When a trip the feed knows is due at, or was at, a stop on its pattern: the feed's time where it
+// lists the stop, or else the schedule plus the delay at the first stop it lists, as delays carry
+// forward. A stop it has passed, which the feed no longer lists, is never later than now.
+function timeAtPosition(context: VehicleContext, trip: RtTrip, staticTrip: { row: number }, pattern: PatternRow, position: number): TimeAt | null {
+  const { schedule, now } = context;
+  const stop = schedule.stop(pattern.stops[position]!);
+  // On a loop that makes the stop twice, the update whose stop sequence names this visit.
+  const listed = trip.stops.flatMap((update, index) => (update.stopId === stop.stopId ? [index] : []));
+  const index = listed.find((index) => trip.stops[index]!.sequence === position + 1) ?? listed[0];
+  if (index !== undefined) return timeAt(context, trip, index, staticTrip, pattern, stop);
+  const scheduled = schedule.scheduledTimeAt(staticTrip.row, position, now);
+  if (scheduled === null) return null;
+  let delay: number | null = null;
+  for (const [listed, update] of trip.stops.entries()) {
+    const at = schedule.stopsByKey.get(stopKey(trip.agency, update.stopId));
+    const time = at && !update.skipped ? timeAt(context, trip, listed, staticTrip, pattern, at) : null;
+    if (time?.delay !== null && time?.delay !== undefined) {
+      delay = time.delay;
+      break;
+    }
+  }
+  const at = scheduled + (delay ?? 0);
+  return { at: gone(schedule, trip, pattern, position) ? Math.min(at, now) : at, delay };
 }
 
 // A realtime trip's time at a later stop. When the feed leaves that stop out, the schedule

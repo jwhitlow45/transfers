@@ -265,6 +265,15 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-alert__dismiss { flex: none; min-height: var(--tap-min); padding: 0 var(--space-4); }
 /* The notices' last row, to the page that puts dismissed ones back: shaped as a folded notice, so
    it holds their place when every one is dismissed, and quieter, as it says what is not there. */
+/* Vehicles that have left, folded at the top of the rows or cards they left from. */
+.tf-departed__toggle { display: flex; align-items: center; gap: var(--space-2); width: 100%; min-height: 40px; padding: 0 var(--space-3); background: none; border: 0; border-bottom: var(--border-hair) dashed var(--divider); color: var(--muted); font-size: var(--text-sm); font-weight: 650; text-align: left; }
+.tf-departed__toggle svg { transition: transform var(--motion-fast) ease; }
+.tf-departed__toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+.tf-group > .tf-departed { margin-bottom: var(--space-3); border: var(--border-hair) dashed var(--line); }
+.tf-group > .tf-departed .tf-departed__toggle { border-bottom: 0; }
+/* A row whose vehicle has left: its countdown counts up, quieter, and it can still be pinned. */
+.tf-row--left .tf-row__num { color: var(--muted); }
+.tf-card--left .tf-band__in { opacity: .8; }
 .tf-alert--dismissed { display: flex; align-items: center; gap: 10px; padding: 6px var(--space-2) 6px var(--space-3); border-style: dashed; color: var(--muted); text-decoration: none; }
 .tf-alerts > .tf-collapse + .tf-alert--dismissed { margin-top: var(--space-2); }
 .tf-alert--dismissed .tf-kicker { flex: 1; }

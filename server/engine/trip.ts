@@ -186,7 +186,7 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
       const first = firstLegs(context, linkForRoutes, firstFilter);
       const pairing = { now, min, max, hide: request.hide ?? 0, count: DEPARTURES_PER_GROUP, showHidden: request.hidden ?? false };
       departures = pairConnections(first, second, pairing);
-      widen = connects(departures) ? null : widenWindow(first, second, pairing);
+      widen = connects(departures, now) ? null : widenWindow(first, second, pairing);
     }
     // A trip going somewhere other than the group's usual destination says where. A vehicle
     // letting the rider off somewhere other than the group's stop (or its station) says where.
@@ -357,25 +357,27 @@ function feasibleSystems(schedule: Schedule, from: StopRow, to: { stop: StopRow 
   return systems;
 }
 
-const connects = (departures: Departure[]) => departures.some(({ canceled, connections }) => !canceled && connections.some(({ hidden }) => !hidden));
+// Whether any connection shown is one the rider can still catch, rather than one under way.
+const connects = (departures: Departure[], now: number) => departures.some(({ canceled, connections }) => !canceled && connections.some(({ hidden, departs }) => !hidden && departs >= now));
 
 // The smallest raise of an empty window's maximum that finds a connection, within half an hour.
 // The minimum stays, since it is the time the walk takes.
 function widenWindow(first: FirstLeg[], second: SecondLeg[], pairing: PairingOptions) {
   for (let max = pairing.max + 1; max <= MAX_MINUTES; max++) {
-    if (connects(pairConnections(first, second, { ...pairing, max, showHidden: false }))) return { min: pairing.min, max };
+    if (connects(pairConnections(first, second, { ...pairing, max, showHidden: false }), pairing.now)) return { min: pairing.min, max };
   }
   return null;
 }
 
-// Departures the rider can walk to in time, for a route that already stops at or near From.
+// Departures the rider can walk to in time, for a route that already stops at or near From, and
+// those that have left but have yet to reach the destination, as the rider may be on one.
 function walkDepartures(second: SecondLeg[], now: number, walkMinutes: number): Departure[] {
   const sorted = [...second].filter(({ at }) => at >= now + walkMinutes * 60).sort((a, b) => a.at - b.at);
   const running = sorted.filter(({ canceled }) => !canceled).slice(0, DEPARTURES_PER_GROUP);
   const last = running.at(-1)?.at ?? -Infinity;
-  return sorted
-    .filter((leg) => !leg.canceled || leg.at <= last)
-    .filter((leg) => running.includes(leg) || leg.canceled)
+  const underWay = second.filter(({ at, canceled, destination }) => !canceled && at < now && destination !== undefined && destination >= now);
+  return [...underWay, ...sorted.filter((leg) => (running.includes(leg) || leg.canceled) && (!leg.canceled || leg.at <= last))]
+    .sort((a, b) => a.at - b.at)
     .map(({ trip, route, at, delay, live, canceled, destination, toward }) => ({
       trip,
       route,

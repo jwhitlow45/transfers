@@ -190,13 +190,34 @@ test('pairs live and scheduled trips and shows the canceled bus in place', () =>
   }));
   // Trains that would wait longer than 13 minutes (b4 for m4, b6 and b7 for m6) are left out,
   // and each bus keeps its best train. The canceled m5 falls among the shown buses, so it
-  // shows in place.
+  // shows in place. Train b2 left at 7:50, so the rider may be on it: its bus, m2 at 8:02, comes
+  // on top of the three they can still catch.
   deepStrictEqual(departures, [
+    { bus: 'SF:m2', live: false, delay: null, canceled: false, trains: ['BA:b2:4:scheduled'] },
     { bus: 'SF:m3', live: false, delay: null, canceled: false, trains: ['BA:b3:9:scheduled'] },
     { bus: 'SF:m4', live: true, delay: 120, canceled: false, trains: ['BA:b5:6:scheduled'] },
     { bus: 'SF:m5', live: true, delay: null, canceled: true, trains: [] },
     { bus: 'SF:m6', live: false, delay: null, canceled: false, trains: ['BA:b8:4'] },
   ]);
+});
+
+test('a train that has left From stays with its live arrival, as the rider may be on it, however soon the rider hides', () => {
+  // Train b2 left Montgomery at 7:50, a minute late. The feed now lists only 24th St, at 7:59.
+  const left = realtime([{ id: 'b2', tripUpdate: { trip: { tripId: 'BA:b2', routeId: 'BA:Yellow-S' }, stopTimeUpdate: [{ stopId: '901601', arrival: { time: DAY + 7.5 * 3600 + 1200 + 540, delay: 60 } }] } }]);
+  const group = planTrip(schedule, left, { from: 'BA:901209', to: 'SF:13477', hide: 10 }, NOW).groups[0]!;
+  const connection = group.departures.find(({ trip }) => trip === 'SF:m2')?.connections.find(({ trip }) => trip === 'BA:b2');
+  deepStrictEqual(connection && [connection.departs, connection.arrives, connection.live, connection.hidden], [DAY + 7.5 * 3600 + 1260, DAY + 7.5 * 3600 + 1740, true, undefined]);
+});
+
+test('a bus that has left the transfer stop stays until it reaches the destination, and without one, goes', () => {
+  // At 8:05, bus m2 left 24th St at 8:02 and reaches Potrero at 8:12.
+  const at = NOW + 300;
+  const toPotrero = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477', dest: 'SF:13500' }, at).groups[0]!;
+  deepStrictEqual(toPotrero.departures.find(({ trip }) => trip === 'SF:m2')?.connections.map(({ trip }) => trip), ['BA:b2']);
+  const noDestination = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477' }, at).groups[0]!;
+  strictEqual(noDestination.departures.some(({ trip }) => trip === 'SF:m2'), false);
+  // Past Potrero, its ride is over.
+  strictEqual(planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477', dest: 'SF:13500' }, NOW + 800).groups[0]!.departures.some(({ trip }) => trip === 'SF:m2'), false);
 });
 
 test('names the alert on the boarding stop', () => {

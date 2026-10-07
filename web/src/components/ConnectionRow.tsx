@@ -32,7 +32,10 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
 }) {
   const route = context.data.routes[connection.route];
   const minutes = minutesUntil(connection.departs, context.now);
-  const now = minutes < 1;
+  // Left From already: kept so a rider on it can still pin it.
+  const left = connection.departs * 1000 < context.now;
+  const ago = Math.floor((context.now - connection.departs * 1000) / 60_000);
+  const now = !left && minutes < 1;
   const status = statusOf(connection.departDelay, connection.live);
   const tight = isTight(connection, min);
   const hidden = connection.hidden ? HIDDEN[connection.hidden] : null;
@@ -40,7 +43,7 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
   // usual one, and a row says its own when it differs.
   const offAt = connection.alight ? shortStopName(context.data.stops[connection.alight], '') : null;
   const spoken =
-    `${route ? spokenRoute(route) : 'Vehicle'}, ${now ? 'arriving now' : `arrives in ${minutes} minute${minutes === 1 ? '' : 's'}`}, ${clock(connection.departs)}, ${status.label}. ` +
+    `${route ? spokenRoute(route) : 'Vehicle'}, ${left ? (ago < 1 ? 'just left' : `left ${ago} minute${ago === 1 ? '' : 's'} ago`) : now ? 'arriving now' : `arrives in ${minutes} minute${minutes === 1 ? '' : 's'}`}, ${clock(connection.departs)}, ${status.label}. ` +
     `Off at ${offAt ?? alightName} ${clock(connection.arrives)}. ${connection.transfer} minute transfer${tight ? ', tight' : ''}${hidden ? `, hidden because it is ${hidden.spoken}` : ''}.`;
   const secondEnd = departure.destination ?? departure.at + 8 * 60;
   // The vehicle's time opens its map with where the rider gets on and where they get off to
@@ -61,7 +64,7 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
   const secondRoute = context.data.routes[departure.route];
   const pinLabel = `${route ? chipLabel(route) : 'vehicle'} at ${clock(connection.departs)} to the ${secondRoute ? chipLabel(secondRoute) : 'vehicle'} at ${clock(departure.at)}`;
   return (
-    <div role="listitem" class={`tf-row${tight ? ' tf-row--tight' : ''}${hidden ? ' tf-row--hidden' : ''}${pinned ? ' tf-row--pinned' : ''}`}>
+    <div role="listitem" class={`tf-row${tight ? ' tf-row--tight' : ''}${hidden ? ' tf-row--hidden' : ''}${pinned ? ' tf-row--pinned' : ''}${left ? ' tf-row--left' : ''}`}>
       <span class="tf-sr">{spoken}</span>
       {/* First, so what follows lies over it and takes no taps but its links' (see styles.css). */}
       <PinToggle pinned={pinned} label={pinLabel} onToggle={() => setPinned(!pinned)} />
@@ -73,14 +76,16 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
               <IconPin filled size={13} />
               Pinned
             </>
+          ) : left ? (
+            'Left'
           ) : now ? (
             'Arriving'
           ) : (
             'Arrives in'
           )}
         </div>
-        <div class="tf-row__num">{now ? 'Now' : minutes}</div>
-        {!now && <div class="tf-row__unit">min</div>}
+        <div class="tf-row__num">{left ? (ago < 1 ? 'Now' : ago) : now ? 'Now' : minutes}</div>
+        {left ? ago >= 1 && <div class="tf-row__unit">min ago</div> : !now && <div class="tf-row__unit">min</div>}
       </div>
       {/* The spoken summary says everything shown, so screen readers skip the shown text and
           reach only the links in it. */}

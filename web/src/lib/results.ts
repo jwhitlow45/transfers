@@ -40,22 +40,44 @@ export const timeScale = (now: number, scaleMinutes: number) => (unixSeconds: nu
 
 const MAX_DEPARTURES = 3;
 
-// The server's answer, trimmed as the clock runs between refreshes: vehicles that have left
-// drop off, a departure with no one left to connect drops off, and canceled departures keep
-// their place only between departures still shown.
-export function visibleDepartures(group: Group, now: number, showHidden: boolean): Departure[] {
+// When a row's ride ends, after which no one is on it: the second vehicle reaching the
+// destination, or with none, leaving where the rider boards it.
+export const rideEnd = (departure: Departure) => Math.max(departure.at, departure.destination ?? 0);
+
+// Whether a departure's card has left entirely: its vehicle has left where the rider boards it,
+// or every vehicle that makes it has left From.
+export const cardLeft = (group: Group, departure: Departure, now: number) =>
+  departure.at * 1000 < now || (group.kind !== 'walk' && departure.connections.length > 0 && departure.connections.every(({ departs }) => departs * 1000 < now));
+
+// The server's answer, trimmed as the clock runs between refreshes: up to three departures the
+// rider can still catch, each with the vehicles that still make it, and canceled departures in
+// their place between them. With `underWay`, rows the rider may be on come too: those whose
+// first vehicle, or for a walk group the departure itself, has left, until their ride ends.
+export function visibleDepartures(group: Group, now: number, showHidden: boolean, underWay = false): Departure[] {
   const shown: Departure[] = [];
+  let catchable = 0;
+  // A walk group has no first vehicles: each departure stands on its own.
+  const walk = group.kind === 'walk';
   for (const departure of group.departures) {
-    if (departure.at * 1000 < now) continue;
+    const left = departure.at * 1000 < now;
+    if (left && !(underWay && rideEnd(departure) * 1000 >= now)) continue;
     if (departure.canceled) {
-      shown.push(departure);
+      if (!left && catchable < MAX_DEPARTURES) shown.push(departure);
       continue;
     }
-    const connections = departure.connections.filter((connection) => connection.departs * 1000 >= now && (showHidden || !connection.hidden));
-    // A walk group has no first vehicles: each departure stands on its own.
-    if (connections.length === 0 && group.kind !== 'walk') continue;
+    const counted = (connection: Connection) => showHidden || !connection.hidden;
+    const ahead = departure.connections.filter((connection) => connection.departs * 1000 >= now && counted(connection));
+    const canCatch = !left && (walk || ahead.length > 0) && catchable < MAX_DEPARTURES;
+    if (walk) {
+      if (canCatch || left) shown.push(departure);
+      if (canCatch) catchable++;
+      continue;
+    }
+    const gone = underWay ? departure.connections.filter((connection) => connection.departs * 1000 < now && counted(connection)) : [];
+    const connections = [...gone, ...(canCatch ? ahead : [])];
+    if (connections.length === 0) continue;
+    if (canCatch) catchable++;
     shown.push({ ...departure, connections });
-    if (shown.filter(({ canceled }) => !canceled).length === MAX_DEPARTURES) break;
   }
   while (shown.at(-1)?.canceled) shown.pop();
   while (shown[0]?.canceled) shown.shift();

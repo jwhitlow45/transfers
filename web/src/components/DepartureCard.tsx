@@ -8,6 +8,7 @@ import { TimeLink } from '../track.tsx';
 import { chipLabel, spokenRoute, statusOf } from '../view.ts';
 import { Collapse } from './Collapse.tsx';
 import { ConnectionRow } from './ConnectionRow.tsx';
+import { Departed } from './Departed.tsx';
 import { PinToggle } from './PinToggle.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import { StatusTag } from './StatusTag.tsx';
@@ -15,7 +16,7 @@ import { TimeTicks } from './TimeBar.tsx';
 
 // One second-leg departure: a reversed band, then every first vehicle that makes it. The band
 // opens and closes the card. Closed, it keeps one line of countdowns for those vehicles.
-export function DepartureCard({ departure, group, next, boardName, alightName, noun, walk, expanded, onToggle, colorOf, context }: {
+export function DepartureCard({ departure, group, next, boardName, alightName, noun, walk, allLeft = false, expanded, onToggle, colorOf, context }: {
   departure: Departure;
   group: Group;
   // The next departure still running, for the canceled note.
@@ -25,6 +26,8 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
   noun: readonly [string, string];
   // A route already at or near From: the card is just the departure, with nothing to open.
   walk: boolean;
+  // Every vehicle on the card has left, so it sits among those departed and folds none of its own.
+  allLeft?: boolean;
   expanded: boolean;
   onToggle: () => void;
   colorOf: (routeKey: string) => string;
@@ -48,6 +51,11 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
   }
   const status = statusOf(departure.delay, departure.live);
   const minutes = minutesUntil(departure.at, context.now);
+  // Left where the rider boards it, on its way to the destination: kept so a rider on it can
+  // still pin it.
+  const left = departure.at * 1000 < context.now;
+  const ago = Math.floor((context.now - departure.at * 1000) / 60_000);
+  const away = left ? (ago < 1 ? 'Just left' : `Left ${ago} min ago`) : null;
   // With no first vehicle, the departure itself is the trip to pin, by tapping its band.
   const walkPinned = walk && context.pin !== null && !context.pin.first && context.pin.second.trip === departure.trip && context.pin.second.board === group.board && sameRun(context.pin.at, departure.at);
   const setWalkPinned = (on: boolean) => context.onPin(on ? pinOf(departure, group.board) : null);
@@ -56,12 +64,13 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
   const destination = destinationName && departure.destination ? `${destinationName} ${clock(departure.destination)}` : null;
   const toward = departure.toward ? `To ${departure.toward}` : null;
   const count = departure.connections.length;
-  const countdowns = departure.connections.map(({ departs }) => Math.max(0, minutesUntil(departs, context.now)));
-  const summary = `${count} ${noun[count === 1 ? 0 : 1]} · in ${countdowns.join(', ')} min`;
+  const countdowns = departure.connections.filter(({ departs }) => departs * 1000 >= context.now).map(({ departs }) => Math.max(0, minutesUntil(departs, context.now)));
+  const gone = count - countdowns.length;
+  const summary = [`${count} ${noun[count === 1 ? 0 : 1]}`, gone > 0 && `${gone} departed`, countdowns.length > 0 && `in ${countdowns.join(', ')} min`].filter(Boolean).join(' · ');
   const spoken =
     `${route ? spokenRoute(route) : 'Departure'} at ${clock(departure.at)}, ${status.label}, ` +
-    `${minutes} minutes away${toward ? `, ${toward.toLowerCase()}` : ''}${destination ? `, reaches ${destination}` : ''}.` +
-    (walk ? '' : ` ${count} connecting ${noun[count === 1 ? 0 : 1]}${expanded ? '' : `, leaving in ${countdowns.join(', ')} minutes`}.`);
+    `${away ? away.toLowerCase() : `${minutes} minutes away`}${toward ? `, ${toward.toLowerCase()}` : ''}${destination ? `, reaches ${destination}` : ''}.` +
+    (walk ? '' : ` ${count} connecting ${noun[count === 1 ? 0 : 1]}${expanded ? '' : [gone > 0 && `, ${gone} already left`, countdowns.length > 0 && `, leaving in ${countdowns.join(', ')} minutes`].filter(Boolean).join('')}.`);
   // The spoken summary says everything shown, so screen readers skip the shown text and reach
   // only the links in it.
   const band = (
@@ -96,14 +105,14 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
         )}
       </span>
       <span class="tf-band__right" aria-hidden="true">
-        <span class="tf-band__in">{minutes < 1 ? 'Now' : `${minutes} min`}</span>
+        <span class="tf-band__in">{left ? (ago < 1 ? 'Now' : `${ago} min`) : minutes < 1 ? 'Now' : `${minutes} min`}</span>
         {walkPinned ? (
           <span class="tf-band__inlabel tf-band__inlabel--pinned">
             <IconPin filled size={13} />
             Pinned
           </span>
         ) : (
-          <span class="tf-band__inlabel">away</span>
+          <span class="tf-band__inlabel">{left ? (ago < 1 ? 'left' : 'ago') : 'away'}</span>
         )}
         {!walk && (
           <span class="tf-band__chev">
@@ -113,9 +122,22 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
       </span>
     </>
   );
+  const row = (connection: (typeof departure.connections)[number]) => (
+    <ConnectionRow
+      key={connection.trip}
+      connection={connection}
+      departure={departure}
+      alightName={alightName}
+      alight={group.alight}
+      board={group.board}
+      min={group.window.min}
+      secondColor={color}
+      context={context}
+    />
+  );
   if (walk) {
     return (
-      <article class="tf-card tf-card--walk">
+      <article class={`tf-card tf-card--walk${left ? ' tf-card--left' : ''}`}>
         <h3 class="tf-card__heading">
           <span class={`tf-band${walkPinned ? ' tf-band--pinned' : ''}`}>
             <span class="tf-sr">{spoken}</span>
@@ -129,7 +151,7 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
   // The toggle is a button stretched under the whole band, rather than the band itself, so the
   // time and stop links in the band are their own targets and not buttons inside a button.
   return (
-    <article class={`tf-card${expanded ? '' : ' tf-card--closed'}`}>
+    <article class={`tf-card${expanded ? '' : ' tf-card--closed'}${left ? ' tf-card--left' : ''}`}>
       <h3 class="tf-card__heading">
         <span class="tf-band">
           <button type="button" class="tf-band__toggle" aria-expanded={expanded} aria-controls={panel} onClick={onToggle}>
@@ -148,21 +170,22 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
             Tap a connection to pin it to the top
           </p>
         )}
-        <div role="list" aria-label={`Connecting ${noun[1]}`}>
-          {departure.connections.map((connection) => (
-            <ConnectionRow
-              key={connection.trip}
-              connection={connection}
-              departure={departure}
-              alightName={alightName}
-              alight={group.alight}
-              board={group.board}
-              min={group.window.min}
-              secondColor={color}
-              context={context}
-            />
-          ))}
-        </div>
+        {gone > 0 && !allLeft ? (
+          <>
+            <Departed count={gone}>
+              <div role="list" aria-label={`Departed ${noun[gone === 1 ? 0 : 1]}`}>
+                {departure.connections.filter(({ departs }) => departs * 1000 < context.now).map(row)}
+              </div>
+            </Departed>
+            <div role="list" aria-label={`Connecting ${noun[1]}`}>
+              {departure.connections.filter(({ departs }) => departs * 1000 >= context.now).map(row)}
+            </div>
+          </>
+        ) : (
+          <div role="list" aria-label={`Connecting ${noun[1]}`}>
+            {departure.connections.map(row)}
+          </div>
+        )}
       </Collapse>
       <Collapse open={!expanded}>
         <div class="tf-card__summary" aria-hidden="true">

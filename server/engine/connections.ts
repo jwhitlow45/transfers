@@ -54,7 +54,9 @@ export function pairConnections(firstLegs: FirstLeg[], secondLegs: SecondLeg[], 
 
   for (const vehicle of [...firstLegs].sort((a, b) => a.departs - b.departs)) {
     const minutesAway = minutesBetween(now, vehicle.departs);
-    if (vehicle.canceled || minutesAway < 0) continue;
+    if (vehicle.canceled) continue;
+    // A vehicle that has left is one the rider may be on, so it is never too soon.
+    const left = vehicle.departs < now;
     const base = {
       trip: vehicle.trip,
       route: vehicle.route,
@@ -73,7 +75,7 @@ export function pairConnections(firstLegs: FirstLeg[], secondLegs: SecondLeg[], 
 
     const firstIndex = departures.findIndex(({ at }) => minutesBetween(vehicle.arrives, at) >= min);
     const first = departures[firstIndex];
-    const tooSoon = minutesAway < hide;
+    const tooSoon = !left && minutesAway < hide;
     if (first) {
       const transfer = minutesBetween(vehicle.arrives, first.at);
       if (tooSoon) hidden.push(connect(first, 'soon'));
@@ -86,22 +88,31 @@ export function pairConnections(firstLegs: FirstLeg[], secondLegs: SecondLeg[], 
   }
 
   const byTime = (a: SecondLeg, b: SecondLeg) => a.at - b.at;
-  let shown = [...new Set(qualifying.map(({ departure }) => departure))].sort(byTime).slice(0, count);
-  const pairs = showHidden ? [...qualifying, ...hidden] : qualifying;
+  // A pair whose first vehicle has left is under way: the rider may be on it. It stays while the
+  // second vehicle has yet to leave, or with a destination, to get there.
+  const underWay = ({ connection }: (typeof qualifying)[number]) => connection.departs < now;
+  const ongoing = ({ departure }: (typeof qualifying)[number]) => departure.at >= now || (departure.destination ?? -Infinity) >= now;
+  const kept = (pairs: typeof qualifying) => pairs.filter((pair) => !underWay(pair) || ongoing(pair));
+  const ahead = (pairs: typeof qualifying) => [...new Set(pairs.filter((pair) => !underWay(pair)).map(({ departure }) => departure))].sort(byTime);
+  // The count is of departures the rider can still catch from From. Those under way come on top.
+  let shown = ahead(qualifying).slice(0, count);
+  const pairs = kept(showHidden ? [...qualifying, ...hidden] : qualifying);
   if (showHidden) {
-    const hiddenDepartures = [...new Set(hidden.map(({ departure }) => departure))].sort(byTime);
+    const hiddenDepartures = ahead(hidden);
     // Hidden connections appear in place among the departures already shown, or fill the list
     // when nothing qualifies.
     const last = shown.at(-1)?.at;
     const extra = last === undefined ? hiddenDepartures.slice(0, count) : hiddenDepartures.filter(({ at }) => at <= last);
     shown = [...new Set([...shown, ...extra])].sort(byTime);
   }
-  // A canceled departure among those shown is worth knowing about, even with no connections.
+  // A canceled departure among those the rider can catch is worth knowing about, even with no
+  // connections.
   const first = shown[0]?.at;
   const last = shown.at(-1)?.at;
   if (first !== undefined && last !== undefined) {
-    shown = [...shown, ...secondLegs.filter(({ canceled, at }) => canceled && at >= first && at <= last)].sort(byTime);
+    shown = [...shown, ...secondLegs.filter(({ canceled, at }) => canceled && at >= first && at <= last)];
   }
+  shown = [...new Set([...shown, ...pairs.filter(underWay).map(({ departure }) => departure)])].sort(byTime);
 
   return shown.map((departure) => {
     const result: Departure = {

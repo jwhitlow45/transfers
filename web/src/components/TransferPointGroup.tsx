@@ -2,9 +2,10 @@ import { type ComponentChildren, Fragment } from 'preact';
 import type { Group, Route } from '../../../shared/api.ts';
 import { walkMinutes } from '../format.ts';
 import { groupStops, outagesByStation } from '../lib/outages.ts';
-import { type CardContext, alightVerb, familyName, firstNoun, firstWord, pointId, visibleDepartures } from '../lib/results.ts';
+import { type CardContext, alightVerb, cardLeft, familyName, firstNoun, firstWord, pointId, visibleDepartures } from '../lib/results.ts';
 import { agencyName, shortStopName, windowText } from '../view.ts';
 import { DepartureCard } from './DepartureCard.tsx';
+import { Departed } from './Departed.tsx';
 import { OutageTag } from './Outages.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import { StopLink } from './StopLink.tsx';
@@ -25,7 +26,7 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
   const alight = data.stops[group.alight];
   const routes = group.routes.map((key) => data.routes[key]).filter((route) => route !== undefined);
   const colorOf = context.colorOf;
-  const departures = visibleDepartures(group, context.now, context.showHidden);
+  const departures = visibleDepartures(group, context.now, context.showHidden, true);
   const noun = firstNoun(group, data);
   const boardName = shortStopName(board, group.board);
   const alightName = shortStopName(alight, group.alight);
@@ -36,7 +37,12 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
   const station = board?.serves ? 'BART and Muni Metro station' : board ? `${agencyName(board)} station` : null;
   const boardLink = <StopLink stop={board}>{boardName}</StopLink>;
   const place = joined([board?.direction, <>at {boardLink}</>, board?.code ? `stop ${board.code}` : station]);
-  const firstOpen = departures.find(({ canceled }) => !canceled)?.trip;
+  // Cards whose vehicles have all left fold into one section above the rest. Inside it they open,
+  // as the rider looking there wants their rows.
+  const left = departures.filter((departure) => !departure.canceled && cardLeft(group, departure, context.now));
+  const ahead = departures.filter((departure) => !left.includes(departure));
+  const firstOpen = ahead.find(({ canceled }) => !canceled)?.trip;
+  const opensFirst = (departure: (typeof departures)[number]) => departure.trip === firstOpen || left.includes(departure);
   // By station, so one with both out says so once: "Elevator and escalator out at 24th St Mission".
   const outages = outagesByStation(data.access ?? [], groupStops(group));
   const walk = group.kind === 'walk';
@@ -61,6 +67,23 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
     <>
       {alightVerb(group, data)} <StopLink stop={alight}>{alightName}</StopLink> · {walkTime} min walk
     </>
+  );
+  const card = (departure: (typeof departures)[number]) => (
+    <DepartureCard
+      key={departure.trip}
+      departure={departure}
+      group={group}
+      next={ahead.slice(ahead.indexOf(departure) + 1).find(({ canceled }) => !canceled)}
+      boardName={boardName}
+      alightName={alightName}
+      noun={noun}
+      walk={walk}
+      allLeft={left.includes(departure)}
+      expanded={isExpanded(`${pointId(group)}|${departure.trip}`, opensFirst(departure))}
+      onToggle={() => onToggle(`${pointId(group)}|${departure.trip}`, opensFirst(departure))}
+      colorOf={colorOf}
+      context={context}
+    />
   );
   return (
     <section class="tf-group">
@@ -114,22 +137,14 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
           )}
         </div>
       ) : (
-        departures.map((departure, index) => (
-          <DepartureCard
-            key={departure.trip}
-            departure={departure}
-            group={group}
-            next={departures.slice(index + 1).find(({ canceled }) => !canceled)}
-            boardName={boardName}
-            alightName={alightName}
-            noun={noun}
-            walk={walk}
-            expanded={isExpanded(`${pointId(group)}|${departure.trip}`, departure.trip === firstOpen)}
-            onToggle={() => onToggle(`${pointId(group)}|${departure.trip}`, departure.trip === firstOpen)}
-            colorOf={colorOf}
-            context={context}
-          />
-        ))
+        <>
+          {left.length > 0 && (
+            <Departed count={walk ? left.length : left.reduce((sum, { connections }) => sum + connections.length, 0)}>
+              {left.map(card)}
+            </Departed>
+          )}
+          {ahead.map(card)}
+        </>
       )}
     </section>
   );
