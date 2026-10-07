@@ -46,6 +46,11 @@
 
   --motion-indeterminate: 1.1s linear infinite;
   --motion-fast: 150ms;   /* opening and closing */
+  /* Room at the bottom of the screen: the home indicator's, and on a phone with one, a little more,
+     as its rounded corners crowd square buttons sitting right above it. Zero on a phone with no
+     home indicator, which reports no inset. */
+  --bottom-inset: calc(env(safe-area-inset-bottom) + min(env(safe-area-inset-bottom), 10px));
+  --corner-inset: min(env(safe-area-inset-bottom), 8px);
 }
 
 :root, [data-theme="light"] {
@@ -125,6 +130,8 @@ button:disabled { opacity: .45; cursor: default; }
 /* Focused only in place of a control that went away (see focus.ts), which needs no ring. */
 #main:focus { outline: none; }
 .tf-page { max-width: var(--page-max); margin: 0 auto; padding: var(--space-5) var(--space-5) var(--space-6); display: flex; flex-direction: column; gap: var(--space-4); }
+/* A screen with no bottom bar, such as Settings, scrolls its last items clear of the home indicator. */
+.tf-app:not(:has(.tf-bottombar)) .tf-page { padding-bottom: calc(var(--space-6) + var(--bottom-inset)); }
 .tf-page--form { max-width: var(--form-max); gap: var(--space-6); padding-bottom: 32px; }
 
 /* ── buttons ───────────────────────────────────────── */
@@ -366,7 +373,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-credit { margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--divider); font-size: var(--text-sm); color: var(--muted); display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-1) var(--space-4); }
 
 /* ── bottom bar ────────────────────────────────────── */
-.tf-bottombar { flex: none; border-top: var(--border-strong) solid var(--line); background: var(--bg); padding: var(--space-2) var(--space-3) calc(var(--space-2) + env(safe-area-inset-bottom)); }
+.tf-bottombar { flex: none; border-top: var(--border-strong) solid var(--line); background: var(--bg); padding: var(--space-2) calc(var(--space-3) + var(--corner-inset)) calc(var(--space-2) + var(--bottom-inset)); }
 .tf-bottombar__inner { max-width: 560px; margin: 0 auto; display: flex; gap: var(--space-2); }
 .tf-bottombar__open { flex: 1; display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: 0 var(--space-4); }
 .tf-bottombar__open strong { font-size: 18px; }
@@ -379,7 +386,7 @@ button:disabled { opacity: .45; cursor: default; }
 /* The panel is a fixed top, the handle and title, over a body that scrolls on its own. */
 .tf-sheet__panel { position: relative; display: flex; flex-direction: column; background: var(--bg); border-top: 1px solid var(--line); max-height: 90%; }
 .tf-sheet__top { flex: none; padding: var(--space-1) var(--space-5) var(--space-2); border-bottom: var(--border-hair) solid var(--divider); cursor: grab; }
-.tf-sheet__body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 var(--space-5) var(--space-5); }
+.tf-sheet__body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 var(--space-5) calc(var(--space-5) + var(--bottom-inset)); }
 .tf-sheet__inner { max-width: 560px; margin: 0 auto; }
 .tf-sheet__head { display: flex; align-items: center; gap: var(--space-2); padding: 6px 0; }
 .tf-sheet__head h2 { flex: 1; margin: 0; font-size: var(--text-xl); }
@@ -446,7 +453,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-bottombar { position: relative; }
 .tf-toast-region { position: absolute; z-index: 5; left: var(--space-3); right: var(--space-3); bottom: calc(100% + var(--space-2)); max-width: 560px; margin: 0 auto; pointer-events: none; }
 /* On a screen with no bottom bar, at the bottom of the screen itself. */
-.tf-toast-region--page { position: fixed; bottom: calc(var(--space-3) + env(safe-area-inset-bottom)); }
+.tf-toast-region--page { position: fixed; bottom: calc(var(--space-3) + var(--bottom-inset)); }
 .tf-toast { display: flex; align-items: center; gap: var(--space-2); min-height: var(--tap); padding: 0 var(--space-1) 0 var(--space-4); border: 1px solid var(--line); background: var(--field); color: var(--on-field); font-size: 15px; font-weight: var(--weight-semibold); pointer-events: auto; animation: tf-toast-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1); }
 .tf-toast--leaving { animation: tf-toast-out 160ms ease-in forwards; pointer-events: none; }
 .tf-toast__text { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
