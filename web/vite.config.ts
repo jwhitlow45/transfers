@@ -16,7 +16,8 @@ export default defineConfig({
 });
 
 // Stamps the page with its build's id: a hash of every built file's name, which carry content
-// hashes, so it changes exactly when anything shipped does. The server sends the same id from its
+// hashes, and of the page itself, the public files, and the service worker's source, which do
+// not. So it changes exactly when anything shipped does. The server sends the same id from its
 // copy of the page, and a page with another asks the rider to refresh (see src/update.ts).
 function buildStamp(): Plugin {
   return {
@@ -26,8 +27,13 @@ function buildStamp(): Plugin {
       order: 'post',
       handler(html, { bundle }) {
         if (!bundle) return html;
-        const names = Object.keys(bundle).filter((name) => !name.endsWith('.html') && name !== 'sw.js').sort();
-        const id = createHash('sha256').update(names.join('\n')).digest('hex').slice(0, 12);
+        const hash = createHash('sha256');
+        for (const name of Object.keys(bundle).filter((name) => !name.endsWith('.html') && name !== 'sw.js').sort()) hash.update(`${name}\n`);
+        hash.update(html);
+        const publicDir = join(import.meta.dirname, 'public');
+        for (const name of readdirSync(publicDir).sort()) hash.update(`${name}\n`).update(readFileSync(join(publicDir, name)));
+        hash.update(readFileSync(join(import.meta.dirname, 'src', 'sw.js')));
+        const id = hash.digest('hex').slice(0, 12);
         return { html, tags: [{ tag: 'meta', attrs: { name: 'build', content: id }, injectTo: 'head' }] };
       },
     },

@@ -10,20 +10,28 @@ import { clearCached } from './storage.ts';
 const SETTLE_MS = 15_000;
 
 export function buildWatch(own: string | null, clock: () => number = Date.now) {
-  let differingSince: number | null = null;
+  // The newer id seen and since when. Another id, as from a second deploy, waits afresh.
+  let candidate: { build: string; since: number } | null = null;
   let available = false;
   const listeners = new Set<() => void>();
+  const set = (next: boolean) => {
+    if (next === available) return;
+    available = next;
+    for (const listener of listeners) listener();
+  };
   return {
-    // With each answer's X-Build header.
+    // With each answer's X-Build header. An answer without one, as from a server with no built
+    // page, says nothing either way.
     notice(build: string | null) {
-      if (!own || !build || build === own) {
-        differingSince = null;
+      if (!own || !build) return;
+      // Back on this page's build, as after a rollback, there is nothing newer to load.
+      if (build === own) {
+        candidate = null;
+        set(false);
         return;
       }
-      differingSince ??= clock();
-      if (available || clock() - differingSince < SETTLE_MS) return;
-      available = true;
-      for (const listener of listeners) listener();
+      if (candidate?.build !== build) candidate = { build, since: clock() };
+      if (clock() - candidate.since >= SETTLE_MS) set(true);
     },
     get available() {
       return available;
@@ -43,7 +51,7 @@ export const noticeBuild = (build: string | null) => watch.notice(build);
 
 export function useUpdateAvailable() {
   const [available, setAvailable] = useState(watch.available);
-  useEffect(() => watch.subscribe(() => setAvailable(true)), []);
+  useEffect(() => watch.subscribe(() => setAvailable(watch.available)), []);
   return available;
 }
 

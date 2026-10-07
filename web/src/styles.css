@@ -51,8 +51,8 @@
      home indicator, which reports no inset. */
   --bottom-inset: calc(env(safe-area-inset-bottom) + min(env(safe-area-inset-bottom), 10px));
   --corner-inset: min(env(safe-area-inset-bottom), 8px);
-  /* Room a new version's pill (UpdatePill.tsx) needs at the bottom of the screen beyond the space
-     already under the bottom controls: none on a phone with a home indicator, whose inset holds it. */
+  /* Room a new version's pill takes at the bottom of the screen: none until it shows (see
+     .tf-app--update). */
   --update-room: 0px;
 }
 
@@ -133,17 +133,23 @@ button:disabled { opacity: .45; cursor: default; }
 /* A newer version of the site, in one place on every screen: bottom center, in the space between
    the bottom controls and the home indicator, or with no such space, in room the page makes for
    it. Sheets open over it. */
+/* A phone with a home indicator has room for it under the bottom controls already, so it takes
+   only what the inset falls short of. */
 .tf-app--update { --update-room: calc(32px - min(var(--bottom-inset), 32px)); }
 /* Placed within the app shell rather than fixed to the screen: iOS drew a fixed pill behind the
    screens, which scroll in layers of their own. */
 .tf-update-region { position: absolute; left: 0; right: 0; bottom: max(4px, calc(var(--bottom-inset) - 24px)); z-index: 5; display: flex; justify-content: center; pointer-events: none; }
-.tf-update-pill { pointer-events: auto; display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 var(--space-2); background: var(--bg); color: var(--accent-ink); border: var(--border-hair) solid color-mix(in srgb, var(--accent-ink) 55%, transparent); font-size: var(--text-sm); font-weight: var(--weight-semibold); white-space: nowrap; }
+/* Drawn small, with more room around it to tap: 6px up and down, short of the 8px to the bottom
+   bar's buttons above it, so it never takes their taps. */
+.tf-update-pill::before { content: ''; position: absolute; inset: -6px -8px; }
+.tf-update-pill { position: relative; pointer-events: auto; display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 var(--space-2); background: var(--bg); color: var(--accent-ink); border: var(--border-hair) solid color-mix(in srgb, var(--accent-ink) 55%, transparent); font-size: var(--text-sm); font-weight: var(--weight-semibold); white-space: nowrap; }
 /* Focused only in place of a control that went away (see focus.ts), which needs no ring. */
 #main:focus { outline: none; }
-.tf-page { max-width: var(--page-max); margin: 0 auto; padding: var(--space-5) var(--space-5) var(--space-6); display: flex; flex-direction: column; gap: var(--space-4); }
+/* --page-end is a page's own room after its last item, which the bottom inset adds to below. */
+.tf-page { --page-end: var(--space-6); max-width: var(--page-max); margin: 0 auto; padding: var(--space-5) var(--space-5) var(--page-end); display: flex; flex-direction: column; gap: var(--space-4); }
 /* A screen with no bottom bar, such as Settings, scrolls its last items clear of the home indicator. */
-.tf-app:not(:has(.tf-bottombar)) .tf-page { padding-bottom: calc(var(--space-6) + var(--bottom-inset) + var(--update-room)); }
-.tf-page--form { max-width: var(--form-max); gap: var(--space-6); padding-bottom: 32px; }
+.tf-app:not(:has(.tf-bottombar)) .tf-page { padding-bottom: calc(var(--page-end) + var(--bottom-inset) + var(--update-room)); }
+.tf-page--form { --page-end: 32px; max-width: var(--form-max); gap: var(--space-6); }
 
 /* ── buttons ───────────────────────────────────────── */
 .tf-btn-primary { min-height: var(--tap-primary); width: 100%; border: var(--border-strong) solid var(--primary); background: var(--primary); color: var(--on-primary); font-size: var(--text-lg); font-weight: var(--weight-bold); }

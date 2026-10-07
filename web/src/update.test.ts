@@ -2,7 +2,7 @@ import { deepStrictEqual, strictEqual } from 'node:assert/strict';
 import { test } from 'node:test';
 import { buildWatch } from './update.ts';
 
-test('a newer build is offered once it has held for 15 seconds, and a matching or missing one resets the wait', () => {
+test('a newer build is offered once it has held for 15 seconds, and a matching one resets the wait', () => {
   let now = 0;
   const watch = buildWatch('aaa', () => now);
   const heard: number[] = [];
@@ -34,4 +34,21 @@ test('a page with no build, as from the development server, and an answer with n
   dev.notice('bbb');
   stamped.notice(null);
   deepStrictEqual([dev.available, stamped.available], [false, false]);
+});
+
+test('a second new build waits its own 15 seconds, and a server back on this page\'s build takes the offer back', () => {
+  let now = 0;
+  const watch = buildWatch('aaa', () => now);
+  watch.notice('bbb');
+  now = 15_000;
+  // Another deploy lands while the first settles.
+  watch.notice('ccc');
+  strictEqual(watch.available, false);
+  now = 30_000;
+  watch.notice('ccc');
+  strictEqual(watch.available, true);
+  // Rolled back to this page's build.
+  now = 40_000;
+  watch.notice('aaa');
+  strictEqual(watch.available, false);
 });
