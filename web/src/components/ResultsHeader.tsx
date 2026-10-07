@@ -2,7 +2,8 @@ import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { FeedState } from '../hooks.ts';
 import { ageShort } from '../lib/freshness.ts';
-import { IconBack } from '../icons/ui.tsx';
+import { IconBack, IconNewVersion } from '../icons/ui.tsx';
+import { forceRefresh, useUpdateAvailable } from '../update.ts';
 import { PullToRefresh } from './PullToRefresh.tsx';
 
 // secondsSinceUpdate counts from when the server got the data from 511, not when this page
@@ -15,8 +16,41 @@ export function liveStatusText(feed: FeedState, secondsSinceUpdate: number | nul
   return secondsSinceUpdate === null ? 'Live' : `Updated ${ago(secondsSinceUpdate)}`;
 }
 
-// One item of the status line: a symbol and a short value, with the full sentence on tap.
-export type StatusItem = { key: string; icon: ComponentChildren; short: string; full: string };
+// The same for a screen with no status line, such as Home.
+export function UpdateButton() {
+  const update = useUpdateAvailable();
+  if (!update) return null;
+  return (
+    <button type="button" class="tf-stat__button tf-update-button" aria-label={UPDATE.full} onClick={UPDATE.onPress}>
+      <span class="tf-stat__icon" aria-hidden="true">
+        {UPDATE.icon}
+      </span>
+      <span class="tf-stat__value" aria-hidden="true">
+        {UPDATE.short}
+      </span>
+    </button>
+  );
+}
+
+// One item of the status line: a symbol and a short value, with the full sentence on tap, or with
+// `onPress`, an action of its own.
+export type StatusItem = { key: string; icon: ComponentChildren; short: ComponentChildren; full: string; onPress?: () => void };
+
+// A newer version of the site than this page, as an item of its own: nothing is wrong, so not a
+// warning, and underlined as the app's other tappable text is. A tap loads the new version the
+// same way as Settings' Force refresh.
+// Narrower phones drop " available", and the narrowest the words (see styles.css).
+const UPDATE: StatusItem = {
+  key: 'update',
+  icon: <IconNewVersion size={16} />,
+  short: (
+    <>
+      Update<span class="tf-update-more"> available</span>
+    </>
+  ),
+  full: 'Update available. Tap to load the new version of Transfers',
+  onPress: () => void forceRefresh(),
+};
 
 // The live status as one line of short items. Each one opens its full sentence on tap, and
 // screen readers hear the full sentence as its name. Only changes of state are announced: the
@@ -32,6 +66,7 @@ export function LiveStatus({ feed, secondsSinceUpdate, stale, items = [] }: { fe
     document.addEventListener('pointerdown', close);
     return () => document.removeEventListener('pointerdown', close);
   }, [open]);
+  const update = useUpdateAvailable();
   const tone = feed === 'offline' ? 'offline' : stale ? 'stale' : 'live';
   const age = secondsSinceUpdate === null ? null : ageShort(secondsSinceUpdate);
   const live: StatusItem = {
@@ -40,15 +75,21 @@ export function LiveStatus({ feed, secondsSinceUpdate, stale, items = [] }: { fe
     short: feed === 'loading' ? 'Loading' : feed === 'offline' ? `Offline${age ? ` · ${age}` : ''}` : (age ?? 'Live'),
     full: liveStatusSentence(feed, secondsSinceUpdate, stale ?? false),
   };
-  const announcement = feed === 'offline' ? 'Offline, showing the last results' : stale ? 'Live times are out of date' : feed === 'loading' ? 'Loading' : '';
+  const announcement = feed === 'offline' ? 'Offline, showing the last results' : stale ? 'Live times are out of date' : feed === 'loading' ? 'Loading' : update ? 'An update to Transfers is available' : '';
   return (
     <div class={`tf-livestatus tf-livestatus--${tone}`} ref={line}>
       <span class="tf-sr" role="status">
         {announcement}
       </span>
-      {[live, ...items].map((item) => (
+      {[live, ...items, ...(update ? [UPDATE] : [])].map((item) => (
         <span key={item.key} class={`tf-stat tf-stat--${item.key}`}>
-          <button type="button" class="tf-stat__button" aria-label={item.full} aria-expanded={open === item.key} onClick={() => setOpen(open === item.key ? null : item.key)}>
+          <button
+            type="button"
+            class="tf-stat__button"
+            aria-label={item.full}
+            aria-expanded={item.onPress ? undefined : open === item.key}
+            onClick={item.onPress ?? (() => setOpen(open === item.key ? null : item.key))}
+          >
             <span class="tf-stat__icon" aria-hidden="true">
               {item.icon}
             </span>

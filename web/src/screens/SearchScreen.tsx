@@ -9,6 +9,7 @@ import { SavedSearchCard } from '../components/SavedSearchCard.tsx';
 import { SearchFields } from '../components/SearchFields.tsx';
 import { type SearchHit, StopResults, hitMeta, hitName } from '../components/StopResults.tsx';
 import { Toast, type ToastMessage } from '../components/Toast.tsx';
+import { UpdateButton } from '../components/ResultsHeader.tsx';
 import { clock } from '../format.ts';
 import { useNow, usePinnedTrip, usePoll } from '../hooks.ts';
 import { IconChevron, IconGear, IconLocation, IconPin } from '../icons/ui.tsx';
@@ -153,6 +154,9 @@ export function SearchScreen() {
       <main class="tf-page tf-page--form" id="main">
         <div class="tf-search-head">
           <h1>Transfers</h1>
+          <span class="tf-search-head__middle">
+            <UpdateButton />
+          </span>
           <span class="tf-search-head__end">
             <span class="tf-muted">{clock(now / 1000)}</span>
             <a class="tf-btn-icon tf-muted" href="/settings" aria-label="Settings" onClick={(event) => (event.preventDefault(), navigate('/settings'))}>

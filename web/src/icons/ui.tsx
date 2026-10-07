@@ -87,12 +87,13 @@ export const IconGear = ({ size = 22 }: Props) =>
     </>,
     size,
   );
-// A new version of the app, as an arrow up in a circle, unlike the refresh arrows the times use.
+// A new version of the app, as an arrow down into a circle, the usual mark for getting a newer
+// copy, and unlike the refresh arrows the times use.
 export const IconNewVersion = ({ size = 16 }: Props) =>
   icon(
     <>
       <circle cx="12" cy="12" r="9" />
-      <path d="M12 16.5v-9M8.5 11l3.5-3.5 3.5 3.5" />
+      <path d="M12 7.5v9M8.5 13l3.5 3.5 3.5-3.5" />
     </>,
     size,
   );

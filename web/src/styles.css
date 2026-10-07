@@ -51,9 +51,6 @@
      home indicator, which reports no inset. */
   --bottom-inset: calc(env(safe-area-inset-bottom) + min(env(safe-area-inset-bottom), 10px));
   --corner-inset: min(env(safe-area-inset-bottom), 8px);
-  /* Room a new version's pill takes at the bottom of the screen: none until it shows (see
-     .tf-app--update). */
-  --update-room: 0px;
 }
 
 :root, [data-theme="light"] {
@@ -130,25 +127,12 @@ button:disabled { opacity: .45; cursor: default; }
 /* ── app shell ─────────────────────────────────────── */
 .tf-app { position: relative; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
 .tf-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; }
-/* A newer version of the site, in one place on every screen: bottom center, in the space between
-   the bottom controls and the home indicator, or with no such space, in room the page makes for
-   it. Sheets open over it. */
-/* A phone with a home indicator has room for it under the bottom controls already, so it takes
-   only what the inset falls short of. */
-.tf-app--update { --update-room: calc(32px - min(var(--bottom-inset), 32px)); }
-/* Placed within the app shell rather than fixed to the screen: iOS drew a fixed pill behind the
-   screens, which scroll in layers of their own. */
-.tf-update-region { position: absolute; left: 0; right: 0; bottom: max(4px, calc(var(--bottom-inset) - 24px)); z-index: 5; display: flex; justify-content: center; pointer-events: none; }
-/* Drawn small, with more room around it to tap: 6px up and down, short of the 8px to the bottom
-   bar's buttons above it, so it never takes their taps. */
-.tf-update-pill::before { content: ''; position: absolute; inset: -6px -8px; }
-.tf-update-pill { position: relative; pointer-events: auto; display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 var(--space-2); background: var(--bg); color: var(--accent-ink); border: var(--border-hair) solid color-mix(in srgb, var(--accent-ink) 55%, transparent); font-size: var(--text-sm); font-weight: var(--weight-semibold); white-space: nowrap; }
 /* Focused only in place of a control that went away (see focus.ts), which needs no ring. */
 #main:focus { outline: none; }
 /* --page-end is a page's own room after its last item, which the bottom inset adds to below. */
 .tf-page { --page-end: var(--space-6); max-width: var(--page-max); margin: 0 auto; padding: var(--space-5) var(--space-5) var(--page-end); display: flex; flex-direction: column; gap: var(--space-4); }
 /* A screen with no bottom bar, such as Settings, scrolls its last items clear of the home indicator. */
-.tf-app:not(:has(.tf-bottombar)) .tf-page { padding-bottom: calc(var(--page-end) + var(--bottom-inset) + var(--update-room)); }
+.tf-app:not(:has(.tf-bottombar)) .tf-page { padding-bottom: calc(var(--page-end) + var(--bottom-inset)); }
 .tf-page--form { --page-end: 32px; max-width: var(--form-max); gap: var(--space-6); }
 
 /* ── buttons ───────────────────────────────────────── */
@@ -186,7 +170,9 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-band .tf-status--scheduled { color: var(--on-field); border-color: var(--on-field); }
 
 /* ── search ────────────────────────────────────────── */
-.tf-search-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); padding-top: var(--space-1); }
+/* Three columns, so an update sits in the middle of the row whatever the clock says. */
+.tf-search-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: baseline; gap: var(--space-3); padding-top: var(--space-1); }
+.tf-search-head__middle { justify-self: center; }
 .tf-search-head h1 { margin: 0; font-size: var(--text-title); font-weight: var(--weight-bold); letter-spacing: -0.01em; }
 .tf-fields { display: grid; grid-template-columns: minmax(0, 1fr) 52px; border: var(--border-strong) solid var(--line); }
 .tf-field { display: block; padding: 10px var(--space-3); }
@@ -391,7 +377,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-credit { margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--divider); font-size: var(--text-sm); color: var(--muted); display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-1) var(--space-4); }
 
 /* ── bottom bar ────────────────────────────────────── */
-.tf-bottombar { flex: none; border-top: var(--border-strong) solid var(--line); background: var(--bg); padding: var(--space-2) calc(var(--space-3) + var(--corner-inset)) calc(var(--space-2) + var(--bottom-inset) + var(--update-room)); }
+.tf-bottombar { flex: none; border-top: var(--border-strong) solid var(--line); background: var(--bg); padding: var(--space-2) calc(var(--space-3) + var(--corner-inset)) calc(var(--space-2) + var(--bottom-inset)); }
 .tf-bottombar__inner { max-width: 560px; margin: 0 auto; display: flex; gap: var(--space-2); }
 .tf-bottombar__open { flex: 1; display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: 0 var(--space-4); }
 .tf-bottombar__open strong { font-size: 18px; }
@@ -425,7 +411,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-link-button { display: inline-flex; align-items: center; min-height: var(--tap); color: var(--accent-ink); font-weight: 650; text-decoration: underline; text-underline-offset: 3px; }
 .tf-btn-secondary { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); padding: 0 var(--space-4); color: var(--text); text-decoration: none; font-weight: 650; }
 .tf-btn-with-icon { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); }
-.tf-search-head__end { display: inline-flex; align-items: center; gap: var(--space-1); }
+.tf-search-head__end { justify-self: end; display: inline-flex; align-items: center; gap: var(--space-1); }
 .tf-fields__stack { min-width: 0; }
 .tf-field__label { font-weight: var(--weight-semibold); }
 .tf-nearby-button { width: 100%; }
@@ -471,7 +457,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-bottombar { position: relative; }
 .tf-toast-region { position: absolute; z-index: 5; left: var(--space-3); right: var(--space-3); bottom: calc(100% + var(--space-2)); max-width: 560px; margin: 0 auto; pointer-events: none; }
 /* On a screen with no bottom bar, at the bottom of the screen itself. */
-.tf-toast-region--page { position: fixed; bottom: calc(var(--space-3) + var(--bottom-inset) + var(--update-room)); }
+.tf-toast-region--page { position: fixed; bottom: calc(var(--space-3) + var(--bottom-inset)); }
 .tf-toast { display: flex; align-items: center; gap: var(--space-2); min-height: var(--tap); padding: 0 var(--space-1) 0 var(--space-4); border: 1px solid var(--line); background: var(--field); color: var(--on-field); font-size: 15px; font-weight: var(--weight-semibold); pointer-events: auto; animation: tf-toast-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1); }
 .tf-toast--leaving { animation: tf-toast-out 160ms ease-in forwards; pointer-events: none; }
 .tf-toast__text { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
@@ -598,6 +584,15 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-livestatus--offline .tf-stat--live .tf-dot { background: transparent; border-color: var(--late); }
 .tf-livestatus--stale .tf-stat--live { color: var(--caution); font-weight: var(--weight-bold); }
 .tf-livestatus--stale .tf-stat--live .tf-dot { background: transparent; border-color: var(--caution); }
+/* An update: at the end of the line, the same size as the items beside it, in the accent's ink and
+   underlined as the app's other tappable text is. Home's sits in the middle of its title row. */
+.tf-stat--update { margin-left: auto; }
+.tf-stat--update .tf-stat__button, .tf-update-button { color: var(--accent-ink); font-weight: var(--weight-semibold); }
+.tf-stat--update .tf-stat__value, .tf-update-button .tf-stat__value { text-decoration: underline; text-underline-offset: 3px; }
+/* Narrower phones have room for "Update" alone, and the narrowest for the icon alone. Screen
+   readers hear the whole sentence either way. */
+@media (max-width: 399px) { .tf-update-more { display: none; } }
+@media (max-width: 359px) { .tf-stat--update .tf-stat__value, .tf-update-button .tf-stat__value { display: none; } }
 .tf-tip { position: absolute; top: calc(100% + 4px); left: var(--space-5); z-index: 6; width: max-content; max-width: min(320px, calc(100% - 2 * var(--space-5))); padding: var(--space-2) var(--space-3); background: var(--field); color: var(--on-field); font-size: var(--text-sm); font-weight: var(--weight-regular); line-height: 1.35; white-space: normal; }
 /* Results keep back in the bottom bar, so the title and the status line start at the gutter. The
    status items' own padding lines their text up with the title. */
