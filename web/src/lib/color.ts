@@ -1,14 +1,30 @@
 import type { Route } from '../../../shared/api.ts';
 
-// Dark or white text on a route color, whichever has more contrast.
-export function textOn(hex: string): string {
+// A #rrggbb color's relative luminance, as WCAG measures contrast with it.
+function luminance(hex: string) {
   const n = parseInt(hex.slice(1), 16);
   const linear = [n >> 16, (n >> 8) & 255, n & 255].map((value) => {
     const v = value / 255;
     return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
   });
-  const luminance = 0.2126 * linear[0]! + 0.7152 * linear[1]! + 0.0722 * linear[2]!;
-  return (luminance + 0.05) / 0.05 >= 1.05 / (luminance + 0.05) ? '#111214' : '#ffffff';
+  return 0.2126 * linear[0]! + 0.7152 * linear[1]! + 0.0722 * linear[2]!;
+}
+
+export const contrast = (a: string, b: string) => {
+  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (light! + 0.05) / (dark! + 0.05);
+};
+
+const DARK_TEXT = '#111214';
+
+// Dark or white text on a route color, whichever has more contrast. Chip text is small, so it
+// needs 4.5:1. A few middle tones, such as the bus palette's teal and olive, reach that with
+// neither, but do with black.
+export function textOn(hex: string): string {
+  const white = contrast(hex, '#ffffff');
+  const dark = contrast(hex, DARK_TEXT);
+  if (Math.max(white, dark) >= 4.5) return white >= dark ? '#ffffff' : DARK_TEXT;
+  return contrast(hex, '#000000') > white ? '#000000' : '#ffffff';
 }
 
 // Matched-lightness palette for bus routes, which have no official per-route color.
