@@ -1,3 +1,5 @@
+import type { FeedState } from '../hooks.ts';
+
 // How old the live data on screen is. It counts from when the server last got data from 511,
 // so a server that stopped hearing from 511 and a phone that stopped reaching the server both
 // show up as the same thing to the rider: times getting old.
@@ -47,4 +49,19 @@ export function clockSkewMs(generatedAt: number | undefined, fetchedAtMs: number
   if (generatedAt === undefined || fetchedAtMs === null) return 0;
   const skew = generatedAt * 1000 - fetchedAtMs;
   return Math.abs(skew) < SKEW_FLOOR_MS ? 0 : skew;
+}
+
+// What a live card on Home knows of how fresh its times are, which only changes when it fetches.
+export type LiveReport = { feed: FeedState; fetchedAt: number | null; dataAt: number | null; skew: number; settled: boolean };
+
+// The status line for every live card on Home together, as the results header says it for one
+// trip: offline when any card is, and the age of the oldest times showing, so it never says the
+// times are fresher than some of them are. None without live cards, as Home then asks nothing.
+export function homeStatus(reports: LiveReport[], now: number): { feed: FeedState; secondsSinceUpdate: number | null; stale: boolean } | null {
+  if (reports.length === 0) return null;
+  const fresh = reports.map(({ fetchedAt, dataAt, skew }) => freshness(now + skew, fetchedAt === null ? null : fetchedAt + skew, dataAt));
+  const ages = fresh.flatMap(({ ageSeconds }) => (ageSeconds === null ? [] : [ageSeconds]));
+  const feeds = reports.map(({ feed }) => feed);
+  const feed: FeedState = feeds.includes('offline') ? 'offline' : feeds.every((state) => state === 'loading') ? 'loading' : feeds.includes('refreshing') ? 'refreshing' : 'live';
+  return { feed, secondsSinceUpdate: ages.length > 0 ? Math.max(...ages) : null, stale: fresh.some(({ stale }, index) => stale && reports[index]!.settled) };
 }

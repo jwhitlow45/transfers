@@ -1,6 +1,6 @@
 import { deepStrictEqual, strictEqual } from 'node:assert/strict';
 import { test } from 'node:test';
-import { ageShort, clockSkewMs, freshness } from './freshness.ts';
+import { type LiveReport, ageShort, clockSkewMs, freshness, homeStatus } from './freshness.ts';
 
 const NOW = 1_791_000_000_000;
 const secondsAgo = (n: number) => NOW / 1000 - n;
@@ -38,4 +38,22 @@ test('a few seconds between server and phone is the trip over the network, not t
   // Made at 1000 s, arrived at 1001.8 s on a phone whose clock is right.
   strictEqual(clockSkewMs(1000, 1_001_800), 0);
   strictEqual(clockSkewMs(1000, 1_006_000), -6000);
+});
+
+test('Home says offline when any card is, and the oldest times showing', () => {
+  const card = (feed: LiveReport['feed'], age: number | null, settled = true): LiveReport => ({ feed, fetchedAt: NOW - 1000, dataAt: age === null ? null : secondsAgo(age), skew: 0, settled });
+  strictEqual(homeStatus([], NOW), null);
+  deepStrictEqual(homeStatus([card('live', 12), card('offline', 40)], NOW), { feed: 'offline', secondsSinceUpdate: 40, stale: false });
+  deepStrictEqual(homeStatus([card('loading', null), card('loading', null)], NOW), { feed: 'loading', secondsSinceUpdate: null, stale: false });
+  deepStrictEqual(homeStatus([card('loading', null), card('live', 20)], NOW), { feed: 'live', secondsSinceUpdate: 20, stale: false });
+  strictEqual(homeStatus([card('live', 20), card('refreshing', 30)], NOW)?.feed, 'refreshing');
+  // A card whose first answer is still settling does not warn yet.
+  strictEqual(homeStatus([card('live', 200, false), card('live', 20)], NOW)?.stale, false);
+  strictEqual(homeStatus([card('live', 200), card('live', 20)], NOW)?.stale, true);
+});
+
+test('Home counts each card\'s age by the server\'s clock', () => {
+  // This phone runs a minute slow, so the server's 30-second-old data is 30 seconds old, not 90.
+  const report: LiveReport = { feed: 'live', fetchedAt: NOW - 60_000, dataAt: secondsAgo(30), skew: 60_000, settled: true };
+  strictEqual(homeStatus([report], NOW - 60_000)?.secondsSinceUpdate, 30);
 });

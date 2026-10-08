@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { SearchResponse, TripResponse } from '../../../shared/api.ts';
 import { getJson } from '../api.ts';
 import { Collapse } from '../components/Collapse.tsx';
@@ -14,7 +14,7 @@ import { clock } from '../format.ts';
 import { type FeedState, useNow, usePinnedTrip, usePoll } from '../hooks.ts';
 import { IconChevron, IconGear, IconLocation, IconPin } from '../icons/ui.tsx';
 import { defaultSavedColor } from '../lib/color.ts';
-import { ageText, clockSkewMs, freshness } from '../lib/freshness.ts';
+import { type LiveReport, ageText, clockSkewMs, freshness, homeStatus } from '../lib/freshness.ts';
 import { type LocationProblem, handOver, locate, locationProblemText } from '../lib/location.ts';
 import { pageColors, scaleFor, timeScale } from '../lib/results.ts';
 import { summarize } from '../lib/summary.ts';
@@ -192,59 +192,58 @@ export function SearchScreen() {
             Find transfers
           </button>
         )}
-        {showingResults ? (
-          <StopResults query={query} response={response!} onPick={pick} includesRoutes={focus === 'to'} />
-        ) : (
-          <>
-            <button type="button" class="tf-btn-outline tf-btn-secondary tf-nearby-button" onClick={findNearby} disabled={locating === 'asking'}>
-              <IconLocation />
-              {locating === 'asking' ? 'Finding you…' : 'Show nearby routes'}
-            </button>
-            {(locating === 'denied' || locating === 'unavailable') && (
-              <div class="tf-near__problem" role="alert">
-                {locationProblemText(locating)}
+        {showingResults && <StopResults query={query} response={response!} onPick={pick} includesRoutes={focus === 'to'} />}
+        {/* Hidden rather than unmounted under the suggestions, so the saved cards keep their times
+            and the status line above the fields stays put while the rider types. */}
+        <div class="tf-home-rest" hidden={showingResults}>
+          <button type="button" class="tf-btn-outline tf-btn-secondary tf-nearby-button" onClick={findNearby} disabled={locating === 'asking'}>
+            <IconLocation />
+            {locating === 'asking' ? 'Finding you…' : 'Show nearby routes'}
+          </button>
+          {(locating === 'denied' || locating === 'unavailable') && (
+            <div class="tf-near__problem" role="alert">
+              {locationProblemText(locating)}
+            </div>
+          )}
+          {saved.length > 0 && (
+            <section class="tf-section" aria-labelledby="saved-heading">
+              <h2 id="saved-heading">Saved</h2>
+              <div class="tf-saved-grid">
+                {saved.map((search) => (
+                  <SavedTrip
+                    key={search.id}
+                    search={search}
+                    now={now}
+                    onReport={report}
+                    onEdit={(change) =>
+                      updateSaved(loadSaved().map((item) => (item.id === search.id ? { ...item, ...change, renamed: change.name !== item.name ? true : item.renamed } : item)))
+                    }
+                    onColorless={(lineColor) => {
+                      // Saved before colors existed: take one now, avoiding the rest.
+                      const all = loadSaved();
+                      const taken = all.filter(({ id, color }) => id !== search.id && color).map(({ color }) => color!);
+                      updateSaved(all.map((item) => (item.id === search.id && !item.color ? { ...item, color: defaultSavedColor(lineColor, taken) } : item)));
+                    }}
+                    onRemove={() => {
+                      removeSaved(search.id);
+                      setSaved(loadSaved());
+                    }}
+                  />
+                ))}
               </div>
-            )}
-            {saved.length > 0 && (
-              <section class="tf-section" aria-labelledby="saved-heading">
-                <h2 id="saved-heading">Saved</h2>
-                <div class="tf-saved-grid">
-                  {saved.map((search) => (
-                    <SavedTrip
-                      key={search.id}
-                      search={search}
-                      now={now}
-                      onReport={report}
-                      onEdit={(change) =>
-                        updateSaved(loadSaved().map((item) => (item.id === search.id ? { ...item, ...change, renamed: change.name !== item.name ? true : item.renamed } : item)))
-                      }
-                      onColorless={(lineColor) => {
-                        // Saved before colors existed: take one now, avoiding the rest.
-                        const all = loadSaved();
-                        const taken = all.filter(({ id, color }) => id !== search.id && color).map(({ color }) => color!);
-                        updateSaved(all.map((item) => (item.id === search.id && !item.color ? { ...item, color: defaultSavedColor(lineColor, taken) } : item)));
-                      }}
-                      onRemove={() => {
-                        removeSaved(search.id);
-                        setSaved(loadSaved());
-                      }}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
-            <RecentList
-              items={recent}
-              onOpen={(item) => navigate(item.href)}
-              onRemove={(item) => {
-                removeRecent(item.id);
-                setRecentVersion((version) => version + 1);
-              }}
-            />
-            <HowItWorks open={saved.length === 0 && recent.length === 0} />
-            <DataCredit />
-          </>
-        )}
+            </section>
+          )}
+          <RecentList
+            items={recent}
+            onOpen={(item) => navigate(item.href)}
+            onRemove={(item) => {
+              removeRecent(item.id);
+              setRecentVersion((version) => version + 1);
+            }}
+          />
+          <HowItWorks open={saved.length === 0 && recent.length === 0} />
+          <DataCredit />
+        </div>
       </main>
     </div>
   );
@@ -366,24 +365,11 @@ function SavedTrip({ search, now, onReport, onEdit, onColorless, onRemove }: {
   );
 }
 
-// What a live card on Home knows of how fresh its times are, which only changes when it fetches.
-type LiveReport = { feed: FeedState; fetchedAt: number | null; dataAt: number | null; skew: number; settled: boolean };
 type Report = (key: string, report: LiveReport | null) => void;
 
-// Tells Home how fresh a card's times are, and that it has gone once it unmounts.
+// Tells Home how fresh a card's times are, and that it has gone once it unmounts. Before paint,
+// so the status line shows in the same frame as the cards.
 function useLiveReport(onReport: Report, key: string, { feed, fetchedAt, dataAt, skew, settled }: LiveReport) {
-  useEffect(() => onReport(key, { feed, fetchedAt, dataAt, skew, settled }), [key, feed, fetchedAt, dataAt, skew, settled]);
-  useEffect(() => () => onReport(key, null), [key]);
-}
-
-// The status line for every live card on Home together, as the results header says it for one
-// trip: offline when any card is, and the age of the oldest times showing, so it never says the
-// times are fresher than some of them are. None without live cards, as Home then asks nothing.
-function homeStatus(reports: LiveReport[], now: number): { feed: FeedState; secondsSinceUpdate: number | null; stale: boolean } | null {
-  if (reports.length === 0) return null;
-  const fresh = reports.map(({ fetchedAt, dataAt, skew }) => freshness(now + skew, fetchedAt === null ? null : fetchedAt + skew, dataAt));
-  const ages = fresh.flatMap(({ ageSeconds }) => (ageSeconds === null ? [] : [ageSeconds]));
-  const feeds = reports.map(({ feed }) => feed);
-  const feed: FeedState = feeds.includes('offline') ? 'offline' : feeds.every((state) => state === 'loading') ? 'loading' : feeds.includes('refreshing') ? 'refreshing' : 'live';
-  return { feed, secondsSinceUpdate: ages.length > 0 ? Math.max(...ages) : null, stale: fresh.some(({ stale }, index) => stale && reports[index]!.settled) };
+  useLayoutEffect(() => onReport(key, { feed, fetchedAt, dataAt, skew, settled }), [key, feed, fetchedAt, dataAt, skew, settled]);
+  useLayoutEffect(() => () => onReport(key, null), [key]);
 }

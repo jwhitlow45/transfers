@@ -172,6 +172,9 @@ button:disabled { opacity: .45; cursor: default; }
 /* ── search ────────────────────────────────────────── */
 .tf-search-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); padding-top: var(--space-1); }
 /* Home's status line, as under the results header, close under the title and lined up with it. */
+/* Home below the fields, kept mounted while the suggestions cover it. */
+.tf-home-rest { display: contents; }
+.tf-home-rest[hidden] { display: none; }
 .tf-home-status { margin: calc(-1 * var(--space-4)) 0 0 calc(-1 * var(--space-2)); }
 .tf-home-status .tf-livestatus { padding: 0; }
 .tf-search-head h1 { margin: 0; font-size: var(--text-title); font-weight: var(--weight-bold); letter-spacing: -0.01em; }
