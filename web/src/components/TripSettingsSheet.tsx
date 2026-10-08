@@ -33,30 +33,6 @@ function ResetWindow({ search, update }: { search: Search; update: SearchUpdate 
   );
 }
 
-// The same trip the other way. From cannot be a route, so a trip to one has no way back. Settings
-// stay behind: they were tuned for this direction. A short label, with the trip it opens under
-// it in smaller type, so long stop names wrap there rather than through the label.
-function WayBack({ search }: { search: Search }) {
-  if (search.to.startsWith('route:')) return null;
-  const back: Search = { from: search.to, to: search.from, fromLabel: search.toLabel, toLabel: search.fromLabel };
-  return (
-    <div class="tf-setting">
-      <a
-        class="tf-btn-outline tf-btn-secondary tf-way-back tf-way-back--trip"
-        href={tripPath(back)}
-        onClick={(event) => (event.preventDefault(), navigate(tripPath(back)))}
-      >
-        <span>
-          Way back<span class="tf-sr">:</span>
-        </span>
-        <span class="tf-way-back__trip">
-          {search.toLabel} to {search.fromLabel}
-        </span>
-      </a>
-    </div>
-  );
-}
-
 // Hands the trip to the phone's share sheet, or copies its link where there is none. The link
 // carries the stops only, never the rider's own settings.
 function ShareTrip({ search, onCopied }: { search: Search; onCopied: () => void }) {
@@ -80,7 +56,7 @@ function ShareTrip({ search, onCopied }: { search: Search; onCopied: () => void 
   };
   return (
     <div class="tf-setting">
-      <button type="button" class="tf-btn-outline tf-btn-secondary tf-way-back" onClick={share}>
+      <button type="button" class="tf-btn-outline tf-btn-secondary tf-share" onClick={share}>
         Share this trip
       </button>
     </div>
@@ -142,7 +118,6 @@ export function TripSettingsSheet({ search, data, window, savedName, chain, dest
 
   return (
     <Sheet title="Trip settings" subtitle={chain} onClose={onClose}>
-      <WayBack search={search} />
       <ShareTrip search={search} onCopied={onCopied} />
       <WindowSetting window={window} update={update} />
       <ResetWindow search={search} update={update} />

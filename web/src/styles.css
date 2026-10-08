@@ -510,9 +510,7 @@ button:disabled { opacity: .45; cursor: default; }
 /* Under the note on what this search keeps, set apart from the search's own settings above it. */
 .tf-setting--device { margin-top: var(--space-4); border-top: var(--border-hair) solid var(--divider); border-bottom: 0; }
 .tf-setting__more { margin-top: var(--space-3); }
-.tf-way-back { display: flex; align-items: center; justify-content: center; width: 100%; text-align: center; }
-.tf-way-back--trip { flex-direction: column; gap: 0; padding-block: 6px; }
-.tf-way-back__trip { font-size: var(--text-sm); font-weight: var(--weight-regular); color: var(--muted); text-wrap: balance; }
+.tf-share { display: flex; align-items: center; justify-content: center; width: 100%; text-align: center; }
 .tf-saved__remove { flex: none; padding: 0 var(--space-2); color: var(--late); }
 .tf-saved__body { color: inherit; text-decoration: none; }
 .tf-recent { color: inherit; text-decoration: none; }
