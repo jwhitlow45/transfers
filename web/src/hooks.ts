@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { getJson } from './api.ts';
+import { usePeeking } from './gestures.ts';
 import { useScreenActive } from './layers.ts';
 import type { TripResponse } from '../../shared/api.ts';
 import { pinnedEnd, pinnedNow, samePin } from './lib/pinned.ts';
@@ -8,10 +9,17 @@ import { type DeviceSettings, type Pin, type Search, loadCached, loadPin, saveCa
 // The device clock, ticking every second so countdowns move offline too.
 export function useNow(intervalMs = 1000) {
   const [now, setNow] = useState(() => Date.now());
+  // A screen kept under another stands still, rather than render every second unseen, until it
+  // shows again or a swipe back uncovers it (see main.tsx).
+  const active = useScreenActive();
+  const peeking = usePeeking();
+  const live = active || peeking;
   useEffect(() => {
+    if (!live) return;
+    setNow(Date.now());
     const timer = setInterval(() => setNow(Date.now()), intervalMs);
     return () => clearInterval(timer);
-  }, [intervalMs]);
+  }, [intervalMs, live]);
   return now;
 }
 

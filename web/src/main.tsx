@@ -39,6 +39,9 @@ function useLayers(page: Page, peeking: boolean) {
       s.current = kept ? { ...kept, page, depth } : make(depth);
       s.under = null;
       s.until = 0;
+    } else if (page.name === 'home' && s.current.page.name !== 'home' && s.homePeek !== null) {
+      // A swipe back from a screen opened by a link, which Home replaces: the Home it showed.
+      s.current = { ...make(depth), id: s.homePeek };
     } else {
       // The same screen with a new address, as when a setting changes, or a sheet closes.
       s.current = { ...s.current, page, depth };
