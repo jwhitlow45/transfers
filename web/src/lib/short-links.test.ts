@@ -3,8 +3,10 @@ import { test } from 'node:test';
 import { decodeEnd, encodeEnd, parseShortTrip, shortTripPath } from '../../../shared/short-links.ts';
 
 test('a trip shortens to a few characters an end, and back', () => {
-  strictEqual(shortTripPath('SF:13477', 'SF:13517'), '/s/maed/mafh');
-  deepStrictEqual(parseShortTrip('/s/maed/mafh'), { from: 'SF:13477', to: 'SF:13517' });
+  strictEqual(shortTripPath('SF:13477', 'SF:13517'), '/s/maed.mafh');
+  deepStrictEqual(parseShortTrip('/s/maed.mafh'), { from: 'SF:13477', to: 'SF:13517' });
+  // An id with a dot of its own keeps it escaped, so the ends still part at the one dot.
+  deepStrictEqual(parseShortTrip(shortTripPath('GF:ferry.1', 'SF:13517')!), { from: 'GF:ferry.1', to: 'SF:13517' });
   for (const key of ['BA:901209', 'route:SF:48', 'route:SF:KBUS', 'GF:ferry.1', 'SM:0042']) strictEqual(decodeEnd(encodeEnd(key)!), key);
 });
 
