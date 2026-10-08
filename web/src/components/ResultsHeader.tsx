@@ -36,30 +36,6 @@ const UPDATE: StatusItem = {
   onPress: () => void forceRefresh(),
 };
 
-// The status line's update item, for a screen with no status line, such as Home, with a polite
-// region of its own, always there, so screen readers announce the update when it comes as the
-// status line would.
-export function UpdateButton() {
-  const update = useUpdateAvailable();
-  return (
-    <>
-      <span class="tf-sr" role="status">
-        {update ? 'An update to Transfers is available' : ''}
-      </span>
-      {update && (
-        <button type="button" class="tf-stat__button tf-update-button" aria-label={UPDATE.full} onClick={UPDATE.onPress}>
-          <span class="tf-stat__icon" aria-hidden="true">
-            {UPDATE.icon}
-          </span>
-          <span class="tf-stat__value" aria-hidden="true">
-            {UPDATE.short}
-          </span>
-        </button>
-      )}
-    </>
-  );
-}
-
 // The live status as one line of short items. Each one opens its full sentence on tap, and
 // screen readers hear the full sentence as its name. Only changes of state are announced: the
 // age ticking every second would otherwise be read out constantly.

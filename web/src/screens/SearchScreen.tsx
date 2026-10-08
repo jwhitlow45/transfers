@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { SearchResponse, TripResponse } from '../../../shared/api.ts';
 import { getJson } from '../api.ts';
 import { Collapse } from '../components/Collapse.tsx';
@@ -9,9 +9,9 @@ import { SavedSearchCard } from '../components/SavedSearchCard.tsx';
 import { SearchFields } from '../components/SearchFields.tsx';
 import { type SearchHit, StopResults, hitMeta, hitName } from '../components/StopResults.tsx';
 import { Toast, type ToastMessage } from '../components/Toast.tsx';
-import { UpdateButton } from '../components/ResultsHeader.tsx';
+import { LiveStatus } from '../components/ResultsHeader.tsx';
 import { clock } from '../format.ts';
-import { useNow, usePinnedTrip, usePoll } from '../hooks.ts';
+import { type FeedState, useNow, usePinnedTrip, usePoll } from '../hooks.ts';
 import { IconChevron, IconGear, IconLocation, IconPin } from '../icons/ui.tsx';
 import { defaultSavedColor } from '../lib/color.ts';
 import { ageText, clockSkewMs, freshness } from '../lib/freshness.ts';
@@ -71,6 +71,12 @@ export function SearchScreen() {
   const [saved, setSaved] = useState(loadSaved);
   // Pinned trips lead Home, so the one being taken is in sight as soon as the app opens.
   const [pins, setPins] = useState(loadPins);
+  // How fresh each live card's times are, by card, for the status line under the title.
+  const [reports, setReports] = useState<Record<string, LiveReport>>({});
+  const report = useCallback((key: string, next: LiveReport | null) => {
+    setReports(({ [key]: _old, ...others }) => (next ? { ...others, [key]: next } : others));
+  }, []);
+  const liveStatus = homeStatus(Object.values(reports), now);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const toastId = useRef(0);
   const updatePin = (search: Search, next: Pin | null) => {
@@ -154,9 +160,6 @@ export function SearchScreen() {
       <main class="tf-page tf-page--form" id="main">
         <div class="tf-search-head">
           <h1>Transfers</h1>
-          <span class="tf-search-head__middle">
-            <UpdateButton />
-          </span>
           <span class="tf-search-head__end">
             <span class="tf-muted">{clock(now / 1000)}</span>
             <a class="tf-btn-icon tf-muted" href="/settings" aria-label="Settings" onClick={(event) => (event.preventDefault(), navigate('/settings'))}>
@@ -164,8 +167,13 @@ export function SearchScreen() {
             </a>
           </span>
         </div>
+        {liveStatus && (
+          <div class="tf-home-status">
+            <LiveStatus feed={liveStatus.feed} secondsSinceUpdate={liveStatus.secondsSinceUpdate} stale={liveStatus.stale} />
+          </div>
+        )}
         {pins.map((pin) => (
-          <PinnedHome key={searchId(pin.search)} pin={pin} now={now} onPin={(next) => pinFromHome(pin.search, next)} onUpdate={(next) => updatePin(pin.search, next)} />
+          <PinnedHome key={searchId(pin.search)} pin={pin} now={now} onPin={(next) => pinFromHome(pin.search, next)} onUpdate={(next) => updatePin(pin.search, next)} onReport={report} />
         ))}
         <SearchFields
           from={{ query: from.query, ...(from.picked ? { meta: from.picked.meta } : {}) }}
@@ -206,6 +214,7 @@ export function SearchScreen() {
                       key={search.id}
                       search={search}
                       now={now}
+                      onReport={report}
                       onEdit={(change) =>
                         updateSaved(loadSaved().map((item) => (item.id === search.id ? { ...item, ...change, renamed: change.name !== item.name ? true : item.renamed } : item)))
                       }
@@ -268,11 +277,12 @@ function HowItWorks({ open: openAtFirst }: { open: boolean }) {
 }
 
 // A pinned trip, as at the top of its results, polling its own trip like a saved card does.
-function PinnedHome({ pin, now, onPin, onUpdate }: { pin: Pin & { search: Search }; now: number; onPin: (pin: Pin | null) => void; onUpdate: (pin: Pin | null) => void }) {
+function PinnedHome({ pin, now, onPin, onUpdate, onReport }: { pin: Pin & { search: Search }; now: number; onPin: (pin: Pin | null) => void; onUpdate: (pin: Pin | null) => void; onReport: Report }) {
   const { settings } = useSettings();
   const { search } = pin;
   const { data, fetchedAt, feed, settled, answered } = usePoll<TripResponse>(tripApiUrl(search, settings, false, pin), 30_000, null, tripApiUrl(search, settings, false));
   const skew = clockSkewMs(data?.generatedAt, fetchedAt);
+  useLiveReport(onReport, `pin:${searchId(search)}`, { feed, fetchedAt, dataAt: data?.dataAt ?? null, skew, settled });
   const serverNow = now + skew;
   const { pinned, unpinAt, expired } = usePinnedTrip(pin, data, answered, search.dest, settings, serverNow, onUpdate);
   // Times no longer live say so, as saved cards do, since Home has no banner to.
@@ -316,9 +326,10 @@ function PinnedHome({ pin, now, onPin, onUpdate }: { pin: Pin & { search: Search
 }
 
 // Polls its own trip, so the card counts down live and opening it shows cached results at once.
-function SavedTrip({ search, now, onEdit, onColorless, onRemove }: {
+function SavedTrip({ search, now, onReport, onEdit, onColorless, onRemove }: {
   search: SavedSearch;
   now: number;
+  onReport: Report;
   onEdit: (change: { name: string; color: string | undefined }) => void;
   onColorless: (lineColor: string | null) => void;
   onRemove: () => void;
@@ -326,6 +337,7 @@ function SavedTrip({ search, now, onEdit, onColorless, onRemove }: {
   const { settings } = useSettings();
   const { data, feed, fetchedAt, settled } = usePoll<TripResponse>(tripApiUrl(search, settings, false), 30_000);
   const skew = clockSkewMs(data?.generatedAt, fetchedAt);
+  useLiveReport(onReport, `saved:${search.id}`, { feed, fetchedAt, dataAt: data?.dataAt ?? null, skew, settled });
   // Read once per visit to Home: dismissing happens on results.
   const dismissed = useMemo(() => new Set(loadDismissed().map(({ id }) => id)), []);
   const summary = summarize(search, data, now + skew, dismissed);
@@ -352,4 +364,26 @@ function SavedTrip({ search, now, onEdit, onColorless, onRemove }: {
       onRemove={onRemove}
     />
   );
+}
+
+// What a live card on Home knows of how fresh its times are, which only changes when it fetches.
+type LiveReport = { feed: FeedState; fetchedAt: number | null; dataAt: number | null; skew: number; settled: boolean };
+type Report = (key: string, report: LiveReport | null) => void;
+
+// Tells Home how fresh a card's times are, and that it has gone once it unmounts.
+function useLiveReport(onReport: Report, key: string, { feed, fetchedAt, dataAt, skew, settled }: LiveReport) {
+  useEffect(() => onReport(key, { feed, fetchedAt, dataAt, skew, settled }), [key, feed, fetchedAt, dataAt, skew, settled]);
+  useEffect(() => () => onReport(key, null), [key]);
+}
+
+// The status line for every live card on Home together, as the results header says it for one
+// trip: offline when any card is, and the age of the oldest times showing, so it never says the
+// times are fresher than some of them are. None without live cards, as Home then asks nothing.
+function homeStatus(reports: LiveReport[], now: number): { feed: FeedState; secondsSinceUpdate: number | null; stale: boolean } | null {
+  if (reports.length === 0) return null;
+  const fresh = reports.map(({ fetchedAt, dataAt, skew }) => freshness(now + skew, fetchedAt === null ? null : fetchedAt + skew, dataAt));
+  const ages = fresh.flatMap(({ ageSeconds }) => (ageSeconds === null ? [] : [ageSeconds]));
+  const feeds = reports.map(({ feed }) => feed);
+  const feed: FeedState = feeds.includes('offline') ? 'offline' : feeds.every((state) => state === 'loading') ? 'loading' : feeds.includes('refreshing') ? 'refreshing' : 'live';
+  return { feed, secondsSinceUpdate: ages.length > 0 ? Math.max(...ages) : null, stale: fresh.some(({ stale }, index) => stale && reports[index]!.settled) };
 }
