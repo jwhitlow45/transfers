@@ -152,17 +152,20 @@ export function SavedSearchCard({ name, color, chain, named, windowText, next, l
           <span class="tf-saved__row">
             <span class="tf-saved__count">
               <span class="tf-row__lead">{!next ? (loading ? 'Checking' : 'No connection') : now ? 'Arriving' : 'Arrives in'}</span>
-              {next && <span class="tf-row__num">{now ? 'Now' : next.minutes}</span>}
-              {loading && <span class="tf-row__num tf-skeleton__text" style={{ width: '1.3em', height: '1em' }} />}
-              {/* Most answers are minutes away, with "min" under the number. */}
-              {loading && <span class="tf-row__unit tf-skeleton__text" style={{ width: '2em' }} />}
-              {next && !now && <span class="tf-row__unit">min</span>}
+              {next && (
+                <span class="tf-saved__amount">
+                  <span class="tf-row__num">{now ? 'Now' : next.minutes}</span>
+                  {!now && <span class="tf-row__unit">min</span>}
+                </span>
+              )}
+              {loading && <span class="tf-row__num tf-skeleton__text" style={{ width: '2em', height: '1em' }} />}
               {/* Under the countdown it goes on from, not under the transfer, which it would seem
-                  to be about there (J, 2026-10-08). */}
+                  to be about there, on one line, as the "min" above it says what the numbers are
+                  (J, 2026-10-08). */}
               {next && next.later.length > 0 && (
                 <span class="tf-saved__then">
-                  <span class="tf-row__lead">Then</span>
-                  {next.later.join(', ')} min
+                  then {next.later.join(', ')}
+                  <span class="tf-sr"> min</span>
                 </span>
               )}
             </span>
