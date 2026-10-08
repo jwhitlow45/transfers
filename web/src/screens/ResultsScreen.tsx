@@ -20,6 +20,7 @@ import { defaultSavedColor } from '../lib/color.ts';
 import { clock, walkMinutes } from '../format.ts';
 import { type ViewAlert, viewAlerts } from '../lib/alerts.ts';
 import { type StationOutages, groupStops, outagesByStation } from '../lib/outages.ts';
+import { ringsBell } from '../lib/eggs.ts';
 import { samePin } from '../lib/pinned.ts';
 import { ageText, clockSkewMs, freshness } from '../lib/freshness.ts';
 import { IconHidden, IconTransfer } from '../icons/ui.tsx';
@@ -124,7 +125,8 @@ export function ResultsScreen({ search }: { search: Search }) {
     const leg = previous?.last?.first ?? previous?.last?.second;
     const route = leg && data?.routes[leg.route];
     const was = leg?.on && route ? `the ${chipLabel(route)} at ${clock(leg.on.at)}` : 'the trip pinned before';
-    const text = !next ? 'Unpinned' : previous && !samePin(previous, next) ? `Pinned in place of ${was}` : 'Pinned to the top';
+    const base = !next ? 'Unpinned' : previous && !samePin(previous, next) ? `Pinned in place of ${was}` : 'Pinned to the top';
+    const text = next && ringsBell(next, data) ? `Ding ding! ${base}` : base;
     setToast({ id: ++toastId.current, text, about: next ? 'pin' : 'unpin', undo: () => changePin(previous) });
   };
   // Notices the rider dismissed stay hidden here and on every other search, until the Notices
