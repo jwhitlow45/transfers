@@ -162,7 +162,7 @@ export function SearchScreen() {
       <ScreenHeader
         title="Transfers"
         end={
-          <span class="tf-search-head__end">
+          <span class="tf-header__end">
             <span class="tf-muted">{clock(now / 1000)}</span>
             <a class="tf-btn-icon tf-muted" href="/settings" aria-label="Settings" onClick={(event) => (event.preventDefault(), navigate('/settings'))}>
               <IconGear />
