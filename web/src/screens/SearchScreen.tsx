@@ -45,7 +45,7 @@ import {
   saveSaved,
   searchId,
 } from '../storage.ts';
-import { chipLabel, dayLabel, shortStopName } from '../view.ts';
+import { chipLabel, dayLabel, stopLabel } from '../view.ts';
 
 // A picked stop or route. `short` is what headers and lists call it.
 export type Picked = { key: string; label: string; meta: string; short: string };
@@ -56,7 +56,7 @@ function pickedFrom(hit: SearchHit, response: SearchResponse): Picked {
     const route = response.routes[hit.route];
     return { key: `route:${hit.route}`, label: hitName(hit, response), meta: hitMeta(hit, response), short: route ? chipLabel(route) : hit.route };
   }
-  return { key: hit.key, label: hit.name, meta: hitMeta(hit, response), short: shortStopName(hit) + (hit.code ? ` (${hit.code})` : '') };
+  return { key: hit.key, label: hit.name, meta: hitMeta(hit, response), short: stopLabel(hit) };
 }
 
 export function SearchScreen() {

@@ -2,12 +2,13 @@ import { readFileSync } from 'node:fs';
 import { type IncomingMessage, type ServerResponse, createServer } from 'node:http';
 import { join } from 'node:path';
 import { MAX_MINUTES } from '../shared/api.ts';
+import { chipLabel, stopLabel } from '../shared/labels.ts';
 import { parseShortTrip } from '../shared/short-links.ts';
 import { DEFAULT_NEARBY_METERS, nearby } from './api/nearby.ts';
 import { search } from './api/search.ts';
 import { config, requireApiKeys } from './config.ts';
 import { trackTarget, trackVehicle } from './engine/track.ts';
-import { routeView } from './engine/views.ts';
+import { routeView, stopView } from './engine/views.ts';
 import { type RealtimeView, RequestError, type TripRequest, destinations, planTrip } from './engine/trip.ts';
 import { KeyPool } from './realtime/keys.ts';
 import { Realtime } from './realtime/manager.ts';
@@ -83,10 +84,16 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
   // app's own links carry them.
   if (url.pathname.startsWith('/s/')) {
     const short = parseShortTrip(url.pathname);
-    if (!short) throw new RequestError(404, 'Not found');
+    // A link cut short or mistyped opens the app, rather than an error page a rider cannot use.
+    if (!short) {
+      response.writeHead(302, { Location: '/', 'Cache-Control': 'no-cache' });
+      response.end();
+      return;
+    }
     const label = (key: string) => {
       const route = key.startsWith('route:') ? schedule.routesByKey.get(key.slice('route:'.length)) : undefined;
-      return route ? routeView(route).name : (schedule.stopsByKey.get(key)?.name ?? key);
+      const stop = route ? undefined : schedule.stopsByKey.get(key);
+      return route ? chipLabel(routeView(route)) : stop ? stopLabel(stopView(schedule, stop)) : key;
     };
     const params = new URLSearchParams({ fl: label(short.from), tl: label(short.to) });
     response.writeHead(302, { Location: `/t/${encodeURIComponent(short.from)}/${encodeURIComponent(short.to)}?${params}`, 'Cache-Control': 'no-cache' });

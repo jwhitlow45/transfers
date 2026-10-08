@@ -2,7 +2,7 @@
 
 Transfers runs on `ssh server` like screamr.ai: three containers from `docker-compose.yml`, reached only through the shared cloudflared tunnel.
 
-- **web** (`transfers_web`): Caddy on port 8080. Serves the built frontend and proxies `/api` and `/t` to the API. Its only networks are `transfers-edge` (joined by cloudflared) and `transfers-app`.
+- **web** (`transfers_web`): Caddy on port 8080. Serves the built frontend and proxies `/api`, `/t` (trip pages with their first results) and `/s` (short trip links) to the API. Its only networks are `transfers-edge` (joined by cloudflared) and `transfers-app`.
 - **api**: Node. Keeps the schedule database and 511 key usage in the `transfers-data` volume. It has no route off the machine except the egress proxy.
 - **egress**: Squid, allowing HTTPS to `api.511.org`, `api.bart.gov`, and `www.bart.gov` (its elevator and escalator status tables) only.
 

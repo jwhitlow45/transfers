@@ -1,5 +1,7 @@
 import type { AgencyId, Route, Stop } from '../../shared/api.ts';
 
+export { chipLabel, shortStopName, stopLabel } from '../../shared/labels.ts';
+
 // How the interface names things, kept in one place so screens and spoken summaries agree.
 
 const AGENCY_NAMES: Record<AgencyId, string> = { SF: 'Muni', BA: 'BART', SM: 'SamTrans', GG: 'Golden Gate Transit', GF: 'Golden Gate Ferry' };
@@ -11,8 +13,6 @@ export function agencyName(item: { agency: AgencyId; mode: Route['mode'] }) {
 
 export const agencyOnly = (agency: AgencyId) => AGENCY_NAMES[agency];
 
-// Chips say "BART" without the line color, which the chip shows and the spoken summary says.
-export const chipLabel = (route: Route) => (route.agency === 'BA' ? 'BART' : route.name);
 
 export const spokenRoute = (route: Route) => (route.agency === 'BA' ? `BART ${route.name} line` : `${agencyName(route)} ${route.name}`);
 
@@ -25,20 +25,6 @@ export function stopPage(stop: Stop | undefined) {
   return null;
 }
 
-// BART's station names are long ("24th Street / Mission"). Headers use the short form riders say.
-export function shortStopName(stop: Stop | undefined, fallback = '') {
-  if (!stop) return fallback;
-  if (stop.agency === 'SF') {
-    // Muni's platform names: "Metro Civic Center Station/Outbd" is Civic Center Station.
-    const station = stop.name.match(/^(?:Metro )?(.+? Station)(?:\/.*| (?:Outbound|Inbound|Northbound|Southbound|Downtown))?$/);
-    return station ? station[1]! : stop.name;
-  }
-  if (stop.agency !== 'BA') return stop.name;
-  const name = stop.name.replace(/\bStreet\b/g, 'St');
-  const [first, second] = name.split(' / ');
-  if (!second) return name;
-  return /^\d/.test(first!) ? `${first} ${second}` : first!;
-}
 
 export type StatusKind = 'late' | 'early' | 'ontime' | 'nodata' | 'scheduled' | 'canceled';
 export type Status = { kind: StatusKind; label: string };
