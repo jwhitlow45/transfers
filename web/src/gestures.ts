@@ -11,6 +11,8 @@ const FLING_MS = 80;
 const SIDEWAYS_LEAN = 1.5;
 // Matches the transitions on sheets and the pull indicator in styles.css.
 export const SLIDE_MS = 180;
+// A screen sliding in over Home, as tf-enter in styles.css.
+export const ENTER_MS = 280;
 
 // Where the finger let go: distance along the drag's axis from where it first touched, and its
 // speed then, in px per ms. Both are positive downward or rightward.
@@ -181,8 +183,16 @@ export function useSwipeBack(onBack: () => void) {
       }
       slide(width, true);
       setTimeout(() => {
+        // Home stays under until back has landed, as the browser's back arrives a moment later, so
+        // that Home is the one that shows rather than a gap and a new one.
+        const landed = () => {
+          removeEventListener('popstate', landed);
+          clearTimeout(fallback);
+          setPeeking(false);
+        };
+        const fallback = setTimeout(landed, 1000);
+        addEventListener('popstate', landed);
         onBack();
-        setPeeking(false);
       }, wait);
     },
   });

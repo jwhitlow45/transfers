@@ -133,6 +133,15 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-app:has(> .tf-peek) > :not(.tf-peek, .tf-sheet) { background: var(--bg); }
 .tf-peek { position: absolute; inset: 0; z-index: -1; display: flex; flex-direction: column; background: var(--bg); transform: translateX(-25%); pointer-events: none; }
 .tf-peek__dim { position: absolute; inset: 0; background: #000; opacity: .3; }
+/* Home as the screen showing, in the same wrapper it lies under others in. */
+.tf-home-layer { display: contents; }
+/* A screen stepping forward from Home slides in over it, and Home eases left and dims under it. */
+.tf-app[data-entering="true"] > :not(.tf-peek, .tf-sheet) { animation: tf-enter 280ms ease-out both; }
+.tf-app[data-entering="true"] > .tf-peek { animation: tf-peek-leave 280ms ease-out both; }
+.tf-app[data-entering="true"] .tf-peek__dim { animation: tf-peek-dim 280ms ease-out both; }
+@keyframes tf-enter { from { transform: translateX(100%); } to { transform: none; } }
+@keyframes tf-peek-leave { from { transform: none; } to { transform: translateX(-25%); } }
+@keyframes tf-peek-dim { from { opacity: 0; } to { opacity: .3; } }
 /* Focused only in place of a control that went away (see focus.ts), which needs no ring. */
 #main:focus { outline: none; }
 /* --page-end is a page's own room after its last item, which the bottom inset adds to below. */

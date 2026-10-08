@@ -146,6 +146,9 @@ export function goBack(fallback = '/') {
   else navigate(fallback, { replace: true });
 }
 
+// How many of the app's entries lie behind this one, which grows by one with each step forward.
+export const currentDepth = () => depth();
+
 // Whether back lands on Home: the page before is Home's, or there is none of the app's, and back
 // falls back to Home. An entry from before the app kept `back` says nothing either way.
 export const backGoesHome = () => (depth() > 0 ? entry().back === '/' : true);
