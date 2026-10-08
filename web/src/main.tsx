@@ -1,7 +1,7 @@
 import { render } from 'preact';
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { ENTER_MS, motionOff, usePeeking } from './gestures.ts';
-import { type Page, currentDepth, usePage } from './router.ts';
+import { type Page, cameBackTo, currentDepth, forgetLeft, usePage } from './router.ts';
 import { NearbyScreen } from './screens/NearbyScreen.tsx';
 import { NoticesScreen } from './screens/NoticesScreen.tsx';
 import { ResultsScreen } from './screens/ResultsScreen.tsx';
@@ -43,6 +43,15 @@ function App() {
   // what it has loaded, and the one under a swipe back is the one the rider lands on.
   const homeKey = useRef('home');
   if (home) homeKey.current = history.state?.from || history.state?.to ? 'prefilled' : 'home';
+  // Back on a page left for another, it is scrolled where it was, before it paints. Its own
+  // sheet reopens from the same record (see Left in router.ts).
+  useLayoutEffect(() => {
+    const back = cameBackTo();
+    if (!back) return;
+    const scroller = document.querySelector('.tf-app > .tf-scroll, .tf-app > .tf-home-layer > .tf-scroll');
+    if (scroller) scroller.scrollTop = back.scroll;
+    forgetLeft();
+  }, [page]);
   // Each screen scrolls inside the app shell, so the page title is the only way a screen
   // change reaches a screen reader without moving focus.
   useEffect(() => {

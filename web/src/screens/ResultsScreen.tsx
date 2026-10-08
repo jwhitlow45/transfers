@@ -26,7 +26,7 @@ import { ageText, clockSkewMs, freshness } from '../lib/freshness.ts';
 import { IconHidden, IconTransfer } from '../icons/ui.tsx';
 import { type CardContext, chooseDirection, directionChoices, hintKey, orderGroups, pageColors, pointId, scaleFor, timeScale, visibleDepartures } from '../lib/results.ts';
 import { summarize } from '../lib/summary.ts';
-import { goBack, navigate, tripPath } from '../router.ts';
+import { cameBackTo, goBack, navigate, tripPath } from '../router.ts';
 import { matchesServerDefaults, tripApiUrl, useSettings } from '../settings.tsx';
 import {
   type Pin,
@@ -63,7 +63,8 @@ export function ResultsScreen({ search }: { search: Search }) {
   const deviceNow = useNow();
   const { showHidden } = settings;
   const setShowHidden = (shown: boolean) => updateSettings({ showHidden: shown });
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  // Open again when the rider comes back from a page they left it for, such as Settings.
+  const [settingsOpen, setSettingsOpen] = useState(() => cameBackTo()?.sheet === 'Trip settings');
   const [saved, setSaved] = useState(() => findSaved(search));
   // Cards the rider opened or closed, by group and trip. Others start as the device's setting
   // says: all open, each group's soonest open, or all closed. Kept across refreshes, which reuse

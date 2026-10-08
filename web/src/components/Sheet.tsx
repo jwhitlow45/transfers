@@ -1,7 +1,7 @@
 import type { ComponentChildren } from 'preact';
-import { useEffect, useRef } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useRef } from 'preact/hooks';
 import { SLIDE_MS, motionOff, useDrag } from '../gestures.ts';
-import { closeSheetEntry, isSheetEntry, openSheetEntry } from '../router.ts';
+import { cameBackTo, closeSheetEntry, isSheetEntry, openSheetEntry } from '../router.ts';
 import { IconClose } from '../icons/ui.tsx';
 
 // A drag down closes the sheet past this share of its height, or this far, whichever is less.
@@ -30,10 +30,17 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
   const body = useRef<HTMLDivElement>(null);
   const scrim = useRef<HTMLDivElement>(null);
   const step = useRef('');
+  // Opened again on the rider's way back to the page, it is scrolled where they left it. Read at
+  // once, before the page clears what it left behind (see Left in router.ts).
+  const returning = useRef(cameBackTo());
+  useLayoutEffect(() => {
+    const back = returning.current;
+    if (back?.sheet === title && back.sheetScroll && body.current) body.current.scrollTop = back.sheetScroll;
+  }, []);
   const latestClose = useRef(onClose);
   latestClose.current = onClose;
   useEffect(() => {
-    step.current = openSheetEntry();
+    step.current = openSheetEntry(title);
     const onPop = () => {
       if (!isSheetEntry(step.current)) latestClose.current();
     };

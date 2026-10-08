@@ -76,7 +76,7 @@ export function parsePage(location: Location): Page {
 // entry of its own too, so the system back closes it rather than leaving the page under it, and
 // it knows the key of that page's entry (`under`). `state` rides along, as Nearby hands a picked
 // stop to Home.
-type Entry = { depth?: number; key?: string; sheet?: true; under?: string; back?: string } & Record<string, unknown>;
+type Entry = { depth?: number; key?: string; sheet?: true; under?: string; back?: string; sheetName?: string } & Record<string, unknown>;
 const entry = () => (history.state ?? {}) as Entry;
 const depth = () => entry().depth ?? 0;
 let keys = 0;
@@ -103,6 +103,40 @@ const setMoved = (all: Record<string, string>) => {
     // Without storage, they last as long as the page.
   }
 };
+// How the rider left a page for another, by the page entry's key: how far it was scrolled, and the
+// sheet open over it, such as Trip settings when its Settings link was followed, so that coming
+// back finds the page as it was (J, 2026-10-08). Kept for the tab's session where it can be.
+export type Left = { scroll: number; sheet?: string; sheetScroll?: number };
+const LEFT = 'transfers:left';
+let left: Record<string, Left> = {};
+try {
+  left = JSON.parse(sessionStorage.getItem(LEFT) ?? '{}') as Record<string, Left>;
+} catch {
+  // Without storage, it lasts as long as the page.
+}
+const setLeft = (all: Record<string, Left>) => {
+  left = Object.fromEntries(Object.entries(all).slice(-20));
+  try {
+    sessionStorage.setItem(LEFT, JSON.stringify(left));
+  } catch {
+    // Without storage, it lasts as long as the page.
+  }
+};
+const remember = (current: Entry) => {
+  const key = current.sheet ? current.under : current.key;
+  const scroller = typeof document === 'undefined' ? null : document.querySelector('.tf-app > .tf-scroll, .tf-app > .tf-home-layer > .tf-scroll');
+  if (!key || !scroller) return;
+  const sheetBody = current.sheet ? document.querySelector('.tf-sheet__body') : null;
+  const sheet = current.sheet && current.sheetName ? { sheet: current.sheetName, sheetScroll: sheetBody?.scrollTop ?? 0 } : {};
+  setLeft({ ...left, [key]: { scroll: scroller.scrollTop, ...sheet } });
+};
+// How the page now showing was left, if the rider is back on it.
+export const cameBackTo = (): Left | undefined => left[entry().key ?? ''];
+export const forgetLeft = () => {
+  const { [entry().key ?? '']: _done, ...others } = left;
+  setLeft(others);
+};
+
 // The entries of the sheets open now, by key. Any other sheet's entry, which a reload with a sheet
 // open or the browser's Forward button lands on, has no sheet left to close, so it steps back to
 // the page under it.
@@ -131,9 +165,12 @@ export function navigate(path: string, options: { replace?: boolean; state?: Rec
     if (current.under) setMoved({ ...moved, [current.under]: path });
   } else if (current.sheet || options.replace) {
     // A page left from inside a sheet takes the sheet's entry, so back returns to the page that
-    // was under the sheet.
-    history.replaceState({ ...options.state, depth: depth(), key: newKey(), ...(current.back ? { back: current.back } : {}) }, '', path);
+    // was under the sheet, whose address the sheet's entry has.
+    if (current.sheet) remember(current);
+    const back = current.sheet ? location.pathname : current.back;
+    history.replaceState({ ...options.state, depth: depth(), key: newKey(), ...(back ? { back } : {}) }, '', path);
   } else {
+    remember(current);
     history.pushState({ ...options.state, depth: depth() + 1, key: newKey(), back: location.pathname }, '', path);
   }
   dispatchEvent(new PopStateEvent('popstate'));
@@ -153,13 +190,14 @@ export const currentDepth = () => depth();
 // falls back to Home. An entry from before the app kept `back` says nothing either way.
 export const backGoesHome = () => (depth() > 0 ? entry().back === '/' : true);
 
-// An entry for a sheet opening over the page, with the page's address. Returns its key.
-export function openSheetEntry() {
+// An entry for a sheet opening over the page, with the page's address, and the sheet's name, for
+// the page to open it again on coming back (see Left). Returns its key.
+export function openSheetEntry(name?: string) {
   // A page entry from before keys were kept, in a tab open since, gets one now.
   if (!entry().key) history.replaceState({ ...entry(), key: newKey() }, '');
   const page = entry();
   const key = newKey();
-  history.pushState({ ...page, depth: depth() + 1, key, sheet: true, under: page.key }, '');
+  history.pushState({ ...page, depth: depth() + 1, key, sheet: true, under: page.key, ...(name ? { sheetName: name } : {}) }, '');
   openSheets.add(key);
   return key;
 }
