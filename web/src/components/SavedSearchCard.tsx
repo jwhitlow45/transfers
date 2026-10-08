@@ -140,6 +140,7 @@ export function SavedSearchCard({ name, color, chain, named, windowText, next, l
                     </span>,
                   ])}
                   {next.transfer === null && <span class="tf-saved__xfer">No transfer needed</span>}
+                  {next.later.length > 0 && <span class="tf-saved__then">then {next.later.join(', ')} min</span>}
                 </span>
               </span>
             ) : loading ? (

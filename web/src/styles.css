@@ -239,6 +239,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-saved__time { font-size: var(--text-md); font-weight: var(--weight-bold); }
 .tf-saved__xfer { display: flex; align-items: center; gap: 5px; font-size: var(--text-sm); color: var(--muted); }
 .tf-saved__chain { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); }
+.tf-saved__then { font-size: var(--text-sm); color: var(--muted); }
 .tf-saved__window { display: inline-flex; align-items: center; gap: 5px; }
 .tf-saved__alert { display: inline-flex; align-self: flex-start; align-items: center; gap: 6px; margin-top: var(--space-2); padding: 3px var(--space-2); background: var(--late-tint); color: var(--late); font-size: var(--text-sm); font-weight: 650; }
 .tf-recent { display: flex; align-items: center; gap: var(--space-3); width: 100%; min-height: 60px; padding: var(--space-2) 0; text-align: left; border-bottom: var(--border-hair) solid var(--divider); }
