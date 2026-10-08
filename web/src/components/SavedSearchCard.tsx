@@ -9,7 +9,7 @@ import { typeWithoutUndo } from '../typing.ts';
 
 // The main daily entry point: one tap opens results, and it leads with a live countdown. The
 // color stripe tells saved searches apart at a glance, and the pencil edits name and color.
-export function SavedSearchCard({ name, color, chain, named, windowText, next, loading, severeAlerts, nextService, staleText, href, onOpen, onEdit, onRemove }: {
+export function SavedSearchCard({ name, color, chain, named, windowText, next, loading, severeAlerts, nextService, staleText, href, onOpen, onEdit, onRemove, onMove, canMoveUp = false, canMoveDown = false }: {
   name: string;
   color: string | undefined;
   chain: string;
@@ -28,6 +28,10 @@ export function SavedSearchCard({ name, color, chain, named, windowText, next, l
   onOpen: () => void;
   onEdit: (change: { name: string; color: string | undefined }) => void;
   onRemove: () => void;
+  // Reorders the saved searches. A button shows only where its move can apply.
+  onMove?: (step: -1 | 1) => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ name, color });
@@ -81,6 +85,20 @@ export function SavedSearchCard({ name, color, chain, named, windowText, next, l
               />
             ))}
           </div>
+          {onMove && (canMoveUp || canMoveDown) && (
+            <div class="tf-saved__order">
+              {canMoveUp && (
+                <button type="button" class="tf-link-button" onClick={() => onMove(-1)}>
+                  Move up
+                </button>
+              )}
+              {canMoveDown && (
+                <button type="button" class="tf-link-button" onClick={() => onMove(1)}>
+                  Move down
+                </button>
+              )}
+            </div>
+          )}
           <div class="tf-saved__edit-actions">
             <button type="button" class="tf-btn-primary" onClick={done}>
               Done
