@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact';
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import type { FeedState } from '../hooks.ts';
 import { ageShort } from '../lib/freshness.ts';
 import { GerbilShape, IconBack, IconNewVersion } from '../icons/ui.tsx';
@@ -206,10 +206,38 @@ function HeaderEdge({ loading }: { loading: boolean }) {
 // results arrive or a direction is chosen. Each line ends in an ellipsis rather than wrap, the
 // place to get off giving way first.
 export function TripChain({ from, via, to }: { from: string; via: string | null; to: ComponentChildren }) {
+  // Laid out as words wrap, each arrow kept with its name, so "Montgomery St → 24th St Mission"
+  // shares a line when it fits (J, 2026-10-08). Only where that would take three lines does From
+  // take the first line alone and the rest the second, trimmed to fit, so the header never grows
+  // past two. Measured before paint, and again when the header's width changes.
+  const first = useRef<HTMLSpanElement>(null);
+  const [stacked, setStacked] = useState(false);
+  // A new trip or place to get off is laid out afresh.
+  useLayoutEffect(() => setStacked(false), [from, via]);
+  useLayoutEffect(() => {
+    if (stacked) return;
+    const items = [first.current, ...(first.current?.parentElement?.querySelectorAll<HTMLElement>('.tf-chain__step') ?? [])];
+    const lines = new Set(items.map((item) => Math.round(item?.getBoundingClientRect().top ?? 0))).size;
+    if (lines > 2) setStacked(true);
+  });
+  useEffect(() => {
+    const title = first.current?.parentElement;
+    if (!title || typeof ResizeObserver === 'undefined') return;
+    let width = title.getBoundingClientRect().width;
+    const observer = new ResizeObserver(([entry]) => {
+      if (Math.abs(entry!.contentRect.width - width) < 1) return;
+      width = entry!.contentRect.width;
+      setStacked(false);
+    });
+    observer.observe(title);
+    return () => observer.disconnect();
+  }, []);
   return (
     <>
-      <span class="tf-chain__from">{from}</span>
-      <span class="tf-chain__rest">
+      <span class="tf-chain__from" ref={first}>
+        {from}
+      </span>
+      <span class={`tf-chain__rest${stacked ? ' tf-chain__rest--stacked' : ''}`}>
         {via && (
           <span class="tf-chain__step tf-chain__step--via">
             <span class="tf-chain__arrow" aria-hidden="true">
