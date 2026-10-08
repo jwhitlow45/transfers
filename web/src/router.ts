@@ -176,6 +176,16 @@ export function navigate(path: string, options: { replace?: boolean; state?: Rec
   dispatchEvent(new PopStateEvent('popstate'));
 }
 
+// Another page in place of this one, at the same depth, so the app stays one page deep from Home
+// (J, 2026-10-08). From a sheet, the sheet closes on its own step back, and the page under it
+// takes the address as it lands, as a change made inside a sheet does.
+export function replacePage(path: string) {
+  const current = entry();
+  if (!current.sheet || !current.under) return navigate(path, { replace: true });
+  setMoved({ ...moved, [current.under]: path });
+  history.back();
+}
+
 // Back, as the system back does, when the entry before is the app's. Otherwise, as on a page
 // opened from a link, `fallback` in this page's place.
 export function goBack(fallback = '/') {

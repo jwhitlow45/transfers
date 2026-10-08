@@ -5,7 +5,7 @@ import { IconChevron } from '../icons/ui.tsx';
 import { routeColor } from '../lib/color.ts';
 import { pointId } from '../lib/results.ts';
 import { shortTripPath } from '../../../shared/short-links.ts';
-import { navigate, tripPath } from '../router.ts';
+import { navigate, replacePage, tripPath } from '../router.ts';
 import type { Search } from '../storage.ts';
 import { chipLabel, shortStopName } from '../view.ts';
 import { Sheet, Toggle } from './Sheet.tsx';
@@ -69,7 +69,8 @@ function ShareButton({ search, onCopied }: { search: Search; onCopied: () => voi
 // Sharing the trip, and its way back: from the destination stop to where the first vehicle let the
 // rider off, to catch it back to where they started (see wayBack in server/engine/trip.ts), side
 // by side (J, 2026-10-08). The way back is worked out once the sheet opens, and needs a destination
-// to start from.
+// to start from. It closes the sheet and takes this page's place rather than opening a page over
+// it, and its own way back returns here.
 function TripActions({ search, wayBackUrl, onCopied }: { search: Search; wayBackUrl: string; onCopied: () => void }) {
   const [back, setBack] = useState<WayBackResponse['back'] | undefined>(undefined);
   useEffect(() => {
@@ -85,7 +86,7 @@ function TripActions({ search, wayBackUrl, onCopied }: { search: Search; wayBack
     <div class="tf-setting">
       <div class="tf-trip-actions">
         <ShareButton search={search} onCopied={onCopied} />
-        <button type="button" class="tf-btn-outline tf-btn-secondary" disabled={!path} aria-describedby={note ? 'way-back-note' : undefined} onClick={() => path && navigate(path)}>
+        <button type="button" class="tf-btn-outline tf-btn-secondary" disabled={!path} aria-describedby={note ? 'way-back-note' : undefined} onClick={() => path && replacePage(path)}>
           Way back
         </button>
       </div>

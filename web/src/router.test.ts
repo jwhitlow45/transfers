@@ -171,3 +171,16 @@ test('a change made from a sheet stays on its page, and a page left from a sheet
   strictEqual(cameBackTo(), undefined);
   delete (globalThis as { document?: unknown }).document;
 });
+
+test("a page put in another's place from its sheet closes the sheet and keeps the depth", async () => {
+  const history = new FakeHistory();
+  const { navigate, openSheetEntry, replacePage, currentDepth } = await load(history, { getItem: () => null, setItem: () => {} });
+  navigate('/t/a/b');
+  openSheetEntry('Trip settings');
+  replacePage('/t/c/d?dest=e');
+  strictEqual(history.url, '/t/c/d?dest=e');
+  strictEqual(currentDepth(), 1);
+  strictEqual((history.state as { sheet?: boolean }).sheet, undefined);
+  history.back();
+  strictEqual(history.url, '/');
+});
