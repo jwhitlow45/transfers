@@ -54,5 +54,26 @@ function toView(alert: Alert, data: TripResponse, boardingStops: Set<string>, ne
     if (kicker.startsWith('Notice')) kicker = `Station access · ${routeNames || agencyOnly(alert.agency)}`;
   }
   const until = alert.activeUntil ? ` · Until ${date.format(alert.activeUntil * 1000)}` : '';
-  return { id: alert.id, severity, kicker, title: alert.header, body: alert.description, meta: `${agencyOnly(alert.agency)}${until}`, url: alert.url, startOpen: severity === 'severe' && !relied };
+  return { id: alert.id, severity, kicker, ...titleAndBody(alert.header, alert.description), meta: `${agencyOnly(alert.agency)}${until}`, url: alert.url, startOpen: severity === 'severe' && !relied };
+}
+
+// How much longer than the header its finished sentence may be and still read as a title.
+const FINISH_CHARS = 60;
+
+// Some headers are the start of their description: the server makes BART's from the first sentence
+// of the description, cut at 160 characters even mid-word, and agencies often begin a description
+// with its header. Shown as they come, the title can stop mid-word, and the body says it again. So
+// a header the description starts with becomes the description's first sentence, when finishing
+// it takes only a few more words, and the body keeps what follows. A sentence much longer than
+// that stays in the body, under the header cut at a word.
+export function titleAndBody(header: string, description: string | null): { title: string; body: string | null } {
+  const title = header.trim();
+  const text = description?.trim() ?? '';
+  if (!title || !text.startsWith(title)) return { title: header, body: description };
+  const end = text.slice(title.length - 1).search(/[.!?](\s|$)/);
+  const sentence = end < 0 ? text : text.slice(0, title.length + end).trim();
+  if (sentence.length <= title.length + FINISH_CHARS) return { title: sentence, body: text.slice(sentence.length).trim() || null };
+  const midWord = /\w/.test(text.charAt(title.length));
+  const whole = midWord && title.includes(' ') ? title.slice(0, title.lastIndexOf(' ')) : title;
+  return { title: `${whole.replace(/[\s,;:–-]+$/, '')}…`, body: text };
 }
