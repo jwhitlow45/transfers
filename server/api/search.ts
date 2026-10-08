@@ -19,10 +19,12 @@ export function search(schedule: Schedule, text: string, options: { routes: bool
   if (!query) return response;
 
   let stops: StopRow[];
-  if (/^\d+$/.test(query)) {
+  // "stop 13477" and "#13477" are stop codes too.
+  const code = query.replace(/^(stop\s*#?|#)\s*/i, '');
+  if (/^\d+$/.test(code)) {
     // A stop code, matched from its start: "134" lists 13400 through 13499.
     stops = [...schedule.stops.values()]
-      .filter((stop) => isSearchable(stop) && stop.agency !== 'BA' && stop.code?.startsWith(query) && schedule.stopRoutes.has(stop.id))
+      .filter((stop) => isSearchable(stop) && stop.agency !== 'BA' && stop.code?.startsWith(code) && schedule.stopRoutes.has(stop.id))
       .sort((a, b) => (a.code?.length ?? 0) - (b.code?.length ?? 0) || (a.code ?? '').localeCompare(b.code ?? ''));
   } else {
     // One or two letters ("N") match stop names and codes only, or every stop a route by that

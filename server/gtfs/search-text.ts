@@ -18,9 +18,15 @@ export function searchText(text: string) {
   return normalized.replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
+// Riders name a corner as they say it, "24th and Mission" or "Van Ness at Market", where stop
+// names join the streets with "&". Left out of queries, not names, so the index needs no rebuild.
+const CONNECTORS = new Set(['and', 'at']);
+
 // An FTS5 query matching every word, the last one as a prefix so results appear while typing.
 export function searchQuery(text: string, columns?: string[]) {
-  const words = searchText(text).split(' ').filter(Boolean);
+  const typed = searchText(text).split(' ').filter(Boolean);
+  const kept = typed.filter((word) => !CONNECTORS.has(word));
+  const words = kept.length > 0 ? kept : typed;
   if (words.length === 0) return null;
   const query = words.map((word, index) => `"${word}"${index === words.length - 1 ? '*' : ''}`).join(' ');
   return columns ? `{${columns.join(' ')}} : (${query})` : query;
