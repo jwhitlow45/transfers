@@ -52,28 +52,31 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
   const walkTime = longest > shortest ? `${shortest}–${longest}` : `${shortest}`;
   const routeNames = familyName(group.routes, data);
   const plural = group.routes.length > 1 && !/^(BART|Muni Metro)/.test(routeNames);
-  // A ride straight to the named To stop says so, as it may stop across the street from it, and
-  // transfers at To can sit beside it.
+  // A ride straight to the named To stop says so, as it may stop across the street from it. It
+  // does not say no transfer is needed: the rider may be going there to catch something, and
+  // transfers at To can sit beside it (J, 2026-10-08).
   const straightTo = walk && !context.destinationName && group.departures.some(({ destination }) => destination !== undefined) ? context.toName : null;
   const goes = straightTo && `${routeNames} ${plural ? 'go' : 'goes'} straight to ${straightTo}`;
   // Where to get off says it once here, so each row only needs the time. A walk group has no
   // first vehicle: the route is right here, or a short walk away.
   const off = walk ? (
     group.walkMeters < 15 ? (
-      `No transfer needed: ${goes || `${routeNames} ${plural ? 'stop' : 'stops'} here`}`
+      goes ? (
+        `${goes[0]!.toUpperCase()}${goes.slice(1)}`
+      ) : (
+        `No transfer needed: ${routeNames} ${plural ? 'stop' : 'stops'} here`
+      )
+    ) : goes ? (
+      <>
+        Walk {walkMinutes(group.walkMeters)} min to {boardLink}, then {goes}
+      </>
     ) : (
       <>
         No transfer needed: walk {walkMinutes(group.walkMeters)} min to {boardLink}
-        {goes && `, then ${goes}`}
       </>
     )
   ) : sameStop ? (
-    // At a street stop the rider boards where they got off, which J wants said beside the walks
-    // other transfer points give. A station's platforms may be apart.
-    <>
-      Transfer at {boardLink}
-      {group.walkMeters < 15 && !board?.serves && board?.mode !== 'bart' && ' · no walk'}
-    </>
+    <>Transfer at {boardLink}</>
   ) : (
     <>
       {alightVerb(group, data)} <StopLink stop={alight}>{alightName}</StopLink> · {walkTime} min walk
