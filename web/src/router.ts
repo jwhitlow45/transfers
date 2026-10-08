@@ -187,8 +187,10 @@ export function goBack(fallback = '/') {
 export const currentKey = () => entry().key;
 export const currentUnder = () => entry().under;
 
-// How many of the app's entries lie behind this one, which grows by one with each step forward.
-export const currentDepth = () => depth();
+// How many of the app's entries lie behind the page showing, which grows by one with each step
+// forward. A sheet's entry is a step over its page, so it counts as its page, and a change made from
+// a sheet, such as a route filter, is the same page rather than a new one.
+export const currentDepth = () => (entry().sheet ? depth() - 1 : depth());
 
 // Whether back lands on Home: the page before is Home's, or there is none of the app's, and back
 // falls back to Home. An entry from before the app kept `back` says nothing either way.
