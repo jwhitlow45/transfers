@@ -135,7 +135,7 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
         )}
       </div>
       {left.length > 0 && (
-        <Departed count={walk ? left.length : left.reduce((sum, { connections }) => sum + connections.length, 0)}>
+        <Departed count={walk ? left.length : left.reduce((sum, { connections }) => sum + connections.length, 0)} place={shortStopName(data.stops[data.from], data.from)}>
           {left.map(card)}
         </Departed>
       )}

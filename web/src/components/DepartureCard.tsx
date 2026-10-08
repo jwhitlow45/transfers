@@ -5,7 +5,7 @@ import { clock, minutesUntil } from '../format.ts';
 import { pinOf, sameRun } from '../lib/pinned.ts';
 import { type CardContext, hintKey } from '../lib/results.ts';
 import { TimeLink } from '../track.tsx';
-import { chipLabel, spokenRoute, statusOf } from '../view.ts';
+import { chipLabel, shortStopName, spokenRoute, statusOf } from '../view.ts';
 import { Collapse } from './Collapse.tsx';
 import { ConnectionRow } from './ConnectionRow.tsx';
 import { Departed } from './Departed.tsx';
@@ -174,7 +174,7 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
         )}
         {gone > 0 && !allLeft ? (
           <>
-            <Departed count={gone}>
+            <Departed count={gone} place={shortStopName(context.data.stops[context.data.from], context.data.from)}>
               <div role="list" aria-label={`Departed ${noun[gone === 1 ? 0 : 1]}`}>
                 {departure.connections.filter(({ departs }) => departs * 1000 < context.now).map(row)}
               </div>

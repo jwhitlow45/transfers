@@ -8,7 +8,8 @@
 .tf-track__frame .tf-track__map { margin-top: 0; }
 .tf-track__controls { position: absolute; right: calc(var(--border-strong) + var(--space-2)); bottom: calc(var(--border-strong) + var(--space-2)); display: flex; gap: var(--space-2); }
 .tf-track__fit { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 var(--space-3); background: var(--bg); color: var(--text); border: var(--border-hair) solid var(--line); font-size: var(--text-sm); font-weight: 650; }
-.tf-track__fit[aria-pressed="true"] { background: var(--text); color: var(--bg); border-color: var(--text); }
+/* On, as every toggle that is on looks (see .tf-filter in styles.css). */
+.tf-track__fit[aria-pressed="true"] { background: var(--field); color: var(--on-field); border-color: var(--field); }
 .tf-track__map { display: block; width: 100%; height: auto; max-height: 50vh; margin-top: var(--space-3); border: var(--border-strong) solid var(--line); background: var(--bg); }
 .tf-track__stop { fill: var(--bg); stroke: var(--text); }
 .tf-track__square--yours { fill: var(--text); stroke: var(--bg); }
