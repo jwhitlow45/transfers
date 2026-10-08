@@ -275,8 +275,19 @@ button:disabled { opacity: .45; cursor: default; }
 /* Its last button's 22px glyph ends on the page gutter, as the cards below do, though the title row
    is padded less on the right. */
 .tf-header__end { flex: none; display: inline-flex; align-items: center; gap: var(--space-1); margin-bottom: -10px; margin-right: calc(var(--space-5) - var(--space-3) - (var(--tap-min) - 22px) / 2); }
-.tf-chain__arrow { color: var(--muted); font-weight: var(--weight-regular); }
-.tf-chain__derived { border: 1px dashed var(--accent); color: var(--accent-ink); padding: 0 6px; font-weight: var(--weight-semibold); font-style: italic; }
+.tf-chain__arrow { flex: none; color: var(--muted); font-weight: var(--weight-regular); }
+/* Its border takes from its line height, so the line is as tall with it as without it. */
+.tf-chain__derived { border: 1px dashed var(--accent); color: var(--accent-ink); padding: 0 6px; line-height: calc(1.4em - 2px); font-weight: var(--weight-semibold); font-style: italic; }
+/* The trip's title (TripChain): From, then the rest on one line. A line too long for the screen
+   ends in an ellipsis: the place to get off first, down to a few letters, then the name after it. */
+.tf-chain__from { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tf-chain__rest { display: flex; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; }
+.tf-chain__step { flex: none; display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; }
+.tf-chain__step--via { flex-shrink: 1; min-width: 4.5em; }
+.tf-chain__step--via + .tf-chain__step { max-width: calc(100% - 4.5em - 6px); }
+.tf-chain__step > :last-child:not(.tf-chip) { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.tf-chain__step > .tf-chip { flex: none; }
+@media (max-width: 599px) { .tf-chain__from { flex-basis: 100%; } }
 .tf-livestatus { max-width: var(--page-max); margin: 0 auto; display: flex; align-items: center; font-size: var(--text-base); color: var(--muted); }
 .tf-dot { width: 8px; height: 8px; border-radius: var(--radius-dot); background: var(--accent); border: 1.5px solid var(--accent); }
 /* Under the header's divider and over the page's top padding, so it takes no room of its own. */

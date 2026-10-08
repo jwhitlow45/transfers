@@ -200,26 +200,34 @@ function HeaderEdge({ loading }: { loading: boolean }) {
   );
 }
 
-// The trip as a chain: From → where to get off (worked out by the app) → the second route.
+// The trip as a chain: From → where to get off (worked out by the app) → the second route. Each
+// arrow stays with the name it leads to. On phones From has the first line and the rest the
+// second, whether or not the app has found where to get off, so the header keeps its height as
+// results arrive or a direction is chosen. Each line ends in an ellipsis rather than wrap, the
+// place to get off giving way first.
 export function TripChain({ from, via, to }: { from: string; via: string | null; to: ComponentChildren }) {
   return (
     <>
-      <span>{from}</span>
-      <span class="tf-chain__arrow" aria-hidden="true">
-        →
-      </span>
-      {via && (
-        <>
-          <span class="tf-chain__derived" title="Transfer point worked out by Transfers">
-            {via}
-            <span class="tf-sr"> (transfer point found for you)</span>
+      <span class="tf-chain__from">{from}</span>
+      <span class="tf-chain__rest">
+        {via && (
+          <span class="tf-chain__step tf-chain__step--via">
+            <span class="tf-chain__arrow" aria-hidden="true">
+              →
+            </span>
+            <span class="tf-chain__derived" title="Transfer point worked out by Transfers">
+              {via}
+              <span class="tf-sr"> (transfer point found for you)</span>
+            </span>
           </span>
+        )}
+        <span class="tf-chain__step">
           <span class="tf-chain__arrow" aria-hidden="true">
             →
           </span>
-        </>
-      )}
-      {to}
+          {to}
+        </span>
+      </span>
     </>
   );
 }
