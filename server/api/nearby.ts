@@ -76,7 +76,7 @@ export function nearby(schedule: Schedule, realtime: RealtimeView, center: Point
       defaultMinutes: 0,
       stopsRidden: 0,
     };
-    const arrivals = secondLegs(context, link, null)
+    const arrivals = secondLegs(context, link, [])
       .filter(({ at, canceled }) => !canceled && at >= now - 30)
       .sort((a, b) => a.at - b.at)
       .slice(0, ARRIVALS_PER_STOP)

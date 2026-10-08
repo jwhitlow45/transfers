@@ -117,3 +117,15 @@ test('a loop that comes back past From after the rider gets off still boards nea
   deepStrictEqual(boards(findLinks(schedule, from, { stop: to }, { reaches: new Set([from.id]) })), []);
   schedule.close();
 });
+
+test('a ride straight to a named stop may end across the street from it, or where the route ends', () => {
+  const schedule = network(2);
+  const direct = (from: string, to: string) =>
+    findLinks(schedule, schedule.stopsByKey.get(`SF:${from}`)!, { stop: schedule.stopsByKey.get(`SF:${to}`)! }, { direct: true }).map((link) => `${link.kind} ${link.headsign} at ${link.board.stopId}`);
+  // Westbound cars leave Jones away from Larkin, and eastbound ones stop across the street.
+  deepStrictEqual(direct('larkin-wb', 'jones-wb'), ['walk Market at larkin-eb']);
+  deepStrictEqual(direct('jones-wb', 'vanness-wb'), ['walk Van Ness at jones-wb']);
+  // As a stop to transfer at, westbound Jones is out of reach: it means riding past and back.
+  deepStrictEqual(findLinks(schedule, schedule.stopsByKey.get('SF:larkin-wb')!, { stop: schedule.stopsByKey.get('SF:jones-wb')! }), []);
+  schedule.close();
+});

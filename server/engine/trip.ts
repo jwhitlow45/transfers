@@ -5,8 +5,9 @@ import type { Outage } from '../realtime/access.ts';
 import type { RtAlert, TripSnapshot } from '../realtime/snapshot.ts';
 import { type Schedule, type StopRow, routeKeyOf, stopKeyOf } from '../schedule.ts';
 import { type FirstLeg, type PairingOptions, type SecondLeg, pairConnections } from './connections.ts';
-import { type Link, findLinks } from './links.ts';
+import { type Link, arrivalStops, findLinks } from './links.ts';
 import { pinnedTrip } from './pinned.ts';
+import { visitsTo } from './track.ts';
 import type { RouteRow } from '../schedule.ts';
 import { firstLegs, secondLegs } from './vehicles.ts';
 import { Tables } from './views.ts';
@@ -66,14 +67,14 @@ const DEPARTURES_PER_GROUP = 3;
 // every pattern counts, which tells an idle route from one that never comes near.
 const linkCache = new WeakMap<Schedule, Map<string, Link[]>>();
 
-function cachedLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow } | { route: RouteRow }, request: TripRequest, now: number | null) {
+function cachedLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow } | { route: RouteRow }, request: TripRequest, now: number | null, direct = false) {
   let cache = linkCache.get(schedule);
   if (!cache) linkCache.set(schedule, (cache = new Map()));
   const { walk, speed, fromAgencies, toAgencies } = request;
   const when = now === null ? 'all' : Math.floor(now / 900);
   // The destination shapes the choice: a transfer point is picked among routes that get there.
   const destination = request.dest ? schedule.stopsByKey.get(request.dest) : undefined;
-  const key = `${from.id}|${'stop' in to ? `s${to.stop.id}` : `r${to.route.id}`}|${walk ?? ''}|${speed ?? ''}|${fromAgencies?.join() ?? ''}|${toAgencies?.join() ?? ''}|${destination?.id ?? ''}|${when}`;
+  const key = `${from.id}|${'stop' in to ? `s${to.stop.id}` : `r${to.route.id}`}|${walk ?? ''}|${speed ?? ''}|${fromAgencies?.join() ?? ''}|${toAgencies?.join() ?? ''}|${destination?.id ?? ''}|${when}|${direct ? 'direct' : ''}`;
   let links = cache.get(key);
   if (!links) {
     links = findLinks(schedule, from, to, {
@@ -83,6 +84,7 @@ function cachedLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow } | 
       ...(toAgencies?.length ? { toAgencies: new Set(toAgencies) } : {}),
       ...(now === null ? {} : { running: schedule.runningPatterns(now) }),
       ...(destination ? { reaches: new Set(schedule.boardingStops(destination).map(({ id }) => id)) } : {}),
+      ...(direct ? { direct } : {}),
     });
     if (cache.size > 500) cache.delete(cache.keys().next().value!);
     cache.set(key, links);
@@ -124,11 +126,15 @@ export function destinations(schedule: Schedule, request: TripRequest): Destinat
 }
 
 // Where a pinned trip ends: the destination, or riding a route already at From straight to a
-// named To stop, To, as the results count a departure's arrival (`reaching`).
+// named To stop, To, or the stop on its corner the trip makes, as the results count a departure's
+// arrival (`reaching`).
 function pinnedDestination(schedule: Schedule, pin: PinRequest, destination: StopRow | null, toStop: StopRow | undefined) {
   if (destination) return stopKeyOf(destination);
   if (pin.first || !toStop || schedule.boardingStops(toStop).some((stop) => stopKeyOf(stop) === pin.second.board) || stopKeyOf(toStop) === pin.second.board) return undefined;
-  return stopKeyOf(toStop);
+  const pattern = schedule.patterns.get(schedule.trips.get(pin.second.trip)?.pattern ?? -1);
+  if (!pattern || visitsTo(schedule, pattern.stops, toStop).length > 0) return stopKeyOf(toStop);
+  const corner = arrivalStops(schedule, toStop).find(({ id }) => pattern.stops.includes(id));
+  return stopKeyOf(corner ?? toStop);
 }
 
 export function planTrip(schedule: Schedule, realtime: RealtimeView, request: TripRequest, now: number): TripResponse {
@@ -138,13 +144,28 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
   const destination = request.dest ? schedule.stopsByKey.get(request.dest) ?? null : null;
 
   const tables = new Tables(schedule);
-  const allLinks = cachedLinks(schedule, from, to, request, now);
-  const links = destination ? towardDestination(schedule, allLinks, destination, toStop ?? null) : allLinks;
-  const notice = links.length > 0 ? undefined : emptyNotice(schedule, from, to, request, destination, toStop ?? null, now);
-  if (notice?.kind === 'walkable') tables.stop(schedule.stopsByKey.get(notice.stop)!);
   const firstFilter = request.firstRoutes?.length ? new Set(request.firstRoutes) : null;
   const secondFilter = request.secondRoutes?.length ? new Set(request.secondRoutes) : null;
   const context = { schedule, snapshot: realtime.trips, now };
+  const shownRoutes = (link: Link) => link.routes.filter((route) => !secondFilter || secondFilter.has(routeKeyOf(route)));
+  // Riding straight to a named stop, the time each departure reaches it, or its corner, is the
+  // point. A BART station means whichever of its platforms the trip stops at.
+  const endsAt = (link: Link) =>
+    destination ? schedule.boardingStops(destination) : link.kind === 'walk' && toStop && !schedule.boardingStops(toStop).includes(link.board) ? arrivalStops(schedule, toStop) : [];
+  const walkMinutes = (link: Link) => Math.max(link.defaultMinutes, request.hide ?? 0);
+  // A vehicle that carries the rider from From to To, or to its corner, is shown alone, as J
+  // wants (2026-10-07), while one is coming. A night route counts as running for hours after its
+  // last trip, so it takes a departure to count.
+  const direct = toStop
+    ? cachedLinks(schedule, from, to, request, now, true).filter((link) => {
+        const routes = shownRoutes(link);
+        return routes.length > 0 && walkDepartures(secondLegs(context, { ...link, routes }, endsAt(link), true), now, walkMinutes(link)).length > 0;
+      })
+    : [];
+  const allLinks = cachedLinks(schedule, from, to, request, now);
+  const links = direct.length > 0 ? direct : destination ? towardDestination(schedule, allLinks, destination, toStop ?? null) : allLinks;
+  const notice = links.length > 0 ? undefined : emptyNotice(schedule, from, to, request, destination, toStop ?? null, now);
+  if (notice?.kind === 'walkable') tables.stop(schedule.stopsByKey.get(notice.stop)!);
 
   const groups: Group[] = [];
   // The stop keys where the rider rides BART, which a shared station's key alone does not say: the
@@ -164,7 +185,7 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
   // A shared station belongs to both systems, so its own agency says nothing about the trip.
   const agencies = new Set<AgencyId>(schedule.sharedMembers.has(from.id) ? [] : [from.agency]);
   for (const link of links) {
-    const routes = link.routes.filter((route) => !secondFilter || secondFilter.has(routeKeyOf(route)));
+    const routes = shownRoutes(link);
     if (routes.length === 0) continue;
     const linkForRoutes = routes.length === link.routes.length ? link : { ...link, routes };
     const atStation = [link.alight, link.board].some(({ access }) => access === 'bart' || access === 'subway');
@@ -174,14 +195,12 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
       .map(({ pattern, origin }) => ({ pattern, position: origin }));
     const headway = request.max === undefined ? schedule.headwayMinutes(feeders, now) : null;
     const max = Math.min(MAX_MINUTES, Math.max(min, request.max ?? defaultMaximum(min, headway)));
-    // Riding straight to a named stop, the time each departure reaches it is the point.
-    const reaching = link.kind === 'walk' && toStop && !schedule.boardingStops(toStop).includes(link.board) ? toStop : null;
-    const second = secondLegs(context, linkForRoutes, destination ?? reaching, true);
+    const second = secondLegs(context, linkForRoutes, endsAt(link), true);
     let departures: Departure[];
     let widen: { min: number; max: number } | null = null;
     if (link.kind === 'walk') {
       // The rider's "hide departures under N" counts here too, alongside the walk itself.
-      departures = walkDepartures(second, now, Math.max(link.defaultMinutes, request.hide ?? 0));
+      departures = walkDepartures(second, now, walkMinutes(link));
     } else {
       const first = firstLegs(context, linkForRoutes, firstFilter);
       const pairing = { now, min, max, hide: request.hide ?? 0, count: DEPARTURES_PER_GROUP, showHidden: request.hidden ?? false };

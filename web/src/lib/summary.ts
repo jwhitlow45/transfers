@@ -22,7 +22,9 @@ export function summarize(search: Search, data: TripResponse | null, now: number
   const toRoute = data && 'route' in data.to ? data.routes[data.to.route] : undefined;
   const routeSets = [...new Set(groups.map(({ routes }) => routes.join(',')))];
   const onlyRoute = routeSets.length === 1 && groups[0]?.routes.length === 1 ? data?.routes[groups[0].routes[0]!] : undefined;
-  const toRouteShown = toRoute ?? onlyRoute;
+  // A route straight to the named stop is the way there, not what the rider is going to catch.
+  const straight = !search.dest && groups.length > 0 && groups.every(({ kind, departures }) => kind === 'walk' && departures.some(({ destination }) => destination !== undefined));
+  const toRouteShown = toRoute ?? (straight ? undefined : onlyRoute);
   const to = toRouteShown ? chipLabel(toRouteShown) : search.toLabel;
   // The window the page talks about: the rider's own, or the first transfer point's that has
   // something to catch. The header, the bottom bar, and the sheet all show this one.

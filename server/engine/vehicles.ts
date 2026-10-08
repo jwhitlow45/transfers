@@ -122,11 +122,11 @@ export function firstLegs(context: VehicleContext, link: Link, routeFilter: Set<
 }
 
 // Every departure of the link's routes from its boarding stop, and when each reaches the
-// destination stop, if the rider set one.
+// destination, if the rider set one: the first of `destinationStops` it stops at.
 // With `underWay`, departures that have left too, as far back as a first vehicle that has left
 // could have made one, so pairing gives each such vehicle the departure it really made, and drops
 // the pair once that ride is over, rather than giving it a later one.
-export function secondLegs(context: VehicleContext, link: Link, destination: StopRow | null, underWay = false): SecondLeg[] {
+export function secondLegs(context: VehicleContext, link: Link, destinationStops: StopRow[], underWay = false): SecondLeg[] {
   const { schedule, snapshot, now } = context;
   const legs = new Map<string, SecondLeg>();
   const underway = new Set<string>();
@@ -134,8 +134,6 @@ export function secondLegs(context: VehicleContext, link: Link, destination: Sto
   const directionMatches = (pattern: PatternRow | undefined) => !pattern || link.direction === null || pattern.direction === link.direction;
   // Patterns the link boards, which a destination may have narrowed to those that get there.
   const patternIds = new Set(link.boardPatterns.map(({ pattern }) => pattern.id));
-  // A BART station as the destination means whichever of its platforms the trip stops at.
-  const destinationStops = destination ? schedule.boardingStops(destination) : [];
 
   const visits = link.boards.flatMap((board) => (snapshot?.byStop.get(stopKey(board.agency, board.stopId)) ?? []).map((visit) => ({ ...visit, board })));
   if (snapshot) {
