@@ -1,15 +1,16 @@
 import type { Alert, Route, TripResponse } from '../../../shared/api.ts';
 import { clock, clockOrDay } from '../format.ts';
-import type { Search } from '../storage.ts';
+import type { Pin, Search } from '../storage.ts';
 import { type Status, chipLabel, shortStopName, statusOf, windowText } from '../view.ts';
+import { pinOf } from './pinned.ts';
 import { pageColors, pointId, ridesStraightTo, visibleDepartures } from './results.ts';
 
 // One vehicle of the next connection, for a saved card to draw as the results page does.
 export type Leg = { route: Route | undefined; at: number; status: Status };
 // The soonest connection: minutes until it leaves, its vehicles, the minutes to make the
 // transfer (null when the route already stops at From, so there is none), and the same in one
-// line for screen readers.
-export type NextConnection = { minutes: number; legs: Leg[]; transfer: number | null; line: string; later: number[] };
+// line for screen readers. `pin` is the trip pinned from the card, built as results build it.
+export type NextConnection = { minutes: number; legs: Leg[]; transfer: number | null; line: string; later: number[]; pin: Pin };
 
 // Alerts about a stop the rider stands at, not yet dismissed.
 export const countStopAlerts = (alerts: Alert[], stops: ReadonlySet<string>, dismissed: ReadonlySet<string>) =>
@@ -66,6 +67,7 @@ export function summarize(search: Search, data: TripResponse | null, now: number
           ],
           transfer: connection.transfer,
           later: [],
+          pin: pinOf(departure, group.board, { connection, alight: connection.alight ?? group.alight }),
           line: `${first ? chipLabel(first) : ''} ${clock(connection.departs)} (${firstStatus.label.toLowerCase()}), ${connection.transfer} minute transfer, ${second ? chipLabel(second) : ''} ${clock(departure.at)} (${secondStatus.label.toLowerCase()})`,
         };
       }
@@ -87,6 +89,7 @@ export function summarize(search: Search, data: TripResponse | null, now: number
         legs: [{ route, at: departure.at, status }],
         transfer: null,
         later: [],
+        pin: pinOf(departure, group.board),
         line: `${route ? chipLabel(route) : ''} ${clock(departure.at)} (${status.label.toLowerCase()}) · no transfer needed`,
       };
     }

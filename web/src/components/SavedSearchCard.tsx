@@ -1,7 +1,8 @@
 import { useState } from 'preact/hooks';
 import { clock } from '../format.ts';
-import { IconPencil, IconTransfer, IconWarn } from '../icons/ui.tsx';
+import { IconPencil, IconPin, IconTransfer, IconWarn } from '../icons/ui.tsx';
 import { SAVED_COLORS } from '../lib/color.ts';
+import type { Pin } from '../storage.ts';
 import type { NextConnection } from '../lib/summary.ts';
 import { RouteChip } from './RouteChip.tsx';
 import { StatusTag } from './StatusTag.tsx';
@@ -9,7 +10,7 @@ import { typeWithoutUndo } from '../typing.ts';
 
 // The main daily entry point: one tap opens results, and it leads with a live countdown. The
 // color stripe tells saved searches apart at a glance, and the pencil edits name and color.
-export function SavedSearchCard({ name, color, chain, named, windowText, next, loading, severeAlerts, nextService, staleText, href, onOpen, onEdit, onRemove, onMove, canMoveUp = false, canMoveDown = false }: {
+export function SavedSearchCard({ name, color, chain, named, windowText, next, loading, severeAlerts, nextService, staleText, href, onOpen, onEdit, onRemove, onMove, canMoveUp = false, canMoveDown = false, onPin }: {
   name: string;
   color: string | undefined;
   chain: string;
@@ -32,6 +33,8 @@ export function SavedSearchCard({ name, color, chain, named, windowText, next, l
   onMove?: (step: -1 | 1) => void;
   canMoveUp?: boolean;
   canMoveDown?: boolean;
+  // Pins the connection the card shows.
+  onPin?: (pin: Pin) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ name, color });
@@ -55,6 +58,11 @@ export function SavedSearchCard({ name, color, chain, named, windowText, next, l
           />
         ) : (
           <h3 class="tf-saved__name">{name}</h3>
+        )}
+        {!editing && next && onPin && (
+          <button type="button" class="tf-btn-icon tf-muted" onClick={() => onPin(next.pin)} aria-label={`Pin the next connection for ${name}`}>
+            <IconPin />
+          </button>
         )}
         {!editing && (
           <button
