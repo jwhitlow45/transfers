@@ -4,6 +4,7 @@ import { getJson } from '../api.ts';
 import { IconChevron } from '../icons/ui.tsx';
 import { routeColor } from '../lib/color.ts';
 import { pointId } from '../lib/results.ts';
+import { shortTripPath } from '../../../shared/short-links.ts';
 import { navigate, tripPath } from '../router.ts';
 import type { Search } from '../storage.ts';
 import { chipLabel, shortStopName } from '../view.ts';
@@ -38,7 +39,9 @@ function ResetWindow({ search, update }: { search: Search; update: SearchUpdate 
 function ShareTrip({ search, onCopied }: { search: Search; onCopied: () => void }) {
   const share = async () => {
     const { from, to, fromLabel, toLabel } = search;
-    const url = location.origin + tripPath({ from, to, fromLabel, toLabel });
+    // Short where both ends have a short form (shared/short-links.ts), which the server opens with
+    // the stops' names.
+    const url = location.origin + (shortTripPath(from, to) ?? tripPath({ from, to, fromLabel, toLabel }));
     if (navigator.share) {
       try {
         await navigator.share({ title: `${fromLabel} to ${toLabel}`, url });

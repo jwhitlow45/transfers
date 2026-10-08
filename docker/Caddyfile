@@ -23,6 +23,11 @@
 		reverse_proxy api:3000
 	}
 
+	# Short trip links from Share this trip, which the API opens as the trip's own address.
+	handle /s/* {
+		reverse_proxy api:3000
+	}
+
 	handle {
 		root * /srv
 		# File names under /assets carry a content hash, so they never change. Everything else,

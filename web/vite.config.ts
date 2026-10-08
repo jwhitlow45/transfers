@@ -12,7 +12,8 @@ export default defineConfig({
   plugins: [preact(), buildStamp(), serviceWorker(), precompress()],
   build: { outDir, emptyOutDir: true, target: 'es2022' },
   // Tailnet names are allowed so a phone can reach the dev server through `tailscale serve`.
-  server: { proxy: { '/api': 'http://localhost:3000' }, allowedHosts: ['.ts.net'] },
+  // Short trip links go to the API, which opens them as the trip's own address (see Caddyfile).
+  server: { proxy: { '/api': 'http://localhost:3000', '^/s/': 'http://localhost:3000' }, allowedHosts: ['.ts.net'] },
 });
 
 // Stamps the page with its build's id: a hash of every built file's name, which carry content

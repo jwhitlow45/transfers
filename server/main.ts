@@ -2,10 +2,12 @@ import { readFileSync } from 'node:fs';
 import { type IncomingMessage, type ServerResponse, createServer } from 'node:http';
 import { join } from 'node:path';
 import { MAX_MINUTES } from '../shared/api.ts';
+import { parseShortTrip } from '../shared/short-links.ts';
 import { DEFAULT_NEARBY_METERS, nearby } from './api/nearby.ts';
 import { search } from './api/search.ts';
 import { config, requireApiKeys } from './config.ts';
 import { trackTarget, trackVehicle } from './engine/track.ts';
+import { routeView } from './engine/views.ts';
 import { type RealtimeView, RequestError, type TripRequest, destinations, planTrip } from './engine/trip.ts';
 import { KeyPool } from './realtime/keys.ts';
 import { Realtime } from './realtime/manager.ts';
@@ -76,6 +78,20 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
       const radius = clamp(numberParam(url.searchParams, 'r') ?? DEFAULT_NEARBY_METERS, 100, 1000);
       return sendJson(request, response, nearby(schedule, await realtimeView(), center, radius, nowSeconds()));
     }
+  }
+  // A short link from Share this trip opens the trip's own address, with its stops' names as the
+  // app's own links carry them.
+  if (url.pathname.startsWith('/s/')) {
+    const short = parseShortTrip(url.pathname);
+    if (!short) throw new RequestError(404, 'Not found');
+    const label = (key: string) => {
+      const route = key.startsWith('route:') ? schedule.routesByKey.get(key.slice('route:'.length)) : undefined;
+      return route ? routeView(route).name : (schedule.stopsByKey.get(key)?.name ?? key);
+    };
+    const params = new URLSearchParams({ fl: label(short.from), tl: label(short.to) });
+    response.writeHead(302, { Location: `/t/${encodeURIComponent(short.from)}/${encodeURIComponent(short.to)}?${params}`, 'Cache-Control': 'no-cache' });
+    response.end();
+    return;
   }
   // A saved trip link gets the page shell with its results already inside, so the first
   // paint underground takes one request instead of two.
