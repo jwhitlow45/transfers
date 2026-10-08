@@ -81,7 +81,7 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
   ) : (
     <>
       {alightVerb(group, data)} <StopLink stop={alight}>{alightName}</StopLink> ·{' '}
-      <span class="tf-gerbil" aria-hidden="true">
+      <span class="tf-walk-gerbil" aria-hidden="true">
         <IconGerbil />
       </span>
       {walkTime} min walk

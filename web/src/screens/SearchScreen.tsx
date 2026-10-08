@@ -14,6 +14,7 @@ import { clock } from '../format.ts';
 import { useNow, usePinnedTrip, usePoll } from '../hooks.ts';
 import { IconChevron, IconGear, IconLocation, IconPin } from '../icons/ui.tsx';
 import { defaultSavedColor } from '../lib/color.ts';
+import { ringsBell } from '../lib/eggs.ts';
 import { type LiveReport, ageText, clockSkewMs, freshness, homeStatus } from '../lib/freshness.ts';
 import { type LocationProblem, type Position, handOver, locate, locationProblemText } from '../lib/location.ts';
 import { pageColors, scaleFor, timeScale } from '../lib/results.ts';
@@ -97,6 +98,21 @@ export function SearchScreen() {
     const previous = loadPin(search);
     updatePin(search, next);
     if (!next) setToast({ id: ++toastId.current, text: 'Unpinned', about: 'unpin', undo: () => updatePin(search, previous) });
+  };
+  // Pinned from a saved card, which shows its trip pinned at the top. A pin it replaces can come back.
+  const pinFromCard = (search: Search, next: Pin, bell: boolean) => {
+    const previous = loadPin(search);
+    updatePin(search, next);
+    setToast({ id: ++toastId.current, text: bell ? 'Ding ding! Pinned to the top' : 'Pinned to the top', about: 'pin', undo: () => updatePin(search, previous) });
+  };
+  // Saved searches in the order the rider set, one place at a time.
+  const moveSaved = (id: string, step: -1 | 1) => {
+    const all = loadSaved();
+    const from = all.findIndex((item) => item.id === id);
+    const to = from + step;
+    if (from === -1 || to < 0 || to >= all.length) return;
+    [all[from], all[to]] = [all[to]!, all[from]!];
+    updateSaved(all);
   };
   // Bumped when a recent search is removed, so the list reads storage again.
   const [, setRecentVersion] = useState(0);
@@ -341,12 +357,16 @@ export function SearchScreen() {
             <section class="tf-section" aria-labelledby="saved-heading">
               <h2 id="saved-heading">Saved</h2>
               <div class="tf-saved-grid">
-                {saved.map((search) => (
+                {saved.map((search, index) => (
                   <SavedTrip
                     key={search.id}
                     search={search}
                     now={now}
                     pulls={pulls}
+                    onMove={(step) => moveSaved(search.id, step)}
+                    canMoveUp={index > 0}
+                    canMoveDown={index < saved.length - 1}
+                    onPin={(pin, bell) => pinFromCard(search, pin, bell)}
                     onReport={report}
                     onEdit={(change) =>
                       updateSaved(loadSaved().map((item) => (item.id === search.id ? { ...item, ...change, renamed: change.name !== item.name ? true : item.renamed } : item)))
@@ -480,10 +500,14 @@ function PinnedHome({ pin, now, pulls, onPin, onUpdate, onReport }: {
 }
 
 // Polls its own trip, so the card counts down live and opening it shows cached results at once.
-function SavedTrip({ search, now, pulls, onReport, onEdit, onColorless, onRemove }: {
+function SavedTrip({ search, now, pulls, onMove, canMoveUp, canMoveDown, onPin, onReport, onEdit, onColorless, onRemove }: {
   search: SavedSearch;
   now: number;
   pulls: number;
+  onMove: (step: -1 | 1) => void;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  onPin: (pin: Pin, bell: boolean) => void;
   onReport: Report;
   onEdit: (change: { name: string; color: string | undefined }) => void;
   onColorless: (lineColor: string | null) => void;
@@ -515,6 +539,11 @@ function SavedTrip({ search, now, pulls, onReport, onEdit, onColorless, onRemove
         next={summary.next}
         loading={!data && feed === 'loading'}
         severeAlerts={summary.severeAlerts}
+        nextService={summary.nextService}
+        onMove={onMove}
+        canMoveUp={canMoveUp}
+        canMoveDown={canMoveDown}
+        onPin={(pin) => onPin(pin, ringsBell(pin, data))}
         staleText={fresh.stale && settled ? `Live times ${ageText(fresh.ageSeconds!)} old` : null}
         href={tripPath(search)}
         onOpen={() => navigate(tripPath(search))}
