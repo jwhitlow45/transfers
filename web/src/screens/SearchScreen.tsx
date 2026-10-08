@@ -12,7 +12,7 @@ import { Toast, type ToastMessage } from '../components/Toast.tsx';
 import { ScreenHeader } from '../components/ResultsHeader.tsx';
 import { clock } from '../format.ts';
 import { useNow, usePinnedTrip, usePoll } from '../hooks.ts';
-import { IconChevron, IconGear, IconLocation, IconPin } from '../icons/ui.tsx';
+import { IconChevron, IconClose, IconGear, IconLocation, IconPin } from '../icons/ui.tsx';
 import { defaultSavedColor } from '../lib/color.ts';
 import { ringsBell } from '../lib/eggs.ts';
 import { samePin } from '../lib/pinned.ts';
@@ -31,9 +31,11 @@ import {
   loadFields,
   loadPin,
   loadPins,
+  loadPicked,
   loadRecent,
   loadSaved,
   removeRecent,
+  rememberPicked,
   removeSaved,
   saveFields,
   savePin,
@@ -180,9 +182,13 @@ export function SearchScreen() {
   const pick = (hit: SearchHit) => {
     if (!response) return;
     const picked = pickedFrom(hit, response);
-    (focus === 'from' ? setFrom : setTo)({ query: picked.label, picked });
+    rememberPicked(picked);
+    const field = focus;
+    (field === 'from' ? setFrom : setTo)({ query: picked.label, picked });
     setFocus(null);
     setResponse(null);
+    // On to the other field, or the results, as Enter and a recent stop do.
+    if (field) advance(field, picked);
   };
   const open = (fromPicked: Picked, toPicked: Picked) => navigate(tripPath({ from: fromPicked.key, to: toPicked.key, fromLabel: fromPicked.short, toLabel: toPicked.short }));
   const go = () => {
@@ -205,6 +211,7 @@ export function SearchScreen() {
     const hit = response?.along?.length ? undefined : response?.results[0];
     if (!response || !hit) return;
     const picked = pickedFrom(hit, response);
+    rememberPicked(picked);
     (field === 'from' ? setFrom : setTo)({ query: picked.label, picked });
     setFocus(null);
     setResponse(null);
@@ -249,12 +256,13 @@ export function SearchScreen() {
   // searches, newest first, so the usual stop is one tap (J, 2026-10-08).
   const usual = (field: 'from' | 'to'): Picked[] => {
     const seen = new Set<string>();
+    const known = loadPicked();
     return [...loadRecent(), ...saved].flatMap((search) => {
       const key = field === 'from' ? search.from : search.to;
       const label = field === 'from' ? search.fromLabel : search.toLabel;
       if (seen.has(key)) return [];
       seen.add(key);
-      return [{ key, label, meta: key.startsWith('route:') ? 'Route from a recent search' : 'Stop from a recent search', short: label }];
+      return [known[key] ?? { key, label, meta: key.startsWith('route:') ? 'Route from a recent search' : 'Stop from a recent search', short: label }];
     }).slice(0, 5);
   };
   const usualShown = typing && focus && !(focus === 'from' ? from : to).query.trim() ? usual(focus) : [];
@@ -288,7 +296,7 @@ export function SearchScreen() {
       />
       <main class="tf-page tf-page--form" id="main">
         {pins.map((pin) => (
-          <PinnedHome key={searchId(pin.search)} pin={pin} now={now} pulls={pulls} onPin={(next) => pinFromHome(pin.search, next)} onUpdate={(next) => updatePin(pin.search, next)} onReport={report} />
+          <PinnedHome key={searchId(pin.search)} pin={pin} name={saved.find(({ id }) => id === searchId(pin.search))?.name} now={now} pulls={pulls} onPin={(next) => pinFromHome(pin.search, next)} onUpdate={(next) => updatePin(pin.search, next)} onReport={report} />
         ))}
         <SearchFields
           from={{ query: from.query, ...(from.picked ? { meta: from.picked.meta } : {}) }}
@@ -314,13 +322,14 @@ export function SearchScreen() {
             setTo(from);
           }}
         />
-        {(from.query || to.query) && (
+        {/* Not over the suggestions, which a phone's keyboard leaves little room for. */}
+        {(from.query || to.query) && !showingResults && (
           <button type="button" class="tf-btn-primary" disabled={!(from.picked && to.picked)} onClick={go} aria-describedby="find-hint">
             Find transfers
           </button>
         )}
         {/* What the dimmed button is waiting for, as typing alone does not pick a stop. */}
-        {(from.query || to.query) && !(from.picked && to.picked) && (
+        {(from.query || to.query) && !showingResults && !(from.picked && to.picked) && (
           <p class="tf-find-hint" id="find-hint">
             {!from.picked && !to.picked ? 'Pick From and To from the lists' : !from.picked ? 'Pick a From stop from the list' : 'Pick a To stop or route from the list'}
           </p>
@@ -446,8 +455,10 @@ function HowItWorks({ open: openAtFirst }: { open: boolean }) {
 }
 
 // A pinned trip, as at the top of its results, polling its own trip like a saved card does.
-function PinnedHome({ pin, now, pulls, onPin, onUpdate, onReport }: {
+function PinnedHome({ pin, name, now, pulls, onPin, onUpdate, onReport }: {
   pin: Pin & { search: Search };
+  // The saved search's name, when the trip is saved.
+  name: string | undefined;
   now: number;
   pulls: number;
   onPin: (pin: Pin | null) => void;
@@ -466,7 +477,8 @@ function PinnedHome({ pin, now, pulls, onPin, onUpdate, onReport }: {
   const fresh = freshness(serverNow, fetchedAt === null ? null : fetchedAt + skew, data?.dataAt ?? null);
   const age = fresh.ageSeconds === null ? null : ageText(fresh.ageSeconds);
   const status = feed === 'offline' ? `Offline${age ? ` · times ${age} old` : ''}` : fresh.stale && settled && age ? `Live times ${age} old` : null;
-  const trip = { label: `${search.fromLabel} to ${search.toLabel}`, href: tripPath(search) };
+  // A saved trip goes by the name the rider gave it, as its saved card does.
+  const trip = { label: name ?? `${search.fromLabel} to ${search.toLabel}`, href: tripPath(search) };
   if (expired) return null;
   if (!data) {
     return (
@@ -478,8 +490,12 @@ function PinnedHome({ pin, now, pulls, onPin, onUpdate, onReport }: {
             Pinned
           </span>
           <span class="tf-pinned__trip">{trip.label}</span>
+          <button type="button" class="tf-pinned__unpin" onClick={() => onPin(null)}>
+            <IconClose size={16} />
+            Unpin
+          </button>
         </div>
-        <p class="tf-pinned__note">Getting live predictions…</p>
+        <p class="tf-pinned__note">{feed === 'offline' ? 'Times can’t load right now. They show again once the phone is back online.' : 'Getting live predictions…'}</p>
       </section>
     );
   }
@@ -550,6 +566,7 @@ function SavedTrip({ search, now, pulls, onMove, canMoveUp, canMoveDown, pin, on
         pinned={pin !== null && summary.next !== null && samePin(pin, summary.next.pin)}
         onPin={(next) => onPin(next, next !== null && ringsBell(next, data))}
         staleText={fresh.stale && settled ? `Live times ${ageText(fresh.ageSeconds!)} old` : null}
+        unavailable={!data && feed === 'offline'}
         href={tripPath(search)}
         onOpen={() => navigate(tripPath(search))}
         onEdit={onEdit}
@@ -596,6 +613,7 @@ function UsualStops({ picks, onPick }: { picks: Picked[]; onPick: (picked: Picke
                 {picked.label}
                 {index === 0 && <span class="tf-sr"> (Enter picks this)</span>}
               </span>
+              <span class="tf-result__dir">{picked.meta}</span>
             </button>
           </div>
         ))}

@@ -117,7 +117,7 @@ body {
 }
 a { color: var(--accent-ink); text-underline-offset: 3px; }
 a:hover { color: var(--text); }
-button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
 button:disabled { opacity: .45; cursor: default; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .tf-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -152,10 +152,12 @@ button:disabled { opacity: .45; cursor: default; }
 
 /* ── buttons ───────────────────────────────────────── */
 .tf-btn-primary { min-height: var(--tap-primary); width: 100%; border: var(--border-strong) solid var(--primary); background: var(--primary); color: var(--on-primary); font-size: var(--text-lg); font-weight: var(--weight-bold); }
-.tf-btn-primary:hover:not(:disabled) { filter: brightness(1.08); }
+@media (hover: hover) { .tf-btn-primary:hover:not(:disabled) { filter: brightness(1.08); } }
+/* Disabled reads as waiting, not as faded out: a quiet fill with text that still meets contrast. */
+.tf-btn-primary:disabled { opacity: 1; background: var(--surface); border-color: var(--surface); color: var(--muted); }
 .tf-btn-icon { width: var(--tap-min); height: var(--tap-min); flex: none; display: grid; place-items: center; }
 .tf-btn-outline { min-height: var(--tap-primary); border: var(--border-strong) solid var(--line); }
-.tf-btn-outline:hover, .tf-btn-icon:hover { background: color-mix(in srgb, var(--text) 7%, transparent); }
+@media (hover: hover) { .tf-btn-outline:hover, .tf-btn-icon:hover { background: color-mix(in srgb, var(--text) 7%, transparent); } }
 .tf-force-refresh { width: 100%; margin-top: var(--space-2); font-weight: 650; }
 .tf-version { margin-top: var(--space-2); }
 
@@ -201,17 +203,21 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-find-hint { margin: calc(-1 * var(--space-4)) 0 0; font-size: var(--text-sm); color: var(--muted); text-align: center; }
 .tf-search-failed { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-3) var(--space-4); }
 .tf-field__row { display: flex; align-items: center; }
+/* The field in use is marked as a whole, label and clear button with it, not by a ring around the bare input. */
+.tf-field input:focus-visible { outline: none; }
+.tf-field:focus-within { box-shadow: inset 3px 0 var(--accent); background: color-mix(in srgb, var(--accent) 6%, transparent); }
 .tf-field__row input { flex: 1; min-width: 0; }
 /* As tall as the input, so it adds no height, and wide enough for a thumb. */
-.tf-field__clear { flex: none; display: grid; place-items: center; width: 40px; height: 34px; margin-right: -8px; color: var(--muted); }
+.tf-field__clear { position: relative; flex: none; display: grid; place-items: center; width: 40px; height: 34px; margin-right: -8px; color: var(--muted); }
+.tf-field__clear::after { content: ""; position: absolute; inset: -5px -2px; }
 .tf-swap { border-left: var(--border-hair) solid var(--divider); display: grid; place-items: center; }
 .tf-results { border: var(--border-strong) solid var(--line); margin-top: calc(-1 * var(--space-2)); }
 .tf-results__label { padding: var(--space-2) var(--space-4); font-size: var(--text-sm); color: var(--muted); border-bottom: var(--border-hair) solid var(--divider); }
 .tf-result { display: flex; flex-direction: column; gap: var(--space-1); width: 100%; text-align: left; padding: var(--space-3) var(--space-4); min-height: 64px; border-bottom: var(--border-hair) solid var(--divider); }
-.tf-result:hover { background: color-mix(in srgb, var(--text) 5%, transparent); }
+@media (hover: hover) { .tf-result:hover { background: color-mix(in srgb, var(--text) 5%, transparent); } }
 /* The match Enter would take, marked so the rider knows before pressing it. */
 .tf-result--enter { background: color-mix(in srgb, var(--accent) 12%, transparent); box-shadow: inset 4px 0 var(--accent); }
-.tf-result--enter:hover { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+@media (hover: hover) { .tf-result--enter:hover { background: color-mix(in srgb, var(--accent) 18%, transparent); } }
 .tf-result__top { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
 .tf-result__name { font-size: var(--text-lg); font-weight: 650; }
 .tf-result__code { font-size: var(--text-base); font-weight: var(--weight-semibold); color: var(--muted); white-space: nowrap; }
@@ -226,6 +232,12 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-saved { border: var(--border-strong) solid var(--line); }
 /* The pin of a card whose trip is pinned, in the color pinned trips carry. */
 .tf-saved__pinned { color: var(--accent-ink); }
+/* "No connection" may take two lines in the countdown's narrow column. */
+.tf-saved__count .tf-row__lead { white-space: normal; }
+/* On a narrow phone each vehicle's status takes a line of its own, as the placeholder does there. */
+.tf-saved__drawn .tf-saved__status-line { height: 1.15em; }
+@media (min-width: 360px) { .tf-saved__drawn .tf-saved__status-line { display: none; } }
+.tf-saved__name-input:focus-visible { outline: none; border-bottom-width: 2px; padding-bottom: 5px; }
 .tf-saved__head { display: flex; align-items: center; gap: var(--space-1); padding: var(--space-1) var(--space-1) 0 var(--space-4); }
 .tf-saved__name { flex: 1; min-width: 0; margin: 0; font-size: var(--text-xl); font-weight: var(--weight-bold); }
 .tf-saved__name-input { flex: 1; min-width: 0; font: inherit; font-size: var(--text-xl); font-weight: var(--weight-bold); color: var(--text); background: transparent; border: 0; border-bottom: 1px solid var(--accent); padding: 6px 0; }
@@ -260,7 +272,9 @@ button:disabled { opacity: .45; cursor: default; }
 /* What sits at the end of the title row, such as Home's clock and settings. Its buttons reach
    below the title line rather than make the row taller, so the status line sits where it does on
    Results, whose title row holds only the title. */
-.tf-header__end { flex: none; display: inline-flex; align-items: center; gap: var(--space-1); margin-bottom: -10px; }
+/* Its last button's 22px glyph ends on the page gutter, as the cards below do, though the title row
+   is padded less on the right. */
+.tf-header__end { flex: none; display: inline-flex; align-items: center; gap: var(--space-1); margin-bottom: -10px; margin-right: calc(var(--space-5) - var(--space-3) - (var(--tap-min) - 22px) / 2); }
 .tf-chain__arrow { color: var(--muted); font-weight: var(--weight-regular); }
 .tf-chain__derived { border: 1px dashed var(--accent); color: var(--accent-ink); padding: 0 6px; font-weight: var(--weight-semibold); font-style: italic; }
 .tf-livestatus { max-width: var(--page-max); margin: 0 auto; display: flex; align-items: center; font-size: var(--text-base); color: var(--muted); }
@@ -595,7 +609,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-seg__options { display: grid; border: var(--border-strong) solid var(--line); }
 .tf-seg__option { min-height: var(--tap); padding: 6px var(--space-3); text-align: left; font-size: 15px; font-weight: 650; line-height: 1.25; color: var(--muted); }
 .tf-seg__option + .tf-seg__option { border-left: var(--border-hair) solid var(--divider); }
-.tf-seg__option:hover { background: color-mix(in srgb, var(--text) 7%, transparent); }
+@media (hover: hover) { .tf-seg__option:hover { background: color-mix(in srgb, var(--text) 7%, transparent); } }
 .tf-seg__option[aria-pressed="true"] { background: var(--field); color: var(--on-field); }
 
 /* Saved search colors: a stripe down the card, and across the top of its results. */
@@ -616,7 +630,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-select-wrap { position: relative; display: block; margin-top: var(--space-2); }
 .tf-select-wrap > svg { position: absolute; right: var(--space-3); top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
 .tf-select { appearance: none; -webkit-appearance: none; border-radius: var(--radius-none); padding: 0 calc(var(--space-3) + 28px) 0 var(--space-3); font-size: var(--text-md); font-weight: var(--weight-semibold); cursor: pointer; }
-.tf-select:hover { background: color-mix(in srgb, var(--text) 5%, var(--bg)); }
+@media (hover: hover) { .tf-select:hover { background: color-mix(in srgb, var(--text) 5%, var(--bg)); } }
 .tf-select option, .tf-select optgroup { background: var(--bg); color: var(--text); }
 
 /* Recent searches swipe left to remove. Vertical panning stays the browser's own. */
@@ -634,7 +648,7 @@ button:disabled { opacity: .45; cursor: default; }
 /* Tips open under the whole line, so one from an item near the right edge stays on screen. */
 .tf-stat { display: inline-flex; flex: none; }
 .tf-stat__button { display: inline-flex; align-items: center; gap: 5px; min-height: 36px; padding: 0 var(--space-2); color: inherit; font-size: var(--text-base); white-space: nowrap; }
-.tf-stat__button:hover { background: color-mix(in srgb, var(--text) 7%, transparent); }
+@media (hover: hover) { .tf-stat__button:hover { background: color-mix(in srgb, var(--text) 7%, transparent); } }
 .tf-stat__icon { display: inline-flex; }
 /* The age ticks from "9s" to "12m". A fixed slot keeps the items after it from shifting. */
 .tf-stat--live .tf-stat__value { min-width: 3.5ch; font-variant-numeric: tabular-nums; }

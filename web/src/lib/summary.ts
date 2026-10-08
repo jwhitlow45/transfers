@@ -114,5 +114,6 @@ export function summarize(search: Search, data: TripResponse | null, now: number
   // The route a saved search is about: the one transferred to, in the color the results give it.
   const lineColor = data && (toRouteShown ?? (groups[0] ? data.routes[groups[0].routes[0]!] : undefined)) ? pageColors(groups, data)((toRouteShown ?? data.routes[groups[0]!.routes[0]!])!.key) : null;
 
-  return { groups, from, via, to, toRoute: toRouteShown, lineColor, window, windowText: window ? windowText(window) : null, next, nextService, boarding, severeAlerts, chain: [from, via, to].filter(Boolean).join(' → ') };
+  // Where to get off is left out of the chain when it is To's own stop, said once.
+  return { groups, from, via, to, toRoute: toRouteShown, lineColor, window, windowText: window ? windowText(window) : null, next, nextService, boarding, severeAlerts, chain: [from, via === to ? null : via, to].filter(Boolean).join(' → ') };
 }

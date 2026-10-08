@@ -157,7 +157,7 @@ function NearbyResults({ position, onRelocate }: { position: Position; onRelocat
                     </h2>
                     <div class="tf-group__meta">
                       <StopLink stop={stop}>{shortStopName(stop, row.stop)}</StopLink>
-                      {stop?.code ? ` · Stop ${stop.code}` : ''} · {row.meters} m away
+                      {stop?.code ? ` · Stop ${stop.code}` : ''} · {row.meters}&nbsp;m away
                     </div>
                   </div>
                   <ul class="tf-near__times" aria-label="Next arrivals">

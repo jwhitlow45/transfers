@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks';
+import { useRef, useState } from 'preact/hooks';
 import { clock } from '../format.ts';
 import { IconPencil, IconPin, IconTransfer, IconWarn } from '../icons/ui.tsx';
 import { SAVED_COLORS } from '../lib/color.ts';
@@ -10,7 +10,7 @@ import { typeWithoutUndo } from '../typing.ts';
 
 // The main daily entry point: one tap opens results, and it leads with a live countdown. The
 // color stripe tells saved searches apart at a glance, and the pencil edits name and color.
-export function SavedSearchCard({ name, color, chain, named, windowText, next, loading, severeAlerts, nextService, staleText, href, onOpen, onEdit, onRemove, onMove, canMoveUp = false, canMoveDown = false, pinned = false, onPin }: {
+export function SavedSearchCard({ name, color, chain, named, windowText, next, loading, severeAlerts, nextService, staleText, unavailable = false, href, onOpen, onEdit, onRemove, onMove, canMoveUp = false, canMoveDown = false, pinned = false, onPin }: {
   name: string;
   color: string | undefined;
   chain: string;
@@ -25,6 +25,8 @@ export function SavedSearchCard({ name, color, chain, named, windowText, next, l
   nextService?: string | null;
   // Set when the live times behind the countdown are over a minute old.
   staleText: string | null;
+  // No times to show, as the phone is offline and has none stored.
+  unavailable?: boolean;
   href: string;
   onOpen: () => void;
   onEdit: (change: { name: string; color: string | undefined }) => void;
@@ -33,20 +35,39 @@ export function SavedSearchCard({ name, color, chain, named, windowText, next, l
   onMove?: (step: -1 | 1) => void;
   canMoveUp?: boolean;
   canMoveDown?: boolean;
-  // Pins the connection the card shows.
-  // Whether the connection shown is the trip pinned for this search, which the pin button then unpins.
+  // Pins the connection the card shows. Whether that connection is the trip pinned for this search,
+  // which the pin button then unpins.
   pinned?: boolean;
   onPin?: (pin: Pin | null) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ name, color });
+  const card = useRef<HTMLDivElement>(null);
   const done = () => {
     setEditing(false);
     onEdit({ name: draft.name.trim() || name, color: draft.color });
   };
+  // Escape leaves the panel as the card was.
+  const cancel = () => setEditing(false);
+  // Pinning puts the trip above Home's fields, and moving the card moves it, which would take the
+  // card from under the rider's finger, so the page scrolls by as much, as a results row's pin does.
+  // A move keeps focus on its button, or the other one once the card reaches an end.
+  const inPlace = (change: () => void, refocus?: string) => {
+    const before = card.current?.getBoundingClientRect().top ?? 0;
+    change();
+    requestAnimationFrame(() => {
+      const element = card.current;
+      if (!element) return;
+      const moved = element.getBoundingClientRect().top - before;
+      if (moved) element.closest('.tf-scroll')?.scrollBy(0, moved);
+      if (refocus) (element.querySelector<HTMLElement>(`[data-move="${refocus}"]`) ?? element.querySelector<HTMLElement>('[data-move]'))?.focus();
+    });
+  };
   const now = next !== null && next.minutes < 1;
+  // The color picked shows on the card's stripe while the rider picks.
+  const shownColor = editing ? draft.color : color;
   return (
-    <div class="tf-saved" style={color ? { '--saved-color': color } : undefined}>
+    <div class="tf-saved" ref={card} style={shownColor ? { '--saved-color': shownColor } : undefined}>
       <div class="tf-saved__head">
         {editing ? (
           <input
@@ -56,16 +77,18 @@ export function SavedSearchCard({ name, color, chain, named, windowText, next, l
             value={draft.name}
             onBeforeInput={typeWithoutUndo}
             onInput={(event) => setDraft({ ...draft, name: event.currentTarget.value })}
-            onKeyDown={(event) => event.key === 'Enter' && done()}
+            onKeyDown={(event) => (event.key === 'Enter' ? done() : event.key === 'Escape' && cancel())}
           />
         ) : (
           <h3 class="tf-saved__name">{name}</h3>
         )}
-        {!editing && next && onPin && (
+        {/* There before times arrive, if dimmed, so the name does not rewrap when it can be used. */}
+        {!editing && onPin && (
           <button
             type="button"
             class={`tf-btn-icon ${pinned ? 'tf-saved__pinned' : 'tf-muted'}`}
-            onClick={() => onPin(pinned ? null : next.pin)}
+            disabled={!next}
+            onClick={() => next && inPlace(() => onPin(pinned ? null : next.pin))}
             aria-pressed={pinned}
             aria-label={`Pin the next connection for ${name}`}
           >
@@ -87,7 +110,7 @@ export function SavedSearchCard({ name, color, chain, named, windowText, next, l
         )}
       </div>
       {editing ? (
-        <div class="tf-saved__edit">
+        <div class="tf-saved__edit" onKeyDown={(event) => event.key === 'Escape' && cancel()}>
           <div class="tf-saved__swatches" role="group" aria-label="Color">
             {SAVED_COLORS.map((swatch) => (
               <button
@@ -104,12 +127,12 @@ export function SavedSearchCard({ name, color, chain, named, windowText, next, l
           {onMove && (canMoveUp || canMoveDown) && (
             <div class="tf-saved__order">
               {canMoveUp && (
-                <button type="button" class="tf-link-button" onClick={() => onMove(-1)}>
+                <button type="button" class="tf-link-button" data-move="up" onClick={() => inPlace(() => onMove(-1), 'up')}>
                   Move up
                 </button>
               )}
               {canMoveDown && (
-                <button type="button" class="tf-link-button" onClick={() => onMove(1)}>
+                <button type="button" class="tf-link-button" data-move="down" onClick={() => inPlace(() => onMove(1), 'down')}>
                   Move down
                 </button>
               )}
@@ -151,7 +174,7 @@ export function SavedSearchCard({ name, color, chain, named, windowText, next, l
               on a line of its own, and the transfer between them, so nothing wraps. */}
           <span class="tf-saved__row">
             <span class="tf-saved__count">
-              <span class="tf-row__lead">{!next ? (loading ? 'Checking' : 'No connection') : now ? 'Arriving' : 'Arrives in'}</span>
+              <span class="tf-row__lead">{!next ? (loading ? 'Checking' : unavailable ? 'Offline' : 'No connection') : now ? 'Arriving' : 'Arrives in'}</span>
               {next && (
                 <span class="tf-saved__amount">
                   <span class="tf-row__num">{now ? 'Now' : next.minutes}</span>
@@ -159,6 +182,7 @@ export function SavedSearchCard({ name, color, chain, named, windowText, next, l
                 </span>
               )}
               {loading && <span class="tf-row__num tf-skeleton__text" style={{ width: '2em', height: '1em' }} />}
+              {loading && <span class="tf-saved__then tf-skeleton__text" style={{ width: '5em' }} />}
               {/* Under the countdown it goes on from, not under the transfer, which it would seem
                   to be about there, on one line, as the "min" above it says what the numbers are
                   (J, 2026-10-08). */}
@@ -196,12 +220,16 @@ export function SavedSearchCard({ name, color, chain, named, windowText, next, l
                 <span class="tf-sr">Getting live predictions…</span>
                 <span class="tf-saved__drawn" aria-hidden="true">
                   <span class="tf-saved__time tf-skeleton__text" style={{ width: '10em' }} />
+                  <span class="tf-saved__time tf-skeleton__text tf-saved__status-line" style={{ width: '5em' }} />
                   <span class="tf-saved__xfer tf-skeleton__text" style={{ width: '9em' }} />
                   <span class="tf-saved__time tf-skeleton__text" style={{ width: '10em' }} />
+                  <span class="tf-saved__time tf-skeleton__text tf-saved__status-line" style={{ width: '5em' }} />
                 </span>
               </span>
             ) : (
-              <span class="tf-saved__next tf-muted">{nextService ? `Next service ${nextService}` : 'Open to widen the window'}</span>
+              <span class="tf-saved__next tf-muted">
+                {unavailable ? 'Times can’t load right now' : nextService ? `Next service ${nextService}` : 'Open to widen the window'}
+              </span>
             )}
           </span>
           {staleText && (

@@ -255,6 +255,17 @@ export function loadRecent(): RecentSearch[] {
   return read<RecentSearch[]>('recent', []);
 }
 
+// Stops and routes picked from search, by key, with what tells them apart ("Muni · Stop 13477 ·
+// Eastbound"), so recent ones offered in an empty field say it too. The latest 30.
+export type PickedStop = { key: string; label: string; meta: string; short: string };
+export function loadPicked(): Record<string, PickedStop> {
+  return read<Record<string, PickedStop>>('picked', {});
+}
+export function rememberPicked(picked: PickedStop) {
+  const { [picked.key]: _old, ...others } = loadPicked();
+  write('picked', Object.fromEntries([...Object.entries(others), [picked.key, { key: picked.key, label: picked.label, meta: picked.meta, short: picked.short }]].slice(-30)));
+}
+
 // The whole list back as it was, as when a removal is undone.
 export function saveRecent(recent: RecentSearch[]) {
   write('recent', recent);
