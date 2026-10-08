@@ -131,6 +131,7 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
       alight={group.alight}
       board={group.board}
       min={group.window.min}
+      walkMeters={group.walkMeters}
       secondColor={color}
       context={context}
     />

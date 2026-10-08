@@ -1,5 +1,5 @@
 import type { Connection, Departure } from '../../../shared/api.ts';
-import { clock, minutesUntil } from '../format.ts';
+import { clock, minutesUntil, walkText } from '../format.ts';
 import { pinOf, sameRun } from '../lib/pinned.ts';
 import { type CardContext, isTight } from '../lib/results.ts';
 import { IconPin } from '../icons/ui.tsx';
@@ -18,7 +18,7 @@ const HIDDEN = {
 };
 
 // One first vehicle under a departure. The countdown leads: when it reaches the From stop.
-export function ConnectionRow({ connection, departure, alightName, alight, board, min, secondColor, context }: {
+export function ConnectionRow({ connection, departure, alightName, alight, board, min, walkMeters, secondColor, context }: {
   connection: Connection;
   departure: Departure;
   alightName: string;
@@ -27,6 +27,8 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
   alight: string;
   board: string;
   min: number;
+  // The group's walk from its stop, which a vehicle letting the rider off elsewhere has its own of.
+  walkMeters: number;
   secondColor: string;
   context: CardContext;
 }) {
@@ -42,9 +44,11 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
   // A pooled group's vehicles can let the rider off at different stops. The group names its
   // usual one, and a row says its own when it differs.
   const offAt = connection.alight ? shortStopName(context.data.stops[connection.alight], '') : null;
+  // The walk to the second vehicle, said where the rider gets off (J, 2026-10-08). None at its stop.
+  const walk = walkText(connection.walkMeters ?? walkMeters);
   const spoken =
     `${route ? spokenRoute(route) : 'Vehicle'}, ${left ? (ago < 1 ? 'just left' : `left ${ago} minute${ago === 1 ? '' : 's'} ago`) : now ? 'arriving now' : `arrives in ${minutes} minute${minutes === 1 ? '' : 's'}`}, ${clock(connection.departs)}, ${status.label}. ` +
-    `Off at ${offAt ?? alightName} ${clock(connection.arrives)}. ${connection.transfer} minute transfer${tight ? ', tight' : ''}${hidden ? `, hidden because it is ${hidden.spoken}` : ''}.`;
+    `Off at ${offAt ?? alightName} ${clock(connection.arrives)}.${walk ? ` ${walk}.` : ''} ${connection.transfer} minute transfer${tight ? ', tight' : ''}${hidden ? `, hidden because it is ${hidden.spoken}` : ''}.`;
   const secondEnd = departure.destination ?? departure.at + 8 * 60;
   // The vehicle's time opens its map with where the rider gets on and where they get off to
   // transfer marked.
@@ -113,6 +117,7 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
               <StopLink stop={context.data.stops[connection.alight!]}>{offAt}</StopLink>
             </>
           )}
+          {walk && <span aria-hidden="true"> · {walk}</span>}
         </div>
       </div>
       <div class="tf-row__xfer" aria-hidden="true">

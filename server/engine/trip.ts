@@ -5,7 +5,7 @@ import type { Outage } from '../realtime/access.ts';
 import type { RtAlert, TripSnapshot } from '../realtime/snapshot.ts';
 import { type Schedule, type StopRow, routeKeyOf, stopKeyOf } from '../schedule.ts';
 import { type FirstLeg, type PairingOptions, type SecondLeg, pairConnections } from './connections.ts';
-import { type Link, arrivalStops, findLinks } from './links.ts';
+import { type Link, arrivalStops, findLinks, walkBetween } from './links.ts';
 import { pinnedTrip } from './pinned.ts';
 import type { RouteRow } from '../schedule.ts';
 import { firstLegs, secondLegs } from './vehicles.ts';
@@ -200,6 +200,8 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
         if (!stop || schedule.stationOf(stop).id === groupStation) delete connection.alight;
         else {
           connection.alight = tables.stop(schedule.stationOf(stop));
+          // Its own walk, as the group's is from the group's stop.
+          connection.walkMeters = Math.round(walkBetween(schedule, stop, link.board).meters);
           // Whether the rider rides BART there is the stop's own, not its shared station's.
           if (stop.agency === 'BA') bartAt.add(connection.alight);
         }

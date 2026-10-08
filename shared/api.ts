@@ -84,6 +84,8 @@ export type Connection = {
   // Where this vehicle lets the rider off, when it is not the group's alight stop. A group pools
   // first routes that reach its boarding stop from different stops.
   alight?: string;
+  // The walk from there to the boarding stop, in meters, when it is not the group's.
+  walkMeters?: number;
   hidden?: HiddenReason;
 };
 

@@ -7,6 +7,8 @@ export const clock = (unixSeconds: number) => timeFormat.format(unixSeconds * 10
 export const minutesUntil = (unixSeconds: number, nowMs: number) => Math.floor((unixSeconds * 1000 - nowMs) / 60_000);
 
 export const walkMinutes = (meters: number) => Math.max(1, Math.round((meters * 1.3) / 1.4 / 60));
+// "Walk 3 min" from where the rider gets off to where they board, or null at one stop.
+export const walkText = (meters: number) => (meters < 15 ? null : `Walk ${walkMinutes(meters)} min`);
 
 const dayFormat = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', year: 'numeric', month: 'numeric', day: 'numeric' });
 const weekdayTimeFormat = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', weekday: 'short', hour: 'numeric', minute: '2-digit' });

@@ -438,7 +438,7 @@ function returnsToAlight(schedule: Schedule, pattern: PatternRow, position: numb
 // Distance runs from the nearest station entrance when either end is a BART stop or a shared
 // station's Muni Metro platform, since that is where the walk starts. Two BART platforms in one
 // station use BART's own transfer time.
-function walkBetween(schedule: Schedule, alight: StopRow, board: StopRow) {
+export function walkBetween(schedule: Schedule, alight: StopRow, board: StopRow) {
   const involvesStation = isStation(alight) || isStation(board);
   if (alight.id === board.id) return { meters: 0, involvesStation, fixedSeconds: undefined };
   if (alight.parent !== null && alight.parent === board.parent && alight.access === 'bart') {

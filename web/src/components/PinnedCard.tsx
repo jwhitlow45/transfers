@@ -1,7 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import type { PinnedLeg, PinnedStop, PinnedTrip, TripResponse } from '../../../shared/api.ts';
 import type { Pin } from '../storage.ts';
-import { clock, minutesUntil } from '../format.ts';
+import { clock, minutesUntil, walkText } from '../format.ts';
 import { IconClose, IconPin, IconWarn } from '../icons/ui.tsx';
 import { type PinnedPhase, pinnedPhase, pinnedTransfer } from '../lib/pinned.ts';
 import { navigate } from '../router.ts';
@@ -75,6 +75,15 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
   };
   const phase = pinnedPhase(pinned, now / 1000);
   const transfer = pinnedTransfer(pinned);
+  // The walk between the two vehicles, as the results give it: the row's own when its vehicle lets
+  // the rider off at another stop than its group's.
+  const walk = (() => {
+    if (!pin.first) return null;
+    const group = data.groups.find(({ board }) => board === pin.second.board);
+    const connection = group?.departures.flatMap(({ connections }) => connections).find(({ trip }) => trip === pin.first!.trip);
+    const meters = connection?.walkMeters ?? group?.walkMeters;
+    return meters === undefined ? null : walkText(meters);
+  })();
   const missed = transfer !== null && transfer < 0;
   const canceled = [first, second].find((leg) => leg?.canceled);
   const status = canceled ? `The ${label(canceled)} at ${clock(canceled.on?.at ?? canceled.off!.at)} is canceled` : statusText(phase, first, second, name, label, now);
@@ -124,7 +133,7 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
   const spoken = [
     `Pinned trip. ${status}.`,
     first && `${label(first)} at ${clock(first.on!.at)}, ${statusOf(first.on!.delay, first.live, first.canceled).label}.`,
-    first?.off && `Off at ${name(first.off)} ${clock(first.off.at)}.`,
+    first?.off && `Off at ${name(first.off)} ${clock(first.off.at)}.${walk ? ` ${walk}.` : ''}`,
     transfer !== null && (missed ? `Transfer missed by ${-transfer} minutes.` : `${transfer} minute transfer.`),
     `${label(second)} at ${clock(second.on.at)} from ${name(second.on)}, ${statusOf(second.on.delay, second.live, second.canceled).label}.`,
     second.off && `Arrives at ${name(second.off)} ${clock(second.off.at)}.`,
@@ -152,6 +161,7 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
           {first?.off && (
             <div class="tf-row__off" aria-hidden="true">
               Off {clock(first.off.at)} at {name(first.off)}
+              {walk && ` · ${walk}`}
             </div>
           )}
           <div class={first ? 'tf-pinned__second' : undefined}>
