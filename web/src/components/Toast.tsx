@@ -4,13 +4,13 @@ import { motionOff } from '../gestures.ts';
 import { IconBookmark, IconInfo, IconPin, IconUnpin } from '../icons/ui.tsx';
 
 // `about` picks the icon: a trip pinned or unpinned, a search saved or removed from saved, or a
-// notice.
-export type ToastMessage = { id: number; text: string; about: 'pin' | 'unpin' | 'saved' | 'unsaved' | 'notice'; undo?: () => void };
+// notice. `pinned` is the search a pin is for, where a screen shows several pinned trips.
+export type ToastMessage = { id: number; text: string; about: 'pin' | 'unpin' | 'saved' | 'unsaved' | 'notice'; pinned?: string; undo?: () => void };
 
 // A tap on a note of a trip pinned takes the rider to its pinned card, above the screen's sticky
 // header, and marks it for a moment (J, 2026-10-08).
-function showPinned() {
-  const card = document.querySelector<HTMLElement>('.tf-layer .tf-pinned');
+function showPinned(pinned: string | undefined) {
+  const card = document.querySelector<HTMLElement>(`.tf-layer ${pinned ? `[data-pin="${CSS.escape(pinned)}"] ` : ''}.tf-pinned`);
   const scroller = card?.closest<HTMLElement>('.tf-scroll');
   if (!card || !scroller) return;
   const header = scroller.querySelector('.tf-header')?.getBoundingClientRect().height ?? 0;
@@ -74,7 +74,7 @@ export function Toast({ message, page = false, onDone }: { message: ToastMessage
         // sinking and rising again.
         <div class={`tf-toast${leaving ? ' tf-toast--leaving' : ''}`}>
           {shown.about === 'pin' ? (
-            <button type="button" class="tf-toast__text tf-toast__show" onClick={showPinned}>
+            <button type="button" class="tf-toast__text tf-toast__show" onClick={() => showPinned(shown.pinned)}>
               <span class="tf-toast__icon">{icon[shown.about]}</span>
               {shown.text}
             </button>

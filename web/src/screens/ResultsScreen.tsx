@@ -16,6 +16,7 @@ import { Toast, type ToastMessage } from '../components/Toast.tsx';
 import { TransferPointGroup } from '../components/TransferPointGroup.tsx';
 import { type SearchUpdate, TripSettingsSheet } from '../components/TripSettingsSheet.tsx';
 import { useSwipeBack } from '../gestures.ts';
+import { useShownAgain } from '../layers.ts';
 import { useNow, usePinnedTrip, usePoll } from '../hooks.ts';
 import { defaultSavedColor } from '../lib/color.ts';
 import { clock, walkMinutes } from '../format.ts';
@@ -109,7 +110,7 @@ export function ResultsScreen({ search }: { search: Search }) {
 
   // The pinned trip as its vehicles run now. When it ends moves with them, and with a new
   // destination, and decides when it unpins itself.
-  const { pinned, unpinAt, expired } = usePinnedTrip(pin, data, answered, search.dest, settings, now, changePin);
+  const { pinned, unpinAt, expired } = usePinnedTrip(pin, data, answered, search, settings, now, changePin);
   // Whether this visit shows how to pin, counted once per visit, until the rider first pins.
   const [hint, setHint] = useState(() => !pin && takePinHint());
   const [toast, setToast] = useState<ToastMessage | null>(null);
@@ -134,6 +135,13 @@ export function ResultsScreen({ search }: { search: Search }) {
   // Notices the rider dismissed stay hidden here and on every other search, until the Notices
   // page puts them back. Dismissing says so, with Undo.
   const [dismissed, setDismissed] = useState(loadDismissed);
+  // Kept under a page it opens (see main.tsx), these results read storage again on the way back,
+  // for notices put back or a pin changed there.
+  useShownAgain(() => {
+    setSaved(findSaved(search));
+    setPin(loadPin(search));
+    setDismissed(loadDismissed());
+  });
   const dismissedIds = new Set(dismissed.map(({ id }) => id));
   const allAlerts = data ? viewAlerts(data, summary.boarding, { elevators: settings.stepFree, escalators: settings.escalatorOutages }) : [];
   const alerts = allAlerts.filter(({ id }) => !dismissedIds.has(id));
@@ -375,10 +383,7 @@ export function ResultsScreen({ search }: { search: Search }) {
           update={update}
           onSave={toggleSaved}
           onShowHidden={setShowHidden}
-          onCopied={() => {
-            setSettingsOpen(false);
-            setToast({ id: ++toastId.current, text: 'Link copied', about: 'notice' });
-          }}
+          onCopied={() => setToast({ id: ++toastId.current, text: 'Link copied', about: 'notice' })}
           onClose={() => setSettingsOpen(false)}
         />
       )}

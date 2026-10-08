@@ -22,6 +22,7 @@ import { pageColors, scaleFor, timeScale } from '../lib/results.ts';
 import { summarize } from '../lib/summary.ts';
 import { tapForGerbils } from '../gerbils.ts';
 import { motionOff } from '../gestures.ts';
+import { useShownAgain } from '../layers.ts';
 import { navigate, tripPath } from '../router.ts';
 import { tripApiUrl, useSettings } from '../settings.tsx';
 import {
@@ -142,7 +143,7 @@ export function SearchScreen() {
     if (!next) return pinFromHome(search, null);
     const previous = loadPin(search);
     updatePin(search, next);
-    setToast({ id: ++toastId.current, text: bell ? 'Ding ding! Pinned to the top' : 'Pinned to the top', about: 'pin', undo: () => updatePin(search, previous) });
+    setToast({ id: ++toastId.current, text: bell ? 'Ding ding! Pinned to the top' : 'Pinned to the top', about: 'pin', pinned: searchId(search), undo: () => updatePin(search, previous) });
   };
   // Saved searches in the order the rider set, one place at a time.
   const moveSaved = (id: string, step: -1 | 1) => {
@@ -155,16 +156,25 @@ export function SearchScreen() {
   };
   // Bumped when a recent search is removed, so the list reads storage again.
   const [, setRecentVersion] = useState(0);
+  // Kept under the screens it opens (see main.tsx), Home reads storage again on the way back, for
+  // what changed there: a search saved or unsaved, a trip pinned, a new recent search.
+  const showing = useShownAgain(() => {
+    pendingEnter.current = null;
+    setSaved(loadSaved());
+    setPins(loadPins());
+    setRecentVersion((version) => version + 1);
+  });
   // The browser asks for location permission on this tap, and Nearby opens once the phone has
   // answered, so the rider never lands on a screen still waiting for them.
   const [locating, setLocating] = useState<'idle' | 'asking' | LocationProblem>('idle');
   const here = useRef(true);
+  here.current = showing;
   useEffect(() => () => void (here.current = false), []);
   const findNearby = () => {
     setLocating('asking');
     locate().then(
       (position) => {
-        // The rider may have opened something else while the phone looked.
+        // The rider may have opened something else while the phone looked, which Home stays under.
         if (!here.current) return;
         handOver(position);
         navigate('/nearby');
@@ -273,7 +283,7 @@ export function SearchScreen() {
   };
   useEffect(() => {
     const field = pendingEnter.current;
-    if (!field || !response || answeredFor.current !== `${field}|${(field === 'from' ? from : to).query.trim()}`) return;
+    if (!field || !here.current || !response || answeredFor.current !== `${field}|${(field === 'from' ? from : to).query.trim()}`) return;
     pendingEnter.current = null;
     takeFirst(field);
   }, [response]);
@@ -333,7 +343,10 @@ export function SearchScreen() {
       />
       <main class={`tf-page tf-page--form${typing ? ' tf-page--typing' : ''}`} id="main">
         {pins.map((pin) => (
-          <PinnedHome key={searchId(pin.search)} pin={pin} name={saved.find(({ id }) => id === searchId(pin.search))?.name} now={now} pulls={pulls} onPin={(next) => pinFromHome(pin.search, next)} onUpdate={(next) => updatePin(pin.search, next)} onReport={report} />
+          // Marked with its search, for the toast of a trip pinned to find its card.
+          <div key={searchId(pin.search)} class="tf-pin-slot" data-pin={searchId(pin.search)}>
+            <PinnedHome pin={pin} name={saved.find(({ id }) => id === searchId(pin.search))?.name} now={now} pulls={pulls} onPin={(next) => pinFromHome(pin.search, next)} onUpdate={(next) => updatePin(pin.search, next)} onReport={report} />
+          </div>
         ))}
         <SearchFields
           from={{ query: from.query, ...(from.picked ? { meta: from.picked.meta } : {}) }}
@@ -510,7 +523,7 @@ function PinnedHome({ pin, name, now, pulls, onPin, onUpdate, onReport }: {
   const skew = clockSkewMs(data?.generatedAt, fetchedAt);
   useLiveReport(onReport, `pin:${searchId(search)}`, { feed, fetchedAt, dataAt: data?.dataAt ?? null, skew, settled });
   const serverNow = now + skew;
-  const { pinned, unpinAt, expired } = usePinnedTrip(pin, data, answered, search.dest, settings, serverNow, onUpdate);
+  const { pinned, unpinAt, expired } = usePinnedTrip(pin, data, answered, search, settings, serverNow, onUpdate);
   // Times no longer live say so, as saved cards do, since Home has no banner to.
   const fresh = freshness(serverNow, fetchedAt === null ? null : fetchedAt + skew, data?.dataAt ?? null);
   const age = fresh.ageSeconds === null ? null : ageText(fresh.ageSeconds);

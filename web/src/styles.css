@@ -576,6 +576,7 @@ button:disabled { opacity: .45; cursor: default; }
 /* On Home the whole card opens its results: a link lies under it, and only the card's own links
    and buttons, such as its times and Unpin, take taps above it. */
 .tf-pinned--opens { position: relative; }
+.tf-pin-slot { display: contents; }
 .tf-pinned__open { position: absolute; inset: 0; -webkit-tap-highlight-color: transparent; }
 .tf-pinned__open:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
 .tf-pinned--opens > :not(.tf-pinned__open) { position: relative; pointer-events: none; }

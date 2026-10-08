@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { getJson } from './api.ts';
 import { useScreenActive } from './layers.ts';
 import type { TripResponse } from '../../shared/api.ts';
-import { pinnedEnd, pinnedNow } from './lib/pinned.ts';
-import { type DeviceSettings, type Pin, loadCached, saveCached } from './storage.ts';
+import { pinnedEnd, pinnedNow, samePin } from './lib/pinned.ts';
+import { type DeviceSettings, type Pin, type Search, loadCached, loadPin, saveCached } from './storage.ts';
 
 // The device clock, ticking every second so countdowns move offline too.
 export function useNow(intervalMs = 1000) {
@@ -72,9 +72,14 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
   const activeRef = useRef(active);
   activeRef.current = active;
   const shown = useRef(false);
+  // A fetch due while covered, as when a setting changed the request, waits until the screen shows.
+  const missed = useRef(false);
   useEffect(() => {
     if (!shown.current) return void (shown.current = true);
-    if (active && state.fetchedAt !== null && Date.now() - state.fetchedAt >= intervalMs) tick.current();
+    // Covered, its times grow old unseen, so nothing acts on them until they are fresh again.
+    if (!active) return setAnswered(false);
+    if (missed.current || (state.fetchedAt !== null && Date.now() - state.fetchedAt >= intervalMs)) tick.current();
+    else if (state.fetchedAt !== null) setAnswered(true);
   }, [active]);
   // When the page's own response arrived, until the first refresh is planned from it.
   const seeded = useRef(initial?.fetchedAt ?? null);
@@ -112,6 +117,7 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
       if (document.visibilityState === 'visible') setAnswered(true);
     };
     const fetchNow = async () => {
+      missed.current = false;
       controller?.abort();
       controller = new AbortController();
       // The next refresh is set before this one is sent, so one that never answers still leaves
@@ -149,8 +155,15 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
     // Data the server put in the page, or a stored answer, waits a full refresh from when it
     // arrived.
     const since = seeded.current ?? cached?.fetchedAt ?? null;
-    if (since === null || Date.now() - since >= intervalMs) void fetchNow();
-    else plan(intervalMs - (Date.now() - since));
+    if (since === null || Date.now() - since >= intervalMs) {
+      if (activeRef.current) void fetchNow();
+      else missed.current = true;
+    } else {
+      plan(intervalMs - (Date.now() - since));
+      // A refresh cut short by this change, such as a card's slower pace once scrolled away, has
+      // answered for the time being.
+      setState((current) => (current.feed === 'refreshing' ? { ...current, feed: 'live' } : current));
+    }
     seeded.current = null;
     const onVisible = () => {
       // Hidden, the page stops refreshing, so what it shows is old by the time it is back, until the
@@ -181,19 +194,26 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
 // current, and unpins it the set time after its end, counted from the latest times, with that
 // setting on. Only once `answered` (see Polled), so times from long ago cannot unpin a trip that is
 // running late. `now` is milliseconds on the server's clock.
-export function usePinnedTrip(pin: Pin | null, data: TripResponse | null, answered: boolean, dest: string | undefined, settings: DeviceSettings, now: number, change: (pin: Pin | null) => void) {
-  const { pinned, fresh } = pin ? pinnedNow(pin, data, dest) : { pinned: null, fresh: false };
+export function usePinnedTrip(pin: Pin | null, data: TripResponse | null, answered: boolean, search: Search, settings: DeviceSettings, now: number, change: (pin: Pin | null) => void) {
+  const { pinned, fresh } = pin ? pinnedNow(pin, data, search.dest) : { pinned: null, fresh: false };
   const ends = pinned ? pinnedEnd(pinned) : null;
   const seen = fresh && pinned ? JSON.stringify(pinned) : null;
+  // Only the screen showing changes the pin, and only while it is still the one stored: a screen
+  // kept under another may hold one the rider has since replaced there (see main.tsx).
+  const active = useScreenActive();
+  const changeOwn = (next: Pin | null) => {
+    const stored = loadPin(search);
+    if (active && pin && stored && samePin(stored, pin)) change(next);
+  };
   useEffect(() => {
     if (!pin || !pinned || seen === null || seen === JSON.stringify(pin.last)) return;
-    change({ ...pin, last: pinned, ...(ends !== null ? { ends } : {}) });
-  }, [seen]);
+    changeOwn({ ...pin, last: pinned, ...(ends !== null ? { ends } : {}) });
+  }, [seen, active]);
   const end = ends ?? pin?.ends ?? null;
   const unpinAt = pin && settings.autoUnpin && end !== null ? (end + settings.unpinAfter * 60) * 1000 : null;
   const expired = answered && unpinAt !== null && now >= unpinAt;
   useEffect(() => {
-    if (expired) change(null);
-  }, [expired]);
+    if (expired) changeOwn(null);
+  }, [expired, active]);
   return { pinned, unpinAt, expired };
 }

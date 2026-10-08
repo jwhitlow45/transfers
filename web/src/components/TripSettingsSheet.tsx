@@ -81,7 +81,7 @@ export function TripSettingsSheet({ search, data, window, savedName, chain, dest
   update: SearchUpdate;
   onSave: () => void;
   onShowHidden: (show: boolean) => void;
-  // The link was copied. The sheet covers the toast, so the screen closes it and says so.
+  // The link was copied, which the screen's toast says above the sheet.
   onCopied: () => void;
   onClose: () => void;
 }) {
