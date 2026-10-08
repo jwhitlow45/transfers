@@ -51,8 +51,38 @@ function WayBack({ search }: { search: Search }) {
   );
 }
 
+// Hands the trip to the phone's share sheet, or copies its link where there is none. The link
+// carries the stops only, never the rider's own settings.
+function ShareTrip({ search, onCopied }: { search: Search; onCopied: () => void }) {
+  const share = async () => {
+    const { from, to, fromLabel, toLabel } = search;
+    const url = location.origin + tripPath({ from, to, fromLabel, toLabel });
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: `${fromLabel} to ${toLabel}`, url });
+      } catch {
+        // Closing the share sheet rejects, which is the rider changing their mind.
+      }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      onCopied();
+    } catch {
+      // Without clipboard access there is nothing to confirm.
+    }
+  };
+  return (
+    <div class="tf-setting">
+      <button type="button" class="tf-btn-outline tf-btn-secondary tf-way-back" onClick={share}>
+        Share this trip
+      </button>
+    </div>
+  );
+}
+
 // Every setting for this search, opened from the bottom bar.
-export function TripSettingsSheet({ search, data, window, footer, chain, destinationsUrl, deviceHide, showHidden, update, onShowHidden, onClose }: {
+export function TripSettingsSheet({ search, data, window, footer, chain, destinationsUrl, deviceHide, showHidden, update, onShowHidden, onCopied, onClose }: {
   search: Search;
   // The device's own default, which this search uses until it sets its own.
   deviceHide: number;
@@ -64,6 +94,8 @@ export function TripSettingsSheet({ search, data, window, footer, chain, destina
   showHidden: boolean;
   update: SearchUpdate;
   onShowHidden: (show: boolean) => void;
+  // The link was copied. The sheet covers the toast, so the screen closes it and says so.
+  onCopied: () => void;
   onClose: () => void;
 }) {
   const [destinations, setDestinations] = useState<DestinationsResponse | null>(null);
@@ -103,6 +135,7 @@ export function TripSettingsSheet({ search, data, window, footer, chain, destina
   return (
     <Sheet title="Trip settings" subtitle={chain} footer={footer} onClose={onClose}>
       <WayBack search={search} />
+      <ShareTrip search={search} onCopied={onCopied} />
       <WindowSetting window={window} update={update} />
       <ResetWindow search={search} update={update} />
       <MinutesSlider

@@ -317,6 +317,10 @@ export function ResultsScreen({ search }: { search: Search }) {
           showHidden={showHidden}
           update={update}
           onShowHidden={setShowHidden}
+          onCopied={() => {
+            setSettingsOpen(false);
+            setToast({ id: ++toastId.current, text: 'Link copied', about: 'notice' });
+          }}
           onClose={() => setSettingsOpen(false)}
         />
       )}
