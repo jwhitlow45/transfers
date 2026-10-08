@@ -147,6 +147,8 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-outgoing { position: absolute; inset: 0; z-index: -1; display: flex; flex-direction: column; background: var(--bg); pointer-events: none; }
 .tf-app[data-swapping="true"] > .tf-layer > :not(.tf-sheet) { animation: tf-rise 260ms cubic-bezier(.2, .8, .2, 1) both; }
 .tf-app[data-swapping="true"] > .tf-outgoing > .tf-peek__dim { animation: tf-peek-dim 260ms cubic-bezier(.2, .8, .2, 1) both; }
+/* Over the trip's sheet as well, which is left open under it. */
+.tf-outgoing > .tf-peek__dim { z-index: 11; }
 @keyframes tf-rise { from { transform: translateY(100vh); } }
 /* Either motion is held at its first frame until the new screen has painted (see main.tsx). After
    both, as their animation shorthand would set it running again. */

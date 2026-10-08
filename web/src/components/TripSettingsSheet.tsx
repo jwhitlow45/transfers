@@ -78,7 +78,8 @@ function TripActions({ search, wayBackUrl, onCopied }: { search: Search; wayBack
     setBack(undefined);
     if (!search.dest) return;
     const controller = new AbortController();
-    getJson<WayBackResponse>(wayBackUrl, { signal: controller.signal }).then(({ back }) => setBack(back), () => setBack(null));
+    // A request given up for a newer one says nothing of whether there is a return trip.
+    getJson<WayBackResponse>(wayBackUrl, { signal: controller.signal }).then(({ back }) => setBack(back), () => controller.signal.aborted || setBack(null));
     return () => controller.abort();
   }, [search.dest ? wayBackUrl : null]);
   const path = back ? tripPath({ from: back.from, to: back.to, fromLabel: back.fromLabel, toLabel: back.toLabel, dest: back.dest, destLabel: back.destLabel }) : null;

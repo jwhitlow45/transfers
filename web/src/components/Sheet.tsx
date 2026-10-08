@@ -92,9 +92,9 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
     shade.style.opacity = offset > 0 ? String(Math.max(0, 1 - offset / sheet.offsetHeight)) : '';
   };
   useDrag(() => panel.current, 'y', {
-    // A slider's thumb is the slider's to drag.
+    // A slider's thumb is the slider's to drag, and a sheet already sliding away is gone.
     claim: (direction, origin) =>
-      direction === 'down' && !origin.closest('input[type="range"]') && (origin.closest('.tf-sheet__top') !== null || (body.current?.scrollTop ?? 1) <= 0),
+      !sliding.current && direction === 'down' && !origin.closest('input[type="range"]') && (origin.closest('.tf-sheet__top') !== null || (body.current?.scrollTop ?? 1) <= 0),
     move: (dy) => place(Math.max(0, dy), false),
     end: (release) => {
       const height = panel.current?.offsetHeight ?? 0;
