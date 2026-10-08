@@ -1,17 +1,18 @@
-import { type AccessOutage, type Alert, type AlertRelevance, type AgencyId, type Departure, type DestinationsResponse, type FeedStatus, type Group, MAX_MINUTES, type Notice, type PinRequest, type TripResponse } from '../../shared/api.ts';
+import { type AccessOutage, type Alert, type AlertRelevance, type AgencyId, type Departure, type DestinationsResponse, type FeedStatus, type Group, MAX_MINUTES, type Notice, type PinRequest, type TripResponse, type WayBackResponse } from '../../shared/api.ts';
 import type { Agency } from '../config.ts';
 import { bartStationCode } from '../bart-stations.ts';
 import type { Outage } from '../realtime/access.ts';
 import type { RtAlert, TripSnapshot } from '../realtime/snapshot.ts';
 import { type Schedule, type StopRow, routeKeyOf, stopKeyOf } from '../schedule.ts';
 import { type FirstLeg, type PairingOptions, type SecondLeg, pairConnections } from './connections.ts';
-import { type Link, arrivalStops, findLinks, walkBetween } from './links.ts';
+import { type Link, arrivalStops, bartSiblings, findLinks, walkBetween } from './links.ts';
 import { pinnedTrip } from './pinned.ts';
 import type { RouteRow } from '../schedule.ts';
 import { firstLegs, secondLegs } from './vehicles.ts';
-import { Tables } from './views.ts';
+import { Tables, stopView } from './views.ts';
 import { DEFAULT_MAX_WALK_METERS, defaultMaximum } from './walk.ts';
 import { distanceMeters } from '../geo.ts';
+import { stopLabel } from '../../shared/labels.ts';
 
 export type TripRequest = {
   from: string;
@@ -121,6 +122,66 @@ export function destinations(schedule: Schedule, request: TripRequest): Destinat
     groups.push({ board: tables.stop(link.board), routes: link.routes.map((route) => tables.route(route)), headsign: link.headsign, stops: [...new Set(stops)] });
   }
   return { groups, routes: tables.routes, stops: tables.stops };
+}
+
+// How far a stop for the way back may be from where the trip ended, or from where the rider got off
+// the first vehicle: across the street, or round the corner where the route runs back on another.
+const WAY_BACK_METERS = 300;
+
+// The way back from a trip's destination, which is not the trip reversed: it starts at the
+// destination, where the rider got off the second vehicle, and heads for where they got off the
+// first, to catch it back to where they started, which is its destination (J, 2026-10-08). Muni
+// stops serve one direction, so each end is the stop by that place where the route runs back,
+// usually across the street, while a BART station serves both. The transfer point is the one the
+// rider pinned, or else the first the results list. Null without a destination, or with no way back.
+export function wayBack(schedule: Schedule, request: TripRequest): WayBackResponse {
+  const { from, to } = resolveEnds(schedule, request);
+  const destination = request.dest ? schedule.stopsByKey.get(request.dest) : undefined;
+  if (!destination) return { back: null };
+  const toStop = 'stop' in to ? (to.stop ?? null) : null;
+  const links = towardDestination(schedule, cachedLinks(schedule, from, to, request, null), destination, toStop).filter(({ kind }) => kind === 'ride');
+  const pin = request.pin;
+  const pinned = pin?.first ? links.find((link) => link.alights.some((stop) => stopKeyOf(stop) === pin.first!.alight) && link.boards.some((stop) => stopKeyOf(stop) === pin.second.board)) : undefined;
+  const link = pinned ?? links[0];
+  if (!link) return { back: null };
+  const alight = (pinned && schedule.stopsByKey.get(pin!.first!.alight)) || link.alight;
+  // BART runs each direction of a line as a route of its own.
+  const both = (ids: number[]) => new Set([...new Set(ids)].flatMap((id) => {
+    const route = schedule.route(id);
+    return route.agency === 'BA' ? bartSiblings(schedule, route).map((sibling) => sibling.id) : [id];
+  }));
+  const home = backStop(schedule, alight, both(link.firstLegs.map(({ pattern }) => pattern.route)), from);
+  const out = home && backStop(schedule, destination, both(link.boardPatterns.map(({ pattern }) => pattern.route)), link.board);
+  if (!home || !out) return { back: null };
+  const end = (stop: StopRow) => ({ key: stopKeyOf(stop), label: stopLabel(stopView(schedule, stop)) });
+  const [start, change, arrive] = [end(out.stop), end(home.stop), end(home.reaches)];
+  return { back: { from: start.key, fromLabel: start.label, to: change.key, toLabel: change.label, dest: arrive.key, destLabel: arrive.label } };
+}
+
+// The stop by `near` where one of `routes` boards toward `toward`, with the stop it reaches there:
+// `near` itself where it serves that way, or else the nearest within WAY_BACK_METERS. Stations
+// stand for their platforms, as searches name them.
+function backStop(schedule: Schedule, near: StopRow, routes: ReadonlySet<number>, toward: StopRow) {
+  const own = new Set(schedule.boardingStops(near).map(({ id }) => id));
+  const arrivals = new Set(schedule.boardingStops(toward).map(({ id }) => id));
+  const candidates = [...schedule.stops.values()]
+    .filter((stop) => schedule.patternsByStop.has(stop.id) && (own.has(stop.id) || distanceMeters(near, stop) <= WAY_BACK_METERS))
+    .map((stop) => ({ stop, meters: own.has(stop.id) ? 0 : distanceMeters(near, stop) }))
+    .sort((a, b) => a.meters - b.meters);
+  for (const { stop } of candidates) {
+    let reaches: StopRow | null = null;
+    let closest = WAY_BACK_METERS;
+    for (const { pattern, position } of schedule.patternsByStop.get(stop.id) ?? []) {
+      if (!routes.has(pattern.route)) continue;
+      for (const id of pattern.stops.slice(position + 1)) {
+        const later = schedule.stop(id);
+        const meters = arrivals.has(id) ? 0 : distanceMeters(later, toward);
+        if (meters <= closest) [closest, reaches] = [meters, later];
+      }
+    }
+    if (reaches) return { stop: own.has(stop.id) ? near : schedule.stationOf(stop), reaches: arrivals.has(reaches.id) ? toward : schedule.stationOf(reaches) };
+  }
+  return null;
 }
 
 // Where a pinned trip may end: the destination, or riding a route already at From straight to a

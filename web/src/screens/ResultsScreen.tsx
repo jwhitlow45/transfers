@@ -263,6 +263,9 @@ export function ResultsScreen({ search }: { search: Search }) {
   const toColor = summary.toRoute && data ? context.colorOf(summary.toRoute.key) : undefined;
   const toChip = summary.toRoute ? <RouteChip route={summary.toRoute} {...(toColor ? { color: toColor } : {})} /> : <span>{summary.to}</span>;
   const params = new URLSearchParams(url.split('?')[1]);
+  params.delete('hidden');
+  // The way back starts where the pinned trip changed vehicles, when one is pinned.
+  const wayBackUrl = `/api/way-back?${params}`;
   // The destinations a trip can have do not depend on what is shown or pinned.
   for (const name of ['hidden', 'p1', 'pa', 'pf', 'p2', 'pb', 'pt']) params.delete(name);
   const destinationsUrl = `/api/destinations?${params}`;
@@ -378,6 +381,7 @@ export function ResultsScreen({ search }: { search: Search }) {
           savedName={saved?.name ?? null}
           chain={summary.chain}
           destinationsUrl={destinationsUrl}
+          wayBackUrl={wayBackUrl}
           deviceHide={settings.hide}
           showHidden={showHidden}
           update={update}

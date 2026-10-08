@@ -9,7 +9,7 @@ import { search } from './api/search.ts';
 import { config, requireApiKeys } from './config.ts';
 import { trackTarget, trackVehicle } from './engine/track.ts';
 import { routeView, stopView } from './engine/views.ts';
-import { type RealtimeView, RequestError, type TripRequest, destinations, planTrip } from './engine/trip.ts';
+import { type RealtimeView, RequestError, type TripRequest, destinations, planTrip, wayBack } from './engine/trip.ts';
 import { KeyPool } from './realtime/keys.ts';
 import { Realtime } from './realtime/manager.ts';
 import { sendJson } from './json.ts';
@@ -73,6 +73,8 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
     }
     case '/api/destinations':
       return sendJson(request, response, destinations(schedule, tripRequest(url.searchParams)));
+    case '/api/way-back':
+      return sendJson(request, response, wayBack(schedule, tripRequest(url.searchParams)));
     case '/api/nearby': {
       const center = point(url.searchParams);
       if (!center) throw new RequestError(400, 'Send lat and lon');

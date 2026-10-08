@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import type { DestinationsResponse, TripResponse } from '../../../shared/api.ts';
+import type { DestinationsResponse, TripResponse, WayBackResponse } from '../../../shared/api.ts';
 import { getJson } from '../api.ts';
 import { IconChevron } from '../icons/ui.tsx';
 import { routeColor } from '../lib/color.ts';
@@ -38,7 +38,7 @@ function ResetWindow({ search, update }: { search: Search; update: SearchUpdate 
 
 // Hands the trip to the phone's share sheet, or copies its link where there is none. The link
 // carries the stops only, never the rider's own settings.
-function ShareTrip({ search, onCopied }: { search: Search; onCopied: () => void }) {
+function ShareButton({ search, onCopied }: { search: Search; onCopied: () => void }) {
   const share = async () => {
     const { from, to, fromLabel, toLabel } = search;
     // Short where both ends have a short form (shared/short-links.ts), which the server opens with
@@ -60,16 +60,46 @@ function ShareTrip({ search, onCopied }: { search: Search; onCopied: () => void 
     }
   };
   return (
+    <button type="button" class="tf-btn-outline tf-btn-secondary" onClick={share}>
+      Share this trip
+    </button>
+  );
+}
+
+// Sharing the trip, and its way back: from the destination stop to where the first vehicle let the
+// rider off, to catch it back to where they started (see wayBack in server/engine/trip.ts), side
+// by side (J, 2026-10-08). The way back is worked out once the sheet opens, and needs a destination
+// to start from.
+function TripActions({ search, wayBackUrl, onCopied }: { search: Search; wayBackUrl: string; onCopied: () => void }) {
+  const [back, setBack] = useState<WayBackResponse['back'] | undefined>(undefined);
+  useEffect(() => {
+    setBack(undefined);
+    if (!search.dest) return;
+    const controller = new AbortController();
+    getJson<WayBackResponse>(wayBackUrl, { signal: controller.signal }).then(({ back }) => setBack(back), () => setBack(null));
+    return () => controller.abort();
+  }, [search.dest ? wayBackUrl : null]);
+  const path = back ? tripPath({ from: back.from, to: back.to, fromLabel: back.fromLabel, toLabel: back.toLabel, dest: back.dest, destLabel: back.destLabel }) : null;
+  const note = !search.dest ? 'Set a destination stop below for the way back.' : back === null ? `No way back found from ${search.destLabel ?? 'the destination'}.` : null;
+  return (
     <div class="tf-setting">
-      <button type="button" class="tf-btn-outline tf-btn-secondary tf-share" onClick={share}>
-        Share this trip
-      </button>
+      <div class="tf-trip-actions">
+        <ShareButton search={search} onCopied={onCopied} />
+        <button type="button" class="tf-btn-outline tf-btn-secondary" disabled={!path} aria-describedby={note ? 'way-back-note' : undefined} onClick={() => path && navigate(path)}>
+          Way back
+        </button>
+      </div>
+      {note && (
+        <div class="tf-setting__help tf-trip-actions__note" id="way-back-note">
+          {note}
+        </div>
+      )}
     </div>
   );
 }
 
 // Every setting for this search, opened from the bottom bar, then those for every trip.
-export function TripSettingsSheet({ search, data, window, savedName, chain, destinationsUrl, deviceHide, showHidden, update, onSave, onShowHidden, onCopied, onClose }: {
+export function TripSettingsSheet({ search, data, window, savedName, chain, destinationsUrl, wayBackUrl, deviceHide, showHidden, update, onSave, onShowHidden, onCopied, onClose }: {
   search: Search;
   // The device's own default, which this search uses until it sets its own.
   deviceHide: number;
@@ -79,6 +109,7 @@ export function TripSettingsSheet({ search, data, window, savedName, chain, dest
   savedName: string | null;
   chain: string;
   destinationsUrl: string;
+  wayBackUrl: string;
   showHidden: boolean;
   update: SearchUpdate;
   onSave: () => void;
@@ -123,7 +154,7 @@ export function TripSettingsSheet({ search, data, window, savedName, chain, dest
 
   return (
     <Sheet title={TRIP_SETTINGS} subtitle={chain} onClose={onClose}>
-      <ShareTrip search={search} onCopied={onCopied} />
+      <TripActions search={search} wayBackUrl={wayBackUrl} onCopied={onCopied} />
       <WindowSetting window={window} update={update} />
       <ResetWindow search={search} update={update} />
       <MinutesSlider
