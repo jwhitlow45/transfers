@@ -84,3 +84,13 @@ test('a trip to a route finds the same way back, and one without a destination h
   deepStrictEqual(wayBack(schedule, { from: 'BA:901209', to: 'route:SF:48', dest: 'SF:13460' }).back?.from, 'SF:13461');
   deepStrictEqual(wayBack(schedule, { from: 'BA:901209', to: 'SF:13476' }), { back: null });
 });
+
+test('the transfer point the page names by its station is the one the return trip uses, and route filters count', () => {
+  const back = { from: 'SF:13461', fromLabel: '24th St & Church St (13461)', to: 'BA:901609', toLabel: '24th St Mission', dest: 'BA:901209', destLabel: 'Montgomery St' };
+  // The page names BART stops by their station, where the link has platforms.
+  deepStrictEqual(wayBack(schedule, { from: 'BA:901209', to: 'SF:13476', dest: 'SF:13460' }, { alight: 'BA:901609', board: 'SF:13476' }), { back });
+  deepStrictEqual(wayBack(schedule, { from: 'BA:901209', to: 'SF:13476', dest: 'SF:13460', firstRoutes: ['BA:Yellow-S'], secondRoutes: ['SF:48'] }), { back });
+  // Filters that leave no first leg, or no second, leave no return trip.
+  deepStrictEqual(wayBack(schedule, { from: 'BA:901209', to: 'SF:13476', dest: 'SF:13460', firstRoutes: ['SF:48'] }), { back: null });
+  deepStrictEqual(wayBack(schedule, { from: 'BA:901209', to: 'SF:13476', dest: 'SF:13460', secondRoutes: ['BA:Yellow-N'] }), { back: null });
+});

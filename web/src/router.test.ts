@@ -184,3 +184,13 @@ test("a page put in another's place from its sheet closes the sheet and keeps th
   history.back();
   strictEqual(history.url, '/');
 });
+
+test('a page put in place of one with no sheet open replaces it', async () => {
+  const history = new FakeHistory();
+  const { navigate, replacePage, currentDepth } = await load(history, { getItem: () => null, setItem: () => {} });
+  navigate('/t/a/b');
+  replacePage('/t/c/d');
+  strictEqual(history.url, '/t/c/d');
+  strictEqual(currentDepth(), 1);
+  strictEqual(history.length, 2);
+});

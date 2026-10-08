@@ -263,9 +263,16 @@ export function ResultsScreen({ search }: { search: Search }) {
   const toColor = summary.toRoute && data ? context.colorOf(summary.toRoute.key) : undefined;
   const toChip = summary.toRoute ? <RouteChip route={summary.toRoute} {...(toColor ? { color: toColor } : {})} /> : <span>{summary.to}</span>;
   const params = new URLSearchParams(url.split('?')[1]);
-  params.delete('hidden');
-  // The way back starts where the pinned trip changed vehicles, when one is pinned.
-  const wayBackUrl = `/api/way-back?${params}`;
+  // The return trip heads back by the transfer point the rider pinned, or else the first ride the
+  // page lists, past the points and routes they turned off. It asks with only what decides it, so
+  // moving a slider in the sheet asks nothing again.
+  const backPoint = pin?.first ? { alight: pin.first.alight, board: pin.second.board } : ordered.find((group) => group.kind !== 'walk');
+  const wayBackParams = new URLSearchParams([...params].filter(([name]) => ['from', 'to', 'dest', 'walk', 'speed', 'fm', 'tm', 'r1', 'r2'].includes(name)));
+  if (backPoint) {
+    wayBackParams.set('wa', backPoint.alight);
+    wayBackParams.set('wb', backPoint.board);
+  }
+  const wayBackUrl = `/api/way-back?${wayBackParams}`;
   // The destinations a trip can have do not depend on what is shown or pinned.
   for (const name of ['hidden', 'p1', 'pa', 'pf', 'p2', 'pb', 'pt']) params.delete(name);
   const destinationsUrl = `/api/destinations?${params}`;

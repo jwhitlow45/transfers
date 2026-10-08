@@ -73,8 +73,12 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
     }
     case '/api/destinations':
       return sendJson(request, response, destinations(schedule, tripRequest(url.searchParams)));
-    case '/api/way-back':
-      return sendJson(request, response, wayBack(schedule, tripRequest(url.searchParams)));
+    case '/api/way-back': {
+      // The transfer point the page pinned or lists first: where its rider gets off, and boards.
+      const alight = url.searchParams.get('wa');
+      const board = url.searchParams.get('wb');
+      return sendJson(request, response, wayBack(schedule, tripRequest(url.searchParams), alight && board ? { alight, board } : undefined));
+    }
     case '/api/nearby': {
       const center = point(url.searchParams);
       if (!center) throw new RequestError(400, 'Send lat and lon');
@@ -82,7 +86,7 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
       return sendJson(request, response, nearby(schedule, await realtimeView(), center, radius, nowSeconds()));
     }
   }
-  // A short link from Share this trip opens the trip's own address, with its stops' names as the
+  // A short link from Share trip opens the trip's own address, with its stops' names as the
   // app's own links carry them.
   if (url.pathname.startsWith('/s/')) {
     const short = parseShortTrip(url.pathname);

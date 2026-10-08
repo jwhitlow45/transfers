@@ -236,13 +236,13 @@ export type Schematic = {
   lines: { route: string; points: [number, number][] }[];
 };
 
-// Stops after each transfer point, where the rider might ride the second vehicle to.
-// The way back from a trip's destination stop (see wayBack in server/engine/trip.ts), as a search
+// The return trip from a trip's destination stop (see wayBack in server/engine/trip.ts), as a search
 // the app opens, with its stops named as the app's own links name them. Null when there is none.
 export type WayBackResponse = {
   back: { from: string; fromLabel: string; to: string; toLabel: string; dest: string; destLabel: string } | null;
 };
 
+// Stops after each transfer point, where the rider might ride the second vehicle to.
 export type DestinationsResponse = {
   groups: { board: string; routes: string[]; headsign: string; stops: string[] }[];
   routes: Record<string, Route>;

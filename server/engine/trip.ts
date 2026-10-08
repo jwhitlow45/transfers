@@ -132,26 +132,35 @@ const WAY_BACK_METERS = 300;
 // destination, where the rider got off the second vehicle, and heads for where they got off the
 // first, to catch it back to where they started, which is its destination (J, 2026-10-08). Muni
 // stops serve one direction, so each end is the stop by that place where the route runs back,
-// usually across the street, while a BART station serves both. The transfer point is the one the
-// rider pinned, or else the first the results list. Null without a destination, or with no way back.
-export function wayBack(schedule: Schedule, request: TripRequest): WayBackResponse {
+// usually across the street, while a BART station serves both. The transfer point is `point`, the
+// one the page pinned or lists first, by where its rider gets off and boards, or else the first
+// that the route filters leave. Only routes the filters leave count. Null without a destination,
+// or with no way back.
+export function wayBack(schedule: Schedule, request: TripRequest, point?: { alight: string; board: string }): WayBackResponse {
   const { from, to } = resolveEnds(schedule, request);
   const destination = request.dest ? schedule.stopsByKey.get(request.dest) : undefined;
   if (!destination) return { back: null };
   const toStop = 'stop' in to ? (to.stop ?? null) : null;
-  const links = towardDestination(schedule, cachedLinks(schedule, from, to, request, null), destination, toStop).filter(({ kind }) => kind === 'ride');
-  const pin = request.pin;
-  const pinned = pin?.first ? links.find((link) => link.alights.some((stop) => stopKeyOf(stop) === pin.first!.alight) && link.boards.some((stop) => stopKeyOf(stop) === pin.second.board)) : undefined;
-  const link = pinned ?? links[0];
+  const firstFilter = request.firstRoutes?.length ? new Set(request.firstRoutes) : null;
+  const secondFilter = request.secondRoutes?.length ? new Set(request.secondRoutes) : null;
+  const firstOf = (link: Link) => link.firstLegs.map(({ pattern }) => pattern.route).filter((id) => !firstFilter || firstFilter.has(routeKeyOf(schedule.route(id))));
+  const secondOf = (link: Link) => link.boardPatterns.map(({ pattern }) => pattern.route).filter((id) => !secondFilter || secondFilter.has(routeKeyOf(schedule.route(id))));
+  const links = towardDestination(schedule, cachedLinks(schedule, from, to, request, null), destination, toStop).filter(
+    (link) => link.kind === 'ride' && firstOf(link).length > 0 && secondOf(link).length > 0,
+  );
+  // The page names a station's stops by the station, and the link by its platforms.
+  const named = (stops: StopRow[], key: string) => stops.some((stop) => stopKeyOf(stop) === key || stopKeyOf(schedule.stationOf(stop)) === key);
+  const chosen = point && links.find((link) => named(link.alights, point.alight) && named(link.boards, point.board));
+  const link = chosen ?? links[0];
   if (!link) return { back: null };
-  const alight = (pinned && schedule.stopsByKey.get(pin!.first!.alight)) || link.alight;
+  const alight = (chosen && schedule.stopsByKey.get(point!.alight)) || link.alight;
   // BART runs each direction of a line as a route of its own.
-  const both = (ids: number[]) => new Set([...new Set(ids)].flatMap((id) => {
+  const both = (ids: number[]) => new Set(ids.flatMap((id) => {
     const route = schedule.route(id);
     return route.agency === 'BA' ? bartSiblings(schedule, route).map((sibling) => sibling.id) : [id];
   }));
-  const home = backStop(schedule, alight, both(link.firstLegs.map(({ pattern }) => pattern.route)), from);
-  const out = home && backStop(schedule, destination, both(link.boardPatterns.map(({ pattern }) => pattern.route)), link.board);
+  const home = backStop(schedule, alight, both(firstOf(link)), from);
+  const out = home && backStop(schedule, destination, both(secondOf(link)), link.board);
   if (!home || !out) return { back: null };
   const end = (stop: StopRow) => ({ key: stopKeyOf(stop), label: stopLabel(stopView(schedule, stop)) });
   const [start, change, arrive] = [end(out.stop), end(home.stop), end(home.reaches)];
