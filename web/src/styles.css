@@ -164,6 +164,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-chip--sm { gap: 3px; padding: 1px 7px 1px 4px; font-size: var(--text-sm); }
 .tf-chip--band { font-size: var(--text-lg); font-weight: var(--weight-heavy); padding: 1px 7px 1px 5px; }
 .tf-chip svg { flex: none; }
+.tf-chip .tf-chip__owl { margin-left: -1px; }
 /* Without its icon, a chip pads both sides alike. */
 .tf-chip--plain { padding-left: 7px; }
 

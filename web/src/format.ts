@@ -14,3 +14,8 @@ const weekdayTimeFormat = new Intl.DateTimeFormat('en-US', { timeZone: 'America/
 // A time ahead as the clock reads, with the weekday when it is not today in Pacific time.
 export const clockOrDay = (unixSeconds: number, nowMs: number) =>
   dayFormat.format(unixSeconds * 1000) === dayFormat.format(nowMs) ? clock(unixSeconds) : weekdayTimeFormat.format(unixSeconds * 1000);
+
+// Between midnight and 5 AM on the rider's own clock, when owl service is the service running.
+export const isOwlHour = (date: Date) => date.getHours() < 5;
+// Muni names them "NOWL" and "LOWL", and the 91 as "Owl".
+export const isOwlRoute = (route: { name: string; longName: string }) => /owl/i.test(route.name) || /owl/i.test(route.longName);
