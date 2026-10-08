@@ -6,11 +6,11 @@ import { clockOrDay, isOwlHour, isOwlRoute } from './format.ts';
 const now = Date.parse('2026-10-08T05:00:00Z');
 
 test('a time later today shows the clock alone', () => {
-  strictEqual(clockOrDay(Date.parse('2026-10-08T06:30:00Z') / 1000, now), '11:30 PM');
+  strictEqual(clockOrDay(Date.parse('2026-10-08T06:30:00Z') / 1000, now), '11:30\u00a0PM');
 });
 
 test('a time on another day shows the weekday, by Pacific date', () => {
-  strictEqual(clockOrDay(Date.parse('2026-10-08T13:12:00Z') / 1000, now), 'Thu 6:12 AM');
+  strictEqual(clockOrDay(Date.parse('2026-10-08T13:12:00Z') / 1000, now), 'Thu 6:12\u00a0AM');
 });
 
 test('owl hours run from midnight to 5 AM', () => {

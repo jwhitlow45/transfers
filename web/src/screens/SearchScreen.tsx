@@ -395,7 +395,7 @@ export function SearchScreen() {
                       const before = loadSaved();
                       removeSaved(search.id);
                       setSaved(loadSaved());
-                      setToast({ id: ++toastId.current, text: 'Removed from Saved', about: 'notice', undo: () => updateSaved(before) });
+                      setToast({ id: ++toastId.current, text: 'Removed from Saved', about: 'unsaved', undo: () => updateSaved(before) });
                     }}
                   />
                 ))}

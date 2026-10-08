@@ -59,7 +59,7 @@ export function directionText(stop: Stop | undefined, toward: string | undefined
 }
 
 export function windowText(window: { min: number; max: number }) {
-  return `${window.min}–${window.max} min`;
+  return `${window.min}–${window.max}\u00a0min`;
 }
 
 // "Today", "Yesterday", a weekday within the week, or a date.
