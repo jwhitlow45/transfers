@@ -63,8 +63,9 @@ export function AlertList({ alerts, dismissed, onDismiss }: { alerts: ViewAlert[
                   </span>
                   <span class="tf-alert__title">{alert.title}</span>
                 </span>
+                {/* The size of every disclosure chevron on results: departed folds' and bands'. */}
                 <span class="tf-alert__chev">
-                  <IconChevron />
+                  <IconChevron size={18} />
                 </span>
               </button>
               <Collapse open={isOpen} id={panel}>

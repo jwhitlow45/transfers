@@ -12,7 +12,7 @@ export function Departed({ count, children }: { count: number; children: Compone
   return (
     <div class="tf-departed">
       <button type="button" class="tf-departed__toggle" aria-expanded={open} aria-controls={panel} onClick={() => setOpen(!open)}>
-        <IconChevron size={16} />
+        <IconChevron size={18} />
         {count} departed
       </button>
       <Collapse open={open} id={panel}>
