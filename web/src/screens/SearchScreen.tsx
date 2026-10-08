@@ -78,8 +78,9 @@ export function SearchScreen() {
   const [pulls, setPulls] = useState(0);
   // Both fields go up under the header when one is tapped, so the matches and recent stops below
   // them have the room the keyboard leaves (J, 2026-10-08). Once the page has redrawn with the room
-  // below to scroll that far (tf-page--typing), and again a moment later in case new matches
-  // redrawing the page cut the scroll short.
+  // below to scroll that far (tf-page--typing). iOS also shifts the whole page up as its keyboard
+  // opens, to keep the field in view, which on top of this scroll would take the fields off the top,
+  // so while the keyboard opens the page is put back and the fields settled again.
   const raiseFields = () => {
     const target = () => {
       const fields = document.querySelector<HTMLElement>('.tf-layer .tf-fields');
@@ -88,14 +89,24 @@ export function SearchScreen() {
       const header = scroller.querySelector('.tf-header')?.getBoundingClientRect().height ?? 0;
       return { scroller, top: Math.max(0, fields.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop - header - 8) };
     };
+    const settle = () => {
+      if (window.scrollY !== 0) window.scrollTo(0, 0);
+      const settled = target();
+      if (settled && Math.abs(settled.scroller.scrollTop - settled.top) > 2) settled.scroller.scrollTo({ top: settled.top });
+    };
+    const viewport = window.visualViewport;
+    viewport?.addEventListener('resize', settle);
+    viewport?.addEventListener('scroll', settle);
+    setTimeout(() => {
+      viewport?.removeEventListener('resize', settle);
+      viewport?.removeEventListener('scroll', settle);
+      settle();
+    }, 700);
     requestAnimationFrame(() =>
       requestAnimationFrame(() => {
         const first = target();
         first?.scroller.scrollTo({ top: first.top, behavior: motionOff() ? 'auto' : 'smooth' });
-        setTimeout(() => {
-          const settled = target();
-          if (settled && Math.abs(settled.scroller.scrollTop - settled.top) > 2) settled.scroller.scrollTo({ top: settled.top });
-        }, 400);
+        setTimeout(settle, 400);
       }),
     );
   };
