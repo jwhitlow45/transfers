@@ -46,7 +46,7 @@ import {
   takePinHint,
   updateSaved,
 } from '../storage.ts';
-import { agencyOnly, chipLabel, shortStopName } from '../view.ts';
+import { agencyOnly, chipLabel, shortStopName, spokenRoute } from '../view.ts';
 
 // The server puts the first trip's results in the page. They seed only the first visit, as of
 // when the page arrived: shown again on a later visit, even to the same trip, they would pass
@@ -194,6 +194,22 @@ export function ResultsScreen({ search }: { search: Search }) {
   const untagged = outagesByStation((data?.access ?? []).filter(({ stops }) => !stops.some((stop) => tagged.has(stop))));
   // The first card with connections says how to pin.
   const hintGroup = hint ? ordered.find((group) => group.kind !== 'walk') : undefined;
+  // Route filters can leave every transfer point with nothing to catch. Each would then say nothing
+  // connects, which is not so, and offer hidden connections, which the filters hide too, so the
+  // page says the filters are why instead. A window too narrow says so in its group, with Widen.
+  const filtering = Boolean(search.firstRoutes?.length || search.secondRoutes?.length);
+  const filteredOut = filtering && groups.length > 0 && groups.every((group) => !group.widen && visibleDepartures(group, now, showHidden).every(({ canceled }) => canceled));
+  const routeNames = (keys: string[] | undefined) => keys?.map((key) => (data?.routes[key] ? spokenRoute(data.routes[key]!) : null)).filter(Boolean).join(' or ');
+  const firstNames = routeNames(search.firstRoutes);
+  const secondNames = routeNames(search.secondRoutes);
+  const filterText =
+    firstNames && secondNames
+      ? `Showing only the ${firstNames}, then the ${secondNames}`
+      : firstNames
+        ? `Showing only trips that start on the ${firstNames}`
+        : secondNames
+          ? `Showing only transfers to the ${secondNames}`
+          : 'Showing only some routes';
   const context: CardContext = {
     data: data!,
     now,
@@ -239,6 +255,9 @@ export function ResultsScreen({ search }: { search: Search }) {
               ? [{ key: 'window', icon: <IconTransfer />, short: `${summary.window.min}–${summary.window.max}m`, full: `Showing transfers of ${summary.window.min} to ${summary.window.max} minutes` }]
               : []),
             ...(hide > 0 ? [{ key: 'hide', icon: <IconHidden />, short: `<${hide}m`, full: `Hiding departures that leave in under ${hide} minutes` }] : []),
+            ...(filtering
+              ? [{ key: 'routes', icon: <IconFilter />, short: 'Filtered', full: `${filterText}. Trip settings has the rest` }]
+              : []),
           ]}
           accent={saved?.color}
           onRefresh={refresh}
@@ -296,7 +315,7 @@ export function ResultsScreen({ search }: { search: Search }) {
             ))}
           {!data && feed === 'loading' ? (
             <SkeletonResults />
-          ) : data && groups.length === 0 ? (
+          ) : data && (groups.length === 0 || filteredOut) ? (
             <EmptyTrip data={data} search={search} summary={summary} maxWalk={settings.maxWalk} update={update} />
           ) : (
             data && (
@@ -422,3 +441,10 @@ function EmptyTrip({ data, search, summary, maxWalk, update }: { data: TripRespo
 }
 
 const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
+// A funnel, for the status line's route filters. Drawn to match the set in icons/ui.tsx.
+const IconFilter = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 5h16l-6 7.5V19l-4-2v-4.5z" />
+  </svg>
+);
