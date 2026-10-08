@@ -52,8 +52,8 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
   const walkTime = longest > shortest ? `${shortest}–${longest}` : `${shortest}`;
   const routeNames = familyName(group.routes, data);
   const plural = group.routes.length > 1 && !/^(BART|Muni Metro)/.test(routeNames);
-  // Riding straight to the named To stop, which the server then shows alone, says so, so the
-  // rider is not left looking for the transfer.
+  // A ride straight to the named To stop says so, as it may stop across the street from it, and
+  // transfers at To can sit beside it.
   const straightTo = walk && !context.destinationName && group.departures.some(({ destination }) => destination !== undefined) ? context.toName : null;
   const goes = straightTo && `${routeNames} ${plural ? 'go' : 'goes'} straight to ${straightTo}`;
   // Where to get off says it once here, so each row only needs the time. A walk group has no

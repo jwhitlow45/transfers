@@ -588,17 +588,12 @@ test("a pinned loop keeps the visit it was pinned at once the vehicle has gone p
   }
 });
 
-test('a vehicle from From to To is shown alone while one is coming, even where it ends at To', () => {
+test('a route that ends at To is a ride straight there, with when each bus arrives', () => {
   const response = planTrip(schedule, realtime(), { from: 'SF:13486', to: 'SF:13500' }, NOW);
   deepStrictEqual(
     response.groups.map(({ kind, board, routes }) => ({ kind, board, routes })),
     [{ kind: 'walk', board: 'SF:13486', routes: ['SF:48'] }],
   );
-  // Each departure says when it reaches To, 12 minutes on.
   const m2 = response.groups[0]!.departures.find(({ trip }) => trip === 'SF:m2')!;
   strictEqual(m2.destination, m2.at + 720);
-  // At 5 PM the afternoon 48s have run, and still count as running, but none is coming, so the
-  // results are what they were without them.
-  const evening = planTrip(schedule, realtime(), { from: 'SF:13486', to: 'SF:13500' }, DAY + 17 * 3600);
-  deepStrictEqual([evening.groups.length, evening.notice?.kind], [0, 'unreachable']);
 });

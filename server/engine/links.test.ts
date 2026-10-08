@@ -6,7 +6,9 @@ import { test } from 'node:test';
 import type { Agency } from '../config.ts';
 import { buildScheduleDatabase } from '../gtfs/ingest.ts';
 import { Schedule } from '../schedule.ts';
+import { serviceDayStart } from '../time.ts';
 import { findLinks } from './links.ts';
+import { planTrip } from './trip.ts';
 
 // A line along one street, like the California cable car: westbound it ends at Van Ness, two
 // blocks past Larkin, and eastbound it starts there. Blocks are 150 m apart, and each corner has
@@ -120,12 +122,33 @@ test('a loop that comes back past From after the rider gets off still boards nea
 
 test('a ride straight to a named stop may end across the street from it, or where the route ends', () => {
   const schedule = network(2);
-  const direct = (from: string, to: string) =>
-    findLinks(schedule, schedule.stopsByKey.get(`SF:${from}`)!, { stop: schedule.stopsByKey.get(`SF:${to}`)! }, { direct: true }).map((link) => `${link.kind} ${link.headsign} at ${link.board.stopId}`);
-  // Westbound cars leave Jones away from Larkin, and eastbound ones stop across the street.
-  deepStrictEqual(direct('larkin-wb', 'jones-wb'), ['walk Market at larkin-eb']);
-  deepStrictEqual(direct('jones-wb', 'vanness-wb'), ['walk Van Ness at jones-wb']);
-  // As a stop to transfer at, westbound Jones is out of reach: it means riding past and back.
-  deepStrictEqual(findLinks(schedule, schedule.stopsByKey.get('SF:larkin-wb')!, { stop: schedule.stopsByKey.get('SF:jones-wb')! }), []);
+  const links = (from: string, to: string) =>
+    findLinks(schedule, schedule.stopsByKey.get(`SF:${from}`)!, { stop: schedule.stopsByKey.get(`SF:${to}`)! }).map((link) => `${link.kind} ${link.headsign} at ${link.board.stopId}`);
+  // Westbound cars leave Jones away from Larkin, so as a stop to transfer at, westbound Jones is
+  // out of reach. Eastbound ones stop across the street.
+  deepStrictEqual(links('larkin-wb', 'jones-wb'), ['walk Market at larkin-eb']);
+  // Westbound ends at Van Ness, where no one boards.
+  deepStrictEqual(links('jones-wb', 'vanness-wb'), ['walk Van Ness at jones-wb']);
+  schedule.close();
+});
+
+test('a pinned ride straight to a named stop ends where the bus reaches it or its corner after boarding', () => {
+  // A loop that starts at To, and after picking the rider up comes back across the street from it.
+  const schedule = build(
+    [
+      ['to', 0, false],
+      ['corner', 0, true],
+      ['from', 900, false],
+      ['out', 1500, false],
+    ],
+    [{ id: 'l', direction: 0, headsign: 'Loop', sequence: ['to', 'from', 'out', 'corner'], count: 1 }],
+  );
+  const day = serviceDayStart(20261005);
+  const view = { trips: null, alerts: [], status: () => 'schedule' as const, updatedAt: null };
+  const [departure] = planTrip(schedule, view, { from: 'SF:from', to: 'SF:to' }, day + 7.9 * 3600).groups.flatMap(({ departures }) => departures);
+  // It leaves From at 8:02 and comes past To at 8:06.
+  deepStrictEqual([departure?.at, departure?.destination], [day + 8 * 3600 + 120, day + 8 * 3600 + 360]);
+  const pin = { second: { trip: 'SF:l0', board: 'SF:from' }, at: day + 8 * 3600 + 120 };
+  deepStrictEqual(planTrip(schedule, view, { from: 'SF:from', to: 'SF:to', pin }, day + 7.9 * 3600).pinned?.second?.off, { stop: 'SF:corner', at: day + 8 * 3600 + 360, delay: null });
   schedule.close();
 });
