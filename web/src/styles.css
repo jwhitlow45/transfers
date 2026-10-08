@@ -170,14 +170,9 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-band .tf-status--scheduled { color: var(--on-field); border-color: var(--on-field); }
 
 /* ── search ────────────────────────────────────────── */
-.tf-search-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); padding-top: var(--space-1); }
-/* Home's status line, as under the results header, close under the title and lined up with it. */
-.tf-home-status { margin: calc(-1 * var(--space-4)) 0 0 calc(-1 * var(--space-2)); }
-.tf-home-status .tf-livestatus { padding: 0; }
 /* Home below the fields, kept mounted while the suggestions cover it. */
 .tf-home-rest { display: contents; }
 .tf-home-rest[hidden] { display: none; }
-.tf-search-head h1 { margin: 0; font-size: var(--text-title); font-weight: var(--weight-bold); letter-spacing: -0.01em; }
 .tf-fields { display: grid; grid-template-columns: minmax(0, 1fr) 52px; border: var(--border-strong) solid var(--line); }
 .tf-field { display: block; padding: 10px var(--space-3); }
 .tf-field + .tf-field { border-top: var(--border-hair) solid var(--divider); }
@@ -230,8 +225,12 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-chain__derived { border: 1px dashed var(--accent); color: var(--accent-ink); padding: 0 6px; font-weight: var(--weight-semibold); font-style: italic; }
 .tf-livestatus { max-width: var(--page-max); margin: 0 auto; display: flex; align-items: center; font-size: var(--text-base); color: var(--muted); }
 .tf-dot { width: 8px; height: 8px; border-radius: var(--radius-dot); background: var(--accent); border: 1.5px solid var(--accent); }
-.tf-refresh-bar { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; overflow: hidden; }
-.tf-refresh-bar::after { content: ""; display: block; width: 40%; height: 100%; background: var(--accent); animation: tf-indet var(--motion-indeterminate); }
+/* Under the header's divider and over the page's top padding, so it takes no room of its own. */
+.tf-header__edge { position: absolute; left: 0; right: 0; bottom: -4px; height: 4px; overflow: hidden; pointer-events: none; }
+.tf-header[data-accent="true"] .tf-header__edge { background: var(--saved-color); }
+.tf-header__edge--loading::after { content: ""; display: block; width: 40%; height: 100%; background: var(--accent); animation: tf-indet var(--motion-indeterminate); }
+.tf-header[data-accent="true"] .tf-header__edge--loading { background: color-mix(in srgb, var(--saved-color) 35%, transparent); }
+.tf-header[data-accent="true"] .tf-header__edge--loading::after { background: var(--saved-color); }
 @keyframes tf-indet { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
 
 /* ── banners & alerts ──────────────────────────────── */
@@ -546,7 +545,6 @@ button:disabled { opacity: .45; cursor: default; }
 
 /* Saved search colors: a stripe down the card, and across the top of its results. */
 .tf-saved { border-left: 8px solid var(--saved-color, var(--line)); }
-.tf-header[data-accent="true"] { border-top: 6px solid var(--saved-color); }
 .tf-saved__edit { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-2) var(--space-4) var(--space-4); }
 .tf-saved__swatches { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .tf-swatch { width: var(--tap-min); height: var(--tap-min); border: 2px solid transparent; outline-offset: 2px; }
@@ -673,7 +671,7 @@ button:disabled { opacity: .45; cursor: default; }
    animation in the site, so new ones need nothing of their own to honor it. */
 :root[data-motion="off"] *, :root[data-motion="off"] *::before, :root[data-motion="off"] *::after { transition: none !important; animation: none !important; }
 /* With its sliding stopped, the refresh bar stays a still, faint bar so refreshing still shows. */
-:root[data-motion="off"] .tf-refresh-bar::after { width: 100%; opacity: .5; }
+:root[data-motion="off"] .tf-header__edge--loading::after { width: 100%; opacity: .5; }
 
 /* ── links out ─────────────────────────────────────── */
 /* A stop's name links to its agency's page. An underline says so, in the text's own color so it

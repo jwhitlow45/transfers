@@ -105,20 +105,23 @@ function liveStatusSentence(feed: FeedState, seconds: number | null, stale: bool
   return ago ? `Live times, updated ${ago}` : 'Live times';
 }
 
-// Sticky header for every screen but search: back, a title, and the live status. Results leave
-// out onBack, since its back button sits in the bottom bar. Screens with live data pass
-// onRefresh to be refreshed by pulling down.
-export function ScreenHeader({ title, feed, secondsSinceUpdate, stale, items, accent, onBack, onRefresh }: {
+// Sticky header for every screen: back, a title, and the live status. Results and Home leave out
+// onBack, Results since its back button sits in the bottom bar. Home sets its own title row's end.
+// Screens with live data pass onRefresh to be refreshed by pulling down. Every screen lays the
+// title and status out the same, so moving between them does not shift either.
+export function ScreenHeader({ title, end, feed, secondsSinceUpdate, stale, items, accent, onBack, onRefresh }: {
   title: ComponentChildren;
+  end?: ComponentChildren;
   stale?: boolean;
   items?: StatusItem[];
-  // A saved search's color, as a stripe along the top.
+  // A saved search's color, as a stripe under the header.
   accent?: string | undefined;
   feed?: FeedState;
   secondsSinceUpdate?: number | null;
   onBack?: () => void;
   onRefresh?: () => void;
 }) {
+  const loading = feed === 'refreshing' || feed === 'loading';
   return (
     <header class={`tf-header${onBack ? '' : ' tf-header--no-back'}`} style={accent ? { '--saved-color': accent } : undefined} data-accent={accent ? 'true' : undefined}>
       <div class="tf-header__row">
@@ -128,11 +131,14 @@ export function ScreenHeader({ title, feed, secondsSinceUpdate, stale, items, ac
           </button>
         )}
         <h1 class="tf-chain">{title}</h1>
+        {end}
       </div>
       {feed && (
         <LiveStatus feed={feed} secondsSinceUpdate={secondsSinceUpdate ?? null} stale={stale ?? false} items={items ?? []} />
       )}
-      {(feed === 'refreshing' || feed === 'loading') && <div class="tf-refresh-bar" aria-hidden="true" />}
+      {/* The saved color and the loading bar share the few pixels under the header, where neither
+          moves the page as a search is saved or loads. While loading, the saved color is the bar. */}
+      {(accent || loading) && <div class={`tf-header__edge${loading ? ' tf-header__edge--loading' : ''}`} aria-hidden="true" />}
       {onRefresh && <PullToRefresh onRefresh={onRefresh} />}
     </header>
   );

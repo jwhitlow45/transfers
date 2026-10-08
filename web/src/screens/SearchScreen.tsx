@@ -9,9 +9,9 @@ import { SavedSearchCard } from '../components/SavedSearchCard.tsx';
 import { SearchFields } from '../components/SearchFields.tsx';
 import { type SearchHit, StopResults, hitMeta, hitName } from '../components/StopResults.tsx';
 import { Toast, type ToastMessage } from '../components/Toast.tsx';
-import { LiveStatus } from '../components/ResultsHeader.tsx';
+import { ScreenHeader } from '../components/ResultsHeader.tsx';
 import { clock } from '../format.ts';
-import { type FeedState, useNow, usePinnedTrip, usePoll } from '../hooks.ts';
+import { useNow, usePinnedTrip, usePoll } from '../hooks.ts';
 import { IconChevron, IconGear, IconLocation, IconPin } from '../icons/ui.tsx';
 import { defaultSavedColor } from '../lib/color.ts';
 import { type LiveReport, ageText, clockSkewMs, freshness, homeStatus } from '../lib/freshness.ts';
@@ -157,21 +157,21 @@ export function SearchScreen() {
   return (
     <div class="tf-scroll">
       <Toast message={toast} page onDone={() => setToast(null)} />
-      <main class="tf-page tf-page--form" id="main">
-        <div class="tf-search-head">
-          <h1>Transfers</h1>
+      {/* The header the other screens have, so going to results moves neither the title nor the
+          status line. The status line shows only with live cards, as Home asks for nothing else. */}
+      <ScreenHeader
+        title="Transfers"
+        end={
           <span class="tf-search-head__end">
             <span class="tf-muted">{clock(now / 1000)}</span>
             <a class="tf-btn-icon tf-muted" href="/settings" aria-label="Settings" onClick={(event) => (event.preventDefault(), navigate('/settings'))}>
               <IconGear />
             </a>
           </span>
-        </div>
-        {liveStatus && (
-          <div class="tf-home-status">
-            <LiveStatus feed={liveStatus.feed} secondsSinceUpdate={liveStatus.secondsSinceUpdate} stale={liveStatus.stale} />
-          </div>
-        )}
+        }
+        {...(liveStatus ? { feed: liveStatus.feed, secondsSinceUpdate: liveStatus.secondsSinceUpdate, stale: liveStatus.stale } : {})}
+      />
+      <main class="tf-page tf-page--form" id="main">
         {pins.map((pin) => (
           <PinnedHome key={searchId(pin.search)} pin={pin} now={now} onPin={(next) => pinFromHome(pin.search, next)} onUpdate={(next) => updatePin(pin.search, next)} onReport={report} />
         ))}
