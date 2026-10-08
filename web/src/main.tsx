@@ -1,7 +1,8 @@
 import { render } from 'preact';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { ENTER_MS, motionOff, usePeeking } from './gestures.ts';
-import { type Page, cameBackTo, currentDepth, forgetLeft, usePage } from './router.ts';
+import { ScreenActive } from './layers.ts';
+import { type Page, backGoesHome, cameBackTo, currentDepth, forgetLeft, usePage } from './router.ts';
 import { NearbyScreen } from './screens/NearbyScreen.tsx';
 import { NoticesScreen } from './screens/NoticesScreen.tsx';
 import { ResultsScreen } from './screens/ResultsScreen.tsx';
@@ -12,43 +13,71 @@ import { searchId } from './storage.ts';
 import { TrackProvider } from './track.tsx';
 import './styles.css';
 
-// A step forward from Home, as to results, slides the new screen in over Home, which stays under
-// it until it is in place (J, 2026-10-08). Back, by a swipe, slides it off again (useSwipeBack).
-function useEntering(page: Page) {
-  const last = useRef({ page, depth: currentDepth() });
-  const until = useRef(0);
+// The screen showing, and the one it was opened from, kept mounted under it, so that going back
+// finds that one as the rider left it, scrolled and with any sheet still open, and a swipe back
+// shows it under the screen it uncovers (J, 2026-10-08). A step forward slides the new screen in
+// over it. Only one is kept: a screen two steps back is opened afresh.
+type Layer = { id: number; page: Page; depth: number; homeKey: string };
+let layerIds = 0;
+
+function useLayers(page: Page, peeking: boolean) {
+  const make = (depth: number): Layer => ({ id: ++layerIds, page, depth, homeKey: history.state?.from || history.state?.to ? 'prefilled' : 'home' });
+  const state = useRef<{ current: Layer; under: Layer | null; until: number; homePeek: number | null }>(null as never);
+  if (!state.current) state.current = { current: make(currentDepth()), under: null, until: 0, homePeek: null };
   const [, rerender] = useState(0);
-  if (last.current.page !== page) {
+  const s = state.current;
+  if (s.current.page !== page) {
     const depth = currentDepth();
-    if (last.current.page.name === 'home' && page.name !== 'home' && depth > last.current.depth && !motionOff()) until.current = Date.now() + ENTER_MS;
-    last.current = { page, depth };
+    const same = (layer: Layer | null) => layer !== null && layer.page.name === page.name && (page.name !== 'trip' || (layer.page.name === 'trip' && searchId(layer.page.search) === searchId(page.search)));
+    if (depth > s.current.depth) {
+      s.under = s.current;
+      s.current = make(depth);
+      if (!motionOff()) s.until = Date.now() + ENTER_MS;
+    } else if (depth < s.current.depth) {
+      // Back to the screen kept under, or to the Home a swipe back showed fresh under it.
+      const kept = same(s.under) ? s.under! : page.name === 'home' && s.homePeek !== null ? { ...make(depth), id: s.homePeek } : null;
+      s.current = kept ? { ...kept, page, depth } : make(depth);
+      s.under = null;
+      s.until = 0;
+    } else {
+      // The same screen with a new address, as when a setting changes, or a sheet closes.
+      s.current = { ...s.current, page, depth };
+    }
   }
-  const entering = Date.now() < until.current;
+  const entering = Date.now() < s.until;
   useEffect(() => {
     if (!entering) return;
-    const timer = setTimeout(() => rerender((count) => count + 1), until.current - Date.now());
+    const timer = setTimeout(() => rerender((count) => count + 1), s.until - Date.now());
     return () => clearTimeout(timer);
   }, [entering]);
-  return entering;
+  // A swipe back to Home with nothing kept under: Home, opened fresh to show under the screen,
+  // and kept as the Home landed on.
+  const freshHome = !s.under && peeking && page.name !== 'home' && backGoesHome();
+  if (freshHome && s.homePeek === null) s.homePeek = ++layerIds;
+  if (!freshHome && page.name !== 'home') s.homePeek = null;
+  const under = s.under ?? (freshHome ? { id: s.homePeek!, page: { name: 'home' } as Page, depth: 0, homeKey: 'home' } : null);
+  return { current: s.current, under, entering };
+}
+
+function screenFor(layer: Layer) {
+  const { page } = layer;
+  if (page.name === 'home') return <SearchScreen key={layer.homeKey} />;
+  if (page.name === 'trip') return <ResultsScreen key={searchId(page.search)} search={page.search} />;
+  if (page.name === 'nearby') return <NearbyScreen />;
+  if (page.name === 'settings') return <SettingsScreen />;
+  return <NoticesScreen />;
 }
 
 function App() {
   const page = usePage();
   const peeking = usePeeking();
-  const entering = useEntering(page);
-  const home = page.name === 'home';
-  // Home under another screen, as it slides in or is swiped back off.
-  const under = !home && (peeking || entering);
-  // Home is one mounted screen whether it shows or lies under another, so it keeps its scroll and
-  // what it has loaded, and the one under a swipe back is the one the rider lands on.
-  const homeKey = useRef('home');
-  if (home) homeKey.current = history.state?.from || history.state?.to ? 'prefilled' : 'home';
-  // Back on a page left for another, it is scrolled where it was, before it paints. Its own
-  // sheet reopens from the same record (see Left in router.ts).
+  const { current, under, entering } = useLayers(page, peeking);
+  // Back on a page left for another and opened afresh, it is scrolled where it was, before it
+  // paints. Its own sheet reopens from the same record (see Left in router.ts).
   useLayoutEffect(() => {
     const back = cameBackTo();
     if (!back) return;
-    const scroller = document.querySelector('.tf-app > .tf-scroll, .tf-app > .tf-home-layer > .tf-scroll');
+    const scroller = document.querySelector('.tf-app > .tf-layer > .tf-scroll');
     if (scroller) scroller.scrollTop = back.scroll;
     forgetLeft();
   }, [page]);
@@ -57,20 +86,22 @@ function App() {
   useEffect(() => {
     document.title = page.name === 'trip' ? `${page.search.fromLabel} to ${page.search.toLabel} · Transfers` : page.name === 'home' ? 'Transfers' : `${page.name[0]!.toUpperCase()}${page.name.slice(1)} · Transfers`;
   }, [page]);
+  // Under first, then the screen showing, so a step either way never moves one in the page,
+  // which would lose its scroll.
+  const layers = [...(under ? [under] : []), current];
   return (
     <SettingsProvider>
-      <div class="tf-app" data-entering={entering ? 'true' : undefined}>
+      <div class="tf-app" data-entering={entering ? 'true' : undefined} data-peeking={peeking ? 'true' : undefined}>
         <TrackProvider>
-          {(home || under) && (
-            <div class={home ? 'tf-home-layer' : 'tf-peek'} aria-hidden={home ? undefined : 'true'} inert={!home}>
-              <SearchScreen key={homeKey.current} />
-              {under && <div class="tf-peek__dim" />}
-            </div>
-          )}
-          {page.name === 'trip' && <ResultsScreen key={searchId(page.search)} search={page.search} />}
-          {page.name === 'nearby' && <NearbyScreen />}
-          {page.name === 'settings' && <SettingsScreen />}
-          {page.name === 'notices' && <NoticesScreen />}
+          {layers.map((layer) => {
+            const showing = layer === current;
+            return (
+              <div key={layer.id} class={showing ? 'tf-layer' : 'tf-peek'} aria-hidden={showing ? undefined : 'true'} inert={!showing}>
+                <ScreenActive.Provider value={showing}>{screenFor(layer)}</ScreenActive.Provider>
+                {!showing && <div class="tf-peek__dim" />}
+              </div>
+            );
+          })}
         </TrackProvider>
       </div>
     </SettingsProvider>

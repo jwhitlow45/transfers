@@ -1,7 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useLayoutEffect, useRef } from 'preact/hooks';
 import { SLIDE_MS, motionOff, useDrag } from '../gestures.ts';
-import { cameBackTo, closeSheetEntry, isSheetEntry, openSheetEntry } from '../router.ts';
+import { cameBackTo, closeSheetEntry, currentKey, currentUnder, isSheetEntry, openSheetEntry } from '../router.ts';
 import { IconClose } from '../icons/ui.tsx';
 
 // A drag down closes the sheet past this share of its height, or this far, whichever is less.
@@ -41,8 +41,17 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
   latestClose.current = onClose;
   useEffect(() => {
     step.current = openSheetEntry(title);
+    const pageKey = currentUnder();
+    // Covered by a page a link in the sheet opened, it stays open with its page kept under that
+    // one (see main.tsx), and takes a step back of its own again once the rider is back.
+    let covered = false;
     const onPop = () => {
-      if (!isSheetEntry(step.current)) latestClose.current();
+      if (isSheetEntry(step.current)) return;
+      if (currentKey() !== pageKey) return void (covered = true);
+      if (!covered) return latestClose.current();
+      covered = false;
+      closeSheetEntry(step.current);
+      step.current = openSheetEntry(title);
     };
     addEventListener('popstate', onPop);
     return () => {

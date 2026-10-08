@@ -81,8 +81,9 @@ export function SearchFields({ from, to, onFrom, onTo, onFocus, onBlur, onEnter,
   return (
     <div class="tf-fields">
       <div class="tf-fields__stack">
-        {/* The keyboard's Enter says where it goes: on to To, or to the results once From is picked. */}
-        <Field id="field-from" label="From" value={from} placeholder="Stop name or stop code" enterKeyHint={to.meta ? 'go' : 'next'} onChange={onFrom} onFocus={() => onFocus('from')} onBlur={onBlur} onEnter={() => onEnter('from')} />
+        {/* The keyboard's Enter says where it goes: from From on to To, and from To to the results
+            once From is picked. */}
+        <Field id="field-from" label="From" value={from} placeholder="Stop name or stop code" enterKeyHint="next" onChange={onFrom} onFocus={() => onFocus('from')} onBlur={onBlur} onEnter={() => onEnter('from')} />
         <Field id="field-to" label="To" value={to} placeholder="Stop, stop code, or route" enterKeyHint={from.meta ? 'go' : 'next'} onChange={onTo} onFocus={() => onFocus('to')} onBlur={onBlur} onEnter={() => onEnter('to')} />
       </div>
       <button type="button" class="tf-swap" onClick={onSwap} disabled={!canSwap} aria-label="Swap From and To">

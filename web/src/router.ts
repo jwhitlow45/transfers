@@ -124,9 +124,9 @@ const setLeft = (all: Record<string, Left>) => {
 };
 const remember = (current: Entry) => {
   const key = current.sheet ? current.under : current.key;
-  const scroller = typeof document === 'undefined' ? null : document.querySelector('.tf-app > .tf-scroll, .tf-app > .tf-home-layer > .tf-scroll');
+  const scroller = typeof document === 'undefined' ? null : document.querySelector('.tf-app > .tf-layer > .tf-scroll');
   if (!key || !scroller) return;
-  const sheetBody = current.sheet ? document.querySelector('.tf-sheet__body') : null;
+  const sheetBody = current.sheet ? document.querySelector('.tf-layer .tf-sheet__body') : null;
   const sheet = current.sheet && current.sheetName ? { sheet: current.sheetName, sheetScroll: sheetBody?.scrollTop ?? 0 } : {};
   setLeft({ ...left, [key]: { scroll: scroller.scrollTop, ...sheet } });
 };
@@ -182,6 +182,10 @@ export function goBack(fallback = '/') {
   if (depth() > 0) history.back();
   else navigate(fallback, { replace: true });
 }
+
+// The key of the entry showing, and for a sheet's entry, of the page under it.
+export const currentKey = () => entry().key;
+export const currentUnder = () => entry().under;
 
 // How many of the app's entries lie behind this one, which grows by one with each step forward.
 export const currentDepth = () => depth();

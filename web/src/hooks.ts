@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { getJson } from './api.ts';
+import { useScreenActive } from './layers.ts';
 import type { TripResponse } from '../../shared/api.ts';
 import { pinnedEnd, pinnedNow } from './lib/pinned.ts';
 import { type DeviceSettings, type Pin, loadCached, saveCached } from './storage.ts';
@@ -65,6 +66,16 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
   const [settled, setSettled] = useState(Boolean(initial) || fresh);
   const [answered, setAnswered] = useState(Boolean(initial) || fresh);
   const tick = useRef<() => void>(() => {});
+  // Under another screen, kept for going back to, it does not poll (see main.tsx). A refresh
+  // missed meanwhile comes once it shows again.
+  const active = useScreenActive();
+  const activeRef = useRef(active);
+  activeRef.current = active;
+  const shown = useRef(false);
+  useEffect(() => {
+    if (!shown.current) return void (shown.current = true);
+    if (active && state.fetchedAt !== null && Date.now() - state.fetchedAt >= intervalMs) tick.current();
+  }, [active]);
   // When the page's own response arrived, until the first refresh is planned from it.
   const seeded = useRef(initial?.fetchedAt ?? null);
   const hold = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -88,7 +99,7 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
     let timer: ReturnType<typeof setTimeout> | undefined;
     const plan = (delay: number) => {
       clearTimeout(timer);
-      timer = setTimeout(() => (document.visibilityState === 'visible' ? void fetchNow() : plan(intervalMs)), delay);
+      timer = setTimeout(() => (document.visibilityState === 'visible' && activeRef.current ? void fetchNow() : plan(intervalMs)), delay);
     };
     const cached = seeded.current === null && key ? loadCached<T>(key) : null;
     // A changed setting is a new URL. Until its answer arrives, the previous results stay up as
@@ -145,7 +156,7 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
       // Hidden, the page stops refreshing, so what it shows is old by the time it is back, until the
       // refresh sent then answers.
       setAnswered(false);
-      if (document.visibilityState !== 'visible') return;
+      if (document.visibilityState !== 'visible' || !activeRef.current) return;
       unsettle();
       void fetchNow();
     };

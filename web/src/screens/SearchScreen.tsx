@@ -199,10 +199,12 @@ export function SearchScreen() {
   // other field, or to the results once both are picked (J, 2026-10-08). The stops along a route
   // named in From are a choice of side and direction, which Enter does not guess.
   const pendingEnter = useRef<'from' | 'to' | null>(null);
+  // A stop picked in From moves on to To, even with To filled, as it may need changing too. One
+  // picked in To opens the results once From is picked, and otherwise moves to From (J, 2026-10-08).
   const advance = (field: 'from' | 'to', picked: Picked) => {
     const fromPicked = field === 'from' ? picked : from.picked;
     const toPicked = field === 'to' ? picked : to.picked;
-    if (!fromPicked || !toPicked) return document.getElementById(field === 'from' ? 'field-to' : 'field-from')?.focus();
+    if (field === 'from' || !fromPicked || !toPicked) return document.querySelector<HTMLElement>(`.tf-layer #${field === 'from' ? 'field-to' : 'field-from'}`)?.focus();
     // Saved now, as Home closes before its own saving would run, and the rider comes back to them.
     saveFields({ from: { query: fromPicked.label, picked: fromPicked }, to: { query: toPicked.label, picked: toPicked } });
     open(fromPicked, toPicked);

@@ -127,16 +127,17 @@ button:disabled { opacity: .45; cursor: default; }
 /* ── app shell ─────────────────────────────────────── */
 .tf-app { position: relative; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
 .tf-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; }
-/* Home under a screen being swiped back to it (see main.tsx and useSwipeBack). The screens cover it
-   until they slide, and it sits a little to the left and dimmed until they slide off. */
+/* The screen showing, and the one kept under it (see main.tsx). The one under is out of sight
+   until a swipe back or a screen sliding in over it shows it, a little to the left and dimmed. The
+   screen showing covers it. */
+.tf-layer { display: contents; }
 .tf-app:has(> .tf-peek) { isolation: isolate; }
-.tf-app:has(> .tf-peek) > :not(.tf-peek, .tf-sheet) { background: var(--bg); }
+.tf-app:has(> .tf-peek) > .tf-layer > :not(.tf-sheet) { background: var(--bg); }
 .tf-peek { position: absolute; inset: 0; z-index: -1; display: flex; flex-direction: column; background: var(--bg); transform: translateX(-25%); pointer-events: none; }
+.tf-app:not([data-peeking="true"], [data-entering="true"]) > .tf-peek { visibility: hidden; }
 .tf-peek__dim { position: absolute; inset: 0; background: #000; opacity: .3; }
-/* Home as the screen showing, in the same wrapper it lies under others in. */
-.tf-home-layer { display: contents; }
-/* A screen stepping forward from Home slides in over it, and Home eases left and dims under it. */
-.tf-app[data-entering="true"] > :not(.tf-peek, .tf-sheet) { animation: tf-enter 200ms cubic-bezier(.2, .8, .2, 1) both; }
+/* A screen stepping forward slides in over the one it was opened from, which eases left and dims. */
+.tf-app[data-entering="true"] > .tf-layer > :not(.tf-sheet) { animation: tf-enter 200ms cubic-bezier(.2, .8, .2, 1) both; }
 .tf-app[data-entering="true"] > .tf-peek { animation: tf-peek-leave 200ms cubic-bezier(.2, .8, .2, 1) both; }
 .tf-app[data-entering="true"] .tf-peek__dim { animation: tf-peek-dim 200ms cubic-bezier(.2, .8, .2, 1) both; }
 @keyframes tf-enter { from { transform: translateX(100%); } to { transform: none; } }
@@ -147,7 +148,7 @@ button:disabled { opacity: .45; cursor: default; }
 /* --page-end is a page's own room after its last item, which the bottom inset adds to below. */
 .tf-page { --page-end: var(--space-6); max-width: var(--page-max); margin: 0 auto; padding: var(--space-5) var(--space-5) var(--page-end); display: flex; flex-direction: column; gap: var(--space-4); }
 /* A screen with no bottom bar, such as Settings, scrolls its last items clear of the home indicator. */
-.tf-app:not(:has(.tf-bottombar)) .tf-page { padding-bottom: calc(var(--page-end) + var(--bottom-inset)); }
+:is(.tf-layer, .tf-peek):not(:has(.tf-bottombar)) .tf-page { padding-bottom: calc(var(--page-end) + var(--bottom-inset)); }
 .tf-page--form { --page-end: 32px; max-width: var(--form-max); gap: var(--space-6); }
 
 /* ── buttons ───────────────────────────────────────── */

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { backGoesHome } from './router.ts';
+import { useScreenActive } from './layers.ts';
 
 // How far a finger moves before a touch is judged a drag. Phones move 8 to 10 px before they
 // start scrolling, and a drag must be claimed before that, or the browser owns the touch.
@@ -148,8 +148,10 @@ const PEEK_DIM = 0.3;
 // slides with the rest. Going back to Home, Home shows under the screen as it slides, so the
 // rider sees where they are going.
 export function useSwipeBack(onBack: () => void) {
+  // A screen kept under another follows no swipes: the one showing has them.
+  const active = useScreenActive();
   const shell = () => document.querySelector<HTMLElement>('.tf-app');
-  const layers = () => [...(shell()?.children ?? [])].filter((layer): layer is HTMLElement => layer instanceof HTMLElement && !layer.classList.contains('tf-sheet') && !layer.classList.contains('tf-peek'));
+  const layers = () => [...(shell()?.querySelector(':scope > .tf-layer')?.children ?? [])].filter((layer): layer is HTMLElement => layer instanceof HTMLElement && !layer.classList.contains('tf-sheet'));
   const slide = (offset: number, animated: boolean) => {
     const transition = animated && !motionOff() ? `transform ${SLIDE_MS}ms ease-out` : 'none';
     for (const layer of layers()) {
@@ -168,9 +170,10 @@ export function useSwipeBack(onBack: () => void) {
     }
   };
   useDrag(shell, 'x', {
-    claim: (direction, origin) => direction === 'right' && !origin.closest('.tf-sheet, input, select, textarea') && !scrollsSideways(origin, shell()),
+    claim: (direction, origin) => active && direction === 'right' && !origin.closest('.tf-sheet, input, select, textarea') && !scrollsSideways(origin, shell()),
     move: (distance) => {
-      if (!peeking && backGoesHome()) setPeeking(true);
+      // The screen going back to shows under this one (see main.tsx).
+      if (!peeking) setPeeking(true);
       slide(Math.max(0, distance), false);
     },
     end: (release) => {
