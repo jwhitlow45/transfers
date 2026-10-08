@@ -201,6 +201,9 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-gerbil-eye { fill: var(--bg); }
 .tf-walk-gerbil { display: none; }
 :root[data-gerbils="on"] .tf-walk-gerbil { display: inline-flex; vertical-align: -2px; margin-right: 4px; color: var(--accent-ink); }
+/* Room below while a field has the cursor, so the fields can go up under the header however little
+   Home has under them. */
+.tf-layer .tf-page.tf-page--typing { padding-bottom: 100dvh; }
 .tf-find-hint { margin: calc(-1 * var(--space-4)) 0 0; font-size: var(--text-sm); color: var(--muted); text-align: center; }
 .tf-search-failed { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-3) var(--space-4); }
 .tf-field__row { display: flex; align-items: center; }

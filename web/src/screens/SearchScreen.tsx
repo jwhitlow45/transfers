@@ -21,6 +21,7 @@ import { type LocationProblem, type Position, handOver, locate, locationProblemT
 import { pageColors, scaleFor, timeScale } from '../lib/results.ts';
 import { summarize } from '../lib/summary.ts';
 import { tapForGerbils } from '../gerbils.ts';
+import { motionOff } from '../gestures.ts';
 import { navigate, tripPath } from '../router.ts';
 import { tripApiUrl, useSettings } from '../settings.tsx';
 import {
@@ -75,6 +76,29 @@ export function SearchScreen() {
   const [focus, setFocus] = useState<'from' | 'to' | null>(null);
   // Each pull to refresh, which every live card answers by refreshing (J, 2026-10-08).
   const [pulls, setPulls] = useState(0);
+  // Both fields go up under the header when one is tapped, so the matches and recent stops below
+  // them have the room the keyboard leaves (J, 2026-10-08). Once the page has redrawn with the room
+  // below to scroll that far (tf-page--typing), and again a moment later in case new matches
+  // redrawing the page cut the scroll short.
+  const raiseFields = () => {
+    const target = () => {
+      const fields = document.querySelector<HTMLElement>('.tf-layer .tf-fields');
+      const scroller = fields?.closest<HTMLElement>('.tf-scroll');
+      if (!fields || !scroller) return null;
+      const header = scroller.querySelector('.tf-header')?.getBoundingClientRect().height ?? 0;
+      return { scroller, top: Math.max(0, fields.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop - header - 8) };
+    };
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        const first = target();
+        first?.scroller.scrollTo({ top: first.top, behavior: motionOff() ? 'auto' : 'smooth' });
+        setTimeout(() => {
+          const settled = target();
+          if (settled && Math.abs(settled.scroller.scrollTop - settled.top) > 2) settled.scroller.scrollTo({ top: settled.top });
+        }, 400);
+      }),
+    );
+  };
   // Whether a field has the cursor, as `focus` stays on the last field used.
   const [typing, setTyping] = useState(false);
   const [response, setResponse] = useState<SearchResponse | null>(null);
@@ -296,7 +320,7 @@ export function SearchScreen() {
         }
         {...(liveStatus ? { feed: liveStatus.feed, secondsSinceUpdate: liveStatus.secondsSinceUpdate, stale: liveStatus.stale, onRefresh: () => setPulls((count) => count + 1) } : {})}
       />
-      <main class="tf-page tf-page--form" id="main">
+      <main class={`tf-page tf-page--form${typing ? ' tf-page--typing' : ''}`} id="main">
         {pins.map((pin) => (
           <PinnedHome key={searchId(pin.search)} pin={pin} name={saved.find(({ id }) => id === searchId(pin.search))?.name} now={now} pulls={pulls} onPin={(next) => pinFromHome(pin.search, next)} onUpdate={(next) => updatePin(pin.search, next)} onReport={report} />
         ))}
@@ -315,6 +339,7 @@ export function SearchScreen() {
           onFocus={(field) => {
             setFocus(field);
             setTyping(true);
+            raiseFields();
           }}
           // Later, so a tap on a recent stop lands before the list goes.
           onBlur={() => setTimeout(() => setTyping(Boolean(document.activeElement?.closest('.tf-fields'))), 200)}
