@@ -34,18 +34,24 @@ function ResetWindow({ search, update }: { search: Search; update: SearchUpdate 
 }
 
 // The same trip the other way. From cannot be a route, so a trip to one has no way back. Settings
-// stay behind: they were tuned for this direction.
+// stay behind: they were tuned for this direction. A short label, with the trip it opens under
+// it in smaller type, so long stop names wrap there rather than through the label.
 function WayBack({ search }: { search: Search }) {
   if (search.to.startsWith('route:')) return null;
   const back: Search = { from: search.to, to: search.from, fromLabel: search.toLabel, toLabel: search.fromLabel };
   return (
     <div class="tf-setting">
       <a
-        class="tf-btn-outline tf-btn-secondary tf-way-back"
+        class="tf-btn-outline tf-btn-secondary tf-way-back tf-way-back--trip"
         href={tripPath(back)}
         onClick={(event) => (event.preventDefault(), navigate(tripPath(back)))}
       >
-        Way back: {search.toLabel} to {search.fromLabel}
+        <span>
+          Way back<span class="tf-sr">:</span>
+        </span>
+        <span class="tf-way-back__trip">
+          {search.toLabel} to {search.fromLabel}
+        </span>
       </a>
     </div>
   );
