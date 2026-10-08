@@ -35,9 +35,11 @@ export type Polled<T> = {
   // five seconds. Data shown then is usually old, and a warning about it would flash for the
   // second the refresh takes, so warnings wait for this.
   settled: boolean;
-  // False until the refresh after opening, or after coming back into view, has answered or failed,
-  // however long that takes. Data shown before then may be from long ago, so nothing that cannot be
-  // undone, such as unpinning a trip, is decided from it.
+  // False until the refresh after opening, or after coming back into view (to the app, or to a
+  // screen kept under another), has answered or failed, however long that takes. Data shown before
+  // then may be from long ago, or older than what another screen has since saved, so nothing that
+  // cannot be undone, such as unpinning a trip, is decided from it. A stored answer young enough to
+  // show without refreshing is no exception.
   answered: boolean;
   refresh: () => void;
 };
@@ -61,7 +63,7 @@ const SETTLE_MS = 5000;
 // as a pinned trip, share one stored copy rather than leaving one each.
 export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { data: T; fetchedAt: number } | null = null, remember: boolean | string = true): Polled<T> {
   const key = remember === true ? url : remember || null;
-  // A stored answer younger than a refresh is as good as one just fetched.
+  // A stored answer younger than a refresh is as good as one just fetched, for showing (see answered).
   const [fresh] = useState(() => {
     const cached = !initial && key ? loadCached<T>(key) : null;
     return cached !== null && Date.now() - cached.fetchedAt < intervalMs;
@@ -72,36 +74,37 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
     return { data, error: null, fetchedAt: initial?.fetchedAt ?? cached?.fetchedAt ?? null, feed: initial || fresh ? 'live' : data ? 'refreshing' : 'loading' };
   });
   const [settled, setSettled] = useState(Boolean(initial) || fresh);
-  const [answered, setAnswered] = useState(Boolean(initial) || fresh);
+  const [answered, setAnswered] = useState(Boolean(initial));
   const tick = useRef<() => void>(() => {});
   // Under another screen, kept for going back to, it does not poll (see main.tsx). A refresh
   // missed meanwhile comes once it shows again.
   const active = useScreenActive();
   const activeRef = useRef(active);
   activeRef.current = active;
-  const shown = useRef(false);
-  // A fetch due while covered, as when a setting changed the request, waits until the screen shows.
-  const missed = useRef(false);
-  useEffect(() => {
-    if (!shown.current) return void (shown.current = true);
-    // Covered, its times grow old unseen, so nothing acts on them until they are fresh again.
-    if (!active) return setAnswered(false);
-    // Old times showing again count as unsettled, as on coming back to the app, until the refresh
-    // sent now answers.
-    if (missed.current || (state.fetchedAt !== null && Date.now() - state.fetchedAt >= intervalMs)) {
-      setAnswered(false);
-      unsettle();
-      tick.current();
-    } else if (state.fetchedAt !== null) setAnswered(true);
-  }, [active]);
-  // When the page's own response arrived, until the first refresh is planned from it.
-  const seeded = useRef(initial?.fetchedAt ?? null);
   const hold = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const unsettle = () => {
     setSettled(false);
     clearTimeout(hold.current);
     hold.current = setTimeout(() => setSettled(true), SETTLE_MS);
   };
+  const shown = useRef(false);
+  // A fetch due while covered, as when a setting changed the request, waits until the screen shows.
+  const missed = useRef(false);
+  useEffect(() => {
+    if (!shown.current) return void (shown.current = true);
+    // Covered, its times grow old unseen, and the screen it was under may have newer ones, so
+    // nothing acts on them until a refresh made once it shows again has answered. That is the next
+    // one due, so going back costs no request while the times are still fresh.
+    if (!active) return setAnswered(false);
+    // Old times showing again count as unsettled, as on coming back to the app, until the refresh
+    // sent now answers.
+    if (missed.current || (state.fetchedAt !== null && Date.now() - state.fetchedAt >= intervalMs)) {
+      unsettle();
+      tick.current();
+    }
+  }, [active]);
+  // When the page's own response arrived, until the first refresh is planned from it.
+  const seeded = useRef(initial?.fetchedAt ?? null);
 
   useEffect(() => {
     // The page's own response is used once, so a later visit finds it with the rest.

@@ -22,7 +22,7 @@ import { pageColors, scaleFor, timeScale } from '../lib/results.ts';
 import { summarize } from '../lib/summary.ts';
 import { tapForGerbils } from '../gerbils.ts';
 import { motionOff } from '../gestures.ts';
-import { useShownAgain } from '../layers.ts';
+import { useScreenActive, useShownAgain } from '../layers.ts';
 import { navigate, tripPath } from '../router.ts';
 import { tripApiUrl, useSettings } from '../settings.tsx';
 import {
@@ -158,19 +158,9 @@ export function SearchScreen() {
   };
   // Bumped when a recent search is removed, so the list reads storage again.
   const [, setRecentVersion] = useState(0);
-  // Kept under the screens it opens (see main.tsx), Home reads storage again on the way back, for
-  // what changed there: a search saved or unsaved, a trip pinned, a new recent search.
   // Notices dismissed on results leave the saved cards' counts.
   const [dismissed, setDismissed] = useState(dismissedIds);
-  const showing = useShownAgain(() => {
-    pendingEnter.current = null;
-    lookups.current++;
-    setLocating('idle');
-    setSaved(loadSaved());
-    setPins(loadPins());
-    setDismissed(dismissedIds());
-    setRecentVersion((version) => version + 1);
-  });
+  const showing = useScreenActive();
   // The browser asks for location permission on this tap, and Nearby opens once the phone has
   // answered, so the rider never lands on a screen still waiting for them.
   // Only the latest lookup answers, and none from before the rider left Home and came back.
@@ -299,6 +289,18 @@ export function SearchScreen() {
     pendingEnter.current = null;
     takeFirst(field);
   }, [response]);
+  // Kept under the screens it opens (see main.tsx), Home reads storage again on the way back, for
+  // what changed there: a search saved or unsaved, a trip pinned, a notice dismissed, a new recent
+  // search. A location lookup or Enter still waiting from before is dropped.
+  useShownAgain(() => {
+    pendingEnter.current = null;
+    lookups.current++;
+    setLocating('idle');
+    setSaved(loadSaved());
+    setPins(loadPins());
+    setDismissed(dismissedIds());
+    setRecentVersion((version) => version + 1);
+  });
   const updateSaved = (next: SavedSearch[]) => {
     saveSaved(next);
     setSaved(next);
