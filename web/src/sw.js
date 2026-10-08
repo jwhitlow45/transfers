@@ -20,6 +20,9 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith('/api/')) return;
+  // A short link is the server's to open as its trip's own address (see server/main.ts), which
+  // then loads as any other page.
+  if (url.pathname.startsWith('/s/')) return;
   if (event.request.mode === 'navigate') {
     // Every page is the same shell. The cached copy answers at once, and a fresh one is saved
     // for next time.
@@ -28,7 +31,8 @@ self.addEventListener('fetch', (event) => {
         const cached = await cache.match('/', { ignoreVary: true });
         const fresh = fetch(event.request)
           .then((response) => {
-            if (response.ok && !url.pathname.startsWith('/t/')) cache.put('/', response.clone());
+            // Only the bare shell is kept: a trip's page carries its first results.
+            if (response.ok && !response.redirected && !url.pathname.startsWith('/t/')) cache.put('/', response.clone());
             return response;
           })
           .catch(() => cached);
