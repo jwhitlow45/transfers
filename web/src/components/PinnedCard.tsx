@@ -169,8 +169,12 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
           {first && vehicle(first, first.on!, firstLink)}
           {first?.off && (
             <div class="tf-row__off" aria-hidden="true">
-              Off {clock(first.off.at)} at {name(first.off)}
-              {walk && ` · ${walk}`}
+              <span class="tf-row__keep">Off {clock(first.off.at)}</span> at {name(first.off)}
+              {walk && (
+                <>
+                  &nbsp;· <span class="tf-row__keep">{walk}</span>
+                </>
+              )}
             </div>
           )}
           {/* The narrowest phones have no room for the transfer's own column, so it sits here,

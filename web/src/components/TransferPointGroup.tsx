@@ -80,7 +80,7 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
     <>Transfer at {boardLink}</>
   ) : (
     <>
-      {alightVerb(group, data)} <StopLink stop={alight}>{alightName}</StopLink> ·{' '}
+      {alightVerb(group, data)} <StopLink stop={alight}>{alightName}</StopLink>&nbsp;·{' '}
       <span class="tf-walk-gerbil" aria-hidden="true">
         <IconGerbil />
       </span>

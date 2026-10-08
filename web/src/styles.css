@@ -424,6 +424,8 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-row__main { min-width: 0; padding-top: 2px; }
 .tf-row__line { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) 6px; font-size: var(--text-lg); font-weight: var(--weight-bold); }
 .tf-row__off { font-size: var(--text-base); color: var(--muted); }
+/* Parts of a row's line that wrap whole, such as "Off 9:21 PM" and "Walk 1 min". */
+.tf-row__keep { white-space: nowrap; }
 .tf-row__xfer { text-align: right; padding-top: 2px; }
 .tf-row__xfer-min { font-size: 20px; font-weight: var(--weight-heavy); }
 .tf-row--tight .tf-row__xfer-min { color: var(--late); }

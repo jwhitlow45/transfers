@@ -111,14 +111,21 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
         <StatusTag status={status} plain hidden />
         <div class="tf-row__off">
           {/* Plain, to keep the row simple: the time above opens the same vehicle's map. */}
-          <span aria-hidden="true">Off {clock(connection.arrives)}</span>
+          <span class="tf-row__keep" aria-hidden="true">
+            Off {clock(connection.arrives)}
+          </span>
           {offAt && (
             <>
               <span aria-hidden="true"> at </span>
               <StopLink stop={context.data.stops[connection.alight!]}>{offAt}</StopLink>
             </>
           )}
-          {walk && <span aria-hidden="true"> · {walk}</span>}
+          {/* Should the walk wrap, it moves whole, and the dot stays at the end of the line before. */}
+          {walk && (
+            <span aria-hidden="true">
+              &nbsp;· <span class="tf-row__keep">{walk}</span>
+            </span>
+          )}
         </div>
       </div>
       <div class="tf-row__xfer" aria-hidden="true">
