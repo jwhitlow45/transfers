@@ -89,6 +89,7 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
     // Old times showing again count as unsettled, as on coming back to the app, until the refresh
     // sent now answers.
     if (missed.current || (state.fetchedAt !== null && Date.now() - state.fetchedAt >= intervalMs)) {
+      setAnswered(false);
       unsettle();
       tick.current();
     } else if (state.fetchedAt !== null) setAnswered(true);
@@ -126,7 +127,7 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
     // A refresh that answers while the page is hidden is old by the time the page is back, and the
     // one sent then answers for it.
     const answer = () => {
-      if (document.visibilityState === 'visible') setAnswered(true);
+      if (document.visibilityState === 'visible' && activeRef.current) setAnswered(true);
     };
     const fetchNow = async () => {
       missed.current = false;
@@ -217,10 +218,12 @@ export function usePinnedTrip(pin: Pin | null, data: TripResponse | null, answer
     const stored = loadPin(search);
     if (active && pin && stored && samePin(stored, pin)) change(next);
   };
+  // Times kept from before are not written over newer ones another screen saved, so only times
+  // just answered are (see Polled).
   useEffect(() => {
-    if (!pin || !pinned || seen === null || seen === JSON.stringify(pin.last)) return;
+    if (!answered || !pin || !pinned || seen === null || seen === JSON.stringify(pin.last)) return;
     changeOwn({ ...pin, last: pinned, ...(ends !== null ? { ends } : {}) });
-  }, [seen, active]);
+  }, [seen, active, answered]);
   const end = ends ?? pin?.ends ?? null;
   const unpinAt = pin && settings.autoUnpin && end !== null ? (end + settings.unpinAfter * 60) * 1000 : null;
   const expired = answered && unpinAt !== null && now >= unpinAt;

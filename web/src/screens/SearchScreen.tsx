@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import type { SearchResponse, TripResponse } from '../../../shared/api.ts';
 import { getJson } from '../api.ts';
 import { Collapse } from '../components/Collapse.tsx';
@@ -58,6 +58,8 @@ function pickedFrom(hit: SearchHit, response: SearchResponse): Picked {
   }
   return { key: hit.key, label: hit.name, meta: hitMeta(hit, response), short: stopLabel(hit) };
 }
+
+const dismissedIds = () => new Set(loadDismissed().map(({ id }) => id));
 
 export function SearchScreen() {
   const now = useNow();
@@ -158,28 +160,38 @@ export function SearchScreen() {
   const [, setRecentVersion] = useState(0);
   // Kept under the screens it opens (see main.tsx), Home reads storage again on the way back, for
   // what changed there: a search saved or unsaved, a trip pinned, a new recent search.
+  // Notices dismissed on results leave the saved cards' counts.
+  const [dismissed, setDismissed] = useState(dismissedIds);
   const showing = useShownAgain(() => {
     pendingEnter.current = null;
+    lookups.current++;
+    setLocating('idle');
     setSaved(loadSaved());
     setPins(loadPins());
+    setDismissed(dismissedIds());
     setRecentVersion((version) => version + 1);
   });
   // The browser asks for location permission on this tap, and Nearby opens once the phone has
   // answered, so the rider never lands on a screen still waiting for them.
+  // Only the latest lookup answers, and none from before the rider left Home and came back.
   const [locating, setLocating] = useState<'idle' | 'asking' | LocationProblem>('idle');
+  const lookups = useRef(0);
   const here = useRef(true);
   here.current = showing;
   useEffect(() => () => void (here.current = false), []);
   const findNearby = () => {
+    const lookup = ++lookups.current;
     setLocating('asking');
     locate().then(
       (position) => {
+        if (lookup !== lookups.current) return;
+        setLocating('idle');
         // The rider may have opened something else while the phone looked, which Home stays under.
         if (!here.current) return;
         handOver(position);
         navigate('/nearby');
       },
-      (problem: LocationProblem) => setLocating(problem),
+      (problem: LocationProblem) => lookup === lookups.current && setLocating(problem),
     );
   };
 
@@ -424,6 +436,7 @@ export function SearchScreen() {
                     key={search.id}
                     search={search}
                     now={now}
+                    dismissed={dismissed}
                     pulls={pulls}
                     onMove={(step) => moveSaved(search.id, step)}
                     canMoveUp={index > 0}
@@ -569,9 +582,11 @@ function PinnedHome({ pin, name, now, pulls, onPin, onUpdate, onReport }: {
 }
 
 // Polls its own trip, so the card counts down live and opening it shows cached results at once.
-function SavedTrip({ search, now, pulls, onMove, canMoveUp, canMoveDown, pin, onPin, onReport, onEdit, onColorless, onRemove }: {
+function SavedTrip({ search, now, dismissed, pulls, onMove, canMoveUp, canMoveDown, pin, onPin, onReport, onEdit, onColorless, onRemove }: {
   search: SavedSearch;
   now: number;
+  // Ids of the notices the rider dismissed.
+  dismissed: Set<string>;
   pulls: number;
   onMove: (step: -1 | 1) => void;
   canMoveUp: boolean;
@@ -590,8 +605,6 @@ function SavedTrip({ search, now, pulls, onMove, canMoveUp, canMoveDown, pin, on
   useEffect(() => void (pulls && refresh()), [pulls]);
   const skew = clockSkewMs(data?.generatedAt, fetchedAt);
   useLiveReport(onReport, `saved:${search.id}`, { feed, fetchedAt, dataAt: data?.dataAt ?? null, skew, settled });
-  // Read once per visit to Home: dismissing happens on results.
-  const dismissed = useMemo(() => new Set(loadDismissed().map(({ id }) => id)), []);
   const summary = summarize(search, data, now + skew, dismissed);
   const fresh = freshness(now + skew, fetchedAt === null ? null : fetchedAt + skew, data?.dataAt ?? null);
   useEffect(() => {
