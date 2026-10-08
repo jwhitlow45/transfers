@@ -265,6 +265,14 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-header__edge--loading::after { content: ""; display: block; width: 40%; height: 100%; background: var(--accent); animation: tf-indet var(--motion-indeterminate); }
 .tf-header[data-accent="true"] .tf-header__edge--loading { background: color-mix(in srgb, var(--saved-color) 35%, transparent); }
 .tf-header[data-accent="true"] .tf-header__edge--loading::after { background: var(--saved-color); }
+.tf-header__edge--gerbil { overflow: visible; background: color-mix(in srgb, var(--accent) 35%, transparent); }
+:root:not([data-motion="off"]) .tf-header__edge--gerbil::after { display: none; }
+/* The runner is as wide as the bar, so a percent of its own width carries the gerbil across it, stopping short of the edge so the page never scrolls sideways. */
+.tf-gerbil { position: absolute; left: 0; bottom: 100%; width: 100%; height: 13px; color: var(--saved-color, var(--accent)); pointer-events: none; animation: tf-gerbil-run var(--motion-indeterminate); }
+.tf-gerbil svg { display: block; animation: tf-gerbil-trot .3s ease-in-out infinite alternate; }
+:root[data-motion="off"] .tf-gerbil { display: none; }
+@keyframes tf-gerbil-run { from { transform: translateX(0); } to { transform: translateX(calc(100% - 19px)); } }
+@keyframes tf-gerbil-trot { to { transform: translateY(-1px); } }
 @keyframes tf-indet { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
 
 /* ── banners & alerts ──────────────────────────────── */
