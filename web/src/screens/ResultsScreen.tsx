@@ -25,7 +25,7 @@ import { type StationOutages, groupStops, outagesByStation } from '../lib/outage
 import { ringsBell } from '../lib/eggs.ts';
 import { samePin } from '../lib/pinned.ts';
 import { ageText, clockSkewMs, freshness } from '../lib/freshness.ts';
-import { IconHidden, IconTransfer } from '../icons/ui.tsx';
+import { IconFlag, IconHidden, IconTransfer } from '../icons/ui.tsx';
 import { type CardContext, chooseDirection, directionChoices, hintKey, orderGroups, pageColors, pointId, scaleFor, timeScale, visibleDepartures } from '../lib/results.ts';
 import { summarize } from '../lib/summary.ts';
 import { cameBackTo, goBack, navigate, tripPath } from '../router.ts';
@@ -289,6 +289,10 @@ export function ResultsScreen({ search }: { search: Search }) {
               : []),
             // A setting for every trip, so a rider who turned it on elsewhere sees why rows are hatched.
             ...(showHidden ? [{ key: 'hidden', icon: <IconEye />, short: 'Hidden shown', full: 'Showing hidden connections on every trip, marked with why they were hidden' }] : []),
+            // Last, where its name has the rest of the line, cut short where that is too little (J, 2026-10-08).
+            ...(search.dest
+              ? [{ key: 'dest', icon: <IconFlag />, short: shortStopName(data?.stops[search.dest], search.destLabel?.replace(/ \(\w+\)$/, '') ?? search.dest), full: `Showing when each departure gets you to ${search.destLabel ?? search.dest}. Trip settings changes it` }]
+              : []),
           ]}
           accent={saved?.color}
           onRefresh={refresh}

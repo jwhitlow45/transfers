@@ -718,6 +718,14 @@ button:disabled { opacity: .45; cursor: default; }
    readers hear the whole sentence either way. */
 @media (max-width: 399px) { .tf-update-more { display: none; } }
 @media (max-width: 359px) { .tf-stat--update .tf-stat__value { display: none; } }
+/* The destination's name takes what the line has left, and ends in an ellipsis where that is too
+   little. */
+.tf-stat--dest { flex: 0 1 auto; min-width: 0; }
+.tf-stat--dest .tf-stat__button { min-width: 0; }
+.tf-stat--dest .tf-stat__value { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* Beside more items on narrower phones its name would be cut to a letter or two, so the flag stands
+   alone there. A tap still says where. */
+@media (max-width: 429px) { .tf-livestatus:has(.tf-stat--hide, .tf-stat--routes, .tf-stat--hidden, .tf-stat--update) .tf-stat--dest .tf-stat__value { display: none; } }
 /* Route filters, and hidden connections shown, say so in words where the line has room for them,
    and by their icons alone on narrower phones or beside more items. Each still opens its sentence. */
 @media (max-width: 429px) { :is(.tf-stat--routes, .tf-stat--hidden) .tf-stat__value { display: none; } }
