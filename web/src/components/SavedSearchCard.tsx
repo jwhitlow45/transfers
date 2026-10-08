@@ -157,6 +157,14 @@ export function SavedSearchCard({ name, color, chain, named, windowText, next, l
               {/* Most answers are minutes away, with "min" under the number. */}
               {loading && <span class="tf-row__unit tf-skeleton__text" style={{ width: '2em' }} />}
               {next && !now && <span class="tf-row__unit">min</span>}
+              {/* Under the countdown it goes on from, not under the transfer, which it would seem
+                  to be about there (J, 2026-10-08). */}
+              {next && next.later.length > 0 && (
+                <span class="tf-saved__then">
+                  <span class="tf-row__lead">Then</span>
+                  {next.later.join(', ')} min
+                </span>
+              )}
             </span>
             {next ? (
               <span class="tf-saved__next">
@@ -176,7 +184,6 @@ export function SavedSearchCard({ name, color, chain, named, windowText, next, l
                     </span>,
                   ])}
                   {next.transfer === null && <span class="tf-saved__xfer">No transfer needed</span>}
-                  {next.later.length > 0 && <span class="tf-saved__then">then {next.later.join(', ')} min</span>}
                 </span>
               </span>
             ) : loading ? (
