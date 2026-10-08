@@ -25,7 +25,8 @@ let layerIds = 0;
 function useLayers(page: Page, peeking: boolean) {
   const make = (depth: number): Layer => ({ id: ++layerIds, page, depth, homeKey: history.state?.from || history.state?.to ? 'prefilled' : 'home' });
   // `motion` is how the screen showing arrived, until `until`: sliding in over the one under it, or
-  // rising over `outgoing`, the one whose place it took, kept until then.
+  // rising over `outgoing`, the one whose place it took, kept until then. `until` is Infinity while
+  // the motion is held at its start (see below).
   const state = useRef<{ current: Layer; under: Layer | null; outgoing: Layer | null; motion: 'enter' | 'swap'; until: number; homePeek: number | null }>(null as never);
   if (!state.current) state.current = { current: make(currentDepth()), under: null, outgoing: null, motion: 'enter', until: 0, homePeek: null };
   const [, rerender] = useState(0);
@@ -37,7 +38,7 @@ function useLayers(page: Page, peeking: boolean) {
     if (depth > s.current.depth) {
       s.under = s.current;
       s.current = make(depth);
-      if (!motionOff()) [s.motion, s.until] = ['enter', Date.now() + ENTER_MS];
+      if (!motionOff()) [s.motion, s.until] = ['enter', Infinity];
     } else if (depth < s.current.depth) {
       // Back to the screen kept under, or to the Home a swipe back showed fresh under it.
       const kept = same(s.under) ? s.under! : page.name === 'home' && s.homePeek !== null ? { ...make(depth), id: s.homePeek } : null;
@@ -55,16 +56,31 @@ function useLayers(page: Page, peeking: boolean) {
       if (swap && !motionOff()) {
         s.outgoing = s.current;
         s.current = make(depth);
-        [s.motion, s.until] = ['swap', Date.now() + SWAP_MS];
+        [s.motion, s.until] = ['swap', Infinity];
       } else s.current = { ...s.current, page, depth };
     }
   }
   const moving = Date.now() < s.until;
-  useEffect(() => {
-    if (!moving) return;
-    const timer = setTimeout(() => rerender((count) => count + 1), s.until - Date.now());
-    return () => clearTimeout(timer);
-  }, [moving, s.until]);
+  const held = s.until === Infinity;
+  // A motion starts held at its first frame, and runs once the new screen has painted. Its clock
+  // would otherwise start as the screen is made, and the frame or two it takes to draw would skip
+  // the motion's start, so it would jump halfway in. Released straight on the element, as a render
+  // then would cost another frame.
+  const app = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (!held) return;
+    const [motion, screen] = [s.motion, s.current.id];
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => {
+        if (s.until !== Infinity || s.motion !== motion || s.current.id !== screen) return;
+        const lasts = motion === 'enter' ? ENTER_MS : SWAP_MS;
+        s.until = Date.now() + lasts;
+        app.current?.removeAttribute('data-held');
+        setTimeout(() => rerender((count) => count + 1), lasts);
+      });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [held, s.current.id]);
   const entering = moving && s.motion === 'enter';
   const swapping = moving && s.motion === 'swap';
   if (!swapping) s.outgoing = null;
@@ -74,7 +90,7 @@ function useLayers(page: Page, peeking: boolean) {
   if (freshHome && s.homePeek === null) s.homePeek = ++layerIds;
   if (!freshHome && page.name !== 'home') s.homePeek = null;
   const under = s.under ?? (freshHome ? { id: s.homePeek!, page: { name: 'home' } as Page, depth: 0, homeKey: 'home' } : null);
-  return { current: s.current, under, outgoing: s.outgoing, entering, swapping };
+  return { current: s.current, under, outgoing: s.outgoing, entering, swapping, held, app };
 }
 
 function screenFor(layer: Layer) {
@@ -89,7 +105,7 @@ function screenFor(layer: Layer) {
 function App() {
   const page = usePage();
   const peeking = usePeeking();
-  const { current, under, outgoing, entering, swapping } = useLayers(page, peeking);
+  const { current, under, outgoing, entering, swapping, held, app } = useLayers(page, peeking);
   // Back on a page left for another and opened afresh, it is scrolled where it was, before it
   // paints. Its own sheet reopens from the same record (see Left in router.ts).
   useLayoutEffect(() => {
@@ -109,7 +125,7 @@ function App() {
   const layers = [...(under ? [under] : []), ...(outgoing ? [outgoing] : []), current];
   return (
     <SettingsProvider>
-      <div class="tf-app" data-entering={entering ? 'true' : undefined} data-swapping={swapping ? 'true' : undefined} data-peeking={peeking ? 'true' : undefined}>
+      <div ref={app} class="tf-app" data-entering={entering ? 'true' : undefined} data-swapping={swapping ? 'true' : undefined} data-held={held ? 'true' : undefined} data-peeking={peeking ? 'true' : undefined}>
         <TrackProvider>
           {layers.map((layer) => {
             const showing = layer === current;

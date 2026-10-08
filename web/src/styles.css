@@ -148,6 +148,9 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-app[data-swapping="true"] > .tf-layer > :not(.tf-sheet) { animation: tf-rise 260ms cubic-bezier(.2, .8, .2, 1) both; }
 .tf-app[data-swapping="true"] > .tf-outgoing > .tf-peek__dim { animation: tf-peek-dim 260ms cubic-bezier(.2, .8, .2, 1) both; }
 @keyframes tf-rise { from { transform: translateY(100vh); } }
+/* Either motion is held at its first frame until the new screen has painted (see main.tsx). After
+   both, as their animation shorthand would set it running again. */
+.tf-app[data-held="true"] > .tf-layer > :not(.tf-sheet), .tf-app[data-held="true"] > .tf-peek, .tf-app[data-held="true"] :is(.tf-peek, .tf-outgoing) > .tf-peek__dim { animation-play-state: paused; }
 @keyframes tf-peek-leave { from { transform: none; } to { transform: translateX(-25%); } }
 @keyframes tf-peek-dim { from { opacity: 0; } to { opacity: .3; } }
 /* Focused only in place of a control that went away (see focus.ts), which needs no ring. */
