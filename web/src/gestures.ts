@@ -12,7 +12,7 @@ const SIDEWAYS_LEAN = 1.5;
 // Matches the transitions on sheets and the pull indicator in styles.css.
 export const SLIDE_MS = 180;
 // A screen sliding in over Home, as tf-enter in styles.css.
-export const ENTER_MS = 280;
+export const ENTER_MS = 200;
 
 // Where the finger let go: distance along the drag's axis from where it first touched, and its
 // speed then, in px per ms. Both are positive downward or rightward.
