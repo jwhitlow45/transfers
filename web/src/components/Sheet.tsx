@@ -10,10 +10,10 @@ const CLOSE_PX = 140;
 // Or when flung down at least this fast, in px per ms.
 const CLOSE_FLING = 0.4;
 
-// Slides the sheet a control is in out of sight, then closes it, or in place of closing does
-// `then`, such as putting another page in the one under it. Outside a sheet, it does `then`.
-const SlideAway = createContext<(then?: () => void) => void>((then) => then?.());
-export const useSlideAway = () => useContext(SlideAway);
+// Leaves the sheet a control is in open as it is, and does `then`, such as putting another page in
+// the one under it, which rises over both (see main.tsx). Outside a sheet, it does `then`.
+const LeaveOpen = createContext<(then: () => void) => void>((then) => then());
+export const useLeaveOpen = () => useContext(LeaveOpen);
 
 // Modal bottom sheet: focus moves in on open, Tab stays inside, Escape and the scrim close it,
 // and focus returns to the button that opened it. Dragging down closes it too. Its top, the
@@ -48,6 +48,8 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
   // where the finger left it, and Close, Done, the scrim, Escape, and the system back from where it
   // stands.
   const sliding = useRef(false);
+  // Left open for a page coming up over it, it is gone with its page.
+  const kept = useRef(false);
   const slid = useRef<(then: () => void) => void>(() => {});
   useEffect(() => {
     step.current = openSheetEntry(title);
@@ -56,7 +58,7 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
     // one (see main.tsx), and takes a step back of its own again once the rider is back.
     let covered = false;
     const onPop = () => {
-      if (isSheetEntry(step.current)) return;
+      if (isSheetEntry(step.current) || kept.current) return;
       if (currentKey() !== pageKey) return void (covered = true);
       if (!covered) return sliding.current ? latestClose.current() : slid.current(() => latestClose.current());
       covered = false;
@@ -146,7 +148,7 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
         </div>
         <div ref={body} class="tf-sheet__body">
           <div class="tf-sheet__inner">
-            <SlideAway.Provider value={slideAway}>{children}</SlideAway.Provider>
+            <LeaveOpen.Provider value={(then) => ((kept.current = true), then())}>{children}</LeaveOpen.Provider>
             {footer && <div class="tf-sheet__saved">{footer}</div>}
             <button type="button" class="tf-btn-primary tf-sheet__done" onClick={() => slideAway()}>
               Done

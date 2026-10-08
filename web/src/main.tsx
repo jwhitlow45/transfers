@@ -18,20 +18,21 @@ import './styles.css';
 // shows it under the screen it uncovers (J, 2026-10-08). A step forward slides the new screen in
 // over it. Only one is kept: a screen two steps back is opened afresh.
 type Layer = { id: number; page: Page; depth: number; homeKey: string };
-// A trip fading in where another was (tf-swap in styles.css).
-const SWAP_MS = 240;
+// A trip rising over the one it takes the place of (tf-rise in styles.css).
+const SWAP_MS = 260;
 let layerIds = 0;
 
 function useLayers(page: Page, peeking: boolean) {
   const make = (depth: number): Layer => ({ id: ++layerIds, page, depth, homeKey: history.state?.from || history.state?.to ? 'prefilled' : 'home' });
   // `motion` is how the screen showing arrived, until `until`: sliding in over the one under it, or
-  // fading in where another was.
-  const state = useRef<{ current: Layer; under: Layer | null; motion: 'enter' | 'swap'; until: number; homePeek: number | null }>(null as never);
-  if (!state.current) state.current = { current: make(currentDepth()), under: null, motion: 'enter', until: 0, homePeek: null };
+  // rising over `outgoing`, the one whose place it took, kept until then.
+  const state = useRef<{ current: Layer; under: Layer | null; outgoing: Layer | null; motion: 'enter' | 'swap'; until: number; homePeek: number | null }>(null as never);
+  if (!state.current) state.current = { current: make(currentDepth()), under: null, outgoing: null, motion: 'enter', until: 0, homePeek: null };
   const [, rerender] = useState(0);
   const s = state.current;
   if (s.current.page !== page) {
     const depth = currentDepth();
+    s.outgoing = null;
     const same = (layer: Layer | null) => layer !== null && layer.page.name === page.name && (page.name !== 'trip' || (layer.page.name === 'trip' && searchId(layer.page.search) === searchId(page.search)));
     if (depth > s.current.depth) {
       s.under = s.current;
@@ -48,10 +49,14 @@ function useLayers(page: Page, peeking: boolean) {
       s.current = { ...make(depth), id: s.homePeek };
     } else {
       // The same screen with a new address, as when a setting changes, or a sheet closes. Another
-      // trip in its place, as the way back opens, fades in, so the page does not change at a blink.
+      // trip in its place, as its return trip opens, rises from the bottom over it, much as a step
+      // forward slides in from the side, though the app is no deeper for it (J, 2026-10-08).
       const swap = page.name === 'trip' && s.current.page.name === 'trip' && searchId(page.search) !== searchId(s.current.page.search);
-      s.current = { ...s.current, page, depth };
-      if (swap && !motionOff()) [s.motion, s.until] = ['swap', Date.now() + SWAP_MS];
+      if (swap && !motionOff()) {
+        s.outgoing = s.current;
+        s.current = make(depth);
+        [s.motion, s.until] = ['swap', Date.now() + SWAP_MS];
+      } else s.current = { ...s.current, page, depth };
     }
   }
   const moving = Date.now() < s.until;
@@ -62,13 +67,14 @@ function useLayers(page: Page, peeking: boolean) {
   }, [moving, s.until]);
   const entering = moving && s.motion === 'enter';
   const swapping = moving && s.motion === 'swap';
+  if (!swapping) s.outgoing = null;
   // A swipe back to Home with nothing kept under: Home, opened fresh to show under the screen,
   // and kept as the Home landed on.
   const freshHome = !s.under && peeking && page.name !== 'home' && backGoesHome();
   if (freshHome && s.homePeek === null) s.homePeek = ++layerIds;
   if (!freshHome && page.name !== 'home') s.homePeek = null;
   const under = s.under ?? (freshHome ? { id: s.homePeek!, page: { name: 'home' } as Page, depth: 0, homeKey: 'home' } : null);
-  return { current: s.current, under, entering, swapping };
+  return { current: s.current, under, outgoing: s.outgoing, entering, swapping };
 }
 
 function screenFor(layer: Layer) {
@@ -83,7 +89,7 @@ function screenFor(layer: Layer) {
 function App() {
   const page = usePage();
   const peeking = usePeeking();
-  const { current, under, entering, swapping } = useLayers(page, peeking);
+  const { current, under, outgoing, entering, swapping } = useLayers(page, peeking);
   // Back on a page left for another and opened afresh, it is scrolled where it was, before it
   // paints. Its own sheet reopens from the same record (see Left in router.ts).
   useLayoutEffect(() => {
@@ -99,8 +105,8 @@ function App() {
     document.title = page.name === 'trip' ? `${page.search.fromLabel} to ${page.search.toLabel} · Transfers` : page.name === 'home' ? 'Transfers' : `${page.name[0]!.toUpperCase()}${page.name.slice(1)} · Transfers`;
   }, [page]);
   // Under first, then the screen showing, so a step either way never moves one in the page,
-  // which would lose its scroll.
-  const layers = [...(under ? [under] : []), current];
+  // which would lose its scroll. One whose place the screen showing is taking lies between.
+  const layers = [...(under ? [under] : []), ...(outgoing ? [outgoing] : []), current];
   return (
     <SettingsProvider>
       <div class="tf-app" data-entering={entering ? 'true' : undefined} data-swapping={swapping ? 'true' : undefined} data-peeking={peeking ? 'true' : undefined}>
@@ -108,7 +114,7 @@ function App() {
           {layers.map((layer) => {
             const showing = layer === current;
             return (
-              <div key={layer.id} class={showing ? 'tf-layer' : 'tf-peek'} aria-hidden={showing ? undefined : 'true'} inert={!showing}>
+              <div key={layer.id} class={showing ? 'tf-layer' : layer === outgoing ? 'tf-outgoing' : 'tf-peek'} aria-hidden={showing ? undefined : 'true'} inert={!showing}>
                 <ScreenActive.Provider value={showing}>{screenFor(layer)}</ScreenActive.Provider>
                 {!showing && <div class="tf-peek__dim" />}
               </div>

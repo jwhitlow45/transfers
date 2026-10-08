@@ -131,8 +131,8 @@ button:disabled { opacity: .45; cursor: default; }
    until a swipe back or a screen sliding in over it shows it, a little to the left and dimmed. The
    screen showing covers it. */
 .tf-layer { display: contents; }
-.tf-app:has(> .tf-peek) { isolation: isolate; }
-.tf-app:has(> .tf-peek) > .tf-layer > :not(.tf-sheet) { background: var(--bg); }
+.tf-app:has(> .tf-peek, > .tf-outgoing) { isolation: isolate; }
+.tf-app:has(> .tf-peek, > .tf-outgoing) > .tf-layer > :not(.tf-sheet) { background: var(--bg); }
 .tf-peek { position: absolute; inset: 0; z-index: -1; display: flex; flex-direction: column; background: var(--bg); transform: translateX(-25%); pointer-events: none; }
 .tf-app:not([data-peeking="true"], [data-entering="true"]) > .tf-peek { visibility: hidden; }
 .tf-peek__dim { position: absolute; inset: 0; background: #000; opacity: .3; }
@@ -141,10 +141,13 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-app[data-entering="true"] > .tf-peek { animation: tf-peek-leave 200ms cubic-bezier(.2, .8, .2, 1) both; }
 .tf-app[data-entering="true"] .tf-peek__dim { animation: tf-peek-dim 200ms cubic-bezier(.2, .8, .2, 1) both; }
 @keyframes tf-enter { from { transform: translateX(100%); } to { transform: none; } }
-/* Another trip in the page's place, such as its way back: the page fades in under the bottom bar,
-   which stays. */
-.tf-app[data-swapping="true"] > .tf-layer > .tf-scroll { animation: tf-swap 240ms ease-out both; }
-@keyframes tf-swap { from { opacity: 0; transform: translateY(8px); } }
+/* Another trip in the page's place, such as its return trip, rises from the bottom over the one it
+   replaces, which stays put and dims. Its parts rise the same distance, the screen's height, so
+   the bottom bar keeps with the page above it. */
+.tf-outgoing { position: absolute; inset: 0; z-index: -1; display: flex; flex-direction: column; background: var(--bg); pointer-events: none; }
+.tf-app[data-swapping="true"] > .tf-layer > :not(.tf-sheet) { animation: tf-rise 260ms cubic-bezier(.2, .8, .2, 1) both; }
+.tf-app[data-swapping="true"] > .tf-outgoing > .tf-peek__dim { animation: tf-peek-dim 260ms cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes tf-rise { from { transform: translateY(100vh); } }
 @keyframes tf-peek-leave { from { transform: none; } to { transform: translateX(-25%); } }
 @keyframes tf-peek-dim { from { opacity: 0; } to { opacity: .3; } }
 /* Focused only in place of a control that went away (see focus.ts), which needs no ring. */
