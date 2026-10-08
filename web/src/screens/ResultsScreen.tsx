@@ -40,6 +40,7 @@ import {
   removeSaved,
   restoreNotice,
   savePin,
+  saveSaved,
   saveSearch,
   takePinHint,
   updateSaved,
@@ -156,8 +157,22 @@ export function ResultsScreen({ search }: { search: Search }) {
   };
   const toggleSaved = () => {
     if (saved) {
+      // The record as stored keeps the name, color, and settings, and Undo puts it back in its place.
+      const all = loadSaved();
+      const index = all.findIndex(({ id }) => id === saved.id);
+      const removed = all[index] ?? saved;
       removeSaved(saved.id);
       setSaved(null);
+      setToast({
+        id: ++toastId.current,
+        text: 'Removed from Saved',
+        about: 'notice',
+        undo: () => {
+          const rest = loadSaved().filter(({ id }) => id !== saved.id);
+          saveSaved([...rest.slice(0, index), removed, ...rest.slice(index)]);
+          setSaved(removed);
+        },
+      });
     } else {
       const taken = loadSaved().map(({ color }) => color).filter((color) => color !== undefined);
       setSaved(saveSearch(search, `${summary.from} to ${summary.to}`, defaultSavedColor(summary.lineColor, taken)));
