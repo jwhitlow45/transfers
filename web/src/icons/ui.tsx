@@ -110,6 +110,9 @@ export const GerbilShape = () => (
   </>
 );
 export const IconGerbil = ({ size = 16 }: Props) => icon(<GerbilShape />, size);
+// The phone's own share mark, a box with an arrow out of it, and a U-turn for the trip back.
+export const IconShare = ({ size = 18 }: Props) => icon(<path d="M12 3v12M8 7l4-4 4 4M6 11H5v10h14V11h-1" />, size);
+export const IconReturn = ({ size = 18 }: Props) => icon(<path d="M9 14l-5-5 5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />, size);
 export const IconFlag = ({ size = 16 }: Props) => icon(<path d="M6 21V4M6 4h11l-2.5 4 2.5 4H6" />, size);
 export const IconTransfer = ({ size = 16 }: Props) => icon(<path d="M4 8h14l-4-4M20 16H6l4 4" />, size);
 export const IconHidden = ({ size = 16 }: Props) =>

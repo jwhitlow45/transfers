@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { DestinationsResponse, TripResponse, WayBackResponse } from '../../../shared/api.ts';
 import { getJson } from '../api.ts';
-import { IconChevron } from '../icons/ui.tsx';
+import { IconChevron, IconReturn, IconShare } from '../icons/ui.tsx';
 import { routeColor } from '../lib/color.ts';
 import { pointId } from '../lib/results.ts';
 import { shortTripPath } from '../../../shared/short-links.ts';
@@ -61,16 +61,17 @@ function ShareButton({ search, onCopied }: { search: Search; onCopied: () => voi
   };
   return (
     <button type="button" class="tf-btn-outline tf-btn-secondary" onClick={share}>
-      Share this trip
+      <IconShare />
+      Share trip
     </button>
   );
 }
 
-// Sharing the trip, and its way back: from the destination stop to where the first vehicle let the
-// rider off, to catch it back to where they started (see wayBack in server/engine/trip.ts), side
-// by side (J, 2026-10-08). The way back is worked out once the sheet opens, and needs a destination
-// to start from. The sheet slides away and the way back takes this page's place, rather than
-// opening a page over it, and its own way back returns here (J, 2026-10-08).
+// Sharing the trip, and its return trip: from the destination stop to where the first vehicle let
+// the rider off, to catch it back to where they started (see wayBack in server/engine/trip.ts),
+// side by side, each with an icon (J, 2026-10-08). The return trip is worked out once the sheet
+// opens, and needs a destination to start from. The sheet slides away and the return trip takes
+// this page's place, rather than opening a page over it, and its own return trip comes back here.
 function TripActions({ search, wayBackUrl, onCopied }: { search: Search; wayBackUrl: string; onCopied: () => void }) {
   const [back, setBack] = useState<WayBackResponse['back'] | undefined>(undefined);
   useEffect(() => {
@@ -82,13 +83,14 @@ function TripActions({ search, wayBackUrl, onCopied }: { search: Search; wayBack
   }, [search.dest ? wayBackUrl : null]);
   const path = back ? tripPath({ from: back.from, to: back.to, fromLabel: back.fromLabel, toLabel: back.toLabel, dest: back.dest, destLabel: back.destLabel }) : null;
   const slideAway = useSlideAway();
-  const note = !search.dest ? 'Set a destination stop below for the way back.' : back === null ? `No way back found from ${search.destLabel ?? 'the destination'}.` : null;
+  const note = !search.dest ? 'Set a destination stop below for the return trip.' : back === null ? `No return trip found from ${search.destLabel ?? 'the destination'}.` : null;
   return (
     <div class="tf-setting">
       <div class="tf-trip-actions">
         <ShareButton search={search} onCopied={onCopied} />
         <button type="button" class="tf-btn-outline tf-btn-secondary" disabled={!path} aria-describedby={note ? 'way-back-note' : undefined} onClick={() => path && slideAway(() => replacePage(path))}>
-          Way back
+          <IconReturn />
+          Return trip
         </button>
       </div>
       {note && (
