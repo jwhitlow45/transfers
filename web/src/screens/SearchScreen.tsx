@@ -15,7 +15,7 @@ import { useNow, usePinnedTrip, usePoll } from '../hooks.ts';
 import { IconChevron, IconGear, IconLocation, IconPin } from '../icons/ui.tsx';
 import { defaultSavedColor } from '../lib/color.ts';
 import { type LiveReport, ageText, clockSkewMs, freshness, homeStatus } from '../lib/freshness.ts';
-import { type LocationProblem, handOver, locate, locationProblemText } from '../lib/location.ts';
+import { type LocationProblem, type Position, handOver, locate, locationProblemText } from '../lib/location.ts';
 import { pageColors, scaleFor, timeScale } from '../lib/results.ts';
 import { summarize } from '../lib/summary.ts';
 import { navigate, tripPath } from '../router.ts';
@@ -68,6 +68,8 @@ export function SearchScreen() {
   const [to, setTo] = useState<FieldState>(initial.to);
   useEffect(() => saveFields({ from, to }), [from, to]);
   const [focus, setFocus] = useState<'from' | 'to' | null>(null);
+  // Each pull to refresh, which every live card answers by refreshing (J, 2026-10-08).
+  const [pulls, setPulls] = useState(0);
   // Whether a field has the cursor, as `focus` stays on the last field used.
   const [typing, setTyping] = useState(false);
   const [response, setResponse] = useState<SearchResponse | null>(null);
@@ -117,7 +119,21 @@ export function SearchScreen() {
 
   const active = focus === 'from' ? from : focus === 'to' ? to : null;
   const query = active && !active.picked ? active.query.trim() : '';
+  // With location already allowed, search puts the nearer of same-named stops first, such as a
+  // street's two sides (J, 2026-10-08). Home never asks for permission for this.
+  const [near, setNear] = useState<Position | null>(null);
   useEffect(() => {
+    navigator.permissions
+      ?.query({ name: 'geolocation' })
+      .then((status) => status.state === 'granted' && locate(5 * 60_000).then((position) => here.current && setNear(position)))
+      .catch(() => {});
+  }, []);
+  // A search the server could not answer says so, rather than looking like no match. Retry asks
+  // again (J, 2026-10-08).
+  const [searchFailed, setSearchFailed] = useState(false);
+  const [retries, setRetries] = useState(0);
+  useEffect(() => {
+    setSearchFailed(false);
     if (!query) {
       setResponse(null);
       return;
@@ -125,17 +141,22 @@ export function SearchScreen() {
     const controller = new AbortController();
     // Waits for a pause in typing, so each keystroke does not cost a request.
     const timer = setTimeout(() => {
-      const params = new URLSearchParams({ q: query, kind: focus === 'to' ? 'any' : 'stop' });
-      getJson<SearchResponse>(`/api/search?${params}`, { signal: controller.signal }).then((answer) => {
-        answeredFor.current = `${focus}|${query}`;
-        setResponse(answer);
-      }, () => {});
+      const params = new URLSearchParams({ q: query, kind: focus === 'to' ? 'any' : 'stop', ...(near ? { lat: near.lat.toFixed(4), lon: near.lon.toFixed(4) } : {}) });
+      getJson<SearchResponse>(`/api/search?${params}`, { signal: controller.signal }).then(
+        (answer) => {
+          answeredFor.current = `${focus}|${query}`;
+          setResponse(answer);
+        },
+        (error: Error) => {
+          if (error.name !== 'AbortError') setSearchFailed(true);
+        },
+      );
     }, 180);
     return () => {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [query, focus]);
+  }, [query, focus, retries, near]);
 
   const pick = (hit: SearchHit) => {
     if (!response) return;
@@ -235,11 +256,11 @@ export function SearchScreen() {
             </a>
           </span>
         }
-        {...(liveStatus ? { feed: liveStatus.feed, secondsSinceUpdate: liveStatus.secondsSinceUpdate, stale: liveStatus.stale } : {})}
+        {...(liveStatus ? { feed: liveStatus.feed, secondsSinceUpdate: liveStatus.secondsSinceUpdate, stale: liveStatus.stale, onRefresh: () => setPulls((count) => count + 1) } : {})}
       />
       <main class="tf-page tf-page--form" id="main">
         {pins.map((pin) => (
-          <PinnedHome key={searchId(pin.search)} pin={pin} now={now} onPin={(next) => pinFromHome(pin.search, next)} onUpdate={(next) => updatePin(pin.search, next)} onReport={report} />
+          <PinnedHome key={searchId(pin.search)} pin={pin} now={now} pulls={pulls} onPin={(next) => pinFromHome(pin.search, next)} onUpdate={(next) => updatePin(pin.search, next)} onReport={report} />
         ))}
         <SearchFields
           from={{ query: from.query, ...(from.picked ? { meta: from.picked.meta } : {}) }}
@@ -266,9 +287,23 @@ export function SearchScreen() {
           }}
         />
         {(from.query || to.query) && (
-          <button type="button" class="tf-btn-primary" disabled={!(from.picked && to.picked)} onClick={go}>
+          <button type="button" class="tf-btn-primary" disabled={!(from.picked && to.picked)} onClick={go} aria-describedby="find-hint">
             Find transfers
           </button>
+        )}
+        {/* What the dimmed button is waiting for, as typing alone does not pick a stop. */}
+        {(from.query || to.query) && !(from.picked && to.picked) && (
+          <p class="tf-find-hint" id="find-hint">
+            {!from.picked && !to.picked ? 'Pick From and To from the lists' : !from.picked ? 'Pick a From stop from the list' : 'Pick a To stop or route from the list'}
+          </p>
+        )}
+        {searchFailed && query && (
+          <div class="tf-results tf-search-failed" role="alert">
+            <span>Can’t reach search. Check your connection.</span>
+            <button type="button" class="tf-btn-outline tf-btn-secondary" onClick={() => setRetries((count) => count + 1)}>
+              Retry
+            </button>
+          </div>
         )}
         {usualShown.length > 0 && focus && <UsualStops picks={usualShown} onPick={(picked) => choose(focus, picked)} />}
         {query && response && <StopResults query={query} response={response} onPick={pick} includesRoutes={focus === 'to'} />}
@@ -293,6 +328,7 @@ export function SearchScreen() {
                     key={search.id}
                     search={search}
                     now={now}
+                    pulls={pulls}
                     onReport={report}
                     onEdit={(change) =>
                       updateSaved(loadSaved().map((item) => (item.id === search.id ? { ...item, ...change, renamed: change.name !== item.name ? true : item.renamed } : item)))
@@ -369,10 +405,18 @@ function HowItWorks({ open: openAtFirst }: { open: boolean }) {
 }
 
 // A pinned trip, as at the top of its results, polling its own trip like a saved card does.
-function PinnedHome({ pin, now, onPin, onUpdate, onReport }: { pin: Pin & { search: Search }; now: number; onPin: (pin: Pin | null) => void; onUpdate: (pin: Pin | null) => void; onReport: Report }) {
+function PinnedHome({ pin, now, pulls, onPin, onUpdate, onReport }: {
+  pin: Pin & { search: Search };
+  now: number;
+  pulls: number;
+  onPin: (pin: Pin | null) => void;
+  onUpdate: (pin: Pin | null) => void;
+  onReport: Report;
+}) {
   const { settings } = useSettings();
   const { search } = pin;
-  const { data, fetchedAt, feed, settled, answered } = usePoll<TripResponse>(tripApiUrl(search, settings, false, pin), 30_000, null, tripApiUrl(search, settings, false));
+  const { data, fetchedAt, feed, settled, answered, refresh } = usePoll<TripResponse>(tripApiUrl(search, settings, false, pin), 30_000, null, tripApiUrl(search, settings, false));
+  useEffect(() => void (pulls && refresh()), [pulls]);
   const skew = clockSkewMs(data?.generatedAt, fetchedAt);
   useLiveReport(onReport, `pin:${searchId(search)}`, { feed, fetchedAt, dataAt: data?.dataAt ?? null, skew, settled });
   const serverNow = now + skew;
@@ -418,16 +462,19 @@ function PinnedHome({ pin, now, onPin, onUpdate, onReport }: { pin: Pin & { sear
 }
 
 // Polls its own trip, so the card counts down live and opening it shows cached results at once.
-function SavedTrip({ search, now, onReport, onEdit, onColorless, onRemove }: {
+function SavedTrip({ search, now, pulls, onReport, onEdit, onColorless, onRemove }: {
   search: SavedSearch;
   now: number;
+  pulls: number;
   onReport: Report;
   onEdit: (change: { name: string; color: string | undefined }) => void;
   onColorless: (lineColor: string | null) => void;
   onRemove: () => void;
 }) {
   const { settings } = useSettings();
-  const { data, feed, fetchedAt, settled } = usePoll<TripResponse>(tripApiUrl(search, settings, false), 30_000);
+  const slot = useRef<HTMLDivElement>(null);
+  const { data, feed, fetchedAt, settled, refresh } = usePoll<TripResponse>(tripApiUrl(search, settings, false), useOnScreen(slot) ? 30_000 : OFF_SCREEN_POLL_MS);
+  useEffect(() => void (pulls && refresh()), [pulls]);
   const skew = clockSkewMs(data?.generatedAt, fetchedAt);
   useLiveReport(onReport, `saved:${search.id}`, { feed, fetchedAt, dataAt: data?.dataAt ?? null, skew, settled });
   // Read once per visit to Home: dismissing happens on results.
@@ -438,24 +485,41 @@ function SavedTrip({ search, now, onReport, onEdit, onColorless, onRemove }: {
     if (!search.color && data) onColorless(summary.lineColor);
   }, [Boolean(data), search.color]);
   return (
-    <SavedSearchCard
-      name={search.name}
-      color={search.color}
-      chain={summary.chain}
-      // A name the rider chose says nothing of the trip, and the default leaves out where to get
-      // off. Searches saved before renames were kept compare against the default name.
-      named={(search.renamed ?? search.name !== `${summary.from} to ${summary.to}`) || summary.via !== null}
-      windowText={summary.windowText}
-      next={summary.next}
-      loading={!data && feed === 'loading'}
-      severeAlerts={summary.severeAlerts}
-      staleText={fresh.stale && settled ? `Live times ${ageText(fresh.ageSeconds!)} old` : null}
-      href={tripPath(search)}
-      onOpen={() => navigate(tripPath(search))}
-      onEdit={onEdit}
-      onRemove={onRemove}
-    />
+    <div class="tf-saved-slot" ref={slot}>
+      <SavedSearchCard
+        name={search.name}
+        color={search.color}
+        chain={summary.chain}
+        // A name the rider chose says nothing of the trip, and the default leaves out where to get
+        // off. Searches saved before renames were kept compare against the default name.
+        named={(search.renamed ?? search.name !== `${summary.from} to ${summary.to}`) || summary.via !== null}
+        windowText={summary.windowText}
+        next={summary.next}
+        loading={!data && feed === 'loading'}
+        severeAlerts={summary.severeAlerts}
+        staleText={fresh.stale && settled ? `Live times ${ageText(fresh.ageSeconds!)} old` : null}
+        href={tripPath(search)}
+        onOpen={() => navigate(tripPath(search))}
+        onEdit={onEdit}
+        onRemove={onRemove}
+      />
+    </div>
   );
+}
+
+// A saved card scrolled out of sight, or under the suggestions, refreshes this seldom, as no one
+// is reading it. Back in sight, a refresh comes at once if its times are older than usual.
+const OFF_SCREEN_POLL_MS = 120_000;
+
+function useOnScreen(element: { current: Element | null }) {
+  const [onScreen, setOnScreen] = useState(true);
+  useEffect(() => {
+    if (!element.current || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(([entry]) => setOnScreen(entry!.isIntersecting));
+    observer.observe(element.current);
+    return () => observer.disconnect();
+  }, []);
+  return onScreen;
 }
 
 type Report = (key: string, report: LiveReport | null) => void;

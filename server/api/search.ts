@@ -55,8 +55,15 @@ export function search(schedule: Schedule, text: string, options: { routes: bool
     stops = found.map((stop, index) => ({ stop, index, rank: rank(stop) })).sort((a, b) => a.rank - b.rank || a.index - b.index).map(({ stop }) => stop);
   }
   if (options.near) {
+    // Nearest first among stops of one name, such as a street's two sides, so where the rider is
+    // picks the side without burying a better match for what they typed.
     const near = options.near;
-    stops.sort((a, b) => distanceMeters(near, a) - distanceMeters(near, b));
+    const firstOf = new Map<string, number>();
+    stops.forEach((stop, index) => {
+      if (!firstOf.has(searchText(stop.name))) firstOf.set(searchText(stop.name), index);
+    });
+    const place = (stop: StopRow) => firstOf.get(searchText(stop.name))!;
+    stops.sort((a, b) => place(a) - place(b) || distanceMeters(near, a) - distanceMeters(near, b));
   }
 
   const routeMatches = options.routes ? routeResults(schedule, query) : { exact: [], byLongName: [] };

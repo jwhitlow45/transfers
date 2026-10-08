@@ -193,6 +193,8 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-field + .tf-field { border-top: var(--border-hair) solid var(--divider); }
 .tf-field input { display: block; width: 100%; border: 0; background: transparent; font: inherit; font-size: 18px; font-weight: var(--weight-semibold); color: var(--text); padding: var(--space-1) 0; min-height: 34px; }
 .tf-field__meta { display: block; font-size: var(--text-sm); color: var(--muted); }
+.tf-find-hint { margin: calc(-1 * var(--space-4)) 0 0; font-size: var(--text-sm); color: var(--muted); text-align: center; }
+.tf-search-failed { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-3) var(--space-4); }
 .tf-field__row { display: flex; align-items: center; }
 .tf-field__row input { flex: 1; min-width: 0; }
 /* As tall as the input, so it adds no height, and wide enough for a thumb. */
@@ -213,6 +215,8 @@ button:disabled { opacity: .45; cursor: default; }
 
 .tf-section { display: flex; flex-direction: column; gap: var(--space-4); }
 .tf-section h2 { margin: 0; font-size: var(--text-sm); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-kicker); text-transform: uppercase; color: var(--muted); }
+/* Holds one card, stretched to its row as the card itself was. */
+.tf-saved-slot { display: grid; }
 .tf-saved-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: var(--space-4); }
 .tf-saved { border: var(--border-strong) solid var(--line); }
 .tf-saved__head { display: flex; align-items: center; gap: var(--space-1); padding: var(--space-1) var(--space-1) 0 var(--space-4); }
