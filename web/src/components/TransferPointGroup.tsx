@@ -2,7 +2,7 @@ import { type ComponentChildren, Fragment } from 'preact';
 import type { Group, Route } from '../../../shared/api.ts';
 import { walkMinutes } from '../format.ts';
 import { groupStops, outagesByStation } from '../lib/outages.ts';
-import { type CardContext, alightVerb, cardLeft, familyName, firstNoun, firstWord, pointId, visibleDepartures } from '../lib/results.ts';
+import { type CardContext, alightVerb, cardLeft, familyName, firstNoun, firstWord, pointId, ridesStraightTo, visibleDepartures } from '../lib/results.ts';
 import { agencyName, shortStopName, windowText } from '../view.ts';
 import { DepartureCard } from './DepartureCard.tsx';
 import { Departed } from './Departed.tsx';
@@ -55,7 +55,7 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
   // A ride straight to the named To stop says so, as it may stop across the street from it. It
   // does not say no transfer is needed: the rider may be going there to catch something, and
   // transfers at To can sit beside it (J, 2026-10-08).
-  const straightTo = walk && !context.destinationName && group.departures.some(({ destination }) => destination !== undefined) ? context.toName : null;
+  const straightTo = ridesStraightTo(group, context.destination) ? context.toName : null;
   const goes = straightTo && `${routeNames} ${plural ? 'go' : 'goes'} straight to ${straightTo}`;
   // Where to get off says it once here, so each row only needs the time. A walk group has no
   // first vehicle: the route is right here, or a short walk away.

@@ -23,7 +23,7 @@ import { type StationOutages, groupStops, outagesByStation } from '../lib/outage
 import { samePin } from '../lib/pinned.ts';
 import { ageText, clockSkewMs, freshness } from '../lib/freshness.ts';
 import { IconHidden, IconTransfer } from '../icons/ui.tsx';
-import { type CardContext, chooseDirection, directionChoices, hintKey, pageColors, pointId, scaleFor, timeScale, visibleDepartures } from '../lib/results.ts';
+import { type CardContext, chooseDirection, directionChoices, hintKey, orderGroups, pageColors, pointId, scaleFor, timeScale, visibleDepartures } from '../lib/results.ts';
 import { summarize } from '../lib/summary.ts';
 import { goBack, navigate, tripPath } from '../router.ts';
 import { matchesServerDefaults, tripApiUrl, useSettings } from '../settings.tsx';
@@ -167,8 +167,7 @@ export function ResultsScreen({ search }: { search: Search }) {
   const groups = summary.groups;
   const scaleMinutes = scaleFor(groups, now);
   // Groups with something to catch first, then by the soonest departure.
-  const firstAt = (group: (typeof groups)[number]) => visibleDepartures(group, now, showHidden).find(({ canceled }) => !canceled)?.at ?? Infinity;
-  const ordered = [...groups].sort((a, b) => firstAt(a) - firstAt(b));
+  const ordered = orderGroups(groups, now, showHidden, search.dest);
   // Elevator and escalator outages: each transfer point tags those where it gets off or changes,
   // and the rest, such as where the rider starts or is going, lead the results. Each opens what
   // BART says about it.

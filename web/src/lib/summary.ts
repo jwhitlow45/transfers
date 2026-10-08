@@ -2,7 +2,7 @@ import type { Route, TripResponse } from '../../../shared/api.ts';
 import { clock } from '../format.ts';
 import type { Search } from '../storage.ts';
 import { type Status, chipLabel, shortStopName, statusOf, windowText } from '../view.ts';
-import { pageColors, pointId, visibleDepartures } from './results.ts';
+import { pageColors, pointId, ridesStraightTo, visibleDepartures } from './results.ts';
 
 // One vehicle of the next connection, for a saved card to draw as the results page does.
 export type Leg = { route: Route | undefined; at: number; status: Status };
@@ -23,7 +23,7 @@ export function summarize(search: Search, data: TripResponse | null, now: number
   const routeSets = [...new Set(groups.map(({ routes }) => routes.join(',')))];
   const onlyRoute = routeSets.length === 1 && groups[0]?.routes.length === 1 ? data?.routes[groups[0].routes[0]!] : undefined;
   // A route straight to the named stop is the way there, not what the rider is going to catch.
-  const straight = !search.dest && groups.length > 0 && groups.every(({ kind, departures }) => kind === 'walk' && departures.some(({ destination }) => destination !== undefined));
+  const straight = groups.length > 0 && groups.every((group) => ridesStraightTo(group, search.dest));
   const toRouteShown = toRoute ?? (straight ? undefined : onlyRoute);
   const to = toRouteShown ? chipLabel(toRouteShown) : search.toLabel;
   // The window the page talks about: the rider's own, or the first transfer point's that has

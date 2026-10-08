@@ -85,6 +85,18 @@ export function visibleDepartures(group: Group, now: number, showHidden: boolean
 }
 
 // Within a minute of the minimum is tight, as the design specifies.
+// A ride straight to the named To stop: a walk group whose departures say when they get there.
+// With a destination set, those times are the destination's instead.
+export const ridesStraightTo = (group: Group, destination: string | undefined) =>
+  group.kind === 'walk' && !destination && group.departures.some((departure) => departure.destination !== undefined);
+
+// Groups by their soonest departure, with rides straight to To after the transfers there, which a
+// rider may have named To to catch (J, 2026-10-08).
+export function orderGroups(groups: Group[], now: number, showHidden: boolean, destination: string | undefined) {
+  const firstAt = (group: Group) => visibleDepartures(group, now, showHidden).find(({ canceled }) => !canceled)?.at ?? Infinity;
+  return [...groups].sort((a, b) => Number(ridesStraightTo(a, destination)) - Number(ridesStraightTo(b, destination)) || firstAt(a) - firstAt(b));
+}
+
 export const isTight = (connection: Connection, min: number) => !connection.hidden && connection.transfer <= min + 1;
 
 // One time scale for every card on the screen, so bars compare: at least an hour, in steps of 15 minutes.

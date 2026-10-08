@@ -1,7 +1,7 @@
 import { deepStrictEqual } from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Connection, Departure, Group } from '../../../shared/api.ts';
-import { cardLeft, visibleDepartures } from './results.ts';
+import { cardLeft, orderGroups, visibleDepartures } from './results.ts';
 
 const at = (hour: number, minute: number) => (hour * 60 + minute) * 60;
 const connection = (trip: string, departs: number): Connection => ({ trip, route: 'BA:Yellow', departs, departDelay: 0, arrives: departs + 480, arriveDelay: 0, live: true, transfer: 4 });
@@ -45,4 +45,12 @@ test('a card has left once its bus has, or every train that makes it has', () =>
     visibleDepartures(group, now, false, true).map((departure) => cardLeft(group, departure, now)),
     [true, true, false, false, false],
   );
+});
+
+test('a ride straight to To comes after the transfers there, however soon it leaves', () => {
+  const straight = { ...group, kind: 'walk', alight: 'SF:13477', board: 'SF:13477', departures: [departure('w1', at(8, 1), [], at(8, 11))] } as unknown as Group;
+  const kinds = (groups: Group[]) => groups.map(({ kind }) => kind ?? 'ride');
+  deepStrictEqual(kinds(orderGroups([straight, group], now, false, undefined)), ['ride', 'walk']);
+  // With a destination, a walk group's times are the destination's, so soonest comes first.
+  deepStrictEqual(kinds(orderGroups([group, straight], now, false, 'SF:13500')), ['walk', 'ride']);
 });
