@@ -18,12 +18,16 @@ import './styles.css';
 // shows it under the screen it uncovers (J, 2026-10-08). A step forward slides the new screen in
 // over it. Only one is kept: a screen two steps back is opened afresh.
 type Layer = { id: number; page: Page; depth: number; homeKey: string };
+// A trip fading in where another was (tf-swap in styles.css).
+const SWAP_MS = 240;
 let layerIds = 0;
 
 function useLayers(page: Page, peeking: boolean) {
   const make = (depth: number): Layer => ({ id: ++layerIds, page, depth, homeKey: history.state?.from || history.state?.to ? 'prefilled' : 'home' });
-  const state = useRef<{ current: Layer; under: Layer | null; until: number; homePeek: number | null }>(null as never);
-  if (!state.current) state.current = { current: make(currentDepth()), under: null, until: 0, homePeek: null };
+  // `motion` is how the screen showing arrived, until `until`: sliding in over the one under it, or
+  // fading in where another was.
+  const state = useRef<{ current: Layer; under: Layer | null; motion: 'enter' | 'swap'; until: number; homePeek: number | null }>(null as never);
+  if (!state.current) state.current = { current: make(currentDepth()), under: null, motion: 'enter', until: 0, homePeek: null };
   const [, rerender] = useState(0);
   const s = state.current;
   if (s.current.page !== page) {
@@ -32,7 +36,7 @@ function useLayers(page: Page, peeking: boolean) {
     if (depth > s.current.depth) {
       s.under = s.current;
       s.current = make(depth);
-      if (!motionOff()) s.until = Date.now() + ENTER_MS;
+      if (!motionOff()) [s.motion, s.until] = ['enter', Date.now() + ENTER_MS];
     } else if (depth < s.current.depth) {
       // Back to the screen kept under, or to the Home a swipe back showed fresh under it.
       const kept = same(s.under) ? s.under! : page.name === 'home' && s.homePeek !== null ? { ...make(depth), id: s.homePeek } : null;
@@ -43,23 +47,28 @@ function useLayers(page: Page, peeking: boolean) {
       // A swipe back from a screen opened by a link, which Home replaces: the Home it showed.
       s.current = { ...make(depth), id: s.homePeek };
     } else {
-      // The same screen with a new address, as when a setting changes, or a sheet closes.
+      // The same screen with a new address, as when a setting changes, or a sheet closes. Another
+      // trip in its place, as the way back opens, fades in, so the page does not change at a blink.
+      const swap = page.name === 'trip' && s.current.page.name === 'trip' && searchId(page.search) !== searchId(s.current.page.search);
       s.current = { ...s.current, page, depth };
+      if (swap && !motionOff()) [s.motion, s.until] = ['swap', Date.now() + SWAP_MS];
     }
   }
-  const entering = Date.now() < s.until;
+  const moving = Date.now() < s.until;
   useEffect(() => {
-    if (!entering) return;
+    if (!moving) return;
     const timer = setTimeout(() => rerender((count) => count + 1), s.until - Date.now());
     return () => clearTimeout(timer);
-  }, [entering]);
+  }, [moving, s.until]);
+  const entering = moving && s.motion === 'enter';
+  const swapping = moving && s.motion === 'swap';
   // A swipe back to Home with nothing kept under: Home, opened fresh to show under the screen,
   // and kept as the Home landed on.
   const freshHome = !s.under && peeking && page.name !== 'home' && backGoesHome();
   if (freshHome && s.homePeek === null) s.homePeek = ++layerIds;
   if (!freshHome && page.name !== 'home') s.homePeek = null;
   const under = s.under ?? (freshHome ? { id: s.homePeek!, page: { name: 'home' } as Page, depth: 0, homeKey: 'home' } : null);
-  return { current: s.current, under, entering };
+  return { current: s.current, under, entering, swapping };
 }
 
 function screenFor(layer: Layer) {
@@ -74,7 +83,7 @@ function screenFor(layer: Layer) {
 function App() {
   const page = usePage();
   const peeking = usePeeking();
-  const { current, under, entering } = useLayers(page, peeking);
+  const { current, under, entering, swapping } = useLayers(page, peeking);
   // Back on a page left for another and opened afresh, it is scrolled where it was, before it
   // paints. Its own sheet reopens from the same record (see Left in router.ts).
   useLayoutEffect(() => {
@@ -94,7 +103,7 @@ function App() {
   const layers = [...(under ? [under] : []), current];
   return (
     <SettingsProvider>
-      <div class="tf-app" data-entering={entering ? 'true' : undefined} data-peeking={peeking ? 'true' : undefined}>
+      <div class="tf-app" data-entering={entering ? 'true' : undefined} data-swapping={swapping ? 'true' : undefined} data-peeking={peeking ? 'true' : undefined}>
         <TrackProvider>
           {layers.map((layer) => {
             const showing = layer === current;

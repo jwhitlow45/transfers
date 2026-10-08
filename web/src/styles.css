@@ -141,6 +141,10 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-app[data-entering="true"] > .tf-peek { animation: tf-peek-leave 200ms cubic-bezier(.2, .8, .2, 1) both; }
 .tf-app[data-entering="true"] .tf-peek__dim { animation: tf-peek-dim 200ms cubic-bezier(.2, .8, .2, 1) both; }
 @keyframes tf-enter { from { transform: translateX(100%); } to { transform: none; } }
+/* Another trip in the page's place, such as its way back: the page fades in under the bottom bar,
+   which stays. */
+.tf-app[data-swapping="true"] > .tf-layer > .tf-scroll { animation: tf-swap 240ms ease-out both; }
+@keyframes tf-swap { from { opacity: 0; transform: translateY(8px); } }
 @keyframes tf-peek-leave { from { transform: none; } to { transform: translateX(-25%); } }
 @keyframes tf-peek-dim { from { opacity: 0; } to { opacity: .3; } }
 /* Focused only in place of a control that went away (see focus.ts), which needs no ring. */

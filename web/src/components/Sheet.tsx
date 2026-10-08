@@ -1,5 +1,5 @@
-import type { ComponentChildren } from 'preact';
-import { useEffect, useLayoutEffect, useRef } from 'preact/hooks';
+import { type ComponentChildren, createContext } from 'preact';
+import { useContext, useEffect, useLayoutEffect, useRef } from 'preact/hooks';
 import { SLIDE_MS, motionOff, useDrag } from '../gestures.ts';
 import { cameBackTo, closeSheetEntry, currentKey, currentUnder, isSheetEntry, openSheetEntry } from '../router.ts';
 import { IconClose } from '../icons/ui.tsx';
@@ -9,6 +9,11 @@ const CLOSE_SHARE = 1 / 3;
 const CLOSE_PX = 140;
 // Or when flung down at least this fast, in px per ms.
 const CLOSE_FLING = 0.4;
+
+// Slides the sheet a control is in out of sight, then closes it, or in place of closing does
+// `then`, such as putting another page in the one under it. Outside a sheet, it does `then`.
+const SlideAway = createContext<(then?: () => void) => void>((then) => then?.());
+export const useSlideAway = () => useContext(SlideAway);
 
 // Modal bottom sheet: focus moves in on open, Tab stays inside, Escape and the scrim close it,
 // and focus returns to the button that opened it. Dragging down closes it too. Its top, the
@@ -62,6 +67,10 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
   // Its step back closes it, by way of the listener above. A page that replaced the step, such as
   // one a link in the sheet opened, leaves nothing to take back.
   const close = () => (isSheetEntry(step.current) ? history.back() : onClose());
+  const slideAway = (then?: () => void) => {
+    place(panel.current?.offsetHeight ?? 0, true);
+    setTimeout(then ?? close, motionOff() ? 0 : SLIDE_MS);
+  };
   // Moves the panel down by offset px and fades the scrim to match. Styles are set directly, as
   // a render per touch event would lag behind the finger.
   const place = (offset: number, animated: boolean) => {
@@ -80,8 +89,7 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
     end: (release) => {
       const height = panel.current?.offsetHeight ?? 0;
       if (!release || (release.distance < Math.min(height * CLOSE_SHARE, CLOSE_PX) && release.velocity < CLOSE_FLING)) return place(0, true);
-      place(height, true);
-      setTimeout(close, motionOff() ? 0 : SLIDE_MS);
+      slideAway();
     },
   });
   useEffect(() => {
@@ -128,7 +136,7 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
         </div>
         <div ref={body} class="tf-sheet__body">
           <div class="tf-sheet__inner">
-            {children}
+            <SlideAway.Provider value={slideAway}>{children}</SlideAway.Provider>
             {footer && <div class="tf-sheet__saved">{footer}</div>}
             <button type="button" class="tf-btn-primary tf-sheet__done" onClick={close}>
               Done
