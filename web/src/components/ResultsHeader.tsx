@@ -182,8 +182,9 @@ function HeaderEdge({ loading }: { loading: boolean }) {
   // A gerbil crosses the whole screen, and the bar it rides stays with it, rather than both
   // vanishing mid-stride, which would look like a failed load (J, 2026-10-08).
   const gerbil = run.current.gerbil;
-  const finishRun = () => {
-    if (run.current.loading) return;
+  // Each crossing, rather than each trot of its legs, whose iterations bubble up from the svg.
+  const finishRun = (event: AnimationEvent) => {
+    if (event.target !== event.currentTarget || run.current.loading) return;
     run.current.gerbil = false;
     ended((count) => count + 1);
   };
