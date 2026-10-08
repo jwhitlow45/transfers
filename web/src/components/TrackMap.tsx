@@ -108,6 +108,16 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
   const offAt = offIndex === undefined ? null : (data.path[offIndex]?.at ?? null);
   const boardAt = next && next.targetIndex !== null ? (next.path[next.targetIndex]?.at ?? null) : null;
   const transferMinutes = offAt !== null && boardAt !== null ? Math.floor((boardAt - offAt) / 60) : transfer?.minutes;
+  // Missed, or tight as results mark a transfer within a minute of the window's shortest (isTight
+  // in lib/results.ts), each drawn as results draw it.
+  const missed = transferMinutes !== undefined && transferMinutes < 0;
+  const tight = transferMinutes !== undefined && !missed && transfer?.min !== undefined && transferMinutes <= transfer.min + 1;
+  const spokenTransfer =
+    transferMinutes === undefined
+      ? 'Transfer to'
+      : missed
+        ? `Transfer missed by ${-transferMinutes} minute${transferMinutes === -1 ? '' : 's'}, to`
+        : `${transferMinutes} minute transfer${tight ? ', tight' : ''}, to`;
   const legs: Drawn[] = [
     ...(next && nextLabels ? [{ leg: next, color: nextColor, labels: nextLabels }] : []),
     { leg: data, color, labels },
@@ -145,16 +155,26 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
         <>
           {/* The change of vehicles, then the one the rider changes to, from where it is now to
               where they board it. */}
-          <div class="tf-track__change">
-            <p class="tf-track__change-head">
-              <span class="tf-track__change-kicker">Transfer to</span>
-              <RouteChip route={nextRoute} size="sm" {...(transfer?.color ? { color: transfer.color } : {})} />
-              <span>toward {next.headsign}</span>
-            </p>
-            <p class="tf-track__change-status">
-              {legStatus(next, data.stops, 'the transfer stop')}
-              {transferMinutes !== undefined && (transferMinutes < 0 ? ' · transfer missed' : ` · ${transferMinutes} min transfer`)}
-            </p>
+          {/* The transfer leads, as large as a results row's countdown, then the vehicle and
+              where it is. Without both vehicles' times, the vehicle alone. */}
+          <div class={`tf-track__change${missed ? ' tf-track__change--missed' : tight ? ' tf-track__change--tight' : ''}`}>
+            {transferMinutes !== undefined && (
+              <div class="tf-track__xfer" aria-hidden="true">
+                <div class="tf-row__lead">{missed ? 'Missed by' : 'Transfer'}</div>
+                <div class="tf-track__xfer-amount">
+                  <span class="tf-row__num">{Math.abs(transferMinutes)}</span> <span class="tf-row__unit">min</span>
+                </div>
+                {tight && <div class="tf-tight">TIGHT</div>}
+              </div>
+            )}
+            <div class="tf-track__change-main">
+              <p class="tf-track__change-head">
+                {transferMinutes === undefined ? <span class="tf-track__change-kicker">Transfer to</span> : <span class="tf-sr">{spokenTransfer}</span>}
+                <RouteChip route={nextRoute} size="sm" {...(transfer?.color ? { color: transfer.color } : {})} />
+                <span>toward {next.headsign}</span>
+              </p>
+              <p class="tf-track__change-status">{legStatus(next, data.stops, 'the transfer stop')}</p>
+            </div>
           </div>
           <LegList leg={next} stops={data.stops} labels={nextLabels} color={nextColor} now={now} />
         </>

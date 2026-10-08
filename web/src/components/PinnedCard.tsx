@@ -75,15 +75,16 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
   };
   const phase = pinnedPhase(pinned, now / 1000);
   const transfer = pinnedTransfer(pinned);
+  // The pinned connection as the results have it, when they still do.
+  const group = pin.first ? data.groups.find(({ board }) => board === pin.second.board) : undefined;
+  const connection = group?.departures.flatMap(({ connections }) => connections).find(({ trip }) => trip === pin.first!.trip);
   // The walk between the two vehicles, as the results give it: the row's own when its vehicle lets
   // the rider off at another stop than its group's.
-  const walk = (() => {
-    if (!pin.first) return null;
-    const group = data.groups.find(({ board }) => board === pin.second.board);
-    const connection = group?.departures.flatMap(({ connections }) => connections).find(({ trip }) => trip === pin.first!.trip);
-    const meters = connection?.walkMeters ?? group?.walkMeters;
-    return meters === undefined ? null : walkText(meters);
-  })();
+  const walkMeters = connection?.walkMeters ?? group?.walkMeters;
+  const walk = pin.first && walkMeters !== undefined ? walkText(walkMeters) : null;
+  // The window's shortest transfer, which the first vehicle's map marks a tight transfer by, as
+  // results do. A hidden connection is outside the window already.
+  const min = group && !connection?.hidden ? group.window.min : undefined;
   const missed = transfer !== null && transfer < 0;
   const canceled = [first, second].find((leg) => leg?.canceled);
   const status = canceled ? `The ${label(canceled)} at ${clock(canceled.on?.at ?? canceled.off!.at)} is canceled` : statusText(phase, first, second, name, label, now);
@@ -101,7 +102,14 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
       title={`${label(first!)} at ${clock(first!.on!.at)}`}
       color={colorOf(first!.route)}
       marks={[{ stop: first!.on!.stop, kind: 'yours' }, ...(first!.off ? [{ stop: first!.off.stop, kind: 'transfer' as const }] : [])]}
-      transfer={{ trip: second.trip, stop: second.on!.stop, color: colorOf(second.route), ...(transfer !== null ? { minutes: transfer } : {}), ...(second.off ? { destination: second.off.stop } : {}) }}
+      transfer={{
+        trip: second.trip,
+        stop: second.on!.stop,
+        color: colorOf(second.route),
+        ...(transfer !== null ? { minutes: transfer } : {}),
+        ...(min !== undefined ? { min } : {}),
+        ...(second.off ? { destination: second.off.stop } : {}),
+      }}
       pin={sheetPin}
     >
       {clock(stop.at)}
