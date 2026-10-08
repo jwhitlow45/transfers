@@ -42,11 +42,7 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
           <IconPin filled size={13} />
           Pinned
         </span>
-        {trip && (
-          <a class="tf-pinned__trip" href={trip.href} onClick={(event) => (event.preventDefault(), navigate(trip.href))}>
-            {trip.label}
-          </a>
-        )}
+        {trip && <span class="tf-pinned__trip">{trip.label}</span>}
         {tags}
         <button type="button" class="tf-pinned__unpin" onClick={() => onPin(null)}>
           <IconClose size={16} />
@@ -64,7 +60,8 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
   const second = pinned?.second;
   if (!pinned || !second?.on || (pinned.first !== undefined && !pinned.first?.on)) {
     return (
-      <section class="tf-pinned" aria-label="Pinned trip">
+      <section class={`tf-pinned${trip ? ' tf-pinned--opens' : ''}`} aria-label="Pinned trip">
+        {trip && <OpenTrip trip={trip} />}
         {head(null)}
         <p class="tf-pinned__note">Times for this trip are not available right now.</p>
       </section>
@@ -135,7 +132,8 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
     .filter(Boolean)
     .join(' ');
   return (
-    <section class="tf-pinned" aria-label="Pinned trip">
+    <section class={`tf-pinned${trip ? ' tf-pinned--opens' : ''}`} aria-label="Pinned trip">
+        {trip && <OpenTrip trip={trip} />}
       {head(
         <>
           {missed && <span class="tf-tight">Missed</span>}
@@ -245,4 +243,10 @@ function statusText(phase: PinnedPhase, first: PinnedLeg | null, second: PinnedL
     case 'done':
       return second.off ? `Reached ${name(second.off)} ${when(second.off)}` : `${label(second)} left ${name(second.on!)} ${when(second.on!)}`;
   }
+}
+
+// On Home, the whole card opens the trip's results, as a saved card does. A link laid under it,
+// so the times and Unpin keep their own taps (see styles.css), as a transfer row's pin toggle does.
+export function OpenTrip({ trip }: { trip: { label: string; href: string } }) {
+  return <a class="tf-pinned__open" href={trip.href} aria-label={`Open ${trip.label}`} onClick={(event) => (event.preventDefault(), navigate(trip.href))} />;
 }

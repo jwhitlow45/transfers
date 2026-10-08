@@ -4,7 +4,7 @@ import { getJson } from '../api.ts';
 import { Collapse } from '../components/Collapse.tsx';
 import { DataCredit } from '../components/DataCredit.tsx';
 import { RecentList } from '../components/RecentList.tsx';
-import { PinnedCard } from '../components/PinnedCard.tsx';
+import { OpenTrip, PinnedCard } from '../components/PinnedCard.tsx';
 import { SavedSearchCard } from '../components/SavedSearchCard.tsx';
 import { SearchFields } from '../components/SearchFields.tsx';
 import { type SearchHit, StopResults, hitMeta, hitName } from '../components/StopResults.tsx';
@@ -15,6 +15,7 @@ import { useNow, usePinnedTrip, usePoll } from '../hooks.ts';
 import { IconChevron, IconGear, IconLocation, IconPin } from '../icons/ui.tsx';
 import { defaultSavedColor } from '../lib/color.ts';
 import { ringsBell } from '../lib/eggs.ts';
+import { samePin } from '../lib/pinned.ts';
 import { type LiveReport, ageText, clockSkewMs, freshness, homeStatus } from '../lib/freshness.ts';
 import { type LocationProblem, type Position, handOver, locate, locationProblemText } from '../lib/location.ts';
 import { pageColors, scaleFor, timeScale } from '../lib/results.ts';
@@ -100,7 +101,8 @@ export function SearchScreen() {
     if (!next) setToast({ id: ++toastId.current, text: 'Unpinned', about: 'unpin', undo: () => updatePin(search, previous) });
   };
   // Pinned from a saved card, which shows its trip pinned at the top. A pin it replaces can come back.
-  const pinFromCard = (search: Search, next: Pin, bell: boolean) => {
+  const pinFromCard = (search: Search, next: Pin | null, bell: boolean) => {
+    if (!next) return pinFromHome(search, null);
     const previous = loadPin(search);
     updatePin(search, next);
     setToast({ id: ++toastId.current, text: bell ? 'Ding ding! Pinned to the top' : 'Pinned to the top', about: 'pin', undo: () => updatePin(search, previous) });
@@ -366,6 +368,7 @@ export function SearchScreen() {
                     onMove={(step) => moveSaved(search.id, step)}
                     canMoveUp={index > 0}
                     canMoveDown={index < saved.length - 1}
+                    pin={pins.find((pin) => searchId(pin.search) === search.id) ?? null}
                     onPin={(pin, bell) => pinFromCard(search, pin, bell)}
                     onReport={report}
                     onEdit={(change) =>
@@ -467,15 +470,14 @@ function PinnedHome({ pin, now, pulls, onPin, onUpdate, onReport }: {
   if (expired) return null;
   if (!data) {
     return (
-      <section class="tf-pinned" aria-label="Pinned trip">
+      <section class="tf-pinned tf-pinned--opens" aria-label="Pinned trip">
+        <OpenTrip trip={trip} />
         <div class="tf-pinned__head">
           <span class="tf-kicker tf-pinned__kicker">
             <IconPin filled size={13} />
             Pinned
           </span>
-          <a class="tf-pinned__trip" href={trip.href} onClick={(event) => (event.preventDefault(), navigate(trip.href))}>
-            {trip.label}
-          </a>
+          <span class="tf-pinned__trip">{trip.label}</span>
         </div>
         <p class="tf-pinned__note">Getting live predictions…</p>
       </section>
@@ -500,14 +502,16 @@ function PinnedHome({ pin, now, pulls, onPin, onUpdate, onReport }: {
 }
 
 // Polls its own trip, so the card counts down live and opening it shows cached results at once.
-function SavedTrip({ search, now, pulls, onMove, canMoveUp, canMoveDown, onPin, onReport, onEdit, onColorless, onRemove }: {
+function SavedTrip({ search, now, pulls, onMove, canMoveUp, canMoveDown, pin, onPin, onReport, onEdit, onColorless, onRemove }: {
   search: SavedSearch;
   now: number;
   pulls: number;
   onMove: (step: -1 | 1) => void;
   canMoveUp: boolean;
   canMoveDown: boolean;
-  onPin: (pin: Pin, bell: boolean) => void;
+  // The trip pinned for this search, if any.
+  pin: Pin | null;
+  onPin: (pin: Pin | null, bell: boolean) => void;
   onReport: Report;
   onEdit: (change: { name: string; color: string | undefined }) => void;
   onColorless: (lineColor: string | null) => void;
@@ -543,7 +547,8 @@ function SavedTrip({ search, now, pulls, onMove, canMoveUp, canMoveDown, onPin, 
         onMove={onMove}
         canMoveUp={canMoveUp}
         canMoveDown={canMoveDown}
-        onPin={(pin) => onPin(pin, ringsBell(pin, data))}
+        pinned={pin !== null && summary.next !== null && samePin(pin, summary.next.pin)}
+        onPin={(next) => onPin(next, next !== null && ringsBell(next, data))}
         staleText={fresh.stale && settled ? `Live times ${ageText(fresh.ageSeconds!)} old` : null}
         href={tripPath(search)}
         onOpen={() => navigate(tripPath(search))}

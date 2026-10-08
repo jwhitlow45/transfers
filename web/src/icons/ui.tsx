@@ -97,19 +97,19 @@ export const IconNewVersion = ({ size = 16 }: Props) =>
     </>,
     size,
   );
-// A gerbil out walking, for gerbil mode (see gerbils.ts).
-export const IconGerbil = ({ size = 16 }: Props) =>
-  icon(
-    <>
-      <path d="M6 18.2C5.2 13.9 7.6 9.6 11.6 9.6c2.3 0 3.9 1 5 2.2l3.1 1.8c.9.5.7 1.7-.3 1.9-1 .2-1.8 1.2-3 2-1.2.6-2.7.8-4.3.8H6" />
-      <path d="M15.3 10.9c-.7-2 .3-3.6 1.8-3.6 1.4 0 1.9 1.6 1.1 3.4" />
-      <path d="M6.1 17.6c-2.8.6-4.8-.6-4.9-3.4" />
-      <path d="M9 18.4l-1.2 2.1M15.4 17.6l.8 2.4" />
-      <circle cx="16.6" cy="13.5" r=".8" fill="currentColor" stroke="none" />
-      <circle cx="1.2" cy="12.9" r="1.1" fill="currentColor" stroke="none" />
-    </>,
-    size,
-  );
+// A solid gerbil out walking, with the pointed face of the one driving the vehicles (modeGlyphs.ts), for
+// gerbil mode (see gerbils.ts) and the one that now and then rides the loading bar.
+export const GerbilShape = () => (
+  <>
+    <path d="M6 18.2C5.2 13.9 7.6 9.6 11.6 9.6c2.3 0 3.9 1 5 2.2c1.6.5 3.3 1.4 4.8 2.4c-1.3.6-2.7.8-3.9 1.1c-1 .4-1.5 1.5-2.5 2c-1 .6-1.9.9-3 1H6Z" fill="currentColor" />
+    <path d="M15.2 10.8c-.6-1.9.4-3.5 1.8-3.4 1.3.1 1.7 1.6.9 3.2Z" fill="currentColor" />
+    <path d="M6.1 17.6c-2.8.6-4.8-.6-4.9-3.4" />
+    <path d="M9 18.4l-1.2 2.1M15.2 17.6l.8 2.4" />
+    {/* In the page's color, as a cut through the solid body. */}
+    <circle class="tf-gerbil-eye" cx="17.5" cy="13.3" r=".85" stroke="none" />
+  </>
+);
+export const IconGerbil = ({ size = 16 }: Props) => icon(<GerbilShape />, size);
 export const IconTransfer = ({ size = 16 }: Props) => icon(<path d="M4 8h14l-4-4M20 16H6l4 4" />, size);
 export const IconHidden = ({ size = 16 }: Props) =>
   icon(

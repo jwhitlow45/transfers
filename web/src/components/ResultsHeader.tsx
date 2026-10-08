@@ -2,8 +2,9 @@ import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { FeedState } from '../hooks.ts';
 import { ageShort } from '../lib/freshness.ts';
-import { IconBack, IconNewVersion } from '../icons/ui.tsx';
+import { GerbilShape, IconBack, IconNewVersion } from '../icons/ui.tsx';
 import { forceRefresh, useUpdateAvailable } from '../update.ts';
+import { motionOff } from '../gestures.ts';
 import { PullToRefresh } from './PullToRefresh.tsx';
 
 // secondsSinceUpdate counts from when the server got the data from 511, not when this page
@@ -138,31 +139,36 @@ export function ScreenHeader({ title, end, feed, secondsSinceUpdate, stale, item
       )}
       {/* The saved color and the loading bar share the few pixels under the header, where neither
           moves the page as a search is saved or loads. While loading, the saved color is the bar. */}
-      {(accent || loading) && <HeaderEdge loading={loading} />}
+      <HeaderEdge loading={loading} />
       {onRefresh && <PullToRefresh onRefresh={onRefresh} />}
     </header>
   );
 }
 
-// An easter egg: about one time in twenty that the bar appears, a gerbil runs along it.
+// An easter egg: about one time in twenty that the bar appears, a gerbil rides it.
 const GERBIL_ODDS = 1 / 20;
 
+// Under the header, always there, so a gerbil can finish its run after loading ends.
 function HeaderEdge({ loading }: { loading: boolean }) {
-  // Decided when loading starts, so the same gerbil runs until the bar goes away.
+  // Decided when loading starts, so the same gerbil rides until the bar goes away.
   const run = useRef({ loading: false, gerbil: false });
-  if (loading && !run.current.loading) run.current.gerbil = Math.random() < GERBIL_ODDS;
+  const [, ended] = useState(0);
+  if (loading && !run.current.loading) run.current.gerbil = !motionOff() && Math.random() < GERBIL_ODDS;
   run.current.loading = loading;
-  const gerbil = loading && run.current.gerbil;
+  // A gerbil crosses the whole screen, and the bar it rides stays with it, rather than both
+  // vanishing mid-stride, which would look like a failed load (J, 2026-10-08).
+  const gerbil = run.current.gerbil;
+  const finishRun = () => {
+    if (run.current.loading) return;
+    run.current.gerbil = false;
+    ended((count) => count + 1);
+  };
   return (
-    <div class={`tf-header__edge${loading ? ' tf-header__edge--loading' : ''}${gerbil ? ' tf-header__edge--gerbil' : ''}`} aria-hidden="true">
+    <div class={`tf-header__edge${loading || gerbil ? ' tf-header__edge--loading' : ''}${gerbil ? ' tf-header__edge--gerbil' : ''}`} aria-hidden="true">
       {gerbil && (
-        <span class="tf-gerbil">
-          <svg width="19" height="13" viewBox="0 6.5 22 15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M6 18.2C5.2 13.9 7.6 9.6 11.6 9.6c2.3 0 3.9 1 5 2.2l3.1 1.8c.9.5.7 1.7-.3 1.9-1 .2-1.8 1.2-3 2-1.2.6-2.7.8-4.3.8H6" />
-            <path d="M15.3 10.9c-.7-2 .3-3.6 1.8-3.6 1.4 0 1.9 1.6 1.1 3.4" />
-            <path d="M6.1 17.6c-2.8.6-4.8-.6-4.9-3.4" />
-            <path d="M9 18.4l-1.2 2.1M15.4 17.6l.8 2.4" />
-            <circle cx="16.6" cy="13.5" r=".8" fill="currentColor" stroke="none" />
+        <span class="tf-gerbil" onAnimationIteration={finishRun}>
+          <svg width="20" height="13" viewBox="0 6.5 23 15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <GerbilShape />
           </svg>
         </span>
       )}

@@ -10,7 +10,7 @@ import { typeWithoutUndo } from '../typing.ts';
 
 // The main daily entry point: one tap opens results, and it leads with a live countdown. The
 // color stripe tells saved searches apart at a glance, and the pencil edits name and color.
-export function SavedSearchCard({ name, color, chain, named, windowText, next, loading, severeAlerts, nextService, staleText, href, onOpen, onEdit, onRemove, onMove, canMoveUp = false, canMoveDown = false, onPin }: {
+export function SavedSearchCard({ name, color, chain, named, windowText, next, loading, severeAlerts, nextService, staleText, href, onOpen, onEdit, onRemove, onMove, canMoveUp = false, canMoveDown = false, pinned = false, onPin }: {
   name: string;
   color: string | undefined;
   chain: string;
@@ -34,7 +34,9 @@ export function SavedSearchCard({ name, color, chain, named, windowText, next, l
   canMoveUp?: boolean;
   canMoveDown?: boolean;
   // Pins the connection the card shows.
-  onPin?: (pin: Pin) => void;
+  // Whether the connection shown is the trip pinned for this search, which the pin button then unpins.
+  pinned?: boolean;
+  onPin?: (pin: Pin | null) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ name, color });
@@ -60,8 +62,14 @@ export function SavedSearchCard({ name, color, chain, named, windowText, next, l
           <h3 class="tf-saved__name">{name}</h3>
         )}
         {!editing && next && onPin && (
-          <button type="button" class="tf-btn-icon tf-muted" onClick={() => onPin(next.pin)} aria-label={`Pin the next connection for ${name}`}>
-            <IconPin />
+          <button
+            type="button"
+            class={`tf-btn-icon ${pinned ? 'tf-saved__pinned' : 'tf-muted'}`}
+            onClick={() => onPin(pinned ? null : next.pin)}
+            aria-pressed={pinned}
+            aria-label={`Pin the next connection for ${name}`}
+          >
+            <IconPin size={18} filled={pinned} />
           </button>
         )}
         {!editing && (
@@ -74,7 +82,7 @@ export function SavedSearchCard({ name, color, chain, named, windowText, next, l
             }}
             aria-label={`Edit ${name}`}
           >
-            <IconPencil />
+            <IconPencil size={18} />
           </button>
         )}
       </div>
