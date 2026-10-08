@@ -523,8 +523,8 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-band .tf-pin-toggle:focus-visible { outline-color: var(--on-field); outline-offset: -4px; }
 .tf-row > :not(.tf-pin-toggle, .tf-sr) { position: relative; pointer-events: none; }
 .tf-row a, .tf-row .tf-time-link { pointer-events: auto; }
-.tf-row .tf-time-link { position: relative; }
-.tf-row .tf-time-link::after { content: ''; position: absolute; inset: -10px -4px; }
+.tf-row .tf-time-link, .tf-band .tf-time-link { position: relative; }
+.tf-row .tf-time-link::after, .tf-band .tf-time-link::after { content: ''; position: absolute; inset: -10px -4px; }
 @media (hover: hover) { .tf-row:has(> .tf-pin-toggle:hover) { background-color: color-mix(in srgb, var(--text) 4%, transparent); } }
 /* Pinned: chosen, as a pressed filter chip is, at half its tint so muted text keeps its contrast,
    with the pinned card's accent bar, and saying so in words where the countdown's kicker was. */
