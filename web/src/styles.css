@@ -712,24 +712,25 @@ button:disabled { opacity: .45; cursor: default; }
 /* An update: at the end of the line, the same size as the items beside it, in the accent's ink and
    underlined as the app's other tappable text is. */
 .tf-stat--update { margin-left: auto; }
+.tf-stat--dest ~ .tf-stat--update { margin-left: 0; }
 .tf-stat--update .tf-stat__button { color: var(--accent-ink); font-weight: var(--weight-semibold); }
 .tf-stat--update .tf-stat__value { text-decoration: underline; text-underline-offset: 3px; }
 /* Narrower phones have room for "Update" alone, and the narrowest for the icon alone. Screen
    readers hear the whole sentence either way. */
 @media (max-width: 399px) { .tf-update-more { display: none; } }
 @media (max-width: 359px) { .tf-stat--update .tf-stat__value { display: none; } }
-/* The destination's name takes what the line has left, and ends in an ellipsis where that is too
-   little. */
-.tf-stat--dest { flex: 0 1 auto; min-width: 0; }
+/* The destination's name takes what the line has left, at its right end, and ends in an ellipsis
+   where that is too little. */
+.tf-stat--dest { flex: 0 1 auto; min-width: 0; margin-left: auto; }
 .tf-stat--dest .tf-stat__button { min-width: 0; }
 .tf-stat--dest .tf-stat__value { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-/* Beside more items on narrower phones its name would be cut to a letter or two, so the flag stands
-   alone there. A tap still says where. */
-@media (max-width: 429px) { .tf-livestatus:has(.tf-stat--hide, .tf-stat--routes, .tf-stat--hidden, .tf-stat--update) .tf-stat--dest .tf-stat__value { display: none; } }
-/* Route filters, and hidden connections shown, say so in words where the line has room for them,
-   and by their icons alone on narrower phones or beside more items. Each still opens its sentence. */
-@media (max-width: 429px) { :is(.tf-stat--routes, .tf-stat--hidden) .tf-stat__value { display: none; } }
-@media (max-width: 599px) { .tf-livestatus:has(.tf-stat--hide, .tf-stat--update) :is(.tf-stat--routes, .tf-stat--hidden) .tf-stat__value { display: none; } }
+/* Beside an update and another item on narrower phones its name would be cut to a letter or two,
+   so the flag stands alone there. A tap still says where. */
+@media (max-width: 429px) { .tf-livestatus:has(.tf-stat--update):has(.tf-stat--hide, .tf-stat--routes) .tf-stat--dest .tf-stat__value { display: none; } }
+/* Route filters say so in words where the line has room for them, and by their icon alone on
+   narrower phones or beside more items. It still opens its sentence. */
+@media (max-width: 429px) { .tf-stat--routes .tf-stat__value { display: none; } }
+@media (max-width: 599px) { .tf-livestatus:has(.tf-stat--hide, .tf-stat--update) .tf-stat--routes .tf-stat__value { display: none; } }
 .tf-tip { position: absolute; top: calc(100% + 4px); left: var(--space-5); z-index: 6; width: max-content; max-width: min(320px, calc(100% - 2 * var(--space-5))); padding: var(--space-2) var(--space-3); background: var(--field); color: var(--on-field); font-size: var(--text-sm); font-weight: var(--weight-regular); line-height: 1.35; white-space: normal; }
 /* Results keep back in the bottom bar, so the title and the status line start at the gutter. The
    status items' own padding lines their text up with the title. */

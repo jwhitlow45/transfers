@@ -25,7 +25,7 @@ import { type StationOutages, groupStops, outagesByStation } from '../lib/outage
 import { ringsBell } from '../lib/eggs.ts';
 import { samePin } from '../lib/pinned.ts';
 import { ageText, clockSkewMs, freshness } from '../lib/freshness.ts';
-import { IconFlag, IconHidden, IconTransfer } from '../icons/ui.tsx';
+import { IconFlag, IconHidden } from '../icons/ui.tsx';
 import { type CardContext, chooseDirection, directionChoices, hintKey, orderGroups, pageColors, pointId, scaleFor, timeScale, visibleDepartures } from '../lib/results.ts';
 import { summarize } from '../lib/summary.ts';
 import { cameBackTo, goBack, navigate, tripPath } from '../router.ts';
@@ -279,17 +279,15 @@ export function ResultsScreen({ search }: { search: Search }) {
           secondsSinceUpdate={secondsSinceUpdate}
           stale={showStale}
           failed={failure}
+          // What changes the results that the page shows nowhere else. The bottom bar has the transfer
+          // window, and hidden connections shown are plain in the rows (J, 2026-10-08).
           items={[
-            ...(summary.window
-              ? [{ key: 'window', icon: <IconTransfer />, short: `${summary.window.min}–${summary.window.max}m`, full: `Showing transfers of ${summary.window.min} to ${summary.window.max} minutes` }]
-              : []),
             ...(hide > 0 ? [{ key: 'hide', icon: <IconHidden />, short: `<${hide}m`, full: `Hiding departures that leave in under ${hide} minutes` }] : []),
             ...(filtering
               ? [{ key: 'routes', icon: <IconFilter />, short: 'Filtered', full: `${filterText}. Trip settings has the rest` }]
               : []),
-            // A setting for every trip, so a rider who turned it on elsewhere sees why rows are hatched.
-            ...(showHidden ? [{ key: 'hidden', icon: <IconEye />, short: 'Hidden shown', full: 'Showing hidden connections on every trip, marked with why they were hidden' }] : []),
-            // Last, where its name has the rest of the line, cut short where that is too little (J, 2026-10-08).
+            // At the end of the line, where its name has the rest of it, cut short where that is too
+            // little (J, 2026-10-08).
             ...(search.dest
               ? [{ key: 'dest', icon: <IconFlag />, short: shortStopName(data?.stops[search.dest], search.destLabel?.replace(/ \(\w+\)$/, '') ?? search.dest), full: `Showing when each departure gets you to ${search.destLabel ?? search.dest}. Trip settings changes it` }]
               : []),
@@ -484,10 +482,3 @@ const statusIcon = (children: ComponentChildren) => (
   </svg>
 );
 const IconFilter = () => statusIcon(<path d="M4 5h16l-6 7.5V19l-4-2v-4.5z" />);
-const IconEye = () =>
-  statusIcon(
-    <>
-      <path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6z" />
-      <circle cx="12" cy="12" r="2.5" />
-    </>,
-  );
