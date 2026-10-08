@@ -4,7 +4,7 @@ import { getJson } from '../api.ts';
 import { IconChevron } from '../icons/ui.tsx';
 import { routeColor } from '../lib/color.ts';
 import { pointId } from '../lib/results.ts';
-import { navigate } from '../router.ts';
+import { navigate, tripPath } from '../router.ts';
 import type { Search } from '../storage.ts';
 import { chipLabel, shortStopName } from '../view.ts';
 import { Sheet, Toggle } from './Sheet.tsx';
@@ -30,6 +30,24 @@ function ResetWindow({ search, update }: { search: Search; update: SearchUpdate 
     <button type="button" class="tf-link-button" onClick={() => update(({ min: _min, max: _max, ...rest }) => rest)}>
       Use the suggested window
     </button>
+  );
+}
+
+// The same trip the other way. From cannot be a route, so a trip to one has no way back. Settings
+// stay behind: they were tuned for this direction.
+function WayBack({ search }: { search: Search }) {
+  if (search.to.startsWith('route:')) return null;
+  const back: Search = { from: search.to, to: search.from, fromLabel: search.toLabel, toLabel: search.fromLabel };
+  return (
+    <div class="tf-setting">
+      <a
+        class="tf-btn-outline tf-btn-secondary tf-way-back"
+        href={tripPath(back)}
+        onClick={(event) => (event.preventDefault(), navigate(tripPath(back)))}
+      >
+        Way back: {search.toLabel} to {search.fromLabel}
+      </a>
+    </div>
   );
 }
 
@@ -84,6 +102,7 @@ export function TripSettingsSheet({ search, data, window, footer, chain, destina
 
   return (
     <Sheet title="Trip settings" subtitle={chain} footer={footer} onClose={onClose}>
+      <WayBack search={search} />
       <WindowSetting window={window} update={update} />
       <ResetWindow search={search} update={update} />
       <MinutesSlider
