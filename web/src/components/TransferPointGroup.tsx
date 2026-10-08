@@ -68,7 +68,12 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
       </>
     )
   ) : sameStop ? (
-    <>Transfer at {boardLink}</>
+    // At a street stop the rider boards where they got off, which J wants said beside the walks
+    // other transfer points give. A station's platforms may be apart.
+    <>
+      Transfer at {boardLink}
+      {group.walkMeters < 15 && !board?.serves && board?.mode !== 'bart' && ' · no walk'}
+    </>
   ) : (
     <>
       {alightVerb(group, data)} <StopLink stop={alight}>{alightName}</StopLink> · {walkTime} min walk

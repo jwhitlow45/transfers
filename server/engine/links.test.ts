@@ -24,16 +24,17 @@ const CORNERS = [
   ['market', 1500],
 ] as const;
 
-// Builds a one-route network. `stops` are names with their position along the street in meters
-// and whether they sit on its north side. `runs` repeat a stop sequence `count` times.
-function build(stops: [string, number, boolean][], runs: { id: string; direction: number; headsign: string; sequence: string[]; count: number }[]) {
+// Builds a network along one street, of route C unless a run names another. `stops` are names
+// with their position along the street in meters and whether they sit on its north side. `runs`
+// repeat a stop sequence `count` times.
+function build(stops: [string, number, boolean][], runs: { id: string; route?: string; direction: number; headsign: string; sequence: string[]; count: number }[]) {
   const rows = ['stop_id,stop_code,stop_name,stop_lat,stop_lon'];
   for (const [name, meters, north] of stops) rows.push(`${name},${name},${name},${(LAT + (north ? 0.0002 : 0)).toFixed(6)},${lon(meters)}`);
   const trips: string[] = [];
   const times: string[] = [];
-  for (const { id, direction, headsign, sequence, count } of runs) {
+  for (const { id, route = 'C', direction, headsign, sequence, count } of runs) {
     for (let n = 0; n < count; n++) {
-      trips.push(`C,all,${id}${n},${headsign},${direction},,`);
+      trips.push(`${route},all,${id}${n},${headsign},${direction},,`);
       sequence.forEach((stop, index) => {
         const at = `08:${String(index * 2).padStart(2, '0')}:00`;
         times.push(`${id}${n},${at},${at},${stop},${index + 1}`);
@@ -43,7 +44,7 @@ function build(stops: [string, number, boolean][], runs: { id: string; direction
   const calendar = 'service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,start_date,end_date\nall,1,1,1,1,1,1,1,20260101,20271231\n';
   const files = new Map(
     Object.entries({
-      'routes.txt': 'route_id,route_short_name,route_long_name,route_type\nC,C,CALIFORNIA,3\n',
+      'routes.txt': `route_id,route_short_name,route_long_name,route_type\n${[...new Set(runs.map(({ route = 'C' }) => route))].map((route) => `${route},${route},${route},3`).join('\n')}\n`,
       'stops.txt': `${rows.join('\n')}\n`,
       'calendar.txt': calendar,
       'trips.txt': `route_id,service_id,trip_id,trip_headsign,direction_id,block_id,shape_id\n${trips.join('\n')}\n`,
@@ -124,9 +125,11 @@ test('a ride straight to a named stop may end across the street from it, or wher
   const schedule = network(2);
   const links = (from: string, to: string) =>
     findLinks(schedule, schedule.stopsByKey.get(`SF:${from}`)!, { stop: schedule.stopsByKey.get(`SF:${to}`)! }).map((link) => `${link.kind} ${link.headsign} at ${link.board.stopId}`);
-  // Westbound cars leave Jones away from Larkin, so as a stop to transfer at, westbound Jones is
+  // Westbound cars leave Jones away from Polk, so as a stop to transfer at, westbound Jones is
   // out of reach. Eastbound ones stop across the street.
-  deepStrictEqual(links('larkin-wb', 'jones-wb'), ['walk Market at larkin-eb']);
+  deepStrictEqual(links('polk-wb', 'jones-wb'), ['walk Market at polk-eb']);
+  // From Larkin, Jones is itself a walk.
+  deepStrictEqual(links('larkin-wb', 'jones-wb'), []);
   // Westbound ends at Van Ness, where no one boards.
   deepStrictEqual(links('jones-wb', 'vanness-wb'), ['walk Van Ness at jones-wb']);
   schedule.close();
@@ -172,5 +175,29 @@ test('a ride straight to a named stop arrives at the first of the stop or its co
   strictEqual(departure?.destination, day + 8 * 3600 + 240);
   const pin = { second: { trip: 'SF:p0', board: 'SF:from' }, at: day + 8 * 3600 };
   deepStrictEqual(planTrip(schedule, view, { from: 'SF:from', to: 'SF:to', pin }, day + 7.9 * 3600).pinned?.second?.off, { stop: 'SF:corner', at: day + 8 * 3600 + 240, delay: null });
+  schedule.close();
+});
+
+test('another route on the named stop\'s corner is no ride there, as the rider named the stop for its own', () => {
+  // Like the 14 on Mission St at 24th, beside the 48's stop on 24th St.
+  const schedule = build(
+    [
+      ['from', 0, false],
+      ['to', 900, false],
+      ['corner', 900, true],
+      ['past', 1500, true],
+      ['start', 1800, false],
+      ['end', 600, false],
+    ],
+    [
+      { id: 'f', route: 'F', direction: 0, headsign: 'East', sequence: ['from', 'corner', 'past'], count: 10 },
+      { id: 'd', route: 'D', direction: 1, headsign: 'West', sequence: ['start', 'to', 'end'], count: 10 },
+    ],
+  );
+  const links = (to: string) =>
+    findLinks(schedule, schedule.stopsByKey.get('SF:from')!, { stop: schedule.stopsByKey.get(`SF:${to}`)! }).map((link) => `${link.kind} ${link.routes.map(({ shortName }) => shortName).join()}`);
+  // F reaches the corner, so it is how the rider gets to D, not a ride to D's stop.
+  deepStrictEqual(links('to'), ['ride D']);
+  deepStrictEqual(links('corner'), ['walk F']);
   schedule.close();
 });

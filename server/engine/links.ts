@@ -171,11 +171,19 @@ export function findLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow
   // A named stop's routes can also take the rider there where the targets above leave them out:
   // to its corner, or to where they end. These are rides only, never transfers, and boarding
   // where the ride ends would be walking there. They come after the long walks are weighed, as a
-  // rider catching something at the stop still needs a way to it.
-  if ('stop' in to) {
-    const arrivals = new Set(arrivalStops(schedule, to.stop, settings.toAgencies ?? null).map(({ id }) => id));
+  // rider catching something at the stop still needs a way to it. With the stop itself a walk
+  // from From, such a ride is a stop or two of noise.
+  const arrivals = 'stop' in to ? arrivalStops(schedule, to.stop, settings.toAgencies ?? null) : [];
+  const walkable = arrivals.some((stop) =>
+    origins.some((origin) => {
+      const walk = walkBetween(schedule, origin, stop);
+      return walk.meters <= (walk.involvesStation ? context.maxWalk * STATION_WALK_FACTOR : context.maxWalk);
+    }),
+  );
+  if ('stop' in to && !walkable) {
+    const exclude = new Set(arrivals.map(({ id }) => id));
     for (const target of runningTargets(cornerTargets(schedule, to.stop, settings.toAgencies ?? null))) {
-      const walk = walkLink(context, origins, target, arrivals);
+      const walk = walkLink(context, origins, target, exclude);
       if (walk && walk !== 'pointless') addWalk(walk);
     }
   }
