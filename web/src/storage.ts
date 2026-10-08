@@ -255,6 +255,11 @@ export function loadRecent(): RecentSearch[] {
   return read<RecentSearch[]>('recent', []);
 }
 
+// The whole list back as it was, as when a removal is undone.
+export function saveRecent(recent: RecentSearch[]) {
+  write('recent', recent);
+}
+
 export function removeRecent(id: string) {
   write('recent', loadRecent().filter((item) => searchId(item) !== id));
 }

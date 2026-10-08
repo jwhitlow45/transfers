@@ -34,6 +34,7 @@ import {
   removeSaved,
   saveFields,
   savePin,
+  saveRecent,
   saveSaved,
   searchId,
 } from '../storage.ts';
@@ -303,8 +304,12 @@ export function SearchScreen() {
                       updateSaved(all.map((item) => (item.id === search.id && !item.color ? { ...item, color: defaultSavedColor(lineColor, taken) } : item)));
                     }}
                     onRemove={() => {
+                      // One tap removes a search and its name, color and settings, so it can be
+                      // undone (J, 2026-10-08).
+                      const before = loadSaved();
                       removeSaved(search.id);
                       setSaved(loadSaved());
+                      setToast({ id: ++toastId.current, text: 'Removed from Saved', about: 'notice', undo: () => updateSaved(before) });
                     }}
                   />
                 ))}
@@ -315,8 +320,18 @@ export function SearchScreen() {
             items={recent}
             onOpen={(item) => navigate(item.href)}
             onRemove={(item) => {
+              const before = loadRecent();
               removeRecent(item.id);
               setRecentVersion((version) => version + 1);
+              setToast({
+                id: ++toastId.current,
+                text: 'Removed from Recent',
+                about: 'notice',
+                undo: () => {
+                  saveRecent(before);
+                  setRecentVersion((version) => version + 1);
+                },
+              });
             }}
           />
           <HowItWorks open={saved.length === 0 && recent.length === 0} />
