@@ -358,6 +358,9 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-departed__toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
 .tf-group > .tf-departed { margin-bottom: var(--space-3); border: var(--border-hair) dashed var(--line); }
 .tf-group > .tf-departed .tf-departed__toggle { border-bottom: 0; }
+/* Cards folded at the top of a group sit inside its dashed edge, apart from it and each other,
+   so their solid borders never run against it. */
+.tf-group > .tf-departed .tf-departed__list { display: flex; flex-direction: column; gap: var(--space-4); padding: 0 var(--space-3) var(--space-3); }
 /* A row whose vehicle has left: its countdown counts up, quieter, and it can still be pinned. */
 .tf-row--left .tf-row__num { color: var(--muted); }
 .tf-card--left .tf-band__in { opacity: .8; }

@@ -16,7 +16,7 @@ export function Departed({ count, children }: { count: number; children: Compone
         {count} departed
       </button>
       <Collapse open={open} id={panel}>
-        {children}
+        <div class="tf-departed__list">{children}</div>
       </Collapse>
     </div>
   );
