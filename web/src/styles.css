@@ -342,6 +342,9 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-alert[data-open="false"] .tf-alert__sep { flex: none; display: inline; color: var(--muted); }
 .tf-alert[data-open="false"] .tf-alert__title { flex: 1 1 0; }
 .tf-alert[data-open="false"] :is(.tf-kicker, .tf-alert__title) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* On narrow phones a folded notice's kicker names only its agency or routes, leaving the title
+   room to be read. The word comes back when it opens. */
+@media (max-width: 399px) { .tf-alert[data-open="false"] .tf-alert__notice { display: none; } }
 .tf-alert__body { padding: 0 var(--space-4) var(--space-3) 42px; font-size: 15px; text-wrap: pretty; }
 .tf-alert__meta { margin-top: 6px; font-size: var(--text-sm); color: var(--muted); }
 .tf-alert__foot { display: flex; align-items: center; gap: var(--space-2); margin-top: 6px; }

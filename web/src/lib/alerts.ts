@@ -7,6 +7,9 @@ export type ViewAlert = { id: string; severity: Severity; kicker: string; title:
 
 const date = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric' });
 
+// How the kicker starts for a notice about no stop of the trip in particular.
+export const NOTICE = 'Notice · ';
+
 // The rider's access needs: elevators, escalators, or both.
 export type Needs = { elevators: boolean; escalators: boolean };
 
@@ -25,10 +28,10 @@ function toView(alert: Alert, data: TripResponse, boardingStops: Set<string>, ne
   const routeNames = alert.routes.map((key) => (data.routes[key] ? chipLabel(data.routes[key]!) : key)).join(', ');
   const access = /elevator|escalator/i.test(alert.header);
   let severity: Severity = 'info';
-  let kicker = `Notice · ${agencyOnly(alert.agency)}`;
+  let kicker = `${NOTICE}${agencyOnly(alert.agency)}`;
   if (alert.lineWide) {
     // An alert that names every stop on a line is a notice about the line, not the rider's stops.
-    kicker = `Notice · ${routeNames || agencyOnly(alert.agency)}`;
+    kicker = `${NOTICE}${routeNames || agencyOnly(alert.agency)}`;
   } else if (alert.relevance === 'stop') {
     const boarding = alert.stops.find((stop) => boardingStops.has(stop));
     if (access) {

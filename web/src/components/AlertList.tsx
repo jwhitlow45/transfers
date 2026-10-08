@@ -3,7 +3,7 @@ import { focusInstead } from '../focus.ts';
 import { motionOff } from '../gestures.ts';
 import { navigate } from '../router.ts';
 import { IconChevron, IconChevronRight, IconInfo, IconWarn } from '../icons/ui.tsx';
-import type { ViewAlert } from '../lib/alerts.ts';
+import { NOTICE, type ViewAlert } from '../lib/alerts.ts';
 import { Collapse } from './Collapse.tsx';
 
 // Inline, collapsible, ordered by importance. Alerts on the rider's boarding stop open at first.
@@ -46,7 +46,18 @@ export function AlertList({ alerts, dismissed, onDismiss }: { alerts: ViewAlert[
               <button type="button" class="tf-alert__toggle" aria-expanded={isOpen} aria-controls={panel} onClick={() => setOpen((current) => ({ ...current, [alert.id]: !isOpen }))}>
                 <span class="tf-alert__icon">{alert.severity === 'info' ? <IconInfo /> : <IconWarn />}</span>
                 <span class="tf-alert__text">
-                  <span class="tf-kicker">{alert.kicker}</span>
+                  <span class="tf-kicker">
+                    {/* Narrow screens leave out the plain word "Notice" from a folded one's
+                        kicker, so more of the title shows (see styles.css). */}
+                    {alert.kicker.startsWith(NOTICE) ? (
+                      <>
+                        <span class="tf-alert__notice">{NOTICE}</span>
+                        {alert.kicker.slice(NOTICE.length)}
+                      </>
+                    ) : (
+                      alert.kicker
+                    )}
+                  </span>
                   <span class="tf-alert__sep" aria-hidden="true">
                     ·
                   </span>
