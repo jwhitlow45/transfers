@@ -8,9 +8,12 @@ import { IconBack, IconBookmark, IconSliders } from '../icons/ui.tsx';
 // windowText is null when nothing on the page has a transfer window, such as when the route
 // already stops where the rider is.
 // `children` sit just above the bar, such as a toast, and slide with it when swiping back.
-export function BottomBar({ windowText, saved, onBack, onOpen, onToggleSaved, children }: {
+// `failed` says the trip has no results to set or save, such as for a stop no longer in the
+// schedule. A search saved before then can still be removed.
+export function BottomBar({ windowText, saved, failed = false, onBack, onOpen, onToggleSaved, children }: {
   windowText: string | null;
   saved: boolean;
+  failed?: boolean;
   onBack: () => void;
   onOpen: () => void;
   onToggleSaved: () => void;
@@ -23,7 +26,7 @@ export function BottomBar({ windowText, saved, onBack, onOpen, onToggleSaved, ch
         <button type="button" class="tf-btn-outline tf-bottombar__icon" onClick={onBack} aria-label="Back to search">
           <IconBack />
         </button>
-        <button type="button" class="tf-btn-outline tf-bottombar__open" onClick={onOpen}>
+        <button type="button" class="tf-btn-outline tf-bottombar__open" disabled={failed} onClick={onOpen}>
           {/* The name stays when the narrowest screens hide the visible label. */}
           <span class="tf-sr">{windowText === null ? 'Trip settings' : 'Trip settings: '}</span>
           {windowText === null ? (
@@ -42,7 +45,7 @@ export function BottomBar({ windowText, saved, onBack, onOpen, onToggleSaved, ch
             <IconSliders />
           </span>
         </button>
-        <button type="button" class="tf-btn-outline tf-bottombar__icon" aria-pressed={saved} aria-label={saved ? 'Saved. Remove from saved searches' : 'Save this search'} onClick={onToggleSaved}>
+        <button type="button" class="tf-btn-outline tf-bottombar__icon" disabled={failed && !saved} aria-pressed={saved} aria-label={saved ? 'Saved. Remove from saved searches' : 'Save this search'} onClick={onToggleSaved}>
           <IconBookmark filled={saved} />
         </button>
       </div>

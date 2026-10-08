@@ -226,6 +226,12 @@ export function ResultsScreen({ search }: { search: Search }) {
     pinHint: hintGroup ? hintKey(hintGroup, visibleDepartures(hintGroup, now, showHidden)[0]?.trip) : null,
     showOutages: setOutagesOpen,
   };
+  // A request the server refused, such as for a stop no longer in the schedule, is no live time.
+  // With no results at all, there is nothing to set or save either.
+  const missing = error !== null && /^No (stop|route)/.test(error);
+  const errorText = missing ? "This stop or route isn't in the schedule anymore" : error;
+  const failure = error ? { short: missing ? 'Not found' : 'Error', full: missing ? errorText! : `Results could not load: ${error}` } : null;
+  const failed = error !== null && !data;
   const secondsSinceUpdate = fresh.ageSeconds ?? (fetchedAt === null ? null : Math.max(0, Math.floor((now - (fetchedAt + skew)) / 1000)));
   const window = summary.window ?? { min: search.min ?? 3, max: search.max ?? 12 };
   const hide = search.hide ?? settings.hide;
@@ -250,6 +256,7 @@ export function ResultsScreen({ search }: { search: Search }) {
           feed={feed}
           secondsSinceUpdate={secondsSinceUpdate}
           stale={showStale}
+          failed={failure}
           items={[
             ...(summary.window
               ? [{ key: 'window', icon: <IconTransfer />, short: `${summary.window.min}–${summary.window.max}m`, full: `Showing transfers of ${summary.window.min} to ${summary.window.max} minutes` }]
@@ -270,7 +277,7 @@ export function ResultsScreen({ search }: { search: Search }) {
           ))}
           {error && (
             <div class="tf-empty" role="alert">
-              <div class="tf-empty__title">{/^No (stop|route)/.test(error) ? "This stop or route isn't in the schedule anymore" : error}</div>
+              <div class="tf-empty__title">{errorText}</div>
               <a class="tf-link-button" href="/" onClick={(event) => (event.preventDefault(), goBack())}>
                 Search again
               </a>
@@ -338,7 +345,7 @@ export function ResultsScreen({ search }: { search: Search }) {
           <DataCredit />
         </main>
       </div>
-      <BottomBar windowText={summary.windowText} saved={saved !== null} onBack={() => goBack()} onOpen={() => setSettingsOpen(true)} onToggleSaved={toggleSaved}>
+      <BottomBar windowText={summary.windowText} saved={saved !== null} failed={failed} onBack={() => goBack()} onOpen={() => setSettingsOpen(true)} onToggleSaved={toggleSaved}>
         <Toast message={toast} onDone={() => setToast(null)} />
       </BottomBar>
       {outagesOpen && data && <OutageSheet outages={outagesOpen} data={data} onClose={() => setOutagesOpen(null)} />}

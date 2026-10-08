@@ -654,6 +654,8 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-stat--live .tf-stat__value { min-width: 3.5ch; font-variant-numeric: tabular-nums; }
 .tf-livestatus--offline .tf-stat--live { color: var(--late); font-weight: var(--weight-bold); }
 .tf-livestatus--offline .tf-stat--live .tf-dot { background: transparent; border-color: var(--late); }
+.tf-livestatus--failed .tf-stat--live { color: var(--late); font-weight: var(--weight-bold); }
+.tf-livestatus--failed .tf-stat--live .tf-dot { background: transparent; border-color: var(--late); }
 .tf-livestatus--stale .tf-stat--live { color: var(--caution); font-weight: var(--weight-bold); }
 .tf-livestatus--stale .tf-stat--live .tf-dot { background: transparent; border-color: var(--caution); }
 /* An update: at the end of the line, the same size as the items beside it, in the accent's ink and

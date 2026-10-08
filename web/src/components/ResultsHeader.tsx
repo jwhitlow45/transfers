@@ -20,6 +20,8 @@ export function liveStatusText(feed: FeedState, secondsSinceUpdate: number | nul
 // One item of the status line: a symbol and a short value, with the full sentence on tap, or with
 // `onPress`, an action of its own.
 export type StatusItem = { key: string; icon: ComponentChildren; short: ComponentChildren; full: string; onPress?: () => void };
+// A request the server refused, in the status line's short and full words.
+export type Failure = { short: string; full: string };
 
 // A newer version of the site than this page, as an item of its own: nothing is wrong, so not a
 // warning, and underlined as the app's other tappable text is. A tap loads the new version the
@@ -40,7 +42,15 @@ const UPDATE: StatusItem = {
 // The live status as one line of short items. Each one opens its full sentence on tap, and
 // screen readers hear the full sentence as its name. Only changes of state are announced: the
 // age ticking every second would otherwise be read out constantly.
-export function LiveStatus({ feed, secondsSinceUpdate, stale, items = [] }: { feed: FeedState; secondsSinceUpdate: number | null; stale?: boolean; items?: StatusItem[] }) {
+// `failed` replaces the live item when the server answered with an error, such as for a stop no
+// longer in the schedule: the times on screen, if any, are not live, and nothing new is coming.
+export function LiveStatus({ feed, secondsSinceUpdate, stale, failed = null, items = [] }: {
+  feed: FeedState;
+  secondsSinceUpdate: number | null;
+  stale?: boolean;
+  failed?: Failure | null;
+  items?: StatusItem[];
+}) {
   const [open, setOpen] = useState<string | null>(null);
   const line = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -52,15 +62,28 @@ export function LiveStatus({ feed, secondsSinceUpdate, stale, items = [] }: { fe
     return () => document.removeEventListener('pointerdown', close);
   }, [open]);
   const update = useUpdateAvailable();
-  const tone = feed === 'offline' ? 'offline' : stale ? 'stale' : 'live';
+  const tone = failed ? 'failed' : feed === 'offline' ? 'offline' : stale ? 'stale' : 'live';
   const age = secondsSinceUpdate === null ? null : ageShort(secondsSinceUpdate);
-  const live: StatusItem = {
-    key: 'live',
-    icon: <span class="tf-dot" />,
-    short: feed === 'loading' ? 'Loading' : feed === 'offline' ? `Offline${age ? ` · ${age}` : ''}` : (age ?? 'Live'),
-    full: liveStatusSentence(feed, secondsSinceUpdate, stale ?? false),
-  };
-  const announcement = feed === 'offline' ? 'Offline, showing the last results' : stale ? 'Live times are out of date' : feed === 'loading' ? 'Loading' : update ? 'An update to Transfers is available' : '';
+  const live: StatusItem = failed
+    ? { key: 'live', icon: <span class="tf-dot" />, short: failed.short, full: failed.full }
+    : {
+        key: 'live',
+        icon: <span class="tf-dot" />,
+        short: feed === 'loading' ? 'Loading' : feed === 'offline' ? `Offline${age ? ` · ${age}` : ''}` : (age ?? 'Live'),
+        full: liveStatusSentence(feed, secondsSinceUpdate, stale ?? false),
+      };
+  // A failure is the page's to announce, where it says what to do.
+  const announcement = failed
+    ? ''
+    : feed === 'offline'
+      ? 'Offline, showing the last results'
+      : stale
+        ? 'Live times are out of date'
+        : feed === 'loading'
+          ? 'Loading'
+          : update
+            ? 'An update to Transfers is available'
+            : '';
   return (
     <div class={`tf-livestatus tf-livestatus--${tone}`} ref={line}>
       <span class="tf-sr" role="status">
@@ -110,10 +133,11 @@ function liveStatusSentence(feed: FeedState, seconds: number | null, stale: bool
 // onBack, Results since its back button sits in the bottom bar. Home sets its own title row's end.
 // Screens with live data pass onRefresh to be refreshed by pulling down. Every screen lays the
 // title and status out the same, so moving between them does not shift either.
-export function ScreenHeader({ title, end, feed, secondsSinceUpdate, stale, items, accent, onBack, onRefresh }: {
+export function ScreenHeader({ title, end, feed, secondsSinceUpdate, stale, failed, items, accent, onBack, onRefresh }: {
   title: ComponentChildren;
   end?: ComponentChildren;
   stale?: boolean;
+  failed?: Failure | null;
   items?: StatusItem[];
   // A saved search's color, as a stripe under the header.
   accent?: string | undefined;
@@ -135,7 +159,7 @@ export function ScreenHeader({ title, end, feed, secondsSinceUpdate, stale, item
         {end}
       </div>
       {feed && (
-        <LiveStatus feed={feed} secondsSinceUpdate={secondsSinceUpdate ?? null} stale={stale ?? false} items={items ?? []} />
+        <LiveStatus feed={feed} secondsSinceUpdate={secondsSinceUpdate ?? null} stale={stale ?? false} failed={failed ?? null} items={items ?? []} />
       )}
       {/* The saved color and the loading bar share the few pixels under the header, where neither
           moves the page as a search is saved or loads. While loading, the saved color is the bar. */}
