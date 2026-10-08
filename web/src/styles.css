@@ -491,7 +491,8 @@ button:disabled { opacity: .45; cursor: default; }
 
 /* ── additions for this app ──────────────────────────
    Not in the handoff: screens and states it did not cover, built from its tokens. */
-.tf-link-button { display: inline-flex; align-items: center; min-height: var(--tap); color: var(--accent-ink); font-weight: 650; text-decoration: underline; text-underline-offset: 3px; }
+/* No padding, so a button reads in line with the text around it as a link does. */
+.tf-link-button { display: inline-flex; align-items: center; min-height: var(--tap); padding: 0; color: var(--accent-ink); font-weight: 650; text-decoration: underline; text-underline-offset: 3px; }
 .tf-btn-secondary { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); padding: 0 var(--space-4); color: var(--text); text-decoration: none; font-weight: 650; }
 .tf-btn-with-icon { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); }
 .tf-fields__stack { min-width: 0; }
