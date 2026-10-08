@@ -44,6 +44,11 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
   }, []);
   const latestClose = useRef(onClose);
   latestClose.current = onClose;
+  // However it closes, the sheet slides away first, once (J, 2026-10-08). A drag lets go of it
+  // where the finger left it, and Close, Done, the scrim, Escape, and the system back from where it
+  // stands.
+  const sliding = useRef(false);
+  const slid = useRef<(then: () => void) => void>(() => {});
   useEffect(() => {
     step.current = openSheetEntry(title);
     const pageKey = currentUnder();
@@ -53,7 +58,7 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
     const onPop = () => {
       if (isSheetEntry(step.current)) return;
       if (currentKey() !== pageKey) return void (covered = true);
-      if (!covered) return latestClose.current();
+      if (!covered) return sliding.current ? latestClose.current() : slid.current(() => latestClose.current());
       covered = false;
       closeSheetEntry(step.current);
       step.current = openSheetEntry(title);
@@ -68,9 +73,12 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
   // one a link in the sheet opened, leaves nothing to take back.
   const close = () => (isSheetEntry(step.current) ? history.back() : onClose());
   const slideAway = (then?: () => void) => {
+    if (sliding.current) return;
+    sliding.current = true;
     place(panel.current?.offsetHeight ?? 0, true);
     setTimeout(then ?? close, motionOff() ? 0 : SLIDE_MS);
   };
+  slid.current = slideAway;
   // Moves the panel down by offset px and fades the scrim to match. Styles are set directly, as
   // a render per touch event would lag behind the finger.
   const place = (offset: number, animated: boolean) => {
@@ -100,7 +108,7 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'Escape') {
       event.preventDefault();
-      close();
+      slideAway();
       return;
     }
     if (event.key !== 'Tab' || !panel.current) return;
@@ -119,7 +127,7 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
   };
   return (
     <div class="tf-sheet">
-      <div ref={scrim} class="tf-sheet__scrim" aria-hidden="true" onClick={close} />
+      <div ref={scrim} class="tf-sheet__scrim" aria-hidden="true" onClick={() => slideAway()} />
       <div ref={panel} class="tf-sheet__panel" role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} onKeyDown={onKeyDown}>
         <div class="tf-sheet__top">
           <div class="tf-grabber" aria-hidden="true" />
@@ -127,7 +135,7 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
             <div class="tf-sheet__head">
               <h2>{title}</h2>
               {action}
-              <button type="button" class="tf-btn-icon" onClick={close} aria-label="Close">
+              <button type="button" class="tf-btn-icon" onClick={() => slideAway()} aria-label="Close">
                 <IconClose />
               </button>
             </div>
@@ -138,7 +146,7 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
           <div class="tf-sheet__inner">
             <SlideAway.Provider value={slideAway}>{children}</SlideAway.Provider>
             {footer && <div class="tf-sheet__saved">{footer}</div>}
-            <button type="button" class="tf-btn-primary tf-sheet__done" onClick={close}>
+            <button type="button" class="tf-btn-primary tf-sheet__done" onClick={() => slideAway()}>
               Done
             </button>
           </div>
