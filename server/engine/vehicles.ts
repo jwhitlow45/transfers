@@ -155,23 +155,16 @@ export function secondLegs(context: VehicleContext, link: Link, destinationStops
         live: true,
         canceled: trip.canceled,
       };
-      for (const stop of destinationStops) {
-        const reaches = timeAfter(context, trip, index, staticTrip, pattern, stop);
-        if (reaches) {
-          leg.destination = reaches.at;
-          break;
-        }
-      }
+      const reaches = destinationStops.flatMap((stop) => timeAfter(context, trip, index, staticTrip, pattern, stop) ?? []).sort((a, b) => a.at - b.at)[0];
+      if (reaches) leg.destination = reaches.at;
       legs.set(leg.trip, leg);
     }
   }
 
+  // The first of them the trip reaches, as a pinned trip ends there too.
   const destinationPositions = (pattern: PatternRow, from: number) => {
-    for (const stop of destinationStops) {
-      const position = pattern.stops.indexOf(stop.id, from + 1);
-      if (position !== -1) return [position];
-    }
-    return [];
+    const positions = destinationStops.map((stop) => pattern.stops.indexOf(stop.id, from + 1)).filter((position) => position !== -1);
+    return positions.length > 0 ? [Math.min(...positions)] : [];
   };
   for (const { pattern, position } of link.boardPatterns) {
     if (!routeIds.has(pattern.route)) continue;

@@ -1,4 +1,4 @@
-import { deepStrictEqual } from 'node:assert/strict';
+import { deepStrictEqual, strictEqual } from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -150,5 +150,27 @@ test('a pinned ride straight to a named stop ends where the bus reaches it or it
   deepStrictEqual([departure?.at, departure?.destination], [day + 8 * 3600 + 120, day + 8 * 3600 + 360]);
   const pin = { second: { trip: 'SF:l0', board: 'SF:from' }, at: day + 8 * 3600 + 120 };
   deepStrictEqual(planTrip(schedule, view, { from: 'SF:from', to: 'SF:to', pin }, day + 7.9 * 3600).pinned?.second?.off, { stop: 'SF:corner', at: day + 8 * 3600 + 360, delay: null });
+  schedule.close();
+});
+
+test('a ride straight to a named stop arrives at the first of the stop or its corner it reaches, in the results and when pinned', () => {
+  // The bus passes the stop across the street just before To.
+  const schedule = build(
+    [
+      ['from', 900, false],
+      ['out', 450, false],
+      ['corner', 0, true],
+      ['to', 0, false],
+      ['beyond', -600, false],
+    ],
+    [{ id: 'p', direction: 0, headsign: 'West', sequence: ['from', 'out', 'corner', 'to', 'beyond'], count: 1 }],
+  );
+  const day = serviceDayStart(20261005);
+  const view = { trips: null, alerts: [], status: () => 'schedule' as const, updatedAt: null };
+  const [departure] = planTrip(schedule, view, { from: 'SF:from', to: 'SF:to' }, day + 7.9 * 3600).groups.flatMap(({ departures }) => departures);
+  // It reaches the corner at 8:04 and To at 8:06.
+  strictEqual(departure?.destination, day + 8 * 3600 + 240);
+  const pin = { second: { trip: 'SF:p0', board: 'SF:from' }, at: day + 8 * 3600 };
+  deepStrictEqual(planTrip(schedule, view, { from: 'SF:from', to: 'SF:to', pin }, day + 7.9 * 3600).pinned?.second?.off, { stop: 'SF:corner', at: day + 8 * 3600 + 240, delay: null });
   schedule.close();
 });
