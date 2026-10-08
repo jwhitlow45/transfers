@@ -172,6 +172,13 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
               {walk && ` · ${walk}`}
             </div>
           )}
+          {/* The narrowest phones have no room for the transfer's own column, so it sits here,
+              between the vehicles, where the rider makes it (see styles.css). */}
+          {transfer !== null && (
+            <div class="tf-pinned__xfer" aria-hidden="true">
+              {missed ? <span class="tf-pinned__missed">Missed by {-transfer} min</span> : `${transfer} min transfer`}
+            </div>
+          )}
           <div class={first ? 'tf-pinned__second' : undefined}>
             {vehicle(second, second.on, secondLink)}
             <div class="tf-row__off" aria-hidden="true">
