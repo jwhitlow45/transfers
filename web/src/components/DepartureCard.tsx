@@ -105,14 +105,15 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
         )}
       </span>
       <span class="tf-band__right" aria-hidden="true">
-        <span class="tf-band__in">{left ? (ago < 1 ? 'Now' : `${ago}\u00a0min`) : minutes < 1 ? 'Now' : `${minutes}\u00a0min`}</span>
+        {/* Read top to bottom: "12 min away", "Now arriving", "Just left", "3 min ago". */}
+        <span class="tf-band__in">{left ? (ago < 1 ? 'Just' : `${ago}\u00a0min`) : minutes < 1 ? 'Now' : `${minutes}\u00a0min`}</span>
         {walkPinned ? (
           <span class="tf-band__inlabel tf-band__inlabel--pinned">
             <IconPin filled size={13} />
             Pinned
           </span>
         ) : (
-          <span class="tf-band__inlabel">{left ? (ago < 1 ? 'left' : 'ago') : 'away'}</span>
+          <span class="tf-band__inlabel">{left ? (ago < 1 ? 'left' : 'ago') : minutes < 1 ? 'arriving' : 'away'}</span>
         )}
         {!walk && (
           <span class="tf-band__chev">
