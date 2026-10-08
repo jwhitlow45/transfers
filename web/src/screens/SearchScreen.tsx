@@ -68,6 +68,8 @@ export function SearchScreen() {
   useEffect(() => saveFields({ from, to }), [from, to]);
   const [focus, setFocus] = useState<'from' | 'to' | null>(null);
   const [response, setResponse] = useState<SearchResponse | null>(null);
+  // Which field and text the response answers, as "from|24th".
+  const answeredFor = useRef('');
   const [saved, setSaved] = useState(loadSaved);
   // Pinned trips lead Home, so the one being taken is in sight as soon as the app opens.
   const [pins, setPins] = useState(loadPins);
@@ -121,7 +123,10 @@ export function SearchScreen() {
     // Waits for a pause in typing, so each keystroke does not cost a request.
     const timer = setTimeout(() => {
       const params = new URLSearchParams({ q: query, kind: focus === 'to' ? 'any' : 'stop' });
-      getJson<SearchResponse>(`/api/search?${params}`, { signal: controller.signal }).then(setResponse, () => {});
+      getJson<SearchResponse>(`/api/search?${params}`, { signal: controller.signal }).then((answer) => {
+        answeredFor.current = `${focus}|${query}`;
+        setResponse(answer);
+      }, () => {});
     }, 180);
     return () => {
       clearTimeout(timer);
@@ -136,10 +141,46 @@ export function SearchScreen() {
     setFocus(null);
     setResponse(null);
   };
+  const open = (fromPicked: Picked, toPicked: Picked) => navigate(tripPath({ from: fromPicked.key, to: toPicked.key, fromLabel: fromPicked.short, toLabel: toPicked.short }));
   const go = () => {
-    if (!from.picked || !to.picked) return;
-    navigate(tripPath({ from: from.picked.key, to: to.picked.key, fromLabel: from.picked.short, toLabel: to.picked.short }));
+    if (from.picked && to.picked) open(from.picked, to.picked);
   };
+
+  // Enter takes the first match for what was typed, once its answer is in, then moves on: to the
+  // other field, or to the results once both are picked (J, 2026-10-08). The stops along a route
+  // named in From are a choice of side and direction, which Enter does not guess.
+  const pendingEnter = useRef<'from' | 'to' | null>(null);
+  const advance = (field: 'from' | 'to', picked: Picked) => {
+    const fromPicked = field === 'from' ? picked : from.picked;
+    const toPicked = field === 'to' ? picked : to.picked;
+    if (!fromPicked || !toPicked) return document.getElementById(field === 'from' ? 'field-to' : 'field-from')?.focus();
+    // Saved now, as Home closes before its own saving would run, and the rider comes back to them.
+    saveFields({ from: { query: fromPicked.label, picked: fromPicked }, to: { query: toPicked.label, picked: toPicked } });
+    open(fromPicked, toPicked);
+  };
+  const takeFirst = (field: 'from' | 'to') => {
+    const hit = response?.along?.length ? undefined : response?.results[0];
+    if (!response || !hit) return;
+    const picked = pickedFrom(hit, response);
+    (field === 'from' ? setFrom : setTo)({ query: picked.label, picked });
+    setFocus(null);
+    setResponse(null);
+    advance(field, picked);
+  };
+  const enter = (field: 'from' | 'to') => {
+    const value = field === 'from' ? from : to;
+    if (value.picked) return advance(field, value.picked);
+    const typed = value.query.trim();
+    if (!typed) return;
+    if (response && answeredFor.current === `${field}|${typed}`) takeFirst(field);
+    else pendingEnter.current = field;
+  };
+  useEffect(() => {
+    const field = pendingEnter.current;
+    if (!field || !response || answeredFor.current !== `${field}|${(field === 'from' ? from : to).query.trim()}`) return;
+    pendingEnter.current = null;
+    takeFirst(field);
+  }, [response]);
   const updateSaved = (next: SavedSearch[]) => {
     saveSaved(next);
     setSaved(next);
@@ -178,8 +219,15 @@ export function SearchScreen() {
         <SearchFields
           from={{ query: from.query, ...(from.picked ? { meta: from.picked.meta } : {}) }}
           to={{ query: to.query, ...(to.picked ? { meta: to.picked.meta } : {}) }}
-          onFrom={(value) => setFrom({ query: value })}
-          onTo={(value) => setTo({ query: value })}
+          onFrom={(value) => {
+            pendingEnter.current = null;
+            setFrom({ query: value });
+          }}
+          onTo={(value) => {
+            pendingEnter.current = null;
+            setTo({ query: value });
+          }}
+          onEnter={enter}
           onFocus={setFocus}
           canSwap={!to.picked?.key.startsWith('route:')}
           onSwap={() => {
