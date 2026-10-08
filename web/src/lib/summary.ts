@@ -1,4 +1,4 @@
-import type { Route, TripResponse } from '../../../shared/api.ts';
+import type { Alert, Route, TripResponse } from '../../../shared/api.ts';
 import { clock, clockOrDay } from '../format.ts';
 import type { Search } from '../storage.ts';
 import { type Status, chipLabel, shortStopName, statusOf, windowText } from '../view.ts';
@@ -10,6 +10,10 @@ export type Leg = { route: Route | undefined; at: number; status: Status };
 // transfer (null when the route already stops at From, so there is none), and the same in one
 // line for screen readers.
 export type NextConnection = { minutes: number; legs: Leg[]; transfer: number | null; line: string; later: number[] };
+
+// Alerts about a stop the rider stands at, not yet dismissed.
+export const countStopAlerts = (alerts: Alert[], stops: ReadonlySet<string>, dismissed: ReadonlySet<string>) =>
+  alerts.filter(({ id, relevance, stops: affected }) => relevance === 'stop' && affected.some((stop) => stops.has(stop)) && !dismissed.has(id)).length;
 
 // Minutes until the next two departures after the soonest, from every time the card could have
 // drawn. One first vehicle often connects to several second vehicles, so repeats are dropped.
@@ -95,7 +99,14 @@ export function summarize(search: Search, data: TripResponse | null, now: number
   const nextService = !next && idle ? clockOrDay(idle, now) : null;
 
   const boarding = new Set([data?.from, ...groups.map(({ board }) => board)].filter((key) => key !== undefined));
-  const severeAlerts = (data?.alerts ?? []).filter(({ id, relevance, stops }) => relevance === 'stop' && stops.some((stop) => boarding.has(stop)) && !dismissed.has(id)).length;
+  // Where the rider gets off the first vehicle counts too: a closed transfer stop breaks the trip
+  // as much as a closed boarding stop does.
+  const standing = new Set(boarding);
+  for (const group of groups) {
+    standing.add(group.alight);
+    for (const departure of group.departures) for (const connection of departure.connections) if (connection.alight) standing.add(connection.alight);
+  }
+  const severeAlerts = countStopAlerts(data?.alerts ?? [], standing, dismissed);
 
   // The route a saved search is about: the one transferred to, in the color the results give it.
   const lineColor = data && (toRouteShown ?? (groups[0] ? data.routes[groups[0].routes[0]!] : undefined)) ? pageColors(groups, data)((toRouteShown ?? data.routes[groups[0]!.routes[0]!])!.key) : null;

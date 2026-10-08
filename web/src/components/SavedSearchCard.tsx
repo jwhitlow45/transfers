@@ -169,7 +169,7 @@ export function SavedSearchCard({ name, color, chain, named, windowText, next, l
           {severeAlerts > 0 && (
             <span class="tf-saved__alert">
               <IconWarn size={14} />
-              {severeAlerts === 1 ? '1 alert' : `${severeAlerts} alerts`} on your boarding stop
+              {severeAlerts === 1 ? '1 alert' : `${severeAlerts} alerts`} at your boarding or transfer stop
             </span>
           )}
         </a>
