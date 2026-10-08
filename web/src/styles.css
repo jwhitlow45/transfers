@@ -198,6 +198,9 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-results__label { padding: var(--space-2) var(--space-4); font-size: var(--text-sm); color: var(--muted); border-bottom: var(--border-hair) solid var(--divider); }
 .tf-result { display: flex; flex-direction: column; gap: var(--space-1); width: 100%; text-align: left; padding: var(--space-3) var(--space-4); min-height: 64px; border-bottom: var(--border-hair) solid var(--divider); }
 .tf-result:hover { background: color-mix(in srgb, var(--text) 5%, transparent); }
+/* The match Enter would take, marked so the rider knows before pressing it. */
+.tf-result--enter { background: color-mix(in srgb, var(--accent) 12%, transparent); box-shadow: inset 4px 0 var(--accent); }
+.tf-result--enter:hover { background: color-mix(in srgb, var(--accent) 18%, transparent); }
 .tf-result__top { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
 .tf-result__name { font-size: var(--text-lg); font-weight: 650; }
 .tf-result__code { font-size: var(--text-base); font-weight: var(--weight-semibold); color: var(--muted); white-space: nowrap; }

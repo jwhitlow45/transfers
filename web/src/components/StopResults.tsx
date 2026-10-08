@@ -45,7 +45,8 @@ export function StopResults({ query, response, onPick, includesRoutes }: { query
       {along.map((route) => (
         <RouteStopList key={route.route} along={route} response={response} onPick={onPick} />
       ))}
-      {(hits.length > 0 || along.length === 0) && <HitList label={label} hits={hits} response={response} onPick={onPick} />}
+      {/* Enter takes the first match, except under a route's own stop list (see SearchScreen). */}
+      {(hits.length > 0 || along.length === 0) && <HitList label={label} hits={hits} response={response} onPick={onPick} enterTakesFirst={along.length === 0} />}
     </>
   );
 }
@@ -92,14 +93,20 @@ function RouteStopList({ along, response, onPick }: { along: RouteStops; respons
   );
 }
 
-function HitList({ label, hits, response, onPick }: { label: string; hits: SearchHit[]; response: SearchResponse; onPick: (hit: SearchHit) => void }) {
+function HitList({ label, hits, response, onPick, enterTakesFirst }: {
+  label: string;
+  hits: SearchHit[];
+  response: SearchResponse;
+  onPick: (hit: SearchHit) => void;
+  enterTakesFirst: boolean;
+}) {
   return (
     <div class="tf-results" role="region" aria-label={label}>
       <div class="tf-results__label" aria-live="polite">
         {label}
       </div>
       <div role="list">
-        {hits.map((hit) => {
+        {hits.map((hit, index) => {
           const isRoute = hit.type === 'route';
           const route = isRoute ? response.routes[hit.route] : undefined;
           const code = isRoute ? 'Route' : hit.code ? `Stop ${hit.code}` : 'Station';
@@ -109,9 +116,12 @@ function HitList({ label, hits, response, onPick }: { label: string; hits: Searc
           const chips = isRoute ? [hit.route] : hit.routes;
           return (
             <div role="listitem" key={isRoute ? hit.route : hit.key}>
-              <button type="button" class="tf-result" onClick={() => onPick(hit)}>
+              <button type="button" class={`tf-result${enterTakesFirst && index === 0 ? ' tf-result--enter' : ''}`} onClick={() => onPick(hit)}>
                 <span class="tf-result__top">
-                  <span class="tf-result__name">{hitName(hit, response)}</span>
+                  <span class="tf-result__name">
+                    {hitName(hit, response)}
+                    {enterTakesFirst && index === 0 && <span class="tf-sr"> (Enter picks this)</span>}
+                  </span>
                   <span class="tf-result__code">{code}</span>
                 </span>
                 <span class="tf-result__dir">{detail}</span>
