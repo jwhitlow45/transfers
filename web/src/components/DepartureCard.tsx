@@ -66,7 +66,7 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
   const count = departure.connections.length;
   const countdowns = departure.connections.filter(({ departs }) => departs * 1000 >= context.now).map(({ departs }) => Math.max(0, minutesUntil(departs, context.now)));
   const gone = count - countdowns.length;
-  const summary = [`${count} ${noun[count === 1 ? 0 : 1]}`, gone > 0 && `${gone} departed`, countdowns.length > 0 && `in ${countdowns.join(', ')} min`].filter(Boolean).join(' · ');
+  const summary = [`${count} ${noun[count === 1 ? 0 : 1]}`, gone > 0 && `${gone} departed`, countdowns.length > 0 && `in ${countdowns.join(', ')}\u00a0min`].filter(Boolean).join(' · ');
   const spoken =
     `${route ? spokenRoute(route) : 'Departure'} at ${clock(departure.at)}, ${status.label}, ` +
     `${away ? away.toLowerCase() : `${minutes} minutes away`}${toward ? `, ${toward.toLowerCase()}` : ''}${destination ? `, reaches ${destination}` : ''}.` +
@@ -105,7 +105,7 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
         )}
       </span>
       <span class="tf-band__right" aria-hidden="true">
-        <span class="tf-band__in">{left ? (ago < 1 ? 'Now' : `${ago} min`) : minutes < 1 ? 'Now' : `${minutes} min`}</span>
+        <span class="tf-band__in">{left ? (ago < 1 ? 'Now' : `${ago}\u00a0min`) : minutes < 1 ? 'Now' : `${minutes}\u00a0min`}</span>
         {walkPinned ? (
           <span class="tf-band__inlabel tf-band__inlabel--pinned">
             <IconPin filled size={13} />

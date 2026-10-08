@@ -81,7 +81,8 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
   // The walk between the two vehicles, as the results give it: the row's own when its vehicle lets
   // the rider off at another stop than its group's.
   const walkMeters = connection?.walkMeters ?? group?.walkMeters;
-  const walk = pin.first && walkMeters !== undefined ? walkText(walkMeters) : null;
+  // A non-breaking space keeps the minutes with their unit, here and below.
+  const walk = pin.first && walkMeters !== undefined ? walkText(walkMeters)?.replace(' min', '\u00a0min') : null;
   // The window's shortest transfer, which the first vehicle's map marks a tight transfer by, as
   // results do. A hidden connection is outside the window already.
   const min = group && !connection?.hidden ? group.window.min : undefined;
@@ -176,7 +177,7 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
               between the vehicles, where the rider makes it (see styles.css). */}
           {transfer !== null && (
             <div class="tf-pinned__xfer" aria-hidden="true">
-              {missed ? <span class="tf-pinned__missed">Missed by {-transfer} min</span> : `${transfer} min transfer`}
+              {missed ? <span class="tf-pinned__missed">Missed by {-transfer}&nbsp;min</span> : `${transfer}\u00a0min transfer`}
             </div>
           )}
           <div class={first ? 'tf-pinned__second' : undefined}>
@@ -196,11 +197,11 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
             (missed ? (
               <>
                 <div class="tf-row__xfer-min tf-pinned__missed">Missed</div>
-                <div class="tf-row__xfer-label">by {-transfer} min</div>
+                <div class="tf-row__xfer-label">by {-transfer}&nbsp;min</div>
               </>
             ) : (
               <>
-                <div class="tf-row__xfer-min">{transfer} min</div>
+                <div class="tf-row__xfer-min">{transfer}&nbsp;min</div>
                 <div class="tf-row__xfer-label">transfer</div>
               </>
             ))}

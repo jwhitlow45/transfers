@@ -69,11 +69,11 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
       )
     ) : goes ? (
       <>
-        Walk {walkMinutes(group.walkMeters)} min to {boardLink}, then {goes}
+        Walk {walkMinutes(group.walkMeters)}&nbsp;min to {boardLink}, then {goes}
       </>
     ) : (
       <>
-        No transfer needed: walk {walkMinutes(group.walkMeters)} min to {boardLink}
+        No transfer needed: walk {walkMinutes(group.walkMeters)}&nbsp;min to {boardLink}
       </>
     )
   ) : sameStop ? (
@@ -84,7 +84,7 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
       <span class="tf-walk-gerbil" aria-hidden="true">
         <IconGerbil />
       </span>
-      {walkTime} min walk
+      {walkTime}&nbsp;min walk
     </>
   );
   const card = (departure: (typeof departures)[number]) => (
@@ -148,12 +148,12 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
       ) : ahead.length === 0 ? (
         <div class="tf-empty">
           <div class="tf-empty__title">
-            No {firstWord(group, data)} connects to {routeLabel} within {windowText(group.window)}
+            No {firstWord(group, data)} connects to {routeLabel} within {keepUnit(windowText(group.window))}
           </div>
           <div class="tf-muted">{group.widen ? 'The closest connections fall just outside your window.' : 'Nothing connects in the next few hours.'}</div>
           {group.widen && (
             <button type="button" class="tf-btn-primary" onClick={() => onWiden(group.widen!)}>
-              Widen to {windowText(group.widen)}
+              Widen to {keepUnit(windowText(group.widen))}
             </button>
           )}
           {!context.showHidden && (
@@ -185,6 +185,9 @@ function familyChips(routes: Route[]) {
     </>
   );
 }
+
+// A number and its unit stay on one line: "3–12 min" never wraps before "min".
+const keepUnit = (text: string) => text.replace(/ min\b/g, '\u00a0min');
 
 // Parts of a line joined by " · ", leaving out the empty ones.
 function joined(parts: (ComponentChildren | null | undefined | false)[]) {

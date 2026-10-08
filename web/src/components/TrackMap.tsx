@@ -365,7 +365,7 @@ function When({ at, passed, now }: { at: number | null; passed: boolean; now: nu
   const shown = passed ? Math.min(at, now / 1000) : Math.max(at, now / 1000);
   return (
     <span class="tf-track__when">
-      <span class={`tf-track__in${passed ? ' tf-track__in--passed' : ''}`}>{passed ? 'Passed' : minutes < 1 ? 'Now' : `${minutes} min`}</span>
+      <span class={`tf-track__in${passed ? ' tf-track__in--passed' : ''}`}>{passed ? 'Passed' : minutes < 1 ? 'Now' : `${minutes}\u00a0min`}</span>
       <span class="tf-track__time">{clock(shown)}</span>
     </span>
   );
