@@ -40,24 +40,30 @@ const MIN_REFRESH_MS = 800;
 const REQUEST_TIMEOUT_MS = 15_000;
 const SETTLE_MS = 5000;
 
-// Fetches `url` now and every `intervalMs` while the page is visible. Shows the last response
-// for the same URL at once (from this session or storage), so returning or going offline
-// never blanks the screen. Fetches come every `intervalMs` from when the page opened, and
-// never faster when data is old. Pages opening at different times keep their own rhythm, so
-// devices never line up into bursts.
+// Fetches `url` every `intervalMs` while the page is visible. Shows the last response for the
+// same URL at once (from this session or storage), so returning or going offline never blanks
+// the screen. That response counts as a fetch: the first one comes a full `intervalMs` after it
+// arrived, at once only when there is none or it is that old, so changing pages refreshes nothing
+// that is not due (J, 2026-10-08). Each page keeps its own rhythm after that, so devices never
+// line up into bursts.
 // `initial` is a response that arrived with the page, and when it arrived. `remember` false keeps
 // responses out of storage, for data that is no use on a later visit. A string keeps them under
 // that key rather than the URL, so requests that differ only in what changes with every use, such
 // as a pinned trip, share one stored copy rather than leaving one each.
 export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { data: T; fetchedAt: number } | null = null, remember: boolean | string = true): Polled<T> {
   const key = remember === true ? url : remember || null;
+  // A stored answer younger than a refresh is as good as one just fetched.
+  const [fresh] = useState(() => {
+    const cached = !initial && key ? loadCached<T>(key) : null;
+    return cached !== null && Date.now() - cached.fetchedAt < intervalMs;
+  });
   const [state, setState] = useState<Omit<Polled<T>, 'refresh' | 'settled' | 'answered'>>(() => {
     const cached = key ? loadCached<T>(key) : null;
     const data = initial?.data ?? cached?.data ?? null;
-    return { data, error: null, fetchedAt: initial?.fetchedAt ?? cached?.fetchedAt ?? null, feed: initial ? 'live' : data ? 'refreshing' : 'loading' };
+    return { data, error: null, fetchedAt: initial?.fetchedAt ?? cached?.fetchedAt ?? null, feed: initial || fresh ? 'live' : data ? 'refreshing' : 'loading' };
   });
-  const [settled, setSettled] = useState(Boolean(initial));
-  const [answered, setAnswered] = useState(Boolean(initial));
+  const [settled, setSettled] = useState(Boolean(initial) || fresh);
+  const [answered, setAnswered] = useState(Boolean(initial) || fresh);
   const tick = useRef<() => void>(() => {});
   // When the page's own response arrived, until the first refresh is planned from it.
   const seeded = useRef(initial?.fetchedAt ?? null);
@@ -84,12 +90,10 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
       clearTimeout(timer);
       timer = setTimeout(() => (document.visibilityState === 'visible' ? void fetchNow() : plan(intervalMs)), delay);
     };
-    if (seeded.current === null && key) {
-      // A changed setting is a new URL. Until its answer arrives, the previous results stay up
-      // as refreshing, which beats flashing an empty screen.
-      const cached = loadCached<T>(key);
-      if (cached) setState((current) => ({ ...current, data: cached.data, fetchedAt: cached.fetchedAt }));
-    }
+    const cached = seeded.current === null && key ? loadCached<T>(key) : null;
+    // A changed setting is a new URL. Until its answer arrives, the previous results stay up as
+    // refreshing, which beats flashing an empty screen.
+    if (cached) setState((current) => ({ ...current, data: cached.data, fetchedAt: cached.fetchedAt }));
 
     // A refresh that answers while the page is hidden is old by the time the page is back, and the
     // one sent then answers for it.
@@ -131,10 +135,11 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
       }
     };
     tick.current = () => void fetchNow();
-    // Data the server put in the page is fresh, so the first fetch waits a full refresh from
-    // when it arrived.
-    if (seeded.current === null) void fetchNow();
-    else plan(Math.max(0, intervalMs - (Date.now() - seeded.current)));
+    // Data the server put in the page, or a stored answer, waits a full refresh from when it
+    // arrived.
+    const since = seeded.current ?? cached?.fetchedAt ?? null;
+    if (since === null || Date.now() - since >= intervalMs) void fetchNow();
+    else plan(intervalMs - (Date.now() - since));
     seeded.current = null;
     const onVisible = () => {
       // Hidden, the page stops refreshing, so what it shows is old by the time it is back, until the
