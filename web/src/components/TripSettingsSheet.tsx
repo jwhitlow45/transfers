@@ -12,6 +12,8 @@ import { Sheet, Toggle } from './Sheet.tsx';
 import { MinutesSlider, WindowSlider } from './Slider.tsx';
 
 export type SearchUpdate = (change: (search: Search) => Search) => void;
+// The sheet's title, which also names it among what a page left open (see Left in router.ts).
+export const TRIP_SETTINGS = 'Trip settings';
 type Window = { min: number; max: number };
 
 function WindowSetting({ window, update }: { window: Window; update: SearchUpdate }) {
@@ -120,7 +122,7 @@ export function TripSettingsSheet({ search, data, window, savedName, chain, dest
   };
 
   return (
-    <Sheet title="Trip settings" subtitle={chain} onClose={onClose}>
+    <Sheet title={TRIP_SETTINGS} subtitle={chain} onClose={onClose}>
       <ShareTrip search={search} onCopied={onCopied} />
       <WindowSetting window={window} update={update} />
       <ResetWindow search={search} update={update} />

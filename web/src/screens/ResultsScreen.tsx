@@ -14,7 +14,7 @@ import { RouteChip } from '../components/RouteChip.tsx';
 import { SkeletonResults } from '../components/SkeletonResults.tsx';
 import { Toast, type ToastMessage } from '../components/Toast.tsx';
 import { TransferPointGroup } from '../components/TransferPointGroup.tsx';
-import { type SearchUpdate, TripSettingsSheet } from '../components/TripSettingsSheet.tsx';
+import { type SearchUpdate, TRIP_SETTINGS, TripSettingsSheet } from '../components/TripSettingsSheet.tsx';
 import { useSwipeBack } from '../gestures.ts';
 import { useShownAgain } from '../layers.ts';
 import { useNow, usePinnedTrip, usePoll } from '../hooks.ts';
@@ -66,7 +66,7 @@ export function ResultsScreen({ search }: { search: Search }) {
   const { showHidden } = settings;
   const setShowHidden = (shown: boolean) => updateSettings({ showHidden: shown });
   // Open again when the rider comes back from a page they left it for, such as Settings.
-  const [settingsOpen, setSettingsOpen] = useState(() => cameBackTo()?.sheet === 'Trip settings');
+  const [settingsOpen, setSettingsOpen] = useState(() => cameBackTo()?.sheet === TRIP_SETTINGS);
   const [saved, setSaved] = useState(() => findSaved(search));
   // Cards the rider opened or closed, by group and trip. Others start as the device's setting
   // says: all open, each group's soonest open, or all closed. Kept across refreshes, which reuse
@@ -444,7 +444,7 @@ function EmptyTrip({ data, search, summary, maxWalk, update }: { data: TripRespo
   if (notice?.kind === 'filtered' || data.groups.length > 0) {
     return (
       <div class="tf-empty">
-        <div class="tf-empty__title">Your route filters hide every transfer</div>
+        <div class="tf-empty__title">No transfers to show with your route filters</div>
         <div class="tf-muted">Trip settings has the routes and directions this search leaves out.</div>
         <button
           type="button"
