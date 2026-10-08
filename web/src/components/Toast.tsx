@@ -1,18 +1,19 @@
 import { useEffect, useState } from 'preact/hooks';
 import { focusInstead } from '../focus.ts';
 import { motionOff } from '../gestures.ts';
-import { IconInfo, IconPin, IconUnpin } from '../icons/ui.tsx';
+import { IconBookmark, IconInfo, IconPin, IconUnpin } from '../icons/ui.tsx';
 
-// `about` picks the icon: a trip pinned, a trip unpinned, or a notice.
-export type ToastMessage = { id: number; text: string; about: 'pin' | 'unpin' | 'notice'; undo?: () => void };
+// `about` picks the icon: a trip pinned or unpinned, a search saved or removed from saved, or a
+// notice.
+export type ToastMessage = { id: number; text: string; about: 'pin' | 'unpin' | 'saved' | 'unsaved' | 'notice'; undo?: () => void };
 
 // How long a toast stays, unless the rider is pointing at it or has focus in it.
 const TOAST_MS = 5000;
 // As long as it takes to slide away (tf-toast-out in styles.css).
 const LEAVE_MS = 160;
 
-// A short note at the bottom of the screen after the rider pins or unpins a trip, or dismisses or
-// restores a notice, with Undo for a tap they did not mean. It rises into place and sinks away.
+// A short note at the bottom of the screen after the rider pins or unpins a trip, saves a search or
+// removes it, or dismisses or restores a notice, with Undo for a tap they did not mean. It rises into place and sinks away.
 // The region is always there, so screen readers announce what fills it, and it never takes focus.
 // `page` places it on a screen with no bottom bar to sit above.
 export function Toast({ message, page = false, onDone }: { message: ToastMessage | null; page?: boolean; onDone: () => void }) {
@@ -35,7 +36,13 @@ export function Toast({ message, page = false, onDone }: { message: ToastMessage
     const timer = setTimeout(onDone, TOAST_MS);
     return () => clearTimeout(timer);
   }, [message?.id, held]);
-  const icon = { pin: <IconPin filled size={15} />, unpin: <IconUnpin size={15} />, notice: <IconInfo size={18} /> };
+  const icon = {
+    pin: <IconPin filled size={15} />,
+    unpin: <IconUnpin size={15} />,
+    saved: <IconBookmark filled size={16} />,
+    unsaved: <IconBookmark size={16} />,
+    notice: <IconInfo size={18} />,
+  };
   return (
     <div
       class={`tf-toast-region${page ? ' tf-toast-region--page' : ''}`}

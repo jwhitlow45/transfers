@@ -170,7 +170,7 @@ export function ResultsScreen({ search }: { search: Search }) {
       setToast({
         id: ++toastId.current,
         text: 'Removed from Saved',
-        about: 'notice',
+        about: 'unsaved',
         undo: () => {
           const rest = loadSaved().filter(({ id }) => id !== saved.id);
           saveSaved([...rest.slice(0, index), removed, ...rest.slice(index)]);
@@ -179,7 +179,18 @@ export function ResultsScreen({ search }: { search: Search }) {
       });
     } else {
       const taken = loadSaved().map(({ color }) => color).filter((color) => color !== undefined);
-      setSaved(saveSearch(search, `${summary.from} to ${summary.to}`, defaultSavedColor(summary.lineColor, taken)));
+      const added = saveSearch(search, `${summary.from} to ${summary.to}`, defaultSavedColor(summary.lineColor, taken));
+      setSaved(added);
+      // Saving says so too, with Undo, as removing does.
+      setToast({
+        id: ++toastId.current,
+        text: 'Saved to Home',
+        about: 'saved',
+        undo: () => {
+          removeSaved(added.id);
+          setSaved(null);
+        },
+      });
     }
   };
 
