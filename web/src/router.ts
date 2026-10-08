@@ -76,7 +76,7 @@ export function parsePage(location: Location): Page {
 // entry of its own too, so the system back closes it rather than leaving the page under it, and
 // it knows the key of that page's entry (`under`). `state` rides along, as Nearby hands a picked
 // stop to Home.
-type Entry = { depth?: number; key?: string; sheet?: true; under?: string } & Record<string, unknown>;
+type Entry = { depth?: number; key?: string; sheet?: true; under?: string; back?: string } & Record<string, unknown>;
 const entry = () => (history.state ?? {}) as Entry;
 const depth = () => entry().depth ?? 0;
 let keys = 0;
@@ -132,9 +132,9 @@ export function navigate(path: string, options: { replace?: boolean; state?: Rec
   } else if (current.sheet || options.replace) {
     // A page left from inside a sheet takes the sheet's entry, so back returns to the page that
     // was under the sheet.
-    history.replaceState({ ...options.state, depth: depth(), key: newKey() }, '', path);
+    history.replaceState({ ...options.state, depth: depth(), key: newKey(), ...(current.back ? { back: current.back } : {}) }, '', path);
   } else {
-    history.pushState({ ...options.state, depth: depth() + 1, key: newKey() }, '', path);
+    history.pushState({ ...options.state, depth: depth() + 1, key: newKey(), back: location.pathname }, '', path);
   }
   dispatchEvent(new PopStateEvent('popstate'));
 }
@@ -145,6 +145,10 @@ export function goBack(fallback = '/') {
   if (depth() > 0) history.back();
   else navigate(fallback, { replace: true });
 }
+
+// Whether back lands on Home: the page before is Home's, or there is none of the app's, and back
+// falls back to Home. An entry from before the app kept `back` says nothing either way.
+export const backGoesHome = () => (depth() > 0 ? entry().back === '/' : true);
 
 // An entry for a sheet opening over the page, with the page's address. Returns its key.
 export function openSheetEntry() {

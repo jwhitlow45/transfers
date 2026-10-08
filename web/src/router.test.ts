@@ -44,6 +44,7 @@ async function load(history: FakeHistory, session: Pick<Storage, 'getItem' | 'se
     dispatchEvent: events.dispatchEvent.bind(events),
     PopStateEvent: class extends Event {},
   });
+  Object.defineProperty(globalThis, 'location', { configurable: true, get: () => new URL(history.url, 'https://transfers.test') });
   return (await import(`./router.ts?page=${Math.random()}`)) as typeof import('./router.ts');
 }
 
@@ -134,4 +135,17 @@ test("Forward onto a closed sheet's entry steps back to the page, and an open sh
   const open = openSheetEntry();
   navigate('/t/a/b?max=20', { replace: true });
   strictEqual(isSheetEntry(open), true);
+});
+
+test('swiping back knows whether back lands on Home, to show Home under the screen', async () => {
+  const history = new FakeHistory();
+  const { navigate, backGoesHome } = await load(history);
+  navigate('/t/a/b');
+  strictEqual(backGoesHome(), true);
+  navigate('/settings');
+  strictEqual(backGoesHome(), false);
+  // A page opened by a link goes back to Home in its place.
+  const linked = new FakeHistory();
+  linked.entries = [{ state: null, url: '/t/a/b' }];
+  strictEqual((await load(linked)).backGoesHome(), true);
 });

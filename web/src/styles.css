@@ -127,6 +127,12 @@ button:disabled { opacity: .45; cursor: default; }
 /* ── app shell ─────────────────────────────────────── */
 .tf-app { position: relative; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
 .tf-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; }
+/* Home under a screen being swiped back to it (see main.tsx and useSwipeBack). The screens cover it
+   until they slide, and it sits a little to the left and dimmed until they slide off. */
+.tf-app:has(> .tf-peek) { isolation: isolate; }
+.tf-app:has(> .tf-peek) > :not(.tf-peek, .tf-sheet) { background: var(--bg); }
+.tf-peek { position: absolute; inset: 0; z-index: -1; display: flex; flex-direction: column; background: var(--bg); transform: translateX(-25%); pointer-events: none; }
+.tf-peek__dim { position: absolute; inset: 0; background: #000; opacity: .3; }
 /* Focused only in place of a control that went away (see focus.ts), which needs no ring. */
 #main:focus { outline: none; }
 /* --page-end is a page's own room after its last item, which the bottom inset adds to below. */

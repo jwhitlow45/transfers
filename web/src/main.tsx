@@ -1,5 +1,6 @@
 import { render } from 'preact';
 import { useEffect } from 'preact/hooks';
+import { usePeeking } from './gestures.ts';
 import { usePage } from './router.ts';
 import { NearbyScreen } from './screens/NearbyScreen.tsx';
 import { NoticesScreen } from './screens/NoticesScreen.tsx';
@@ -13,6 +14,7 @@ import './styles.css';
 
 function App() {
   const page = usePage();
+  const peeking = usePeeking();
   // Each screen scrolls inside the app shell, so the page title is the only way a screen
   // change reaches a screen reader without moving focus.
   useEffect(() => {
@@ -22,6 +24,15 @@ function App() {
     <SettingsProvider>
       <div class="tf-app">
         <TrackProvider>
+          {/* Home under a screen being swiped back to it, for the rider to see where they are
+              going. It is the real thing, from the same stored answers, so it can take Home's
+              place when the swipe goes through. */}
+          {peeking && page.name !== 'home' && (
+            <div class="tf-peek" aria-hidden="true" inert>
+              <SearchScreen key="peek" />
+              <div class="tf-peek__dim" />
+            </div>
+          )}
           {page.name === 'home' && <SearchScreen key={history.state?.from || history.state?.to ? 'prefilled' : 'home'} />}
           {page.name === 'trip' && <ResultsScreen key={searchId(page.search)} search={page.search} />}
           {page.name === 'nearby' && <NearbyScreen />}

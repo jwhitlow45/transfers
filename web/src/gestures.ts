@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
+import { backGoesHome } from './router.ts';
 
 // How far a finger moves before a touch is judged a drag. Phones move 8 to 10 px before they
 // start scrolling, and a drag must be claimed before that, or the browser owns the touch.
@@ -117,27 +118,72 @@ export const motionOff = () => document.documentElement.dataset.motion === 'off'
 const BACK_SHARE = 0.35;
 const BACK_FLING = 0.4;
 
+// Whether Home is drawn under a screen being swiped back to it (see main.tsx).
+let peeking = false;
+const peekListeners = new Set<() => void>();
+const setPeeking = (next: boolean) => {
+  if (next === peeking) return;
+  peeking = next;
+  for (const listener of peekListeners) listener();
+};
+export function usePeeking() {
+  const [value, setValue] = useState(peeking);
+  useEffect(() => {
+    const listener = () => setValue(peeking);
+    peekListeners.add(listener);
+    return () => void peekListeners.delete(listener);
+  }, []);
+  return value;
+}
+// How far left Home starts under the screen, as a share of its width, and how much it is dimmed,
+// moving into place as the screen slides off, as iOS does.
+const PEEK_SHIFT = 0.25;
+const PEEK_DIM = 0.3;
+
 // Swiping right anywhere on a screen goes back, the screen sliding with the finger. Places that
 // swipe sideways themselves keep their swipe: an open sheet, form fields, and anything that
 // scrolls sideways. The drag follows the app shell, which holds every screen, so a bottom bar
-// slides with the rest.
+// slides with the rest. Going back to Home, Home shows under the screen as it slides, so the
+// rider sees where they are going.
 export function useSwipeBack(onBack: () => void) {
   const shell = () => document.querySelector<HTMLElement>('.tf-app');
-  const layers = () => [...(shell()?.children ?? [])].filter((layer): layer is HTMLElement => layer instanceof HTMLElement && !layer.classList.contains('tf-sheet'));
+  const layers = () => [...(shell()?.children ?? [])].filter((layer): layer is HTMLElement => layer instanceof HTMLElement && !layer.classList.contains('tf-sheet') && !layer.classList.contains('tf-peek'));
   const slide = (offset: number, animated: boolean) => {
+    const transition = animated && !motionOff() ? `transform ${SLIDE_MS}ms ease-out` : 'none';
     for (const layer of layers()) {
-      layer.style.transition = animated && !motionOff() ? `transform ${SLIDE_MS}ms ease-out` : 'none';
+      layer.style.transition = transition;
       layer.style.transform = offset > 0 ? `translateX(${offset}px)` : '';
+    }
+    const peek = shell()?.querySelector<HTMLElement>(':scope > .tf-peek');
+    if (!peek) return;
+    const left = 1 - offset / (shell()?.clientWidth ?? 1);
+    const dim = peek.querySelector<HTMLElement>('.tf-peek__dim');
+    peek.style.transition = transition;
+    peek.style.transform = `translateX(${-left * PEEK_SHIFT * 100}%)`;
+    if (dim) {
+      dim.style.transition = transition.replace('transform', 'opacity');
+      dim.style.opacity = String(left * PEEK_DIM);
     }
   };
   useDrag(shell, 'x', {
     claim: (direction, origin) => direction === 'right' && !origin.closest('.tf-sheet, input, select, textarea') && !scrollsSideways(origin, shell()),
-    move: (distance) => slide(Math.max(0, distance), false),
+    move: (distance) => {
+      if (!peeking && backGoesHome()) setPeeking(true);
+      slide(Math.max(0, distance), false);
+    },
     end: (release) => {
       const width = shell()?.clientWidth ?? 1;
-      if (!release || (release.distance < width * BACK_SHARE && release.velocity < BACK_FLING)) return slide(0, true);
+      const wait = motionOff() ? 0 : SLIDE_MS;
+      if (!release || (release.distance < width * BACK_SHARE && release.velocity < BACK_FLING)) {
+        slide(0, true);
+        setTimeout(() => setPeeking(false), wait);
+        return;
+      }
       slide(width, true);
-      setTimeout(onBack, motionOff() ? 0 : SLIDE_MS);
+      setTimeout(() => {
+        onBack();
+        setPeeking(false);
+      }, wait);
     },
   });
 }
