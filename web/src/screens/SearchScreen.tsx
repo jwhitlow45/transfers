@@ -18,6 +18,7 @@ import { type LiveReport, ageText, clockSkewMs, freshness, homeStatus } from '..
 import { type LocationProblem, type Position, handOver, locate, locationProblemText } from '../lib/location.ts';
 import { pageColors, scaleFor, timeScale } from '../lib/results.ts';
 import { summarize } from '../lib/summary.ts';
+import { tapForGerbils } from '../gerbils.ts';
 import { navigate, tripPath } from '../router.ts';
 import { tripApiUrl, useSettings } from '../settings.tsx';
 import {
@@ -247,7 +248,16 @@ export function SearchScreen() {
       {/* The header the other screens have, so going to results moves neither the title nor the
           status line. The status line shows only with live cards, as Home asks for nothing else. */}
       <ScreenHeader
-        title="Transfers"
+        title={
+          <span
+            onClick={() => {
+              const on = tapForGerbils();
+              if (on !== null) setToast({ id: ++toastId.current, text: on ? 'Gerbil mode on' : 'Gerbil mode off', about: 'notice' });
+            }}
+          >
+            Transfers
+          </span>
+        }
         end={
           <span class="tf-header__end">
             <span class="tf-muted">{clock(now / 1000)}</span>
@@ -306,6 +316,14 @@ export function SearchScreen() {
           </div>
         )}
         {usualShown.length > 0 && focus && <UsualStops picks={usualShown} onPick={(picked) => choose(focus, picked)} />}
+        {/^gerbils?$/i.test(query) && (
+          <div class="tf-results" role="status">
+            <div class="tf-result">
+              <span class="tf-result__name">Nearest gerbil</span>
+              <span class="tf-result__dir">Under your seat. Mind the tail.</span>
+            </div>
+          </div>
+        )}
         {query && response && <StopResults query={query} response={response} onPick={pick} includesRoutes={focus === 'to'} />}
         {/* Hidden rather than unmounted under the suggestions, so the saved cards keep their times
             and the status line above the fields stays put while the rider types. */}

@@ -1,6 +1,7 @@
 import { type ComponentChildren, Fragment } from 'preact';
 import type { Group, Route } from '../../../shared/api.ts';
 import { walkMinutes } from '../format.ts';
+import { IconGerbil } from '../icons/ui.tsx';
 import { groupStops, outagesByStation } from '../lib/outages.ts';
 import { type CardContext, alightVerb, cardLeft, familyName, firstNoun, firstWord, pointId, ridesStraightTo, visibleDepartures } from '../lib/results.ts';
 import { agencyName, shortStopName, windowText } from '../view.ts';
@@ -79,7 +80,11 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
     <>Transfer at {boardLink}</>
   ) : (
     <>
-      {alightVerb(group, data)} <StopLink stop={alight}>{alightName}</StopLink> · {walkTime} min walk
+      {alightVerb(group, data)} <StopLink stop={alight}>{alightName}</StopLink> ·{' '}
+      <span class="tf-gerbil" aria-hidden="true">
+        <IconGerbil />
+      </span>
+      {walkTime} min walk
     </>
   );
   const card = (departure: (typeof departures)[number]) => (
