@@ -67,6 +67,8 @@ export function SearchScreen() {
   const [to, setTo] = useState<FieldState>(initial.to);
   useEffect(() => saveFields({ from, to }), [from, to]);
   const [focus, setFocus] = useState<'from' | 'to' | null>(null);
+  // Whether a field has the cursor, as `focus` stays on the last field used.
+  const [typing, setTyping] = useState(false);
   const [response, setResponse] = useState<SearchResponse | null>(null);
   // Which field and text the response answers, as "from|24th".
   const answeredFor = useRef('');
@@ -167,11 +169,20 @@ export function SearchScreen() {
     setResponse(null);
     advance(field, picked);
   };
+  const choose = (field: 'from' | 'to', picked: Picked) => {
+    (field === 'from' ? setFrom : setTo)({ query: picked.label, picked });
+    setFocus(null);
+    advance(field, picked);
+  };
   const enter = (field: 'from' | 'to') => {
     const value = field === 'from' ? from : to;
     if (value.picked) return advance(field, value.picked);
     const typed = value.query.trim();
-    if (!typed) return;
+    if (!typed) {
+      const first = usual(field)[0];
+      if (first) choose(field, first);
+      return;
+    }
     if (response && answeredFor.current === `${field}|${typed}`) takeFirst(field);
     else pendingEnter.current = field;
   };
@@ -193,7 +204,20 @@ export function SearchScreen() {
       sub: [search.via && `via ${search.via}`, dayLabel(search.at, now)].filter(Boolean).join(' · '),
       href: tripPath(search),
     }));
-  const showingResults = Boolean(query && response);
+  // An empty field the rider is in offers the stops and routes of their recent and saved
+  // searches, newest first, so the usual stop is one tap (J, 2026-10-08).
+  const usual = (field: 'from' | 'to'): Picked[] => {
+    const seen = new Set<string>();
+    return [...loadRecent(), ...saved].flatMap((search) => {
+      const key = field === 'from' ? search.from : search.to;
+      const label = field === 'from' ? search.fromLabel : search.toLabel;
+      if (seen.has(key)) return [];
+      seen.add(key);
+      return [{ key, label, meta: key.startsWith('route:') ? 'Route from a recent search' : 'Stop from a recent search', short: label }];
+    }).slice(0, 5);
+  };
+  const usualShown = typing && focus && !(focus === 'from' ? from : to).query.trim() ? usual(focus) : [];
+  const showingResults = Boolean(query && response) || usualShown.length > 0;
 
   return (
     <div class="tf-scroll">
@@ -228,7 +252,12 @@ export function SearchScreen() {
             setTo({ query: value });
           }}
           onEnter={enter}
-          onFocus={setFocus}
+          onFocus={(field) => {
+            setFocus(field);
+            setTyping(true);
+          }}
+          // Later, so a tap on a recent stop lands before the list goes.
+          onBlur={() => setTimeout(() => setTyping(Boolean(document.activeElement?.closest('.tf-fields'))), 200)}
           canSwap={!to.picked?.key.startsWith('route:')}
           onSwap={() => {
             setFrom(to);
@@ -240,7 +269,8 @@ export function SearchScreen() {
             Find transfers
           </button>
         )}
-        {showingResults && <StopResults query={query} response={response!} onPick={pick} includesRoutes={focus === 'to'} />}
+        {usualShown.length > 0 && focus && <UsualStops picks={usualShown} onPick={(picked) => choose(focus, picked)} />}
+        {query && response && <StopResults query={query} response={response} onPick={pick} includesRoutes={focus === 'to'} />}
         {/* Hidden rather than unmounted under the suggestions, so the saved cards keep their times
             and the status line above the fields stays put while the rider types. */}
         <div class="tf-home-rest" hidden={showingResults}>
@@ -420,4 +450,25 @@ type Report = (key: string, report: LiveReport | null) => void;
 function useLiveReport(onReport: Report, key: string, { feed, fetchedAt, dataAt, skew, settled }: LiveReport) {
   useLayoutEffect(() => onReport(key, { feed, fetchedAt, dataAt, skew, settled }), [key, feed, fetchedAt, dataAt, skew, settled]);
   useLayoutEffect(() => () => onReport(key, null), [key]);
+}
+
+// The stops and routes of recent searches, for an empty field. The first is the one Enter takes.
+function UsualStops({ picks, onPick }: { picks: Picked[]; onPick: (picked: Picked) => void }) {
+  return (
+    <div class="tf-results" role="region" aria-label="Recent stops and routes">
+      <div class="tf-results__label">Recent</div>
+      <div role="list">
+        {picks.map((picked, index) => (
+          <div role="listitem" key={picked.key}>
+            <button type="button" class={`tf-result${index === 0 ? ' tf-result--enter' : ''}`} onClick={() => onPick(picked)}>
+              <span class="tf-result__name">
+                {picked.label}
+                {index === 0 && <span class="tf-sr"> (Enter picks this)</span>}
+              </span>
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }

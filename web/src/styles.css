@@ -193,6 +193,10 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-field + .tf-field { border-top: var(--border-hair) solid var(--divider); }
 .tf-field input { display: block; width: 100%; border: 0; background: transparent; font: inherit; font-size: 18px; font-weight: var(--weight-semibold); color: var(--text); padding: var(--space-1) 0; min-height: 34px; }
 .tf-field__meta { display: block; font-size: var(--text-sm); color: var(--muted); }
+.tf-field__row { display: flex; align-items: center; }
+.tf-field__row input { flex: 1; min-width: 0; }
+/* As tall as the input, so it adds no height, and wide enough for a thumb. */
+.tf-field__clear { flex: none; display: grid; place-items: center; width: 40px; height: 34px; margin-right: -8px; color: var(--muted); }
 .tf-swap { border-left: var(--border-hair) solid var(--divider); display: grid; place-items: center; }
 .tf-results { border: var(--border-strong) solid var(--line); margin-top: calc(-1 * var(--space-2)); }
 .tf-results__label { padding: var(--space-2) var(--space-4); font-size: var(--text-sm); color: var(--muted); border-bottom: var(--border-hair) solid var(--divider); }
