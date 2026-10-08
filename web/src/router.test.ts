@@ -149,3 +149,25 @@ test('swiping back knows whether back lands on Home, to show Home under the scre
   linked.entries = [{ state: null, url: '/t/a/b' }];
   strictEqual((await load(linked)).backGoesHome(), true);
 });
+
+test('a change made from a sheet stays on its page, and a page left from a sheet comes back scrolled with the sheet open', async () => {
+  const history = new FakeHistory();
+  const scrolled = { '.tf-app > .tf-layer > .tf-scroll': { scrollTop: 240 }, '.tf-layer .tf-sheet__body': { scrollTop: 30 } } as Record<string, unknown>;
+  Object.assign(globalThis, { document: { querySelector: (selector: string) => scrolled[selector] ?? null } });
+  const { navigate, openSheetEntry, currentDepth, cameBackTo, forgetLeft } = await load(history, { getItem: () => null, setItem: () => {} });
+  navigate('/t/a/b');
+  strictEqual(currentDepth(), 1);
+  openSheetEntry('Trip settings');
+  strictEqual(currentDepth(), 1);
+  navigate('/t/a/b?r1=x', { replace: true });
+  strictEqual(currentDepth(), 1);
+  strictEqual(history.length, 3);
+  // Settings takes the sheet's entry, a step on from the page.
+  navigate('/settings');
+  strictEqual(currentDepth(), 2);
+  history.back();
+  deepStrictEqual(cameBackTo(), { scroll: 240, sheet: 'Trip settings', sheetScroll: 30 });
+  forgetLeft();
+  strictEqual(cameBackTo(), undefined);
+  delete (globalThis as { document?: unknown }).document;
+});
