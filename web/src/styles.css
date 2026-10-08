@@ -714,7 +714,8 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-bottombar__open { white-space: nowrap; }
 .tf-bottombar__short { display: none; }
 @media (max-width: 429px) { .tf-bottombar__long { display: none; } .tf-bottombar__short { display: inline; } }
-@media (max-width: 359px) { .tf-bottombar__label { display: none; } }
+/* Without its label, what is left sits in the middle of the button. */
+@media (max-width: 359px) { .tf-bottombar__label { display: none; } .tf-bottombar__open { justify-content: center; } }
 
 /* ── sliders ───────────────────────────────────────── */
 .tf-slider__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
