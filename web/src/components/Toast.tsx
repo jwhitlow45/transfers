@@ -60,8 +60,9 @@ export function Toast({ message, page = false, onDone }: { message: ToastMessage
               onClick={() => {
                 shown.undo!();
                 onDone();
-                // Undo leaves with the note, so focus goes back to the page.
-                requestAnimationFrame(() => focusInstead(null));
+                // Undo leaves with the note, so focus goes back to the page, or to a sheet open over
+                // it, which the note shows above.
+                requestAnimationFrame(() => focusInstead(document.querySelector<HTMLElement>('.tf-sheet__panel')));
               }}
             >
               Undo
