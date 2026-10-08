@@ -485,6 +485,9 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-setting--block { display: block; }
 .tf-setting--block > span { display: block; }
 .tf-setting--last { border-bottom: 0; }
+/* Under the note on what this search keeps, set apart from the search's own settings above it. */
+.tf-setting--device { margin-top: var(--space-4); border-top: var(--border-hair) solid var(--divider); border-bottom: 0; }
+.tf-setting__more { margin-top: var(--space-3); }
 .tf-way-back { display: flex; align-items: center; justify-content: center; width: 100%; text-align: center; }
 .tf-saved__remove { flex: none; padding: 0 var(--space-2); color: var(--late); }
 .tf-saved__body { color: inherit; text-decoration: none; }
@@ -667,6 +670,10 @@ button:disabled { opacity: .45; cursor: default; }
    readers hear the whole sentence either way. */
 @media (max-width: 399px) { .tf-update-more { display: none; } }
 @media (max-width: 359px) { .tf-stat--update .tf-stat__value { display: none; } }
+/* Route filters, and hidden connections shown, say so in words where the line has room for them,
+   and by their icons alone on narrower phones or beside more items. Each still opens its sentence. */
+@media (max-width: 429px) { :is(.tf-stat--routes, .tf-stat--hidden) .tf-stat__value { display: none; } }
+@media (max-width: 599px) { .tf-livestatus:has(.tf-stat--hide, .tf-stat--update) :is(.tf-stat--routes, .tf-stat--hidden) .tf-stat__value { display: none; } }
 .tf-tip { position: absolute; top: calc(100% + 4px); left: var(--space-5); z-index: 6; width: max-content; max-width: min(320px, calc(100% - 2 * var(--space-5))); padding: var(--space-2) var(--space-3); background: var(--field); color: var(--on-field); font-size: var(--text-sm); font-weight: var(--weight-regular); line-height: 1.35; white-space: normal; }
 /* Results keep back in the bottom bar, so the title and the status line start at the gutter. The
    status items' own padding lines their text up with the title. */

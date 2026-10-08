@@ -81,18 +81,20 @@ function ShareTrip({ search, onCopied }: { search: Search; onCopied: () => void 
   );
 }
 
-// Every setting for this search, opened from the bottom bar.
-export function TripSettingsSheet({ search, data, window, footer, chain, destinationsUrl, deviceHide, showHidden, update, onShowHidden, onCopied, onClose }: {
+// Every setting for this search, opened from the bottom bar, then those for every trip.
+export function TripSettingsSheet({ search, data, window, savedName, chain, destinationsUrl, deviceHide, showHidden, update, onSave, onShowHidden, onCopied, onClose }: {
   search: Search;
   // The device's own default, which this search uses until it sets its own.
   deviceHide: number;
   data: TripResponse | null;
   window: Window;
-  footer: string;
+  // The saved search's name, which keeps these settings, or null when it is not saved.
+  savedName: string | null;
   chain: string;
   destinationsUrl: string;
   showHidden: boolean;
   update: SearchUpdate;
+  onSave: () => void;
   onShowHidden: (show: boolean) => void;
   // The link was copied. The sheet covers the toast, so the screen closes it and says so.
   onCopied: () => void;
@@ -133,7 +135,7 @@ export function TripSettingsSheet({ search, data, window, footer, chain, destina
   };
 
   return (
-    <Sheet title="Trip settings" subtitle={chain} footer={footer} onClose={onClose}>
+    <Sheet title="Trip settings" subtitle={chain} onClose={onClose}>
       <WayBack search={search} />
       <ShareTrip search={search} onCopied={onCopied} />
       <WindowSetting window={window} update={update} />
@@ -144,15 +146,6 @@ export function TripSettingsSheet({ search, data, window, footer, chain, destina
         value={search.hide ?? deviceHide}
         onChange={(value) => update((current) => ({ ...current, hide: value }))}
       />
-      <div class="tf-setting">
-        <div class="tf-setting__label">Hidden connections</div>
-        <div class="tf-setting__help">Show transfers outside the window, and vehicles you may not reach, marked with why they were hidden.</div>
-        <div class="tf-filters">
-          <Toggle pressed={showHidden} onToggle={() => onShowHidden(!showHidden)}>
-            Show hidden connections
-          </Toggle>
-        </div>
-      </div>
       <label class="tf-setting tf-setting--block">
         <span class="tf-setting__label">Destination stop</span>
         <span class="tf-setting__help">Shows when each departure gets you there</span>
@@ -218,11 +211,32 @@ export function TripSettingsSheet({ search, data, window, footer, chain, destina
           </div>
         </div>
       )}
-      {/* The rider's own settings, for every trip, are a page of their own. Opened from here, back
-          returns to these results. */}
-      <div class="tf-setting">
+      {/* Everything above is this search's own, which saving it keeps. The sheet covers the
+          bottom bar's bookmark, so saving is here too. */}
+      <div class="tf-sheet__saved">
+        {savedName !== null ? (
+          `Saved with “${savedName}”`
+        ) : (
+          <>
+            Applies to this search.{' '}
+            <button type="button" class="tf-link-button tf-sheet__save" onClick={onSave}>
+              Save it to keep these settings
+            </button>
+          </>
+        )}
+      </div>
+      {/* Settings for every trip on this device. Showing hidden connections is one, kept here as
+          riders reach for it from results. The rest are a page of their own. Opened from here,
+          back returns to these results. */}
+      <div class="tf-setting tf-setting--device">
         <div class="tf-setting__label">For every trip</div>
-        <div class="tf-setting__help">Walking speed, accessibility, pinned trips, and more.</div>
+        <div class="tf-setting__help">Show transfers outside the window, and vehicles you may not reach, marked with why they were hidden.</div>
+        <div class="tf-filters">
+          <Toggle pressed={showHidden} onToggle={() => onShowHidden(!showHidden)}>
+            Show hidden connections
+          </Toggle>
+        </div>
+        <div class="tf-setting__help tf-setting__more">Walking speed, accessibility, pinned trips, and more.</div>
         <a class="tf-link-button" href="/settings" onClick={(event) => (event.preventDefault(), navigate('/settings'))}>
           Device settings
         </a>

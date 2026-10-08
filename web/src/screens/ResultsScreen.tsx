@@ -1,3 +1,4 @@
+import type { ComponentChildren } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { TripResponse } from '../../../shared/api.ts';
 import { takeInitialData } from '../api.ts';
@@ -235,7 +236,6 @@ export function ResultsScreen({ search }: { search: Search }) {
   const secondsSinceUpdate = fresh.ageSeconds ?? (fetchedAt === null ? null : Math.max(0, Math.floor((now - (fetchedAt + skew)) / 1000)));
   const window = summary.window ?? { min: search.min ?? 3, max: search.max ?? 12 };
   const hide = search.hide ?? settings.hide;
-  const footer = saved ? `Saved with “${saved.name}”` : 'Applies to this search. Save it to keep these settings.';
   const outages = (data?.feeds ?? []).filter(({ state }) => state === 'down' || state === 'stale');
   const liveAgencies = (data?.feeds ?? []).filter(({ state }) => state === 'live').map(({ agency }) => agencyOnly(agency));
   const routesOf = (agency: string) =>
@@ -265,6 +265,8 @@ export function ResultsScreen({ search }: { search: Search }) {
             ...(filtering
               ? [{ key: 'routes', icon: <IconFilter />, short: 'Filtered', full: `${filterText}. Trip settings has the rest` }]
               : []),
+            // A setting for every trip, so a rider who turned it on elsewhere sees why rows are hatched.
+            ...(showHidden ? [{ key: 'hidden', icon: <IconEye />, short: 'Hidden shown', full: 'Showing hidden connections on every trip, marked with why they were hidden' }] : []),
           ]}
           accent={saved?.color}
           onRefresh={refresh}
@@ -354,12 +356,13 @@ export function ResultsScreen({ search }: { search: Search }) {
           search={search}
           data={data}
           window={window}
-          footer={footer}
+          savedName={saved?.name ?? null}
           chain={summary.chain}
           destinationsUrl={destinationsUrl}
           deviceHide={settings.hide}
           showHidden={showHidden}
           update={update}
+          onSave={toggleSaved}
           onShowHidden={setShowHidden}
           onCopied={() => {
             setSettingsOpen(false);
@@ -449,9 +452,18 @@ function EmptyTrip({ data, search, summary, maxWalk, update }: { data: TripRespo
 
 const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
-// A funnel, for the status line's route filters. Drawn to match the set in icons/ui.tsx.
-const IconFilter = () => (
+// For the status line: a funnel for route filters, and an open eye for hidden connections shown,
+// beside the struck eye of departures hidden. Drawn to match the set in icons/ui.tsx.
+const statusIcon = (children: ComponentChildren) => (
   <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M4 5h16l-6 7.5V19l-4-2v-4.5z" />
+    {children}
   </svg>
 );
+const IconFilter = () => statusIcon(<path d="M4 5h16l-6 7.5V19l-4-2v-4.5z" />);
+const IconEye = () =>
+  statusIcon(
+    <>
+      <path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6z" />
+      <circle cx="12" cy="12" r="2.5" />
+    </>,
+  );
