@@ -102,7 +102,9 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
   });
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
-    requestAnimationFrame(() => panel.current?.focus());
+    // Without scrolling: the panel starts below the screen as it rises, and focusing it there
+    // would scroll the whole app up to bring it into view.
+    requestAnimationFrame(() => panel.current?.focus({ preventScroll: true }));
     return () => requestAnimationFrame(() => opener?.isConnected && opener.focus());
   }, []);
   const onKeyDown = (event: KeyboardEvent) => {
@@ -126,7 +128,7 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
     }
   };
   return (
-    <div class="tf-sheet">
+    <div class={`tf-sheet${returning.current?.sheet === title ? ' tf-sheet--returning' : ''}`}>
       <div ref={scrim} class="tf-sheet__scrim" aria-hidden="true" onClick={() => slideAway()} />
       <div ref={panel} class="tf-sheet__panel" role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} onKeyDown={onKeyDown}>
         <div class="tf-sheet__top">

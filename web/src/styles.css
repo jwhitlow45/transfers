@@ -743,6 +743,12 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-grabber { width: 36px; height: 4px; margin: 2px auto 2px; background: color-mix(in srgb, var(--line) 50%, transparent); }
 /* Only seen when a drag lets go: the sheet sliding away or back. */
 .tf-sheet__panel, .tf-sheet__scrim { transition: transform 180ms ease-out, opacity 180ms ease-out; }
+/* Opening, it rises into place over a fading-in scrim, as it slides away closing (J, 2026-10-08).
+   One opened again on the rider's way back to its page is there already. */
+.tf-sheet:not(.tf-sheet--returning) > .tf-sheet__panel { animation: tf-sheet-in 220ms cubic-bezier(.2, .8, .2, 1); }
+.tf-sheet:not(.tf-sheet--returning) > .tf-sheet__scrim { animation: tf-scrim-in 220ms ease-out; }
+@keyframes tf-sheet-in { from { transform: translateY(100%); } }
+@keyframes tf-scrim-in { from { opacity: 0; } }
 /* Pull to refresh: a tile that slides out from under the header, its arrow turning as it comes. */
 .tf-pull-track { display: none; position: absolute; top: 100%; left: 0; right: 0; height: 132px; overflow: hidden; pointer-events: none; }
 .tf-pull-track--active { display: block; }
