@@ -155,18 +155,9 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
         <>
           {/* The change of vehicles, then the one the rider changes to, from where it is now to
               where they board it. */}
-          {/* The transfer leads, as large as a results row's countdown, then the vehicle and
-              where it is. Without both vehicles' times, the vehicle alone. */}
+          {/* The vehicle and where it is, with the transfer on the right, as a results row
+              gives it (J, 2026-10-08). Without both vehicles' times, the vehicle alone. */}
           <div class={`tf-track__change${missed ? ' tf-track__change--missed' : tight ? ' tf-track__change--tight' : ''}`}>
-            {transferMinutes !== undefined && (
-              <div class="tf-track__xfer" aria-hidden="true">
-                <div class="tf-row__lead">{missed ? 'Missed by' : 'Transfer'}</div>
-                <div class="tf-track__xfer-amount">
-                  <span class="tf-row__num">{Math.abs(transferMinutes)}</span> <span class="tf-row__unit">min</span>
-                </div>
-                {tight && <div class="tf-tight">TIGHT</div>}
-              </div>
-            )}
             <div class="tf-track__change-main">
               <p class="tf-track__change-head">
                 {transferMinutes === undefined ? <span class="tf-track__change-kicker">Transfer to</span> : <span class="tf-sr">{spokenTransfer}</span>}
@@ -175,6 +166,13 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
               </p>
               <p class="tf-track__change-status">{legStatus(next, data.stops, 'the transfer stop')}</p>
             </div>
+            {transferMinutes !== undefined && (
+              <div class="tf-row__xfer tf-track__xfer" aria-hidden="true">
+                <div class="tf-row__xfer-min">{Math.abs(transferMinutes)}&nbsp;min</div>
+                <div class="tf-row__xfer-label">{missed ? 'missed by' : 'transfer'}</div>
+                {tight && <div class="tf-tight">TIGHT</div>}
+              </div>
+            )}
           </div>
           <LegList leg={next} stops={data.stops} labels={nextLabels} color={nextColor} now={now} />
         </>
