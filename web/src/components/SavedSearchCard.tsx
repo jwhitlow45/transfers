@@ -9,7 +9,7 @@ import { typeWithoutUndo } from '../typing.ts';
 
 // The main daily entry point: one tap opens results, and it leads with a live countdown. The
 // color stripe tells saved searches apart at a glance, and the pencil edits name and color.
-export function SavedSearchCard({ name, color, chain, named, windowText, next, loading, severeAlerts, staleText, href, onOpen, onEdit, onRemove }: {
+export function SavedSearchCard({ name, color, chain, named, windowText, next, loading, severeAlerts, nextService, staleText, href, onOpen, onEdit, onRemove }: {
   name: string;
   color: string | undefined;
   chain: string;
@@ -20,6 +20,8 @@ export function SavedSearchCard({ name, color, chain, named, windowText, next, l
   next: NextConnection | null;
   loading: boolean;
   severeAlerts: number;
+  // When the routes start again, if the answer is that none is running (summarize's nextService).
+  nextService?: string | null;
   // Set when the live times behind the countdown are over a minute old.
   staleText: string | null;
   href: string;
@@ -155,7 +157,7 @@ export function SavedSearchCard({ name, color, chain, named, windowText, next, l
                 </span>
               </span>
             ) : (
-              <span class="tf-saved__next tf-muted">Open to widen the window</span>
+              <span class="tf-saved__next tf-muted">{nextService ? `Next service ${nextService}` : 'Open to widen the window'}</span>
             )}
           </span>
           {staleText && (

@@ -1,5 +1,5 @@
 import type { Route, TripResponse } from '../../../shared/api.ts';
-import { clock } from '../format.ts';
+import { clock, clockOrDay } from '../format.ts';
 import type { Search } from '../storage.ts';
 import { type Status, chipLabel, shortStopName, statusOf, windowText } from '../view.ts';
 import { pageColors, pointId, ridesStraightTo, visibleDepartures } from './results.ts';
@@ -90,11 +90,15 @@ export function summarize(search: Search, data: TripResponse | null, now: number
 
   if (next) next.later = laterMinutes(leaves, soonest, now);
 
+  // What an empty card says instead of a bare "No connection", when the routes are asleep.
+  const idle = data?.notice?.kind === 'idle' ? data.notice.next : null;
+  const nextService = !next && idle ? clockOrDay(idle, now) : null;
+
   const boarding = new Set([data?.from, ...groups.map(({ board }) => board)].filter((key) => key !== undefined));
   const severeAlerts = (data?.alerts ?? []).filter(({ id, relevance, stops }) => relevance === 'stop' && stops.some((stop) => boarding.has(stop)) && !dismissed.has(id)).length;
 
   // The route a saved search is about: the one transferred to, in the color the results give it.
   const lineColor = data && (toRouteShown ?? (groups[0] ? data.routes[groups[0].routes[0]!] : undefined)) ? pageColors(groups, data)((toRouteShown ?? data.routes[groups[0]!.routes[0]!])!.key) : null;
 
-  return { groups, from, via, to, toRoute: toRouteShown, lineColor, window, windowText: window ? windowText(window) : null, next, boarding, severeAlerts, chain: [from, via, to].filter(Boolean).join(' → ') };
+  return { groups, from, via, to, toRoute: toRouteShown, lineColor, window, windowText: window ? windowText(window) : null, next, nextService, boarding, severeAlerts, chain: [from, via, to].filter(Boolean).join(' → ') };
 }
