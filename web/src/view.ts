@@ -13,7 +13,6 @@ export function agencyName(item: { agency: AgencyId; mode: Route['mode'] }) {
 
 export const agencyOnly = (agency: AgencyId) => AGENCY_NAMES[agency];
 
-
 export const spokenRoute = (route: Route) => (route.agency === 'BA' ? `BART ${route.name} line` : `${agencyName(route)} ${route.name}`);
 
 // The agency's own page for a stop, with its live arrivals: SFMTA's for a Muni stop, by the code
@@ -24,7 +23,6 @@ export function stopPage(stop: Stop | undefined) {
   if (stop.bart) return `https://www.bart.gov/stations/${stop.bart}`;
   return null;
 }
-
 
 export type StatusKind = 'late' | 'early' | 'ontime' | 'nodata' | 'scheduled' | 'canceled';
 export type Status = { kind: StatusKind; label: string };

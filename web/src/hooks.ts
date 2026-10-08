@@ -86,8 +86,12 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
     if (!shown.current) return void (shown.current = true);
     // Covered, its times grow old unseen, so nothing acts on them until they are fresh again.
     if (!active) return setAnswered(false);
-    if (missed.current || (state.fetchedAt !== null && Date.now() - state.fetchedAt >= intervalMs)) tick.current();
-    else if (state.fetchedAt !== null) setAnswered(true);
+    // Old times showing again count as unsettled, as on coming back to the app, until the refresh
+    // sent now answers.
+    if (missed.current || (state.fetchedAt !== null && Date.now() - state.fetchedAt >= intervalMs)) {
+      unsettle();
+      tick.current();
+    } else if (state.fetchedAt !== null) setAnswered(true);
   }, [active]);
   // When the page's own response arrived, until the first refresh is planned from it.
   const seeded = useRef(initial?.fetchedAt ?? null);
