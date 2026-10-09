@@ -1,6 +1,7 @@
 import type { NearbyArrival, NearbyStop, StopResponse } from '../../../shared/api.ts';
 import type { Pin, Search } from '../storage.ts';
 import { answers, sameRun } from './pinned.ts';
+import { countdownTo } from '../format.ts';
 
 // An arrival at a stop as a pin: the vehicle and where it is boarded, with no first vehicle, as a
 // ride already at From is pinned on results. `at` is when it was due before any delay, which stays
@@ -13,6 +14,14 @@ export function stopPinOf(arrival: NearbyArrival, row: NearbyStop, search: Searc
     search,
     arrival: { route: arrival.route, headsign: row.headsign },
   };
+}
+
+// A pinned arrival's countdown column: to its vehicle coming, then that it came, or for a canceled
+// one, once it was due, that it is canceled, rather than that it is arriving.
+export function arrivalCountdown(at: number, nowMs: number, { canceled, known }: { canceled: boolean; known: boolean }) {
+  if (nowMs / 1000 <= at) return countdownTo(at, nowMs, 'Arrives in', 'Arriving');
+  if (canceled) return { lead: 'Canceled', num: '✕', unit: null };
+  return known ? { lead: 'Arrived', num: '✓', unit: null } : countdownTo(at, nowMs, 'Arrives in', 'Arriving');
 }
 
 // The pinned arrival as its vehicle runs now, and whether it is canceled: from the server's answer

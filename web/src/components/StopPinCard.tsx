@@ -1,6 +1,6 @@
 import type { StopResponse } from '../../../shared/api.ts';
-import { clock, countdownTo, minutesUntil } from '../format.ts';
-import { pinnedArrival } from '../lib/stop-pins.ts';
+import { clock, minutesUntil } from '../format.ts';
+import { arrivalCountdown, pinnedArrival } from '../lib/stop-pins.ts';
 import type { Pin } from '../storage.ts';
 import { TimeLink } from '../track.tsx';
 import { pinLabel, shortStopName, statusOf, vehicleAt } from '../view.ts';
@@ -33,7 +33,7 @@ export function StopPinCard({ pin, data, now, open, offline, stale, onPin }: {
   const stop = data?.stops[pin.second.board];
   const name = vehicleAt(route, at);
   const status = arrival && !canceled ? statusOf(arrival.delay, arrival.live) : null;
-  const countdown = gone ? { lead: 'Arrived', num: '✓', unit: null } : countdownTo(at, now, 'Arrives in', 'Arriving');
+  const countdown = arrivalCountdown(at, now, { canceled, known: data !== null });
   // As a pinned trip's card says when the answer for it cannot place its vehicles.
   const note = !data ? waitingNote(offline) : lost ? 'Times for this arrival are not available right now.' : null;
   const label = open?.label ?? shortStopName(stop, pin.search?.fromLabel ?? '');

@@ -2,7 +2,7 @@ import { deepStrictEqual, strictEqual } from 'node:assert/strict';
 import { test } from 'node:test';
 import type { StopResponse } from '../../../shared/api.ts';
 import { stopSearch } from '../storage.ts';
-import { pinnedArrival, stopPinOf } from './stop-pins.ts';
+import { arrivalCountdown, pinnedArrival, stopPinOf } from './stop-pins.ts';
 
 const row = { stop: 'SF:13477', routes: ['SF:48'], direction: 1, headsign: '22nd St + Iowa St', meters: 0, arrivals: [{ trip: 'SF:t1', route: 'SF:48', at: 1_000, delay: 120, live: true }] };
 const data = { generatedAt: 0, dataAt: null, stop: 'SF:13477', rows: [row], routes: {}, stops: {}, alerts: [], feeds: [] } as StopResponse;
@@ -33,4 +33,13 @@ test("the server's answer for the pin places its vehicle, canceled or past the l
   deepStrictEqual(pinnedArrival(pin, answered(null)), { arrival: null, canceled: false, lost: true });
   // An answer stored for the pin before this one falls back to the stop's times.
   deepStrictEqual(pinnedArrival(pin, { ...answered(null, { ...asked, at: 1 }), rows: [row] }).arrival, row.arrivals[0]);
+});
+
+test('a pinned arrival counts down, then says it came, or once it was due, that it is canceled', () => {
+  const at = 1_000_000;
+  deepStrictEqual(arrivalCountdown(at, (at - 300) * 1000, { canceled: true, known: true }), { lead: 'Arrives in', num: '5', unit: 'min' });
+  deepStrictEqual(arrivalCountdown(at, (at + 60) * 1000, { canceled: false, known: true }), { lead: 'Arrived', num: '✓', unit: null });
+  deepStrictEqual(arrivalCountdown(at, (at + 60) * 1000, { canceled: true, known: true }), { lead: 'Canceled', num: '✕', unit: null });
+  // Before the stop's times come, it says nothing has come yet.
+  deepStrictEqual(arrivalCountdown(at, (at + 60) * 1000, { canceled: false, known: false }), { lead: 'Arriving', num: 'Now', unit: null });
 });
