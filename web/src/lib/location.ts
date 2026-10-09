@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'preact/hooks';
+
 export type Position = { lat: number; lon: number };
 export type LocationProblem = 'denied' | 'unavailable';
 
@@ -28,3 +30,30 @@ export function takeHanded() {
   handed = null;
   return position;
 }
+
+// Where the phone is as the rider moves, with how sure it is in meters, while location is already
+// allowed. It never asks: a map opened to watch a vehicle is no reason to.
+export function useWatchedPosition() {
+  const [position, setPosition] = useState<(Position & { accuracy: number }) | null>(null);
+  useEffect(() => {
+    let watch: number | null = null;
+    let gone = false;
+    navigator.permissions
+      ?.query({ name: 'geolocation' })
+      .then((status) => {
+        if (gone || status.state !== 'granted' || !('geolocation' in navigator)) return;
+        watch = navigator.geolocation.watchPosition(
+          ({ coords }) => setPosition({ lat: coords.latitude, lon: coords.longitude, accuracy: coords.accuracy }),
+          () => setPosition(null),
+          { enableHighAccuracy: true, maximumAge: 10_000 },
+        );
+      })
+      .catch(() => {});
+    return () => {
+      gone = true;
+      if (watch !== null) navigator.geolocation.clearWatch(watch);
+    };
+  }, []);
+  return position;
+}
+

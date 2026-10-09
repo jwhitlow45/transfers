@@ -1,9 +1,12 @@
 import { useEffect, useId, useState } from 'preact/hooks';
-import type { Stop, TrackLeg, TrackResponse } from '../../../shared/api.ts';
+import type { Route, Stop, TrackLeg, TrackResponse } from '../../../shared/api.ts';
 import { clock, minutesUntil } from '../format.ts';
 import { useNow, usePoll } from '../hooks.ts';
+import { ModeGlyph } from '../icons/ModeIcon.tsx';
 import { IconChevron } from '../icons/ui.tsx';
-import { routeColor } from '../lib/color.ts';
+import { routeColor, textOn } from '../lib/color.ts';
+import { useWatchedPosition } from '../lib/location.ts';
+import { metersFrom } from '../../../shared/projection.ts';
 import { ageText, clockSkewMs } from '../lib/freshness.ts';
 import type { Mark, Tracked } from '../track.tsx';
 import { useSettings } from '../settings.tsx';
@@ -76,6 +79,8 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
     setWhole(!whole);
   };
   const now = useNow() + clockSkewMs(data?.generatedAt, fetchedAt);
+  // Where the rider is, when the phone already shares it, so the vehicle is not taken for them.
+  const position = useWatchedPosition();
   if (!data) {
     return <p class="tf-muted">{error ?? (feed === 'offline' ? 'Offline. The map shows once you are back online.' : 'Finding the vehicle…')}</p>;
   }
@@ -119,9 +124,10 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
         ? `Transfer missed by ${-transferMinutes} minute${transferMinutes === -1 ? '' : 's'}, to`
         : `${transferMinutes} minute transfer${tight ? ', tight' : ''}, to`;
   const legs: Drawn[] = [
-    ...(next && nextLabels ? [{ leg: next, color: nextColor, labels: nextLabels }] : []),
-    { leg: data, color, labels },
+    ...(next && nextLabels ? [{ leg: next, color: nextColor, labels: nextLabels, mode: nextRoute?.mode ?? 'bus' }] : []),
+    { leg: data, color, labels, mode: route?.mode ?? 'bus' },
   ];
+  const [riderX, riderY] = position ? metersFrom(data.center, position) : [0, 0];
   return (
     <div class="tf-track">
       <p class="tf-track__toward">Toward {data.headsign}</p>
@@ -129,7 +135,7 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
         {headline}
       </p>
       <div class="tf-track__frame">
-        <LineMap legs={legs} label={headline} />
+        <LineMap legs={legs} label={headline} rider={position && { x: riderX, y: riderY, accuracy: position.accuracy }} />
         <div class="tf-track__controls">
           <button type="button" class="tf-track__fit" aria-pressed={whole} aria-label="Full route" onClick={toggleWhole}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -182,7 +188,8 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
   );
 }
 
-type Drawn = { leg: TrackLeg; color: string; labels: Map<number, Mark['kind'][]> };
+type Drawn = { leg: TrackLeg; color: string; labels: Map<number, Mark['kind'][]>; mode: Route['mode'] };
+type Rider = { x: number; y: number; accuracy: number };
 
 // Whether the vehicle has passed a stop of its leg. An ended trip has passed every stop.
 const passedAt = (leg: TrackLeg, index: number) => (leg.nextIndex === null ? leg.missing === 'ended' : index < leg.nextIndex);
@@ -191,7 +198,7 @@ const passedAt = (leg: TrackLeg, index: number) => (leg.nextIndex === null ? leg
 // heads, the transfer's drawn first so the rider's own vehicle sits on top. A walk between the
 // stop they get off at and the one they board is a dashed line. Sizes are in meters, scaled to the
 // picture, so a long ride and a short one look alike. North is up.
-function LineMap({ legs, label }: { legs: Drawn[]; label: string }) {
+function LineMap({ legs, label, rider }: { legs: Drawn[]; label: string; rider: Rider | null }) {
   // The frame fits the lines and stops, which stay put on a pinned map, so the picture holds still
   // as the vehicles move. A vehicle off the padded frame, as before its trip starts, widens it.
   const route: [number, number][] = legs.flatMap(({ leg }) => [...leg.line, ...leg.path.map(({ x, y }): [number, number] => [x, y])]);
@@ -200,13 +207,20 @@ function LineMap({ legs, label }: { legs: Drawn[]; label: string }) {
   const ys = route.map(([, y]) => -y);
   const span = Math.max(300, Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
   const pad = span * 0.12;
+  // Within half the padding, so its badge stays in the picture too.
   for (const { leg } of legs) {
     if (!leg.vehicle) continue;
     const [x, y] = [leg.vehicle.x, -leg.vehicle.y];
-    if (x < Math.min(...xs) - pad || x > Math.max(...xs) + pad || y < Math.min(...ys) - pad || y > Math.max(...ys) + pad) {
+    if (x < Math.min(...xs) - pad / 2 || x > Math.max(...xs) + pad / 2 || y < Math.min(...ys) - pad / 2 || y > Math.max(...ys) + pad / 2) {
       xs.push(x);
       ys.push(y);
     }
+  }
+  // The rider, when near enough that the picture still shows the trip well with them in it.
+  const nearby = rider && rider.x > Math.min(...xs) - span * 0.5 && rider.x < Math.max(...xs) + span * 0.5 && -rider.y > Math.min(...ys) - span * 0.5 && -rider.y < Math.max(...ys) + span * 0.5;
+  if (rider && nearby) {
+    xs.push(rider.x);
+    ys.push(-rider.y);
   }
   // At most a little taller than wide, and at most twice as wide as tall, so it fits a phone. A
   // band along the bottom is left clear for the Fit button.
@@ -231,15 +245,26 @@ function LineMap({ legs, label }: { legs: Drawn[]; label: string }) {
       {getOff && board && Math.hypot(getOff.x - board.x, getOff.y - board.y) > 15 && (
         <line x1={getOff.x} y1={-getOff.y} x2={board.x} y2={-board.y} class="tf-track__walk" stroke-width={unit * 0.45} stroke-dasharray={`${unit * 0.8} ${unit * 0.6}`} stroke-linecap="round" />
       )}
+      {/* Getting off and boarding at one place is one transfer, drawn once. */}
       {legs.map((drawn, n) => (
-        <LegMarks key={`marks-${n}`} drawn={drawn} unit={unit} />
+        <LegStops key={`stops-${n}`} drawn={drawn} unit={unit} skipTransfer={drawn === next && getOff !== undefined && board !== undefined && Math.hypot(getOff.x - board.x, getOff.y - board.y) <= 15} />
+      ))}
+      {/* The rider over the stops, as they are often at one, and under the vehicles. */}
+      {rider && nearby && (
+        <g transform={`translate(${rider.x} ${-rider.y})`} aria-hidden="true">
+          <circle r={Math.max(unit * 2.4, Math.min(rider.accuracy, span * 0.2))} class="tf-track__you-halo" />
+          <circle r={unit * 1.3} class="tf-track__you" stroke-width={unit * 0.6} />
+        </g>
+      )}
+      {legs.map((drawn, n) => (
+        <LegVehicle key={`vehicle-${n}`} drawn={drawn} unit={unit} />
       ))}
     </svg>
   );
 }
 
-// One leg's stops, the rider's stops on it, and its vehicle.
-function LegMarks({ drawn: { leg, color, labels }, unit }: { drawn: Drawn; unit: number }) {
+// One leg's stops, and the rider's stops on it.
+function LegStops({ drawn: { leg, color, labels }, unit, skipTransfer }: { drawn: Drawn; unit: number; skipTransfer: boolean }) {
   return (
     <>
       {/* The vehicle's next stop is filled with its color, as in the list. */}
@@ -252,11 +277,23 @@ function LegMarks({ drawn: { leg, color, labels }, unit }: { drawn: Drawn; unit:
         const place = leg.path[index];
         if (!place) return null;
         const kind = kinds[0]!;
+        if (kind === 'transfer' && skipTransfer) return null;
         const half = unit * 1.4;
+        // Where the rider changes, by the transfer mark the app gives changes everywhere else, so it
+        // stands out from the stops and squares around it (J, 2026-10-09).
+        if (kind === 'transfer') {
+          const r = unit * 2.5;
+          return (
+            <g key={`mark-${index}`} transform={`translate(${place.x} ${-place.y})`} class={passedAt(leg, index) ? 'tf-track__change-mark tf-track__change-mark--passed' : 'tf-track__change-mark'}>
+              <circle r={r} stroke-width={unit * 0.55} style={index === leg.nextIndex ? { fill: color } : undefined} />
+              <path d="M4 8h14l-4-4M20 16H6l4 4" transform={`scale(${(r * 1.25) / 24}) translate(-12 -12)`} fill="none" stroke-width={2.4} stroke-linecap="round" stroke-linejoin="round" />
+            </g>
+          );
+        }
         return (
           <g key={`mark-${index}`} transform={`translate(${place.x} ${-place.y})`}>
             {kind === 'destination' && <rect x={-half * 1.7} y={-half * 1.7} width={half * 3.4} height={half * 3.4} class="tf-track__square-ring" stroke-width={unit * 0.45} />}
-            <rect x={-half} y={-half} width={half * 2} height={half * 2} class={`tf-track__square--${kind}`} stroke-width={unit * (kind === 'transfer' ? 0.7 : 0.45)} style={index === leg.nextIndex ? { fill: color } : undefined} />
+            <rect x={-half} y={-half} width={half * 2} height={half * 2} class={`tf-track__square--${kind}`} stroke-width={unit * 0.45} style={index === leg.nextIndex ? { fill: color } : undefined} />
             {passedAt(leg, index) && (
               <>
                 <line x1={-half * 1.5} y1={half * 1.5} x2={half * 1.5} y2={-half * 1.5} class="tf-track__slash-edge" stroke-width={unit * 1.1} stroke-linecap="round" />
@@ -266,18 +303,41 @@ function LegMarks({ drawn: { leg, color, labels }, unit }: { drawn: Drawn; unit:
           </g>
         );
       })}
-      {leg.vehicle && (
-        <g transform={`translate(${leg.vehicle.x} ${-leg.vehicle.y})`}>
-          {/* Bearing is clockwise from north, as SVG rotates. The arrow is in the text color, outlined,
-              so it stands out from the line it travels along, which is the vehicle's color. */}
-          {leg.vehicle.bearing !== null && (
-            <path d={`M0 ${-unit * 4.4} L${unit * 1.9} ${-unit * 1.2} L${-unit * 1.9} ${-unit * 1.2} Z`} class="tf-track__heading" stroke-width={unit * 0.35} stroke-linejoin="round" transform={`rotate(${leg.vehicle.bearing})`} />
-          )}
-          {/* An estimate is drawn faded and dashed, so it does not pass for a reported position. */}
-          <circle r={unit * 1.8} fill={color} class={`tf-track__vehicle${leg.vehicle.estimate ? ' tf-track__vehicle--estimate' : ''}`} stroke-width={unit * 0.5} stroke-dasharray={leg.vehicle.estimate ? `${unit * 0.7} ${unit * 0.5}` : undefined} />
-        </g>
-      )}
     </>
+  );
+}
+
+// A leg's vehicle, as its chip draws it: its route's color with its pictogram, so it reads as the
+// bus or train rather than as the rider's own dot (J, 2026-10-09). The pictogram faces the way the
+// vehicle heads, and a pointer outside it gives the bearing.
+function LegVehicle({ drawn: { leg, color, mode }, unit }: { drawn: Drawn; unit: number }) {
+  if (!leg.vehicle) return null;
+  const { x, y, bearing, estimate } = leg.vehicle;
+  const size = unit * 4.6;
+  const reach = size * 0.72;
+  const west = bearing !== null && bearing > 180;
+  return (
+    <g transform={`translate(${x} ${-y})`}>
+      {/* Bearing is clockwise from north, as SVG rotates. */}
+      {bearing !== null && (
+        <path d={`M0 ${-(reach + unit * 1.9)} L${unit * 1.5} ${-reach} L${-unit * 1.5} ${-reach} Z`} class="tf-track__heading" stroke-width={unit * 0.35} stroke-linejoin="round" transform={`rotate(${bearing})`} />
+      )}
+      {/* An estimate is drawn faded and dashed, so it does not pass for a reported position. */}
+      <rect
+        x={-size / 2}
+        y={-size / 2}
+        width={size}
+        height={size}
+        rx={unit * 0.9}
+        fill={color}
+        class={`tf-track__vehicle${estimate ? ' tf-track__vehicle--estimate' : ''}`}
+        stroke-width={unit * 0.5}
+        stroke-dasharray={estimate ? `${unit * 0.7} ${unit * 0.5}` : undefined}
+      />
+      <g transform={`scale(${(west ? -1 : 1) * ((size * 0.82) / 24)} ${(size * 0.82) / 24}) translate(-12 -12)`} style={{ color: textOn(color) }}>
+        <ModeGlyph mode={mode} />
+      </g>
+    </g>
   );
 }
 

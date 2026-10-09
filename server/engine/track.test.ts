@@ -1,3 +1,4 @@
+import { metersFrom } from '../../shared/projection.ts';
 import { deepStrictEqual, strictEqual, throws } from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -75,6 +76,9 @@ test('a vehicle on its way draws from the stop behind it to one past the rider, 
   const [first, last] = [response.path[0]!, response.path.at(-1)!];
   deepStrictEqual([response.line[0], response.line.at(-1)], [[first.x, first.y], [last.x, last.y]]);
   strictEqual(Math.abs(response.vehicle!.y) <= 1 && response.vehicle!.x > first.x && response.vehicle!.x < response.path[1]!.x, true);
+  // The page places the rider from the center the picture counts from, as the server places stops.
+  const [x, y] = metersFrom(response.center, { lat: LAT, lon: lon(4) });
+  deepStrictEqual([Math.round(x), Math.round(y)], [response.path[3]!.x, response.path[3]!.y]);
 });
 
 test('with no stop reported, the vehicle heads to the first stop past it on the line, and past the rider it has passed', () => {

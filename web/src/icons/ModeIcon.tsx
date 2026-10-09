@@ -14,18 +14,26 @@ const GLYPH_FOR: Record<Mode, Glyph> = {
 // Vehicle pictogram with a gerbil driver. Takes the text color of whatever it sits in, and is
 // hidden from screen readers, since the route label beside it says the mode.
 export function ModeIcon({ mode, size = 16 }: { mode: Mode; size?: number }) {
-  const glyph = MODE_GLYPHS[GLYPH_FOR[mode]];
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
-      <g transform={glyph.transform}>
-        {glyph.parts.map((part, index) =>
-          part.stroke ? (
-            <path key={index} d={part.d} fill="none" stroke="currentColor" stroke-width={part.stroke} stroke-linecap="round" stroke-linejoin="round" />
-          ) : (
-            <path key={index} d={part.d} fill="currentColor" fill-rule="evenodd" />
-          ),
-        )}
-      </g>
+      <ModeGlyph mode={mode} />
     </svg>
+  );
+}
+
+// The pictogram's shapes on a 24 by 24 square, for drawing inside another picture, such as a
+// vehicle on the live map.
+export function ModeGlyph({ mode }: { mode: Mode }) {
+  const glyph = MODE_GLYPHS[GLYPH_FOR[mode]];
+  return (
+    <g transform={glyph.transform}>
+      {glyph.parts.map((part, index) =>
+        part.stroke ? (
+          <path key={index} d={part.d} fill="none" stroke="currentColor" stroke-width={part.stroke} stroke-linecap="round" stroke-linejoin="round" />
+        ) : (
+          <path key={index} d={part.d} fill="currentColor" fill-rule="evenodd" />
+        ),
+      )}
+    </g>
   );
 }

@@ -1,4 +1,5 @@
 import { get } from '../db.ts';
+import { metersFrom } from '../../shared/projection.ts';
 import { decodePolyline, type Point } from '../geo.ts';
 import type { Schedule } from '../schedule.ts';
 
@@ -19,7 +20,5 @@ export function shapePoints(schedule: Schedule, shape: number): Point[] {
 
 // Places as whole meters east and north of a center, the way the maps draw them.
 export function projector(center: Point) {
-  const metersPerDegreeLat = 111_320;
-  const metersPerDegreeLon = 111_320 * Math.cos((center.lat * Math.PI) / 180);
-  return (point: Point): [number, number] => [Math.round((point.lon - center.lon) * metersPerDegreeLon), Math.round((point.lat - center.lat) * metersPerDegreeLat)];
+  return (point: Point): [number, number] => metersFrom(center, point).map(Math.round) as [number, number];
 }

@@ -90,14 +90,16 @@ export function trackVehicle(schedule: Schedule, live: Live, request: TrackReque
   // The middle of the stops drawn, or of the pinned spans, leaving out the vehicles, so an open map
   // keeps every stop at the same place on each refresh while only the vehicles move.
   const centered = [...leg.centered, ...(transfer?.centered ?? [])];
-  const project = projector({
+  const center = {
     lat: (Math.min(...centered.map(({ lat }) => lat)) + Math.max(...centered.map(({ lat }) => lat))) / 2,
     lon: (Math.min(...centered.map(({ lon }) => lon)) + Math.max(...centered.map(({ lon }) => lon))) / 2,
-  });
+  };
+  const project = projector(center);
   const tables = new Tables(schedule);
   return {
     generatedAt: now,
     dataAt: (leg.estimate?.source === 'predicted' ? live.trips?.fetchedAt : live.vehicles?.fetchedAt) ?? null,
+    center: { lat: Number(center.lat.toFixed(6)), lon: Number(center.lon.toFixed(6)) },
     ...drawLeg(schedule, leg, project, tables),
     ...(transfer ? { transfer: drawLeg(schedule, transfer, project, tables) } : {}),
     routes: tables.routes,

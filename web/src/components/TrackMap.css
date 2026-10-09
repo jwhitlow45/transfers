@@ -17,7 +17,14 @@
 /* The end of the ride: filled like the rider's stop, inside a ring. */
 .tf-track__square--destination { fill: var(--text); stroke: var(--bg); }
 .tf-track__square-ring { fill: none; stroke: var(--text); }
+/* Where the rider changes: the transfer mark in a ring. */
+.tf-track__change-mark circle { fill: var(--bg); stroke: var(--text); }
+.tf-track__change-mark path { stroke: var(--text); }
+.tf-track__change-mark--passed { opacity: .5; }
 .tf-track__vehicle { stroke: var(--bg); }
+/* The rider, as phones' own maps show them: a blue dot in a ring, inside how sure the phone is. */
+.tf-track__you { fill: #2f80ed; stroke: #fff; }
+.tf-track__you-halo { fill: #2f80ed; fill-opacity: .14; }
 .tf-track__vehicle--estimate { fill-opacity: .55; stroke: var(--text); }
 .tf-track__heading { fill: var(--text); stroke: var(--bg); }
 /* A slash through a stop the vehicle has passed: a line in the text color inside a wider one in

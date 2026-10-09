@@ -284,6 +284,9 @@ export type TrackResponse = TrackLeg & {
   // The vehicle the rider transfers to, on the same picture, when the page asked for it and its
   // trip stops where they board.
   transfer?: TrackLeg;
+  // Where the picture's x and y count from, for the page to place the rider on it from where the
+  // phone says they are, which never leaves the phone.
+  center: { lat: number; lon: number };
   routes: Record<string, Route>;
   stops: Record<string, Stop>;
 };
