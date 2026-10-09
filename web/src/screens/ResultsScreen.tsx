@@ -1,18 +1,18 @@
 import type { ComponentChildren } from 'preact';
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useState } from 'preact/hooks';
 import type { TripResponse } from '../../../shared/api.ts';
 import { takeInitialData } from '../api.ts';
 import { AlertList } from '../components/AlertList.tsx';
-import { FeedOutageBanner, OfflineBanner, StaleBanner } from '../components/Banners.tsx';
+import { FeedOutageBanner, LiveBanners } from '../components/Banners.tsx';
 import { OutageSheet, OutageTag } from '../components/Outages.tsx';
 import { PinnedCard } from '../components/PinnedCard.tsx';
 import { BottomBar } from '../components/BottomBar.tsx';
 import { DataCredit } from '../components/DataCredit.tsx';
 import { DirectionSwitcher, SystemSwitcher } from '../components/DirectionSwitcher.tsx';
-import { ScreenHeader, TripChain, liveStatusText } from '../components/ResultsHeader.tsx';
+import { ScreenHeader, TripChain } from '../components/ResultsHeader.tsx';
 import { RouteChip } from '../components/RouteChip.tsx';
 import { SkeletonResults } from '../components/SkeletonResults.tsx';
-import { Toast, type ToastMessage } from '../components/Toast.tsx';
+import { Toast, useToast } from '../components/Toast.tsx';
 import { TransferPointGroup } from '../components/TransferPointGroup.tsx';
 import { type SearchUpdate, TRIP_SETTINGS, TripSettingsSheet } from '../components/TripSettingsSheet.tsx';
 import { useSwipeBack } from '../gestures.ts';
@@ -24,7 +24,7 @@ import { type ViewAlert, viewAlerts } from '../lib/alerts.ts';
 import { type StationOutages, groupStops, outagesByStation } from '../lib/outages.ts';
 import { ringsBell } from '../lib/eggs.ts';
 import { samePin } from '../lib/pinned.ts';
-import { ageText, clockSkewMs, freshness } from '../lib/freshness.ts';
+import { liveClock } from '../lib/freshness.ts';
 import { IconFlag, IconHidden } from '../icons/ui.tsx';
 import { type CardContext, chooseDirection, directionChoices, hintKey, orderGroups, pageColors, pointId, scaleFor, timeScale, visibleDepartures } from '../lib/results.ts';
 import { summarize } from '../lib/summary.ts';
@@ -98,10 +98,7 @@ export function ResultsScreen({ search }: { search: Search }) {
   // Stored under the search's own address, so pinning adds no stored copy of its own.
   const { data, error, fetchedAt, feed, settled, answered, refresh } = usePoll<TripResponse>(url, 30_000, initial, tripApiUrl(search, settings, showHidden));
   // Every time on the page is the server's, so the clock is too.
-  const skew = clockSkewMs(data?.generatedAt, fetchedAt);
-  const now = deviceNow + skew;
-  const fresh = freshness(now, fetchedAt === null ? null : fetchedAt + skew, data?.dataAt ?? null);
-  const showStale = fresh.stale && settled;
+  const { now, fresh, showStale, secondsSinceUpdate } = liveClock({ data, fetchedAt, settled }, deviceNow);
   const summary = summarize(search, data, now);
 
   useEffect(() => {
@@ -113,8 +110,7 @@ export function ResultsScreen({ search }: { search: Search }) {
   const { pinned, unpinAt, expired } = usePinnedTrip(pin, data, answered, search, settings, now, changePin);
   // Whether this visit shows how to pin, counted once per visit, until the rider first pins.
   const [hint, setHint] = useState(() => !pin && takePinHint());
-  const [toast, setToast] = useState<ToastMessage | null>(null);
-  const toastId = useRef(0);
+  const { toast, show: showToast, clear: clearToast } = useToast();
   // Pinning from a row, the pinned card, or a map's sheet says what happened, with Undo putting
   // back whatever was pinned before, in case the tap was not meant.
   // A map's sheet holds this from when it opened, so the pin it replaces is read as it is now.
@@ -130,7 +126,7 @@ export function ResultsScreen({ search }: { search: Search }) {
     const was = leg?.on && route ? `the ${chipLabel(route)} at ${clock(leg.on.at)}` : 'the trip pinned before';
     const base = !next ? 'Unpinned' : previous && !samePin(previous, next) ? `Pinned in place of ${was}` : 'Pinned to the top';
     const text = next && ringsBell(next, data) ? `Ding ding! ${base}` : base;
-    setToast({ id: ++toastId.current, text, about: next ? 'pin' : 'unpin', undo: () => changePin(previous) });
+    showToast({ text, about: next ? 'pin' : 'unpin', undo: () => changePin(previous) });
   };
   // Notices the rider dismissed stay hidden here and on every other search, until the Notices
   // page puts them back. Dismissing says so, with Undo.
@@ -149,8 +145,7 @@ export function ResultsScreen({ search }: { search: Search }) {
   const dismiss = ({ id, kicker, title, body, meta, url, severity }: ViewAlert) => {
     dismissNotice({ id, kicker, title, body, meta, url, severity });
     setDismissed(loadDismissed());
-    setToast({
-      id: ++toastId.current,
+    showToast({
       text: 'Notice dismissed',
       about: 'notice',
       undo: () => {
@@ -175,8 +170,7 @@ export function ResultsScreen({ search }: { search: Search }) {
       const removed = all[index] ?? saved;
       removeSaved(saved.id);
       setSaved(null);
-      setToast({
-        id: ++toastId.current,
+      showToast({
         text: 'Removed from Saved',
         about: 'unsaved',
         undo: () => {
@@ -190,8 +184,7 @@ export function ResultsScreen({ search }: { search: Search }) {
       const added = saveSearch(search, `${summary.from} to ${summary.to}`, defaultSavedColor(summary.lineColor, taken));
       setSaved(added);
       // Saving says so too, with Undo, as removing does.
-      setToast({
-        id: ++toastId.current,
+      showToast({
         text: 'Saved to Home',
         about: 'saved',
         undo: () => {
@@ -252,7 +245,6 @@ export function ResultsScreen({ search }: { search: Search }) {
   const errorText = missing ? "This stop or route isn't in the schedule anymore" : error;
   const failure = error ? { short: missing ? 'Not found' : 'Error', full: missing ? errorText! : `Results could not load: ${error}` } : null;
   const failed = error !== null && !data;
-  const secondsSinceUpdate = fresh.ageSeconds ?? (fetchedAt === null ? null : Math.max(0, Math.floor((now - (fetchedAt + skew)) / 1000)));
   const window = summary.window ?? { min: search.min ?? 3, max: search.max ?? 12 };
   const hide = search.hide ?? settings.hide;
   const outages = (data?.feeds ?? []).filter(({ state }) => state === 'down' || state === 'stale');
@@ -303,8 +295,7 @@ export function ResultsScreen({ search }: { search: Search }) {
           onRefresh={refresh}
         />
         <main class="tf-page" id="main">
-          {feed === 'offline' && <OfflineBanner statusText={liveStatusText(feed, secondsSinceUpdate)} />}
-          {feed !== 'offline' && showStale && <StaleBanner ageText={ageText(fresh.ageSeconds!)} cause={fresh.cause!} />}
+          <LiveBanners feed={feed} fresh={fresh} showStale={showStale} secondsSinceUpdate={secondsSinceUpdate} />
           {outages.map(({ agency }) => (
             <FeedOutageBanner key={agency} agency={agencyOnly(agency)} routes={routesOf(agency)} liveAgencies={liveAgencies.join(' and ')} />
           ))}
@@ -379,7 +370,7 @@ export function ResultsScreen({ search }: { search: Search }) {
         </main>
       </div>
       <BottomBar windowText={summary.windowText} saved={saved !== null} failed={failed} onBack={() => goBack()} onOpen={() => setSettingsOpen(true)} onToggleSaved={toggleSaved}>
-        <Toast message={toast} onDone={() => setToast(null)} />
+        <Toast message={toast} onDone={clearToast} />
       </BottomBar>
       {outagesOpen && data && <OutageSheet outages={outagesOpen} data={data} onClose={() => setOutagesOpen(null)} />}
       {settingsOpen && (
@@ -396,7 +387,7 @@ export function ResultsScreen({ search }: { search: Search }) {
           update={update}
           onSave={toggleSaved}
           onShowHidden={setShowHidden}
-          onCopied={() => setToast({ id: ++toastId.current, text: 'Link copied', about: 'notice' })}
+          onCopied={() => showToast({ text: 'Link copied', about: 'notice' })}
           onClose={() => setSettingsOpen(false)}
         />
       )}

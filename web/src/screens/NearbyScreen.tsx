@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { NearbyResponse, NearbyStop } from '../../../shared/api.ts';
 import { DataCredit } from '../components/DataCredit.tsx';
-import { OfflineBanner, StaleBanner } from '../components/Banners.tsx';
-import { ScreenHeader, liveStatusText } from '../components/ResultsHeader.tsx';
+import { LiveBanners } from '../components/Banners.tsx';
+import { ScreenHeader } from '../components/ResultsHeader.tsx';
 import { RouteChip } from '../components/RouteChip.tsx';
 import { Schematic } from '../components/Schematic.tsx';
 import { SkeletonResults } from '../components/SkeletonResults.tsx';
@@ -12,7 +12,7 @@ import { clock, minutesUntil } from '../format.ts';
 import { useNow, usePoll } from '../hooks.ts';
 import { IconLocation } from '../icons/ui.tsx';
 import { stopLetterColor } from '../lib/color.ts';
-import { ageText, clockSkewMs, freshness } from '../lib/freshness.ts';
+import { liveClock } from '../lib/freshness.ts';
 import { type LocationProblem, type Position, locate, locationProblemText, takeHanded } from '../lib/location.ts';
 import { useSwipeBack } from '../gestures.ts';
 import { goBack, navigate, stopPath } from '../router.ts';
@@ -85,11 +85,7 @@ function NearbyResults({ position, onRelocate }: { position: Position; onRelocat
   // Rounded to about 10 m, so small GPS jitter reuses the same request.
   const url = `/api/nearby?lat=${position.lat.toFixed(4)}&lon=${position.lon.toFixed(4)}`;
   const { data, error, fetchedAt, feed, settled, refresh } = usePoll<NearbyResponse>(url, 30_000);
-  const skew = clockSkewMs(data?.generatedAt, fetchedAt);
-  const now = useNow() + skew;
-  const fresh = freshness(now, fetchedAt === null ? null : fetchedAt + skew, data?.dataAt ?? null);
-  const showStale = fresh.stale && settled;
-  const secondsSinceUpdate = fresh.ageSeconds ?? (fetchedAt === null ? null : Math.max(0, Math.floor((now - (fetchedAt + skew)) / 1000)));
+  const { now, fresh, showStale, secondsSinceUpdate } = liveClock({ data, fetchedAt, settled }, useNow());
   // The server leaves out routes with nothing coming. A row whose last arrival has passed since
   // is hidden too, until a refresh brings more.
   const rows = (data?.nearby ?? []).map((row) => ({ row, arrivals: row.arrivals.filter(({ at }) => minutesUntil(at, now) >= 0) })).filter(({ arrivals }) => arrivals.length > 0);
@@ -120,8 +116,7 @@ function NearbyResults({ position, onRelocate }: { position: Position; onRelocat
         }}
       />
       <main class="tf-page" id="main">
-        {feed === 'offline' && <OfflineBanner statusText={liveStatusText(feed, secondsSinceUpdate)} />}
-        {feed !== 'offline' && showStale && <StaleBanner ageText={ageText(fresh.ageSeconds!)} cause={fresh.cause!} />}
+        <LiveBanners feed={feed} fresh={fresh} showStale={showStale} secondsSinceUpdate={secondsSinceUpdate} />
         {error && (
           <div class="tf-empty" role="alert">
             <div class="tf-empty__title">{error}</div>

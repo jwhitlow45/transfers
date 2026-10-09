@@ -8,15 +8,15 @@ import { OpenTrip, PinnedCard } from '../components/PinnedCard.tsx';
 import { SavedSearchCard, SavedTripBody } from '../components/SavedSearchCard.tsx';
 import { SearchFields } from '../components/SearchFields.tsx';
 import { type SearchHit, StopResults, hitMeta, hitName } from '../components/StopResults.tsx';
-import { Toast, type ToastMessage } from '../components/Toast.tsx';
+import { Toast, useToast } from '../components/Toast.tsx';
 import { ScreenHeader } from '../components/ResultsHeader.tsx';
 import { clock, minutesUntil } from '../format.ts';
-import { useNow, usePinnedTrip, usePoll, useStopPin } from '../hooks.ts';
+import { type Polled, useNow, usePinnedTrip, usePoll, useStopPin } from '../hooks.ts';
 import { IconChevron, IconClose, IconGear, IconLocation, IconPin, IconWarn } from '../icons/ui.tsx';
 import { defaultSavedColor } from '../lib/color.ts';
 import { ringsBell } from '../lib/eggs.ts';
 import { samePin } from '../lib/pinned.ts';
-import { type LiveReport, ageText, clockSkewMs, freshness, homeStatus } from '../lib/freshness.ts';
+import { homeStatus, liveClock, liveNote, type LiveReport } from '../lib/freshness.ts';
 import { type LocationProblem, type Position, handOver, locate, locationProblemText } from '../lib/location.ts';
 import { pageColors, scaleFor, timeScale } from '../lib/results.ts';
 import { summarize } from '../lib/summary.ts';
@@ -131,8 +131,7 @@ export function SearchScreen() {
     setReports(({ [key]: _old, ...others }) => (next ? { ...others, [key]: next } : others));
   }, []);
   const liveStatus = homeStatus(Object.values(reports), now);
-  const [toast, setToast] = useState<ToastMessage | null>(null);
-  const toastId = useRef(0);
+  const { toast, show: showToast, clear: clearToast } = useToast();
   const updatePin = (search: Search, next: Pin | null) => {
     savePin(search, next && { ...next, search });
     setPins(loadPins());
@@ -142,14 +141,14 @@ export function SearchScreen() {
   const pinFromHome = (search: Search, next: Pin | null) => {
     const previous = loadPin(search);
     updatePin(search, next);
-    if (!next) setToast({ id: ++toastId.current, text: 'Unpinned', about: 'unpin', undo: () => updatePin(search, previous) });
+    if (!next) showToast({ text: 'Unpinned', about: 'unpin', undo: () => updatePin(search, previous) });
   };
   // Pinned from a saved card, which shows its trip pinned at the top. A pin it replaces can come back.
   const pinFromCard = (search: Search, next: Pin | null, bell: boolean) => {
     if (!next) return pinFromHome(search, null);
     const previous = loadPin(search);
     updatePin(search, next);
-    setToast({ id: ++toastId.current, text: bell ? 'Ding ding! Pinned to the top' : 'Pinned to the top', about: 'pin', pinned: searchId(search), undo: () => updatePin(search, previous) });
+    showToast({ text: bell ? 'Ding ding! Pinned to the top' : 'Pinned to the top', about: 'pin', pinned: searchId(search), undo: () => updatePin(search, previous) });
   };
   // Saved searches in the order the rider set, one place at a time.
   const moveSaved = (id: string, step: -1 | 1) => {
@@ -345,7 +344,7 @@ export function SearchScreen() {
 
   return (
     <div class="tf-scroll">
-      <Toast message={toast} page onDone={() => setToast(null)} />
+      <Toast message={toast} page onDone={clearToast} />
       {/* The header the other screens have, so going to results moves neither the title nor the
           status line. The status line shows only with live cards, as Home asks for nothing else. */}
       <ScreenHeader
@@ -353,7 +352,7 @@ export function SearchScreen() {
           <span
             onClick={() => {
               const on = tapForGerbils();
-              if (on !== null) setToast({ id: ++toastId.current, text: on ? 'Gerbil mode on' : 'Gerbil mode off', about: 'notice' });
+              if (on !== null) showToast({ text: on ? 'Gerbil mode on' : 'Gerbil mode off', about: 'notice' });
             }}
           >
             Transfers
@@ -474,7 +473,7 @@ export function SearchScreen() {
                         const before = loadSaved();
                         removeSaved(search.id);
                         setSaved(loadSaved());
-                        setToast({ id: ++toastId.current, text: 'Removed from Saved', about: 'unsaved', undo: () => updateSaved(before) });
+                        showToast({ text: 'Removed from Saved', about: 'unsaved', undo: () => updateSaved(before) });
                       }}
                     />
                   ) : (
@@ -505,7 +504,7 @@ export function SearchScreen() {
                       const before = loadSaved();
                       removeSaved(search.id);
                       setSaved(loadSaved());
-                      setToast({ id: ++toastId.current, text: 'Removed from Saved', about: 'unsaved', undo: () => updateSaved(before) });
+                      showToast({ text: 'Removed from Saved', about: 'unsaved', undo: () => updateSaved(before) });
                     }}
                   />
                   ),
@@ -520,8 +519,7 @@ export function SearchScreen() {
               const before = loadRecent();
               removeRecent(item.id);
               setRecentVersion((version) => version + 1);
-              setToast({
-                id: ++toastId.current,
+              showToast({
                 text: 'Removed from Recent',
                 about: 'notice',
                 undo: () => {
@@ -580,17 +578,12 @@ function StopPinHome({ pin, name, now, pulls, onPin, onUpdate, onReport }: {
 }) {
   const { settings } = useSettings();
   const { search } = pin;
-  const { data, fetchedAt, feed, settled, answered, refresh } = usePoll<StopResponse>(stopApiUrl(search.from), 30_000);
-  useEffect(() => void (pulls && refresh()), [pulls]);
-  const skew = clockSkewMs(data?.generatedAt, fetchedAt);
-  useLiveReport(onReport, `pin:${searchId(search)}`, { feed, fetchedAt, dataAt: data?.dataAt ?? null, skew, settled });
-  const serverNow = now + skew;
-  const { expired } = useStopPin(pin, data, answered, search, settings, serverNow, onUpdate);
-  const fresh = freshness(serverNow, fetchedAt === null ? null : fetchedAt + skew, data?.dataAt ?? null);
-  const age = fresh.ageSeconds === null ? null : ageText(fresh.ageSeconds);
-  const status = feed === 'offline' ? `Offline${age ? ` · times ${age} old` : ''}` : fresh.stale && settled && age ? `Live times ${age} old` : null;
+  const polled = usePoll<StopResponse>(stopApiUrl(search.from), 30_000);
+  const { data, feed, answered } = polled;
+  const live = useHomeLive(polled, `pin:${searchId(search)}`, pulls, onReport, now);
+  const { expired } = useStopPin(pin, data, answered, search, settings, live.now, onUpdate);
   if (expired) return null;
-  return <StopPinCard pin={pin} data={data} now={serverNow} open={{ label: name ?? search.fromLabel, href: stopPath(search) }} offline={feed === 'offline'} stale={status} onPin={onPin} />;
+  return <StopPinCard pin={pin} data={data} now={live.now} open={{ label: name ?? search.fromLabel, href: stopPath(search) }} offline={feed === 'offline'} stale={live.note} onPin={onPin} />;
 }
 
 function PinnedHome({ pin, name, now, pulls, onPin, onUpdate, onReport }: {
@@ -605,16 +598,12 @@ function PinnedHome({ pin, name, now, pulls, onPin, onUpdate, onReport }: {
 }) {
   const { settings } = useSettings();
   const { search } = pin;
-  const { data, fetchedAt, feed, settled, answered, refresh } = usePoll<TripResponse>(tripApiUrl(search, settings, false, pin), 30_000, null, tripApiUrl(search, settings, false));
-  useEffect(() => void (pulls && refresh()), [pulls]);
-  const skew = clockSkewMs(data?.generatedAt, fetchedAt);
-  useLiveReport(onReport, `pin:${searchId(search)}`, { feed, fetchedAt, dataAt: data?.dataAt ?? null, skew, settled });
-  const serverNow = now + skew;
+  const polled = usePoll<TripResponse>(tripApiUrl(search, settings, false, pin), 30_000, null, tripApiUrl(search, settings, false));
+  const { data, feed, answered } = polled;
+  const live = useHomeLive(polled, `pin:${searchId(search)}`, pulls, onReport, now);
+  const serverNow = live.now;
   const { pinned, unpinAt, expired } = usePinnedTrip(pin, data, answered, search, settings, serverNow, onUpdate);
-  // Times no longer live say so, as saved cards do, since Home has no banner to.
-  const fresh = freshness(serverNow, fetchedAt === null ? null : fetchedAt + skew, data?.dataAt ?? null);
-  const age = fresh.ageSeconds === null ? null : ageText(fresh.ageSeconds);
-  const status = feed === 'offline' ? `Offline${age ? ` · times ${age} old` : ''}` : fresh.stale && settled && age ? `Live times ${age} old` : null;
+  const status = live.note;
   // A saved trip goes by the name the rider gave it, as its saved card does.
   const trip = { label: name ?? `${search.fromLabel} to ${search.toLabel}`, href: tripPath(search) };
   if (expired) return null;
@@ -675,14 +664,12 @@ function SavedTrip({ search, now, dismissed, pulls, onMove, canMoveUp, canMoveDo
 }) {
   const { settings } = useSettings();
   const slot = useRef<HTMLDivElement>(null);
-  const { data, feed, fetchedAt, settled, refresh } = usePoll<TripResponse>(tripApiUrl(search, settings, false), useOnScreen(slot) ? 30_000 : OFF_SCREEN_POLL_MS);
-  useEffect(() => void (pulls && refresh()), [pulls]);
-  const skew = clockSkewMs(data?.generatedAt, fetchedAt);
-  useLiveReport(onReport, `saved:${search.id}`, { feed, fetchedAt, dataAt: data?.dataAt ?? null, skew, settled });
-  const summary = summarize(search, data, now + skew, dismissed);
+  const polled = usePoll<TripResponse>(tripApiUrl(search, settings, false), useOnScreen(slot) ? 30_000 : OFF_SCREEN_POLL_MS);
+  const { data, feed } = polled;
+  const live = useHomeLive(polled, `saved:${search.id}`, pulls, onReport, now);
+  const summary = summarize(search, data, live.now, dismissed);
   const next = summary.next;
   const pinned = pin !== null && next !== null && samePin(pin, next.pin);
-  const fresh = freshness(now + skew, fetchedAt === null ? null : fetchedAt + skew, data?.dataAt ?? null);
   useEffect(() => {
     if (!search.color && data) onColorless(summary.lineColor);
   }, [Boolean(data), search.color]);
@@ -715,7 +702,7 @@ function SavedTrip({ search, now, dismissed, pulls, onMove, canMoveUp, canMoveDo
           loading={!data && feed === 'loading'}
           severeAlerts={summary.severeAlerts}
           nextService={summary.nextService}
-          staleText={fresh.stale && settled ? `Live times ${ageText(fresh.ageSeconds!)} old` : null}
+          staleText={live.note}
           unavailable={!data && feed === 'offline'}
         />
       </SavedSearchCard>
@@ -737,12 +724,10 @@ function SavedStop({ search, now, pulls, onMove, canMoveUp, canMoveDown, onRepor
   onRemove: () => void;
 }) {
   const slot = useRef<HTMLDivElement>(null);
-  const { data, feed, fetchedAt, settled, refresh } = usePoll<StopResponse>(stopApiUrl(search.from), useOnScreen(slot) ? 30_000 : OFF_SCREEN_POLL_MS);
-  useEffect(() => void (pulls && refresh()), [pulls]);
-  const skew = clockSkewMs(data?.generatedAt, fetchedAt);
-  useLiveReport(onReport, `saved:${search.id}`, { feed, fetchedAt, dataAt: data?.dataAt ?? null, skew, settled });
-  const serverNow = now + skew;
-  const fresh = freshness(serverNow, fetchedAt === null ? null : fetchedAt + skew, data?.dataAt ?? null);
+  const polled = usePoll<StopResponse>(stopApiUrl(search.from), useOnScreen(slot) ? 30_000 : OFF_SCREEN_POLL_MS);
+  const { data, feed } = polled;
+  const live = useHomeLive(polled, `saved:${search.id}`, pulls, onReport, now);
+  const serverNow = live.now;
   const rows = (data?.rows ?? [])
     .map((row) => ({ row, minutes: row.arrivals.map(({ at }) => minutesUntil(at, serverNow)).filter((minutes) => minutes >= 0).slice(0, 3) }))
     .filter(({ minutes }) => minutes.length > 0)
@@ -788,10 +773,10 @@ function SavedStop({ search, now, pulls, onMove, canMoveUp, canMoveDown, onRepor
           {!data && feed === 'offline' && <span class="tf-muted">Times can’t load right now</span>}
           {data && rows.length === 0 && <span class="tf-muted">Nothing coming soon</span>}
         </span>
-        {fresh.stale && settled && fresh.ageSeconds !== null && (
+        {live.note && data && (
           <span class="tf-saved__stale">
             <IconWarn size={14} />
-            Live times {ageText(fresh.ageSeconds)} old
+            {live.note}
           </span>
         )}
       </SavedSearchCard>
@@ -818,6 +803,15 @@ type Report = (key: string, report: LiveReport | null) => void;
 
 // Tells Home how fresh a card's times are, and that it has gone once it unmounts. Before paint,
 // so the status line shows in the same frame as the cards.
+// A Home card's live times: refreshed by every pull, counted in the status line under the title,
+// on the server's clock, with the note the card shows when they are not live (see liveNote).
+function useHomeLive(polled: Polled<{ generatedAt: number; dataAt: number | null }>, key: string, pulls: number, onReport: Report, deviceNow: number) {
+  useEffect(() => void (pulls && polled.refresh()), [pulls]);
+  const clock = liveClock(polled, deviceNow);
+  useLiveReport(onReport, key, { feed: polled.feed, fetchedAt: polled.fetchedAt, dataAt: polled.data?.dataAt ?? null, skew: clock.skew, settled: polled.settled });
+  return { ...clock, note: liveNote(polled.feed, clock.fresh, polled.settled) };
+}
+
 function useLiveReport(onReport: Report, key: string, { feed, fetchedAt, dataAt, skew, settled }: LiveReport) {
   useLayoutEffect(() => onReport(key, { feed, fetchedAt, dataAt, skew, settled }), [key, feed, fetchedAt, dataAt, skew, settled]);
   useLayoutEffect(() => () => onReport(key, null), [key]);

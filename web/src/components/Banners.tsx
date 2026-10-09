@@ -1,4 +1,7 @@
+import type { FeedState } from '../hooks.ts';
 import { IconOffline, IconWarn } from '../icons/ui.tsx';
+import { type Freshness, ageText } from '../lib/freshness.ts';
+import { liveStatusText } from './ResultsHeader.tsx';
 
 export function OfflineBanner({ statusText }: { statusText: string }) {
   return (
@@ -44,4 +47,10 @@ export function StaleBanner({ ageText, cause }: { ageText: string; cause: 'conne
       </div>
     </div>
   );
+}
+
+// Offline, or times old enough to warn about, as every live page says it.
+export function LiveBanners({ feed, fresh, showStale, secondsSinceUpdate }: { feed: FeedState; fresh: Freshness; showStale: boolean; secondsSinceUpdate: number | null }) {
+  if (feed === 'offline') return <OfflineBanner statusText={liveStatusText(feed, secondsSinceUpdate)} />;
+  return showStale && fresh.ageSeconds !== null && fresh.cause ? <StaleBanner ageText={ageText(fresh.ageSeconds)} cause={fresh.cause} /> : null;
 }

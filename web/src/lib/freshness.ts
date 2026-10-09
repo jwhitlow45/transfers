@@ -65,3 +65,22 @@ export function homeStatus(reports: LiveReport[], now: number): { feed: FeedStat
   const feed: FeedState = feeds.includes('offline') ? 'offline' : feeds.every((state) => state === 'loading') ? 'loading' : feeds.includes('refreshing') ? 'refreshing' : 'live';
   return { feed, secondsSinceUpdate: ages.length > 0 ? Math.max(...ages) : null, stale: fresh.some(({ stale }, index) => stale && reports[index]!.settled) };
 }
+
+// A page's live times on the server's clock: the phone's skew from the server, now by the server,
+// how fresh the times are, whether to warn that they are old, and seconds since the last update,
+// which counts from the fetch until the server says how old its data is.
+export function liveClock({ data, fetchedAt, settled }: { data: { generatedAt: number; dataAt: number | null } | null; fetchedAt: number | null; settled: boolean }, deviceNow: number) {
+  const skew = clockSkewMs(data?.generatedAt, fetchedAt);
+  const now = deviceNow + skew;
+  const fresh = freshness(now, fetchedAt === null ? null : fetchedAt + skew, data?.dataAt ?? null);
+  const secondsSinceUpdate = fresh.ageSeconds ?? (fetchedAt === null ? null : Math.max(0, Math.floor((now - (fetchedAt + skew)) / 1000)));
+  return { skew, now, fresh, showStale: fresh.stale && settled, secondsSinceUpdate };
+}
+
+// What a card on Home says when its times are not live, as Home has no banner to: offline, with
+// how old its times are, or how old they are once they are old enough to warn about.
+export function liveNote(feed: FeedState, fresh: Freshness, settled: boolean) {
+  const age = fresh.ageSeconds === null ? null : ageText(fresh.ageSeconds);
+  if (feed === 'offline') return `Offline${age ? ` · times ${age} old` : ''}`;
+  return fresh.stale && settled && age ? `Live times ${age} old` : null;
+}

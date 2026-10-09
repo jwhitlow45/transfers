@@ -1,6 +1,6 @@
-import { useRef, useState } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import { ScreenHeader } from '../components/ResultsHeader.tsx';
-import { Toast, type ToastMessage } from '../components/Toast.tsx';
+import { Toast, useToast } from '../components/Toast.tsx';
 import { focusInstead } from '../focus.ts';
 import { clock } from '../format.ts';
 import { IconInfo, IconWarn } from '../icons/ui.tsx';
@@ -16,8 +16,7 @@ export function NoticesScreen() {
   const back = () => goBack();
   useSwipeBack(back);
   const [notices, setNotices] = useState(loadDismissed);
-  const [toast, setToast] = useState<ToastMessage | null>(null);
-  const toastId = useRef(0);
+  const { toast, show: showToast, clear: clearToast } = useToast();
   const reload = () => setNotices(loadDismissed());
   // Undo puts them back as they were, dismissed when they were.
   const redismiss = (list: DismissedNotice[]) => {
@@ -34,14 +33,14 @@ export function NoticesScreen() {
     restoreNotice(notice.id);
     reload();
     focusRestore(notices.indexOf(notice));
-    setToast({ id: ++toastId.current, text: 'Notice restored', about: 'notice', undo: () => redismiss([notice]) });
+    showToast({ text: 'Notice restored', about: 'notice', undo: () => redismiss([notice]) });
   };
   const restoreAll = () => {
     const all = notices;
     restoreAllNotices();
     reload();
     focusRestore(0);
-    setToast({ id: ++toastId.current, text: all.length === 1 ? 'Notice restored' : `${all.length} notices restored`, about: 'notice', undo: () => redismiss(all) });
+    showToast({ text: all.length === 1 ? 'Notice restored' : `${all.length} notices restored`, about: 'notice', undo: () => redismiss(all) });
   };
   const now = Date.now();
   return (
@@ -93,7 +92,7 @@ export function NoticesScreen() {
           )}
         </main>
       </div>
-      <Toast message={toast} page onDone={() => setToast(null)} />
+      <Toast message={toast} page onDone={clearToast} />
     </>
   );
 }

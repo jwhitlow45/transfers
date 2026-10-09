@@ -1,17 +1,17 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import type { NearbyArrival, NearbyStop, StopResponse } from '../../../shared/api.ts';
 import { AlertList } from '../components/AlertList.tsx';
 import { Collapse } from '../components/Collapse.tsx';
 import { BottomBar } from '../components/BottomBar.tsx';
 import { DataCredit } from '../components/DataCredit.tsx';
-import { OfflineBanner, StaleBanner } from '../components/Banners.tsx';
+import { LiveBanners } from '../components/Banners.tsx';
 import { PinToggle } from '../components/PinToggle.tsx';
-import { ScreenHeader, liveStatusText } from '../components/ResultsHeader.tsx';
+import { ScreenHeader } from '../components/ResultsHeader.tsx';
 import { RouteChip } from '../components/RouteChip.tsx';
 import { SkeletonResults } from '../components/SkeletonResults.tsx';
 import { StatusTag } from '../components/StatusTag.tsx';
 import { StopPinCard } from '../components/StopPinCard.tsx';
-import { Toast, type ToastMessage } from '../components/Toast.tsx';
+import { Toast, useToast } from '../components/Toast.tsx';
 import { clock, minutesUntil } from '../format.ts';
 import { useSwipeBack } from '../gestures.ts';
 import { useNow, usePoll, useStopPin } from '../hooks.ts';
@@ -19,7 +19,7 @@ import { IconChevron } from '../icons/ui.tsx';
 import { useShownAgain } from '../layers.ts';
 import { type ViewAlert, viewAlerts } from '../lib/alerts.ts';
 import { defaultSavedColor, routeColor } from '../lib/color.ts';
-import { ageText, clockSkewMs, freshness } from '../lib/freshness.ts';
+import { liveClock } from '../lib/freshness.ts';
 import { samePin } from '../lib/pinned.ts';
 import { stopApiUrl, stopPinOf } from '../lib/stop-pins.ts';
 import { goBack } from '../router.ts';
@@ -52,11 +52,7 @@ const SHOWN = 3;
 export function StopScreen({ search }: { search: Search }) {
   const { settings } = useSettings();
   const { data, error, fetchedAt, feed, settled, answered, refresh } = usePoll<StopResponse>(stopApiUrl(search.from), 30_000);
-  const skew = clockSkewMs(data?.generatedAt, fetchedAt);
-  const now = useNow() + skew;
-  const fresh = freshness(now, fetchedAt === null ? null : fetchedAt + skew, data?.dataAt ?? null);
-  const showStale = fresh.stale && settled;
-  const secondsSinceUpdate = fresh.ageSeconds ?? (fetchedAt === null ? null : Math.max(0, Math.floor((now - (fetchedAt + skew)) / 1000)));
+  const { now, fresh, showStale, secondsSinceUpdate } = liveClock({ data, fetchedAt, settled }, useNow());
   useSwipeBack(() => goBack());
   useEffect(() => {
     if (data) rememberRecent(search);
@@ -70,15 +66,14 @@ export function StopScreen({ search }: { search: Search }) {
     setPin(kept);
   };
   useStopPin(pin, data, answered, search, settings, now, changePin);
-  const [toast, setToast] = useState<ToastMessage | null>(null);
-  const toastId = useRef(0);
+  const { toast, show: showToast, clear: clearToast } = useToast();
   // As on results: what happened, with Undo putting back whatever was pinned before.
   const pinFromStop = (next: Pin | null) => {
     const previous = loadPin(search);
     changePin(next);
     const was = previous?.arrival && data?.routes[previous.arrival.route] ? `the ${chipLabel(data.routes[previous.arrival.route]!)} at ${clock(previous.ends)}` : 'the arrival pinned before';
     const text = !next ? 'Unpinned' : previous && !samePin(previous, next) ? `Pinned in place of ${was}` : 'Pinned to the top';
-    setToast({ id: ++toastId.current, text, about: next ? 'pin' : 'unpin', undo: () => changePin(previous) });
+    showToast({ text, about: next ? 'pin' : 'unpin', undo: () => changePin(previous) });
   };
 
   const [dismissed, setDismissed] = useState(loadDismissed);
@@ -94,8 +89,7 @@ export function StopScreen({ search }: { search: Search }) {
   const dismiss = ({ id, kicker, title, body, meta, url: link, severity }: ViewAlert) => {
     dismissNotice({ id, kicker, title, body, meta, url: link, severity });
     setDismissed(loadDismissed());
-    setToast({
-      id: ++toastId.current,
+    showToast({
       text: 'Notice dismissed',
       about: 'notice',
       undo: () => {
@@ -113,8 +107,7 @@ export function StopScreen({ search }: { search: Search }) {
       const removed = all[index] ?? saved;
       removeSaved(saved.id);
       setSaved(null);
-      setToast({
-        id: ++toastId.current,
+      showToast({
         text: 'Removed from Saved',
         about: 'unsaved',
         undo: () => {
@@ -129,8 +122,7 @@ export function StopScreen({ search }: { search: Search }) {
     const taken = loadSaved().map(({ color }) => color).filter((color) => color !== undefined);
     const added = saveSearch(search, search.fromLabel, defaultSavedColor(busiest ? routeColor(busiest) : null, taken));
     setSaved(added);
-    setToast({
-      id: ++toastId.current,
+    showToast({
       text: 'Saved to Home',
       about: 'saved',
       undo: () => {
@@ -150,8 +142,7 @@ export function StopScreen({ search }: { search: Search }) {
       <div class="tf-scroll">
         <ScreenHeader title={<span class="tf-chain__step">{search.fromLabel}</span>} feed={feed} secondsSinceUpdate={secondsSinceUpdate} stale={showStale} onRefresh={refresh} />
         <main class="tf-page" id="main">
-          {feed === 'offline' && <OfflineBanner statusText={liveStatusText(feed, secondsSinceUpdate)} />}
-          {feed !== 'offline' && showStale && <StaleBanner ageText={ageText(fresh.ageSeconds!)} cause={fresh.cause!} />}
+          <LiveBanners feed={feed} fresh={fresh} showStale={showStale} secondsSinceUpdate={secondsSinceUpdate} />
           {error && (
             <div class="tf-empty" role="alert">
               <div class="tf-empty__title">{error}</div>
@@ -236,7 +227,7 @@ export function StopScreen({ search }: { search: Search }) {
         </main>
       </div>
       <BottomBar windowText={null} saved={saved !== null} failed={Boolean(error) && !data} onBack={() => goBack()} onToggleSaved={toggleSaved}>
-        <Toast message={toast} onDone={() => setToast(null)} />
+        <Toast message={toast} onDone={clearToast} />
       </BottomBar>
     </>
   );

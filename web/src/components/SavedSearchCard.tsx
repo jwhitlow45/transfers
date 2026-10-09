@@ -3,7 +3,6 @@ import { useRef, useState } from 'preact/hooks';
 import { clock } from '../format.ts';
 import { IconPencil, IconPin, IconTransfer, IconWarn } from '../icons/ui.tsx';
 import { SAVED_COLORS } from '../lib/color.ts';
-import type { Pin } from '../storage.ts';
 import type { NextConnection } from '../lib/summary.ts';
 import { RouteChip } from './RouteChip.tsx';
 import { StatusTag } from './StatusTag.tsx';

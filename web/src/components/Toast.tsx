@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { focusInstead } from '../focus.ts';
 import { motionOff } from '../gestures.ts';
 import { IconBookmark, IconInfo, IconPin, IconUnpin } from '../icons/ui.tsx';
@@ -103,4 +103,12 @@ export function Toast({ message, page = false, onDone }: { message: ToastMessage
       )}
     </div>
   );
+}
+
+// A screen's toast: the note showing, `show` for a new one, which takes the place of any showing,
+// and `clear` once it has gone.
+export function useToast() {
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+  const ids = useRef(0);
+  return { toast, show: (message: Omit<ToastMessage, 'id'>) => setToast({ ...message, id: ++ids.current }), clear: () => setToast(null) };
 }
