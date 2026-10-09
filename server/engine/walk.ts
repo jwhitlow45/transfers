@@ -1,3 +1,5 @@
+import { walkSeconds } from '../../shared/walk.ts';
+
 // How long a transfer physically takes, before any rider settings. See docs/transfer-rules.md
 // for where these numbers come from and the transfers they were checked against.
 export type Access = 'bart' | 'subway' | 'ferry' | 'street';
@@ -7,9 +9,6 @@ const EXIT_SECONDS: Record<Access, number> = { bart: 105, subway: 90, ferry: 120
 // From the street to the vehicle: through the fare gates, down to the platform, to the right side.
 const ENTRY_SECONDS: Record<Access, number> = { bart: 120, subway: 105, ferry: 120, street: 0 };
 
-// Straight-line distance times this approximates walking the street grid.
-export const DETOUR_FACTOR = 1.3;
-export const DEFAULT_WALK_SPEED = 1.4;
 // An allowance for waiting at a signal. Without street data, distance stands in for "different corner".
 const CROSSING_SECONDS = 30;
 const CROSSING_METERS = 30;
@@ -29,8 +28,7 @@ export const NAMED_STOP_MAX_WALK_METERS = 800;
 export const DEFAULT_WINDOW_MINUTES = 9;
 
 export function transferSeconds(options: { exit: Access; entry: Access; meters: number; speed?: number }) {
-  const speed = options.speed ?? DEFAULT_WALK_SPEED;
-  const walk = (options.meters * DETOUR_FACTOR) / speed;
+  const walk = walkSeconds(options.meters, options.speed);
   const crossing = options.meters > CROSSING_METERS ? CROSSING_SECONDS : 0;
   return EXIT_SECONDS[options.exit] + walk + crossing + ENTRY_SECONDS[options.entry];
 }

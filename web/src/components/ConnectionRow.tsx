@@ -11,6 +11,7 @@ import { StopLink } from './StopLink.tsx';
 import { PinToggle } from './PinToggle.tsx';
 import { StatusTag } from './StatusTag.tsx';
 import { TimeBar } from './TimeBar.tsx';
+import { useSettings } from '../settings.tsx';
 
 const HIDDEN = {
   short: { tag: 'Under min', spoken: 'shorter than your minimum' },
@@ -46,8 +47,7 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
   // usual one, and a row says its own when it differs.
   const offAt = connection.alight ? shortStopName(context.data.stops[connection.alight], '') : null;
   // The walk to the second vehicle, said where the rider gets off (J, 2026-10-08). None at its stop.
-  // A non-breaking space keeps the minutes with their unit.
-  const walk = walkText(connection.walkMeters ?? walkMeters)?.replace(' min', '\u00a0min');
+  const walk = walkText(connection.walkMeters ?? walkMeters, useSettings().settings.walkSpeed);
   const spoken =
     `${route ? spokenRoute(route) : 'Vehicle'}, ${left ? (ago < 1 ? 'just left' : `left ${ago} minute${ago === 1 ? '' : 's'} ago`) : now ? 'arriving now' : `arrives in ${minutes} minute${minutes === 1 ? '' : 's'}`}, ${clock(connection.departs)}, ${status.label}. ` +
     `Off at ${offAt ?? alightName} ${clock(connection.arrives)}.${walk ? ` ${walk}.` : ''} ${connection.transfer} minute transfer${tight ? ', tight' : ''}${hidden ? `, hidden because it is ${hidden.spoken}` : ''}.`;

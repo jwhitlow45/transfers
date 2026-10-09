@@ -1,5 +1,7 @@
 // The most minutes any time setting allows: the transfer window's ends and hiding departures.
 export const MAX_MINUTES = 30;
+// Whole minutes within what the window allows, as a link or stored setting may hold any number.
+export const clampMinutes = (minutes: number) => Math.min(MAX_MINUTES, Math.max(0, Math.round(minutes)));
 
 // The JSON the server sends. Times are unix seconds and delays are seconds, so the browser keeps
 // countdowns ticking between refreshes. Routes and stops appear once in lookup tables and are
@@ -271,7 +273,6 @@ export type NearbyResponse = {
   routes: Record<string, Route>;
   stops: Record<string, Stop>;
   schematic: Schematic;
-  feeds: FeedStatus[];
 };
 
 // One vehicle on its way to the rider's stop, for its live map. Places are whole meters east and

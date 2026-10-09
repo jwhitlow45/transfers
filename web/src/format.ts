@@ -1,3 +1,5 @@
+import { walkSeconds } from '../../shared/walk.ts';
+
 // All times show in Pacific time, wherever the device is.
 export const PACIFIC = 'America/Los_Angeles';
 const timeFormat = new Intl.DateTimeFormat('en-US', { timeZone: PACIFIC, hour: 'numeric', minute: '2-digit' });
@@ -20,9 +22,10 @@ export function countdownTo(at: number, nowMs: number, lead: string, soon: strin
   return minutes < 1 ? { lead: soon, num: 'Now', unit: null } : { lead, num: String(minutes), unit: 'min' };
 }
 
-export const walkMinutes = (meters: number) => Math.max(1, Math.round((meters * 1.3) / 1.4 / 60));
+// Whole minutes to walk a straight-line distance at the rider's speed, as the server times it.
+export const walkMinutes = (meters: number, speed: number) => Math.max(1, Math.round(walkSeconds(meters, speed) / 60));
 // "Walk 3 min" from where the rider gets off to where they board, or null at one stop.
-export const walkText = (meters: number) => (meters < 15 ? null : `Walk ${walkMinutes(meters)}\u00a0min`);
+export const walkText = (meters: number, speed: number) => (meters < 15 ? null : `Walk ${walkMinutes(meters, speed)}\u00a0min`);
 
 const dayFormat = new Intl.DateTimeFormat('en-US', { timeZone: PACIFIC, year: 'numeric', month: 'numeric', day: 'numeric' });
 const weekdayTimeFormat = new Intl.DateTimeFormat('en-US', { timeZone: PACIFIC, weekday: 'short', hour: 'numeric', minute: '2-digit' });

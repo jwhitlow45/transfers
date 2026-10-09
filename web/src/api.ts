@@ -1,3 +1,4 @@
+import { writePin } from '../../shared/params.ts';
 import type { Position } from './lib/location.ts';
 import { DEFAULT_SETTINGS, type DeviceSettings, type Pin, type Search, saveCached } from './storage.ts';
 import { noticeBuild } from './update.ts';
@@ -78,16 +79,7 @@ export const apiUrl = {
     if (showHidden) params.set('hidden', '1');
     if (settings.stepFree) params.set('stepfree', '1');
     if (settings.escalatorOutages) params.set('escalators', '1');
-    if (pin) {
-      params.set('p2', pin.second.trip);
-      params.set('pb', pin.second.board);
-      params.set('pt', String(pin.at));
-      if (pin.first) {
-        params.set('p1', pin.first.trip);
-        params.set('pa', pin.first.alight);
-        if (pin.first.at !== undefined) params.set('pf', String(pin.first.at));
-      }
-    }
+    if (pin) writePin(params, pin);
     return `/api/trip?${params}`;
   },
   // The destinations a trip can have, which depend only on its ends and the rider's walk, so

@@ -3,13 +3,14 @@ import { IconChevron, IconReturn, IconShare } from '../icons/ui.tsx';
 import { routeColor } from '../lib/color.ts';
 import { pointId } from '../lib/results.ts';
 import { shortTripPath } from '../../../shared/short-links.ts';
-import { replacePage, tripPath } from '../router.ts';
+import { replacePage } from '../router.ts';
 import type { Search } from '../storage.ts';
 import { chipLabel, shortStopName } from '../view.ts';
 import { Sheet, Toggle, useLeaveOpen } from './Sheet.tsx';
 import { MinutesSlider, WindowSlider } from './Slider.tsx';
 import { AppLink } from './AppLink.tsx';
 import { useFetch } from '../hooks.ts';
+import { tripPath } from '../../../shared/paths.ts';
 
 export type SearchUpdate = (change: (search: Search) => Search) => void;
 // The sheet's title, which also names it among what a page left open (see Left in router.ts).

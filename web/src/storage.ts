@@ -2,7 +2,9 @@
 // (private windows, cleared site data), so every read falls back to defaults and every write
 // may fail quietly. Values are plain objects so they could move to an account later.
 
-import { MAX_MINUTES, type PinRequest, type PinnedTrip } from '../../shared/api.ts';
+import { type PinRequest, type PinnedTrip, clampMinutes } from '../../shared/api.ts';
+import type { Search } from '../../shared/paths.ts';
+import { DEFAULT_WALK_SPEED } from '../../shared/walk.ts';
 
 const PREFIX = 'transfers:';
 
@@ -59,7 +61,7 @@ export type DeviceSettings = {
 };
 
 export const DEFAULT_SETTINGS: DeviceSettings = {
-  walkSpeed: 1.4,
+  walkSpeed: DEFAULT_WALK_SPEED,
   maxWalk: 300,
   min: null,
   max: null,
@@ -81,7 +83,6 @@ export const MAX_UNPIN_MINUTES = 120;
 
 // Minutes as the time settings allow them. Settings and searches saved before the 30 minute cap
 // can hold more, which the server would quietly treat as 30 while the page said otherwise.
-export const clampMinutes = (minutes: number) => Math.min(MAX_MINUTES, Math.max(0, Math.round(minutes)));
 
 function clampTimes<T extends { min?: number | null; max?: number | null; hide?: number }>(item: T): T {
   const clamped = { ...item };
@@ -99,25 +100,7 @@ export function saveSettings(settings: DeviceSettings) {
   writeStored('settings', settings);
 }
 
-// A search as the rider set it up. Labels are kept so lists render without a request.
-export type Search = {
-  from: string;
-  to: string;
-  fromLabel: string;
-  toLabel: string;
-  min?: number;
-  max?: number;
-  hide?: number;
-  dest?: string;
-  destLabel?: string;
-  firstRoutes?: string[];
-  secondRoutes?: string[];
-  // Transfer points the rider turned off, by pointId.
-  off?: string[];
-  // At a shared downtown station: ride from, or catch, only BART ("BA") or only Muni Metro ("SF").
-  fromSystem?: 'BA' | 'SF';
-  toSystem?: 'BA' | 'SF';
-};
+export type { Search } from '../../shared/paths.ts';
 
 // color tells saved searches apart at a glance. Older saves lack one until their lines are known.
 // renamed: the rider gave it a name of their own. Saved before this was kept, it is unknown.

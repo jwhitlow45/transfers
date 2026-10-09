@@ -11,6 +11,7 @@ import { OutageTag } from './Outages.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import { StopLink } from './StopLink.tsx';
 import { EmptyState } from './EmptyState.tsx';
+import { useSettings } from '../settings.tsx';
 
 // One group per connecting route, or per transfer point when To is a route. Up to 3 departures.
 export function TransferPointGroup({ group, context, isExpanded, onToggle, onWiden, onShowHidden }: {
@@ -49,8 +50,9 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
   const outages = outagesByStation(data.access ?? [], groupStops(group));
   const walk = group.kind === 'walk';
   // Rows that get off at another stop may walk farther than the group's own stop.
-  const shortest = walkMinutes(group.walkMeters);
-  const longest = walkMinutes(group.longestWalkMeters ?? group.walkMeters);
+  const { walkSpeed } = useSettings().settings;
+  const shortest = walkMinutes(group.walkMeters, walkSpeed);
+  const longest = walkMinutes(group.longestWalkMeters ?? group.walkMeters, walkSpeed);
   const walkTime = longest > shortest ? `${shortest}–${longest}` : `${shortest}`;
   const routeNames = familyName(group.routes, data);
   const plural = group.routes.length > 1 && !/^(BART|Muni Metro)/.test(routeNames);
@@ -70,11 +72,11 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
       )
     ) : goes ? (
       <>
-        Walk {walkMinutes(group.walkMeters)}&nbsp;min to {boardLink}, then {goes}
+        Walk {shortest}&nbsp;min to {boardLink}, then {goes}
       </>
     ) : (
       <>
-        No transfer needed: walk {walkMinutes(group.walkMeters)}&nbsp;min to {boardLink}
+        No transfer needed: walk {shortest}&nbsp;min to {boardLink}
       </>
     )
   ) : sameStop ? (

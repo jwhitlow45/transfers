@@ -24,7 +24,7 @@ import { tapForGerbils } from '../gerbils.ts';
 import { unsave } from '../records.ts';
 import { motionOff } from '../gestures.ts';
 import { useScreenActive, useShownAgain } from '../layers.ts';
-import { navigate, searchPath, stopPath, tripPath } from '../router.ts';
+import { navigate, searchPath, stopPath } from '../router.ts';
 import { StopPinCard } from '../components/StopPinCard.tsx';
 import { RouteChip } from '../components/RouteChip.tsx';
 import { useSettings } from '../settings.tsx';
@@ -51,6 +51,7 @@ import {
 import { chipLabel, dayLabel, stopLabel } from '../view.ts';
 import { AppLink } from '../components/AppLink.tsx';
 import { topUnderHeader } from '../lib/scroll.ts';
+import { tripPath } from '../../../shared/paths.ts';
 
 // A picked stop or route. `short` is what headers and lists call it.
 export type Picked = { key: string; label: string; meta: string; short: string };

@@ -11,6 +11,7 @@ import { RouteChip } from './RouteChip.tsx';
 import { Flag, StatusTag } from './StatusTag.tsx';
 import { TimeBar } from './TimeBar.tsx';
 import { AppLink } from './AppLink.tsx';
+import { useSettings } from '../settings.tsx';
 
 // The trip the rider pinned, at the top of its results until they unpin it, drawn as its row is
 // once pinned: a countdown to what happens next, each vehicle's live times where the rider gets
@@ -36,6 +37,7 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
   trip?: { label: string; href: string };
   stale?: string | null;
 }) {
+  const { walkSpeed } = useSettings().settings;
   const second = pinned?.second;
   if (!pinned || !second?.on || (pinned.first !== undefined && !pinned.first?.on)) {
     return (
@@ -58,8 +60,7 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
   // The walk between the two vehicles, as the results give it: the row's own when its vehicle lets
   // the rider off at another stop than its group's.
   const walkMeters = connection?.walkMeters ?? group?.walkMeters;
-  // A non-breaking space keeps the minutes with their unit, here and below.
-  const walk = pin.first && walkMeters !== undefined ? walkText(walkMeters)?.replace(' min', '\u00a0min') : null;
+  const walk = pin.first && walkMeters !== undefined ? walkText(walkMeters, walkSpeed) : null;
   // The window's shortest transfer, which the first vehicle's map marks a tight transfer by, as
   // results do. A hidden connection is outside the window already.
   const min = group && !connection?.hidden ? group.window.min : undefined;

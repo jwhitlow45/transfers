@@ -1,8 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { type IncomingMessage, type ServerResponse, createServer } from 'node:http';
 import { join } from 'node:path';
-import { MAX_MINUTES } from '../shared/api.ts';
+import { clampMinutes } from '../shared/api.ts';
 import { chipLabel, stopLabel } from '../shared/labels.ts';
+import { readPin } from '../shared/params.ts';
+import { TRIP_PATH, tripPath } from '../shared/paths.ts';
 import { parseShortTrip } from '../shared/short-links.ts';
 import { DEFAULT_NEARBY_METERS, nearby } from './api/nearby.ts';
 import { search } from './api/search.ts';
@@ -109,14 +111,13 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
       const stop = route ? undefined : schedule.stopsByKey.get(key);
       return route ? chipLabel(routeView(route)) : stop ? stopLabel(stopView(schedule, stop)) : key;
     };
-    const params = new URLSearchParams({ fl: label(short.from), tl: label(short.to) });
-    response.writeHead(302, { Location: `/t/${encodeURIComponent(short.from)}/${encodeURIComponent(short.to)}?${params}`, 'Cache-Control': 'no-cache' });
+    response.writeHead(302, { Location: tripPath({ ...short, fromLabel: label(short.from), toLabel: label(short.to) }), 'Cache-Control': 'no-cache' });
     response.end();
     return;
   }
   // A saved trip link gets the page shell with its results already inside, so the first
   // paint underground takes one request instead of two.
-  const trip = url.pathname.match(/^\/t\/([^/]+)\/([^/]+)$/);
+  const trip = url.pathname.match(TRIP_PATH);
   if (trip) return sendShell(response, async () => planTrip(schedule, await realtimeView(), tripRequest(url.searchParams, decodeURIComponent(trip[1]!), decodeURIComponent(trip[2]!)), nowSeconds()));
   throw new RequestError(404, 'Not found');
 }
@@ -134,9 +135,9 @@ function tripRequest(params: URLSearchParams, from = params.get('from'), to = pa
   const hide = numberParam(params, 'hide');
   const walk = numberParam(params, 'walk');
   const speed = numberParam(params, 'speed');
-  if (min !== undefined) request.min = clamp(Math.round(min), 0, MAX_MINUTES);
-  if (max !== undefined) request.max = clamp(Math.round(max), 0, MAX_MINUTES);
-  if (hide !== undefined) request.hide = clamp(Math.round(hide), 0, MAX_MINUTES);
+  if (min !== undefined) request.min = clampMinutes(min);
+  if (max !== undefined) request.max = clampMinutes(max);
+  if (hide !== undefined) request.hide = clampMinutes(hide);
   if (walk !== undefined) request.walk = clamp(walk, 50, 1500);
   if (speed !== undefined) request.speed = clamp(speed, 0.3, 3);
   const dest = params.get('dest');
@@ -154,15 +155,8 @@ function tripRequest(params: URLSearchParams, from = params.get('from'), to = pa
   const toAgencies = agencies('tm');
   if (fromAgencies.length) request.fromAgencies = fromAgencies;
   if (toAgencies.length) request.toAgencies = toAgencies;
-  // A pinned trip: the vehicle to transfer to and where it is boarded, with the first vehicle and
-  // where the rider leaves it unless the route is already at From, and when each was scheduled there.
-  const [catchTrip, board, firstTrip, alight] = ['p2', 'pb', 'p1', 'pa'].map((name) => params.get(name));
-  const at = numberParam(params, 'pt');
-  const firstAt = numberParam(params, 'pf');
-  if (catchTrip && board && at !== undefined) {
-    const first = firstTrip && alight ? { first: { trip: firstTrip, alight, ...(firstAt !== undefined ? { at: firstAt } : {}) } } : {};
-    request.pin = { second: { trip: catchTrip, board }, at, ...first };
-  }
+  const pin = readPin(params, (name) => numberParam(params, name));
+  if (pin) request.pin = pin;
   return request;
 }
 

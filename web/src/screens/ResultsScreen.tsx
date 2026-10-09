@@ -25,13 +25,14 @@ import { liveClock } from '../lib/freshness.ts';
 import { IconFilter, IconFlag, IconHidden } from '../icons/ui.tsx';
 import { type CardContext, chooseDirection, directionChoices, hintKey, orderGroups, pageColors, pointId, scaleFor, timeScale, visibleDepartures } from '../lib/results.ts';
 import { summarize } from '../lib/summary.ts';
-import { cameBackTo, goBack, navigate, tripPath } from '../router.ts';
+import { cameBackTo, goBack, navigate } from '../router.ts';
 import { matchesServerDefaults, useSettings } from '../settings.tsx';
 import { type Pin, type Search, clearPinHint, rememberRecent, takePinHint, updateSaved } from '../storage.ts';
 import { shortStopName, spokenRoute } from '../view.ts';
 import { AppLink } from '../components/AppLink.tsx';
 import { EmptyState } from '../components/EmptyState.tsx';
 import { failureOf } from '../lib/failure.ts';
+import { tripPath } from '../../../shared/paths.ts';
 
 // The server puts the first trip's results in the page. They seed only the first visit, as of
 // when the page arrived: shown again on a later visit, even to the same trip, they would pass
@@ -248,7 +249,7 @@ export function ResultsScreen({ search }: { search: Search }) {
           {!data && feed === 'loading' ? (
             <SkeletonResults />
           ) : data && (groups.length === 0 || filteredOut) ? (
-            <EmptyTrip data={data} search={search} summary={summary} maxWalk={settings.maxWalk} update={update} />
+            <EmptyTrip data={data} search={search} summary={summary} walk={settings} update={update} />
           ) : (
             data && (
               <div class="tf-groups">
@@ -297,7 +298,7 @@ export function ResultsScreen({ search }: { search: Search }) {
 }
 
 // Why nothing showed up, in the rider's terms, with the one thing that might help.
-function EmptyTrip({ data, search, summary, maxWalk, update }: { data: TripResponse; search: Search; summary: ReturnType<typeof summarize>; maxWalk: number; update: SearchUpdate }) {
+function EmptyTrip({ data, search, summary, walk, update }: { data: TripResponse; search: Search; summary: ReturnType<typeof summarize>; walk: { maxWalk: number; walkSpeed: number }; update: SearchUpdate }) {
   const notice = data.notice;
   const route = summary.toRoute;
   // "the 48", or a BART line by its color.
@@ -319,7 +320,7 @@ function EmptyTrip({ data, search, summary, maxWalk, update }: { data: TripRespo
   }
   if (notice?.kind === 'walkable') {
     return (
-      <EmptyState title={notice.meters < 15 ? `${shortStopName(data.stops[notice.stop], notice.stop)} is where you start` : `${shortStopName(data.stops[notice.stop], notice.stop)} is a ${walkMinutes(notice.meters)}\u00a0min walk from ${summary.from}`}>
+      <EmptyState title={notice.meters < 15 ? `${shortStopName(data.stops[notice.stop], notice.stop)} is where you start` : `${shortStopName(data.stops[notice.stop], notice.stop)} is a ${walkMinutes(notice.meters, walk.walkSpeed)}\u00a0min walk from ${summary.from}`}>
         {notice.meters >= 15 && <div class="tf-muted">Walking there is about as quick as any ride.</div>}
       </EmptyState>
     );
@@ -350,7 +351,7 @@ function EmptyTrip({ data, search, summary, maxWalk, update }: { data: TripRespo
   }
   return (
     <EmptyState title={`Nothing from ${summary.from} gets within a short walk of ${toName}`}>
-      <div class="tf-muted">{maxWalk < 650 ? 'A longer walk between stops, in Settings, may find one.' : 'Try a stop or route closer to where you start.'}</div>
+      <div class="tf-muted">{walk.maxWalk < 650 ? 'A longer walk between stops, in Settings, may find one.' : 'Try a stop or route closer to where you start.'}</div>
     </EmptyState>
   );
 }

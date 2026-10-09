@@ -123,7 +123,6 @@ export function nearby(schedule: Schedule, realtime: RealtimeView, center: Point
     stops: tables.stops,
     // Each route's nearest stop, and any farther one it shows at instead.
     schematic: schematic(schedule, center, radius, [...[...nearest.values(), ...shown.values()].filter(({ stop }) => stop.access !== 'bart'), ...[...bartLines.values()].flat()]),
-    feeds: [],
   };
 }
 
