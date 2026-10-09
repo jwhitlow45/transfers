@@ -8,7 +8,7 @@ import { Schematic } from '../components/Schematic.tsx';
 import { SkeletonResults } from '../components/SkeletonResults.tsx';
 import { StatusTag } from '../components/StatusTag.tsx';
 import { StopLink } from '../components/StopLink.tsx';
-import { clock, minutesUntil } from '../format.ts';
+import { clock, minutesUntil, untilText } from '../format.ts';
 import { useNow, usePoll } from '../hooks.ts';
 import { IconLocation } from '../icons/ui.tsx';
 import { stopLetterColor } from '../lib/color.ts';
@@ -168,7 +168,7 @@ function NearbyResults({ position, onRelocate }: { position: Position; onRelocat
                             </TimeLink>
                           </span>
                           <StatusTag status={statusOf(arrival.delay, arrival.live)} plain />
-                          <span class="tf-near__in">{minutes < 1 ? 'Now' : `${minutes} min`}</span>
+                          <span class="tf-near__in">{untilText(minutes)}</span>
                         </li>
                       );
                     })}

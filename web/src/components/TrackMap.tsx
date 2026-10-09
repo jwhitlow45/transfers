@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'preact/hooks';
 import type { Route, Stop, TrackLeg, TrackResponse } from '../../../shared/api.ts';
-import { clock, minutesUntil } from '../format.ts';
+import { clock, minutesUntil, untilText } from '../format.ts';
 import { useNow, usePoll } from '../hooks.ts';
 import { ModeGlyph } from '../icons/ModeIcon.tsx';
 import { IconChevron, IconRecenter } from '../icons/ui.tsx';
@@ -452,7 +452,7 @@ function When({ at, passed, now }: { at: number | null; passed: boolean; now: nu
   const shown = passed ? Math.min(at, now / 1000) : Math.max(at, now / 1000);
   return (
     <span class="tf-track__when">
-      <span class={`tf-track__in${passed ? ' tf-track__in--passed' : ''}`}>{passed ? 'Passed' : minutes < 1 ? 'Now' : `${minutes}\u00a0min`}</span>
+      <span class={`tf-track__in${passed ? ' tf-track__in--passed' : ''}`}>{passed ? 'Passed' : untilText(minutes)}</span>
       <span class="tf-track__time">{clock(shown)}</span>
     </span>
   );

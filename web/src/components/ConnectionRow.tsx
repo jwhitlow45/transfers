@@ -5,6 +5,7 @@ import { type CardContext, isTight } from '../lib/results.ts';
 import { IconPin } from '../icons/ui.tsx';
 import { TimeLink } from '../track.tsx';
 import { chipLabel, shortStopName, spokenRoute, statusOf } from '../view.ts';
+import { Countdown } from './Countdown.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import { StopLink } from './StopLink.tsx';
 import { PinToggle } from './PinToggle.tsx';
@@ -73,10 +74,10 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
       <span class="tf-sr">{spoken}</span>
       {/* First, so what follows lies over it and takes no taps but its links' (see styles.css). */}
       <PinToggle pinned={pinned} label={pinLabel} onToggle={() => setPinned(!pinned)} />
-      <div aria-hidden="true">
-        {/* Pinned says so in words where the countdown's kicker was. */}
-        <div class="tf-row__lead">
-          {pinned ? (
+      {/* Pinned says so in words where the countdown's kicker was. */}
+      <Countdown
+        lead={
+          pinned ? (
             <>
               <IconPin filled size={13} />
               Pinned
@@ -87,11 +88,11 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
             'Arriving'
           ) : (
             'Arrives in'
-          )}
-        </div>
-        <div class="tf-row__num">{left ? (ago < 1 ? 'Now' : ago) : now ? 'Now' : minutes}</div>
-        {left ? ago >= 1 && <div class="tf-row__unit">min ago</div> : !now && <div class="tf-row__unit">min</div>}
-      </div>
+          )
+        }
+        num={left ? (ago < 1 ? 'Now' : ago) : now ? 'Now' : minutes}
+        unit={left ? (ago >= 1 ? 'min ago' : null) : now ? null : 'min'}
+      />
       {/* The spoken summary says everything shown, so screen readers skip the shown text and
           reach only the links in it. */}
       <div class="tf-row__main">

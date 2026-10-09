@@ -7,6 +7,16 @@ export const clock = (unixSeconds: number) => timeFormat.format(unixSeconds * 10
 // Whole minutes rounded down, the same rule the server pairs connections with.
 export const minutesUntil = (unixSeconds: number, nowMs: number) => Math.floor((unixSeconds * 1000 - nowMs) / 60_000);
 
+// "Now" within a minute, or the minutes, kept on one line with their unit.
+export const untilText = (minutes: number) => (minutes < 1 ? 'Now' : `${minutes}\u00a0min`);
+
+// A countdown column's words for a time to come: `soon` over "Now" within a minute, or `lead` over
+// its minutes (see Countdown).
+export function countdownTo(at: number, nowMs: number, lead: string, soon: string) {
+  const minutes = minutesUntil(at, nowMs);
+  return minutes < 1 ? { lead: soon, num: 'Now', unit: null } : { lead, num: String(minutes), unit: 'min' };
+}
+
 export const walkMinutes = (meters: number) => Math.max(1, Math.round((meters * 1.3) / 1.4 / 60));
 // "Walk 3 min" from where the rider gets off to where they board, or null at one stop.
 export const walkText = (meters: number) => (meters < 15 ? null : `Walk ${walkMinutes(meters)}\u00a0min`);

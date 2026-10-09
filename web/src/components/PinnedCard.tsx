@@ -1,12 +1,13 @@
 import type { ComponentChildren } from 'preact';
 import type { PinnedLeg, PinnedStop, PinnedTrip, TripResponse } from '../../../shared/api.ts';
 import type { Pin } from '../storage.ts';
-import { clock, minutesUntil, walkText } from '../format.ts';
+import { clock, countdownTo, minutesUntil, walkText } from '../format.ts';
 import { IconClose, IconPin, IconWarn } from '../icons/ui.tsx';
 import { type PinnedPhase, pinnedPhase, pinnedTransfer } from '../lib/pinned.ts';
 import { navigate } from '../router.ts';
 import { type Mark, TimeLink } from '../track.tsx';
 import { chipLabel, dayLabel, shortStopName, statusOf } from '../view.ts';
+import { Countdown } from './Countdown.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import { StatusTag } from './StatusTag.tsx';
 import { TimeBar } from './TimeBar.tsx';
@@ -35,36 +36,12 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
   trip?: { label: string; href: string };
   stale?: string | null;
 }) {
-  const head = (tags: ComponentChildren) => (
-    <>
-      <div class="tf-pinned__head">
-        <span class="tf-kicker tf-pinned__kicker">
-          <IconPin filled size={13} />
-          Pinned
-        </span>
-        {trip && <span class="tf-pinned__trip">{trip.label}</span>}
-        {tags}
-        <button type="button" class="tf-pinned__unpin" onClick={() => onPin(null)}>
-          <IconClose size={16} />
-          Unpin
-        </button>
-      </div>
-      {stale && (
-        <p class="tf-pinned__stale">
-          <IconWarn size={14} />
-          {stale}
-        </p>
-      )}
-    </>
-  );
   const second = pinned?.second;
   if (!pinned || !second?.on || (pinned.first !== undefined && !pinned.first?.on)) {
     return (
-      <section class={`tf-pinned${trip ? ' tf-pinned--opens' : ''}`} aria-label="Pinned trip">
-        {trip && <OpenTrip trip={trip} />}
-        {head(null)}
+      <PinnedFrame label="Pinned trip" open={trip} stale={stale} onUnpin={() => onPin(null)}>
         <p class="tf-pinned__note">Times for this trip are not available right now.</p>
-      </section>
+      </PinnedFrame>
     );
   }
   const first = pinned.first ?? null;
@@ -150,21 +127,21 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
     .filter(Boolean)
     .join(' ');
   return (
-    <section class={`tf-pinned${trip ? ' tf-pinned--opens' : ''}`} aria-label="Pinned trip">
-        {trip && <OpenTrip trip={trip} />}
-      {head(
+    <PinnedFrame
+      label="Pinned trip"
+      open={trip}
+      stale={stale}
+      onUnpin={() => onPin(null)}
+      tags={
         <>
           {missed && <span class="tf-tight">Missed</span>}
           {canceled && <span class="tf-tight">Canceled</span>}
-        </>,
-      )}
+        </>
+      }
+    >
       <div class="tf-row tf-pinned__row">
         <span class="tf-sr">{spoken}</span>
-        <div aria-hidden="true">
-          <div class="tf-row__lead">{countdown.lead}</div>
-          <div class="tf-row__num">{countdown.num}</div>
-          {countdown.unit && <div class="tf-row__unit">min</div>}
-        </div>
+        <Countdown {...countdown} />
         <div class="tf-row__main">
           {first && vehicle(first, first.on!, firstLink)}
           {first?.off && (
@@ -226,17 +203,14 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
         </p>
       )}
       {phase === 'done' && unpinAt !== null && <p class="tf-pinned__note">Unpins at {clock(unpinAt / 1000)}</p>}
-    </section>
+    </PinnedFrame>
   );
 }
 
 // The countdown column, as a row's, to what happens next: the first vehicle leaving, getting off
 // it, the second leaving, and arriving at the destination. Under a minute it says so in words.
 function countdownOf(phase: PinnedPhase, first: PinnedLeg | null, second: PinnedLeg, now: number) {
-  const until = (stop: PinnedStop, lead: string, soon: string) => {
-    const minutes = minutesUntil(stop.at, now);
-    return minutes < 1 ? { lead: soon, num: 'Now', unit: false } : { lead, num: String(minutes), unit: true };
-  };
+  const until = (stop: PinnedStop, lead: string, soon: string) => countdownTo(stop.at, now, lead, soon);
   switch (phase) {
     case 'wait':
       return until(first!.on!, 'Leaves in', 'Leaving');
@@ -247,7 +221,7 @@ function countdownOf(phase: PinnedPhase, first: PinnedLeg | null, second: Pinned
     case 'ride-second':
       return until(second.off!, 'Arrive in', 'Arriving');
     case 'done':
-      return { lead: 'Done', num: '✓', unit: false };
+      return { lead: 'Done', num: '✓', unit: null };
   }
 }
 
@@ -277,6 +251,46 @@ function statusText(phase: PinnedPhase, first: PinnedLeg | null, second: PinnedL
 
 // On Home, the whole card opens the trip's results, as a saved card does. A link laid under it,
 // so the times and Unpin keep their own taps (see styles.css), as a transfer row's pin toggle does.
+// What every pinned card shares, a trip's or a stop's arrival's: on Home, the link under the whole
+// card that opens its page, with what it is pinned to by name; its kicker, any tags, and Unpin; and
+// a note when its times are not live.
+export function PinnedFrame({ label, open, tags, stale, onUnpin, children }: {
+  label: string;
+  open?: { label: string; href: string } | undefined;
+  tags?: ComponentChildren;
+  stale?: string | null | undefined;
+  onUnpin: () => void;
+  children: ComponentChildren;
+}) {
+  return (
+    <section class={`tf-pinned${open ? ' tf-pinned--opens' : ''}`} aria-label={label}>
+      {open && <OpenTrip trip={open} />}
+      <div class="tf-pinned__head">
+        <span class="tf-kicker tf-pinned__kicker">
+          <IconPin filled size={13} />
+          Pinned
+        </span>
+        {open && <span class="tf-pinned__trip">{open.label}</span>}
+        {tags}
+        <button type="button" class="tf-pinned__unpin" onClick={onUnpin}>
+          <IconClose size={16} />
+          Unpin
+        </button>
+      </div>
+      {stale && (
+        <p class="tf-pinned__stale">
+          <IconWarn size={14} />
+          {stale}
+        </p>
+      )}
+      {children}
+    </section>
+  );
+}
+
+// A pinned card waiting for its first times.
+export const waitingNote = (offline: boolean) => (offline ? 'Times can’t load right now. They show again once the phone is back online.' : 'Getting live predictions…');
+
 export function OpenTrip({ trip }: { trip: { label: string; href: string } }) {
   return <a class="tf-pinned__open" href={trip.href} aria-label={`Open ${trip.label}`} onClick={(event) => (event.preventDefault(), navigate(trip.href))} />;
 }

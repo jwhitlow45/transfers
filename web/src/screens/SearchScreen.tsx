@@ -4,7 +4,7 @@ import { getJson } from '../api.ts';
 import { Collapse } from '../components/Collapse.tsx';
 import { DataCredit } from '../components/DataCredit.tsx';
 import { RecentList } from '../components/RecentList.tsx';
-import { OpenTrip, PinnedCard } from '../components/PinnedCard.tsx';
+import { PinnedCard, PinnedFrame, waitingNote } from '../components/PinnedCard.tsx';
 import { SavedSearchCard, SavedTripBody } from '../components/SavedSearchCard.tsx';
 import { SearchFields } from '../components/SearchFields.tsx';
 import { type SearchHit, StopResults, hitMeta, hitName } from '../components/StopResults.tsx';
@@ -12,7 +12,7 @@ import { Toast, useToast } from '../components/Toast.tsx';
 import { ScreenHeader } from '../components/ResultsHeader.tsx';
 import { clock, minutesUntil } from '../format.ts';
 import { type Polled, useNow, usePinnedTrip, usePoll, useStopPin } from '../hooks.ts';
-import { IconChevron, IconClose, IconGear, IconLocation, IconPin, IconWarn } from '../icons/ui.tsx';
+import { IconChevron, IconGear, IconLocation, IconWarn } from '../icons/ui.tsx';
 import { defaultSavedColor } from '../lib/color.ts';
 import { ringsBell } from '../lib/eggs.ts';
 import { pinToastText, samePin } from '../lib/pinned.ts';
@@ -605,21 +605,9 @@ function PinnedHome({ pin, name, now, pulls, onPin, onUpdate, onReport }: {
   if (expired) return null;
   if (!data) {
     return (
-      <section class="tf-pinned tf-pinned--opens" aria-label="Pinned trip">
-        <OpenTrip trip={trip} />
-        <div class="tf-pinned__head">
-          <span class="tf-kicker tf-pinned__kicker">
-            <IconPin filled size={13} />
-            Pinned
-          </span>
-          <span class="tf-pinned__trip">{trip.label}</span>
-          <button type="button" class="tf-pinned__unpin" onClick={() => onPin(null)}>
-            <IconClose size={16} />
-            Unpin
-          </button>
-        </div>
-        <p class="tf-pinned__note">{feed === 'offline' ? 'Times can’t load right now. They show again once the phone is back online.' : 'Getting live predictions…'}</p>
-      </section>
+      <PinnedFrame label="Pinned trip" open={trip} onUnpin={() => onPin(null)}>
+        <p class="tf-pinned__note">{waitingNote(feed === 'offline')}</p>
+      </PinnedFrame>
     );
   }
   const { groups } = summarize(search, data, serverNow);

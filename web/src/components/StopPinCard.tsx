@@ -1,11 +1,11 @@
 import type { StopResponse } from '../../../shared/api.ts';
-import { clock, minutesUntil } from '../format.ts';
-import { IconClose, IconPin, IconWarn } from '../icons/ui.tsx';
+import { clock, countdownTo, minutesUntil } from '../format.ts';
 import { pinnedArrival } from '../lib/stop-pins.ts';
 import type { Pin } from '../storage.ts';
 import { TimeLink } from '../track.tsx';
 import { chipLabel, shortStopName, statusOf } from '../view.ts';
-import { OpenTrip } from './PinnedCard.tsx';
+import { PinnedFrame, waitingNote } from './PinnedCard.tsx';
+import { Countdown } from './Countdown.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import { StatusTag } from './StatusTag.tsx';
 
@@ -32,42 +32,20 @@ export function StopPinCard({ pin, data, now, open, offline, stale, onPin }: {
   const stop = data?.stops[pin.second.board];
   const name = `${route ? chipLabel(route) : 'Vehicle'} at ${clock(at)}`;
   const status = found ? statusOf(found.arrival.delay, found.arrival.live) : null;
-  const countdown = gone ? { lead: 'Arrived', num: '✓', unit: false } : minutes < 1 ? { lead: 'Arriving', num: 'Now', unit: false } : { lead: 'Arrives in', num: String(minutes), unit: true };
-  const note = !data ? (offline ? 'Times can’t load right now. They show again once the phone is back online.' : 'Getting live predictions…') : null;
+  const countdown = gone ? { lead: 'Arrived', num: '✓', unit: null } : countdownTo(at, now, 'Arrives in', 'Arriving');
+  const note = !data ? waitingNote(offline) : null;
   const label = open?.label ?? shortStopName(stop, pin.search?.fromLabel ?? '');
   const spoken = [`Pinned arrival at ${label}.`, gone ? `The ${name} has come.` : `The ${name}, ${countdown.unit ? `in ${minutes} minutes` : 'arriving now'}.`, status && `${status.label}.`, pin.arrival && `Toward ${pin.arrival.headsign}.`]
     .filter(Boolean)
     .join(' ');
   return (
-    <section class={`tf-pinned${open ? ' tf-pinned--opens' : ''}`} aria-label="Pinned arrival">
-      {open && <OpenTrip trip={open} />}
-      <div class="tf-pinned__head">
-        <span class="tf-kicker tf-pinned__kicker">
-          <IconPin filled size={13} />
-          Pinned
-        </span>
-        {open && <span class="tf-pinned__trip">{open.label}</span>}
-        <button type="button" class="tf-pinned__unpin" onClick={() => onPin(null)}>
-          <IconClose size={16} />
-          Unpin
-        </button>
-      </div>
-      {stale && (
-        <p class="tf-pinned__stale">
-          <IconWarn size={14} />
-          {stale}
-        </p>
-      )}
+    <PinnedFrame label="Pinned arrival" open={open} stale={data ? stale : null} onUnpin={() => onPin(null)}>
       {note ? (
         <p class="tf-pinned__note">{note}</p>
       ) : (
         <div class="tf-row tf-pinned__row">
           <span class="tf-sr">{spoken}</span>
-          <div aria-hidden="true">
-            <div class="tf-row__lead">{countdown.lead}</div>
-            <div class="tf-row__num">{countdown.num}</div>
-            {countdown.unit && <div class="tf-row__unit">min</div>}
-          </div>
+          <Countdown {...countdown} />
           <div class="tf-row__main">
             <div class="tf-row__line">
               {route && <RouteChip route={route} hidden />}
@@ -87,6 +65,6 @@ export function StopPinCard({ pin, data, now, open, offline, stale, onPin }: {
           </div>
         </div>
       )}
-    </section>
+    </PinnedFrame>
   );
 }

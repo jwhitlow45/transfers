@@ -13,7 +13,7 @@ import { StatusTag } from '../components/StatusTag.tsx';
 import { StopPinCard } from '../components/StopPinCard.tsx';
 import { Toast, useToast } from '../components/Toast.tsx';
 import { useSearchRecords } from '../records.ts';
-import { clock, minutesUntil } from '../format.ts';
+import { clock, minutesUntil, untilText } from '../format.ts';
 import { useSwipeBack } from '../gestures.ts';
 import { useNow, usePoll, useStopPin } from '../hooks.ts';
 import { IconChevron } from '../icons/ui.tsx';
@@ -109,7 +109,7 @@ export function StopScreen({ search }: { search: Search }) {
                         </TimeLink>
                       </span>
                       <StatusTag status={statusOf(item.delay, item.live)} plain />
-                      <span class="tf-near__in">{minutes < 1 ? 'Now' : `${minutes} min`}</span>
+                      <span class="tf-near__in">{untilText(minutes)}</span>
                     </li>
                   );
                 };

@@ -1,7 +1,7 @@
 import { useId } from 'preact/hooks';
 import type { Departure, Group } from '../../../shared/api.ts';
 import { IconChevron, IconPin } from '../icons/ui.tsx';
-import { clock, minutesUntil } from '../format.ts';
+import { clock, minutesUntil, untilText } from '../format.ts';
 import { pinOf, sameRun } from '../lib/pinned.ts';
 import { type CardContext, hintKey } from '../lib/results.ts';
 import { TimeLink } from '../track.tsx';
@@ -106,7 +106,7 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
       </span>
       <span class="tf-band__right" aria-hidden="true">
         {/* Read top to bottom: "12 min away", "Now arriving", "Just left", "3 min ago". */}
-        <span class="tf-band__in">{left ? (ago < 1 ? 'Just' : `${ago}\u00a0min`) : minutes < 1 ? 'Now' : `${minutes}\u00a0min`}</span>
+        <span class="tf-band__in">{left ? (ago < 1 ? 'Just' : `${ago}\u00a0min`) : untilText(minutes)}</span>
         {walkPinned ? (
           <span class="tf-band__inlabel tf-band__inlabel--pinned">
             <IconPin filled size={13} />
