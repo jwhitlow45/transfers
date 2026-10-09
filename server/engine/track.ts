@@ -186,7 +186,7 @@ function drawLeg(schedule: Schedule, leg: Leg, project: (point: Point) => [numbe
   if (final && line.at(-1) !== final) line.push(final);
   return {
     route: tables.route(schedule.route(pattern.route)),
-    headsign: headingOf(schedule, pattern, trip.headsign),
+    headsign: headingOf(schedule, pattern, trip.headsign || pattern.headsign),
     target: tables.stop(schedule.stationOf(target)),
     path: shown.map((stop, index) => {
       const [x, y] = project(stop);
