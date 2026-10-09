@@ -16,6 +16,9 @@ const EASE_MS = 200;
 const WHOLE = 1.001;
 // A trackpad's pinch comes as a scroll with Ctrl held: this much of its scroll doubles the zoom.
 const WHEEL_DOUBLING = 100;
+// An arrow key moves the map this share of what it shows.
+const KEY_PAN_SHARE = 0.2;
+const KEY_PAN: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
 
 // The view zoomed between the whole picture and `maxZoom`, its middle kept where the zoomed
 // picture stays inside the whole one.
@@ -64,7 +67,8 @@ function useZoomedOnce() {
 }
 
 // Pinching zooms a map, a finger moves it once zoomed in, and a double tap zooms in where it lands
-// (J, 2026-10-09). A trackpad's pinch zooms it too, as the map has no zoom buttons. Until the rider
+// (J, 2026-10-09). A trackpad's pinch zooms it too, as the map has no zoom buttons, and with the map
+// focused, plus and minus zoom it and the arrow keys move it once zoomed in. Until the rider
 // moves it, the map follows `whole`, the picture as its page frames it, so a refresh that grows the
 // picture still shows all of it, and it follows again once the rider zooms all the way back out.
 // `ref` is the map's SVG, which the map draws whenever it draws. Zoomed out all the way, one finger
@@ -203,6 +207,24 @@ export function useMapView(whole: Box, maxZoom: number) {
       cancelAnimationFrame(easing.current);
       setMoved(zoom <= WHOLE ? null : keep(zoomAbout(current, { x: event.clientX - mid.x, y: event.clientY - mid.y }, scale, zoom)));
     };
+    // Keys zoom about the middle, as the buttons the map once had did. Zoomed out, the arrows scroll
+    // the page as they would anywhere else.
+    const key = (event: KeyboardEvent) => {
+      if (event.altKey || event.ctrlKey || event.metaKey) return;
+      const { view: current, whole: box, keep } = latest.current;
+      const pan = KEY_PAN[event.key];
+      let next: View;
+      if (pan) {
+        if (current.zoom <= WHOLE) return;
+        next = { ...current, x: current.x + (pan[0] * KEY_PAN_SHARE * box.width) / current.zoom, y: current.y + (pan[1] * KEY_PAN_SHARE * box.height) / current.zoom };
+      } else if (event.key === '+' || event.key === '=') next = { ...current, zoom: current.zoom * 2 };
+      else if (event.key === '-' || event.key === '_') next = { ...current, zoom: current.zoom / 2 };
+      else return;
+      event.preventDefault();
+      const kept = keep(next);
+      latestEase.current(kept.zoom <= WHOLE ? null : kept);
+    };
+    svg.addEventListener('keydown', key);
     svg.addEventListener('touchstart', hold, { passive: false });
     svg.addEventListener('touchmove', hold, { passive: false });
     svg.addEventListener('wheel', wheel, { passive: false });
@@ -215,6 +237,7 @@ export function useMapView(whole: Box, maxZoom: number) {
       svg.removeEventListener('touchstart', hold);
       svg.removeEventListener('touchmove', hold);
       svg.removeEventListener('wheel', wheel);
+      svg.removeEventListener('keydown', key);
       cancelAnimationFrame(easing.current);
     };
   }, []);

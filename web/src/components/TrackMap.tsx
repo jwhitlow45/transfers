@@ -17,7 +17,7 @@ import { RouteChip } from './RouteChip.tsx';
 import './TrackMap.css';
 import { YouMarker } from './YouMarker.tsx';
 import { failureOf } from '../lib/failure.ts';
-import { PinchHint, Recenter } from './MapControls.tsx';
+import { MAP_KEYS, MapHint, Recenter } from './MapControls.tsx';
 
 // Vehicles report about every 30 seconds. The server asks 511 no more often than that however
 // often this asks.
@@ -140,7 +140,7 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
       <p class="tf-track__headline" aria-live="polite">
         {headline}
       </p>
-      <div class="tf-track__frame">
+      <div class="tf-track__frame tf-map-frame">
         <LineMap legs={legs} label={headline} rider={position && { x: riderX, y: riderY, accuracy: position.accuracy }} framedAt={refitAt} />
         <div class="tf-track__controls">
           <button type="button" class="tf-map-btn tf-track__fit" aria-pressed={whole} aria-label="Full route" onClick={toggleWhole}>
@@ -252,14 +252,16 @@ function LineMap({ legs, label, rider, framedAt }: { legs: Drawn[]; label: strin
   return (
     <>
     <Recenter map={map} />
-    <PinchHint map={map} />
+    <MapHint map={map} />
     <svg
       ref={map.ref}
       class={`tf-track__map${map.zoomed ? ' tf-map--zoomed' : ''}`}
       style={{ touchAction: map.touchAction }}
       viewBox={`${shown.left} ${shown.top} ${shown.width} ${shown.height}`}
-      role="img"
-      aria-label={label}
+      tabindex={0}
+      role="region"
+      aria-roledescription="map"
+      aria-label={`${label} ${MAP_KEYS}`}
     >
       {legs.map(({ leg, color }, n) => (
         <polyline key={`line-${n}`} points={leg.line.map(([x, y]) => `${x},${-y}`).join(' ')} fill="none" stroke={color} stroke-width={unit * 0.9} stroke-linecap="round" stroke-linejoin="round" />

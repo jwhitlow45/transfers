@@ -646,6 +646,13 @@ button:disabled { opacity: .45; cursor: default; }
 /* On the narrowest phones the live map's hint says only "Pinch", to clear Full and Fit. */
 @media (max-width: 359px) { .tf-track__frame .tf-map-hint__more { display: none; } }
 .tf-map-hint { position: absolute; z-index: 1; left: calc(var(--map-inset, 0px) + var(--space-2)); bottom: calc(var(--map-inset, 0px) + var(--space-2)); display: inline-flex; align-items: center; gap: 6px; padding: 3px var(--space-2); background: color-mix(in srgb, var(--bg) 85%, transparent); color: var(--muted); font-size: var(--text-sm); font-weight: var(--weight-label); pointer-events: none; }
+/* With the keyboard's focus, a map's corner names its keys in place of the pinch, and its ring
+   sits inside its edge. */
+.tf-map-frame > svg:focus-visible { outline-offset: -2px; }
+.tf-map-hint--keys { display: none; }
+.tf-map-frame:has(> svg:focus-visible) .tf-map-hint--keys { display: inline-flex; }
+.tf-map-frame:has(> svg:focus-visible) .tf-map-hint--touch { display: none; }
+.tf-map-hint kbd { padding: 0 4px; border: var(--border-hair) solid var(--line); font: inherit; }
 /* The rider on either map (see YouMarker). */
 .tf-you { fill: var(--you); stroke: #fff; }
 .tf-you-halo { fill: var(--you); fill-opacity: .14; }
