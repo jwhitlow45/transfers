@@ -1,6 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
 import type { DestinationsResponse, TripResponse, WayBackResponse } from '../../../shared/api.ts';
-import { getJson } from '../api.ts';
 import { IconChevron, IconReturn, IconShare } from '../icons/ui.tsx';
 import { routeColor } from '../lib/color.ts';
 import { pointId } from '../lib/results.ts';
@@ -11,6 +9,7 @@ import { chipLabel, shortStopName } from '../view.ts';
 import { Sheet, Toggle, useLeaveOpen } from './Sheet.tsx';
 import { MinutesSlider, WindowSlider } from './Slider.tsx';
 import { AppLink } from './AppLink.tsx';
+import { useFetch } from '../hooks.ts';
 
 export type SearchUpdate = (change: (search: Search) => Search) => void;
 // The sheet's title, which also names it among what a page left open (see Left in router.ts).
@@ -74,15 +73,9 @@ function ShareButton({ search, onCopied }: { search: Search; onCopied: () => voi
 // opens, and needs a destination to start from. The return trip takes this page's place, rising
 // over it and the sheet, rather than opening a page deeper, and its own return trip comes back here.
 function TripActions({ search, wayBackUrl, onCopied }: { search: Search; wayBackUrl: string; onCopied: () => void }) {
-  const [back, setBack] = useState<WayBackResponse['back'] | undefined>(undefined);
-  useEffect(() => {
-    setBack(undefined);
-    if (!search.dest) return;
-    const controller = new AbortController();
-    // A request given up for a newer one says nothing of whether there is a return trip.
-    getJson<WayBackResponse>(wayBackUrl, { signal: controller.signal }).then(({ back }) => setBack(back), () => controller.signal.aborted || setBack(null));
-    return () => controller.abort();
-  }, [search.dest ? wayBackUrl : null]);
+  // Undefined until the answer comes, and null with no return trip or none found.
+  const wayBack = useFetch<WayBackResponse>(search.dest ? wayBackUrl : null);
+  const back = !wayBack.current ? undefined : wayBack.failed ? null : wayBack.data!.back;
   const path = back ? tripPath({ from: back.from, to: back.to, fromLabel: back.fromLabel, toLabel: back.toLabel, dest: back.dest, destLabel: back.destLabel }) : null;
   const leaveOpen = useLeaveOpen();
   const note = !search.dest ? 'Set a destination stop below for the return trip.' : back === null ? `No return trip found from ${search.destLabel ?? 'the destination'}.` : null;
@@ -124,12 +117,7 @@ export function TripSettingsSheet({ search, data, window, savedName, chain, dest
   onCopied: () => void;
   onClose: () => void;
 }) {
-  const [destinations, setDestinations] = useState<DestinationsResponse | null>(null);
-  useEffect(() => {
-    const controller = new AbortController();
-    getJson<DestinationsResponse>(destinationsUrl, { signal: controller.signal }).then(setDestinations, () => {});
-    return () => controller.abort();
-  }, [destinationsUrl]);
+  const destinations = useFetch<DestinationsResponse>(destinationsUrl).data;
 
   const groups = data?.groups ?? [];
   const firstRoutes = [...new Set(groups.flatMap(({ firstRoutes }) => firstRoutes))];

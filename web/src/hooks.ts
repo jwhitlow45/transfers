@@ -52,6 +52,23 @@ const MIN_REFRESH_MS = 800;
 const REQUEST_TIMEOUT_MS = 15_000;
 const SETTLE_MS = 5000;
 
+// The server's answer for `url`, asked once each time it changes, and not while it is null. It
+// keeps the last answer until the next comes. `current` says it answers `url`, and `failed` that
+// the request for it did not. A request given up for a newer one is no failure.
+export function useFetch<T>(url: string | null) {
+  const [answer, setAnswer] = useState<{ url: string | null; data: T | null; failed: boolean }>({ url: null, data: null, failed: false });
+  useEffect(() => {
+    if (!url) return;
+    const controller = new AbortController();
+    getJson<T>(url, { signal: controller.signal }).then(
+      (data) => setAnswer({ url, data, failed: false }),
+      () => controller.signal.aborted || setAnswer((last) => ({ ...last, url, failed: true })),
+    );
+    return () => controller.abort();
+  }, [url]);
+  return { data: answer.data, current: url !== null && answer.url === url, failed: answer.failed };
+}
+
 // Fetches `url` every `intervalMs` while the page is visible. Shows the last response for the
 // same URL at once (from this session or storage), so returning or going offline never blanks
 // the screen. That response counts as a fetch: the first one comes a full `intervalMs` after it
