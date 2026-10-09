@@ -1,6 +1,6 @@
 import { deepStrictEqual, strictEqual } from 'node:assert/strict';
 import { test } from 'node:test';
-import { type LiveReport, ageShort, clockSkewMs, freshness, homeStatus } from './freshness.ts';
+import { type LiveReport, ageShort, clockSkewMs, freshness, homeStatus, liveNote } from './freshness.ts';
 
 const NOW = 1_791_000_000_000;
 const secondsAgo = (n: number) => NOW / 1000 - n;
@@ -56,4 +56,14 @@ test('Home counts each card\'s age by the server\'s clock', () => {
   // This phone runs a minute slow, so the server's 30-second-old data is 30 seconds old, not 90.
   const report: LiveReport = { feed: 'live', fetchedAt: NOW - 60_000, dataAt: secondsAgo(30), skew: 60_000, settled: true };
   strictEqual(homeStatus([report], NOW - 60_000)?.secondsSinceUpdate, 30);
+});
+
+test("a Home card's note says offline, with how old its times are when it has any, and old times once settled", () => {
+  const old = freshness(NOW, NOW, secondsAgo(200));
+  strictEqual(liveNote('offline', old, true), 'Offline · times 3 min old');
+  strictEqual(liveNote('offline', freshness(NOW, null, null), false), 'Offline');
+  strictEqual(liveNote('live', old, true), 'Live times 3 min old');
+  // Before the first answer since the page opened, old stored times are not warned about yet.
+  strictEqual(liveNote('live', old, false), null);
+  strictEqual(liveNote('live', freshness(NOW, NOW, secondsAgo(20)), true), null);
 });
