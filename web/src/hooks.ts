@@ -245,7 +245,7 @@ export function usePinnedTrip(pin: Pin | null, data: TripResponse | null, answer
 // useKeptPin).
 export function useStopPin(pin: Pin | null, data: StopResponse | null, answered: boolean, search: Search, settings: DeviceSettings, now: number, change: (pin: Pin | null) => void) {
   const found = pin ? pinnedArrival(pin, data) : null;
-  const seen = found?.arrival.at ?? null;
+  const seen = found?.arrival?.at ?? null;
   const kept = useKeptPin(pin, answered, search, settings, now, change, { seen, known: pin?.ends ?? null, latest: () => ({ ...pin!, ends: seen! }), end: seen ?? pin?.ends ?? null });
   return { found, ...kept };
 }

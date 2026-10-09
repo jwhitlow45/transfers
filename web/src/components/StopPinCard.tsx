@@ -12,7 +12,8 @@ import { StatusTag } from './StatusTag.tsx';
 // An arrival pinned at a stop, drawn as a pinned trip is: a countdown to the vehicle coming, its
 // live time, which opens its map, where it is going, and the stop. On Home, above the fields, it
 // names the stop, and a tap anywhere else opens the stop's arrivals. Until the stop's times
-// arrive, or once the vehicle has gone by, it says so with what the pin kept.
+// arrive, or once the vehicle has gone by, it says so with what the pin kept, and a canceled
+// vehicle is tagged as a pinned trip's is.
 export function StopPinCard({ pin, data, now, open, offline, stale, onPin }: {
   pin: Pin;
   data: StopResponse | null;
@@ -24,22 +25,23 @@ export function StopPinCard({ pin, data, now, open, offline, stale, onPin }: {
   stale: string | null;
   onPin: (pin: Pin | null) => void;
 }) {
-  const found = pinnedArrival(pin, data);
-  const route = data?.routes[found?.arrival.route ?? pin.arrival?.route ?? ''];
-  const at = found?.arrival.at ?? pin.ends;
+  const { arrival, canceled, lost } = pinnedArrival(pin, data);
+  const route = data?.routes[arrival?.route ?? pin.arrival?.route ?? ''];
+  const at = arrival?.at ?? pin.ends;
   const minutes = minutesUntil(at, now);
-  const gone = !found && data !== null && now / 1000 > at;
+  const gone = !canceled && data !== null && now / 1000 > at;
   const stop = data?.stops[pin.second.board];
   const name = vehicleAt(route, at);
-  const status = found ? statusOf(found.arrival.delay, found.arrival.live) : null;
+  const status = arrival && !canceled ? statusOf(arrival.delay, arrival.live) : null;
   const countdown = gone ? { lead: 'Arrived', num: '✓', unit: null } : countdownTo(at, now, 'Arrives in', 'Arriving');
-  const note = !data ? waitingNote(offline) : null;
+  // As a pinned trip's card says when the answer for it cannot place its vehicles.
+  const note = !data ? waitingNote(offline) : lost ? 'Times for this arrival are not available right now.' : null;
   const label = open?.label ?? shortStopName(stop, pin.search?.fromLabel ?? '');
-  const spoken = [`Pinned arrival at ${label}.`, gone ? `The ${name} has come.` : `The ${name}, ${countdown.unit ? `in ${minutes} minutes` : 'arriving now'}.`, status && `${status.label}.`, pin.arrival && `Toward ${pin.arrival.headsign}.`]
+  const spoken = [`Pinned arrival at ${label}.`, canceled ? `The ${name} is canceled.` : gone ? `The ${name} has come.` : `The ${name}, ${countdown.unit ? `in ${minutes} minutes` : 'arriving now'}.`, status && `${status.label}.`, pin.arrival && `Toward ${pin.arrival.headsign}.`]
     .filter(Boolean)
     .join(' ');
   return (
-    <PinnedFrame label="Pinned arrival" open={open} stale={data ? stale : null} onUnpin={() => onPin(null)}>
+    <PinnedFrame label="Pinned arrival" open={open} tags={canceled && <span class="tf-tight">Canceled</span>} stale={data ? stale : null} onUnpin={() => onPin(null)}>
       {note ? (
         <p class="tf-pinned__note">{note}</p>
       ) : (

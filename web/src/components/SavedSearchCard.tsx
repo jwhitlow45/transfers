@@ -1,7 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { useRef, useState } from 'preact/hooks';
 import { clock } from '../format.ts';
-import { IconPencil, IconPin, IconTransfer, IconWarn } from '../icons/ui.tsx';
+import { IconPencil, IconPin, IconTransfer } from '../icons/ui.tsx';
 import { SAVED_COLORS } from '../lib/color.ts';
 import type { NextConnection } from '../lib/summary.ts';
 import { RouteChip } from './RouteChip.tsx';
@@ -244,10 +244,9 @@ export function SavedTripBody({ chain, named, windowText, next, loading, severeA
         )}
       </span>
       {staleText && (
-        <span class="tf-saved__stale">
-          <IconWarn size={14} />
+        <Flag tone="caution" class="tf-saved__stale">
           {staleText}
-        </span>
+        </Flag>
       )}
       {severeAlerts > 0 && (
         <Flag tone="late" class="tf-saved__alert">

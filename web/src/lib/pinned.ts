@@ -1,6 +1,5 @@
 import type { Connection, Departure, PinRequest, PinnedLeg, PinnedTrip, Route, TripResponse } from '../../../shared/api.ts';
-import { clock } from '../format.ts';
-import { chipLabel } from '../view.ts';
+import { pinLabel } from '../view.ts';
 import type { Pin } from '../storage.ts';
 
 // When a pinned trip ends: arriving at the destination, or with none set, boarding the second
@@ -64,7 +63,7 @@ export function pinnedTransfer(pinned: PinnedTrip): number | null {
 // Whether the server's answer is for this pin, by the pin the answer names. A refresh for a new pin
 // shows the old answer until the new one comes, and a stored copy may hold one for a pin since
 // replaced.
-const answers = (asked: PinRequest | undefined, pin: Pin) =>
+export const answers = (asked: PinRequest | undefined, pin: Pin) =>
   asked !== undefined &&
   asked.at === pin.at &&
   asked.second.trip === pin.second.trip &&
@@ -141,6 +140,6 @@ function pinName(pin: Pin, routes: Record<string, Route> | undefined) {
   const leg = pin.last?.first ?? pin.last?.second;
   const route = routes?.[pin.arrival?.route ?? leg?.route ?? ''];
   const at = pin.arrival ? pin.ends : leg?.on?.at;
-  if (route && at !== undefined) return `the ${chipLabel(route)} at ${clock(at)}`;
+  if (route && at !== undefined) return pinLabel([route, at]);
   return pin.arrival ? 'the arrival pinned before' : 'the trip pinned before';
 }

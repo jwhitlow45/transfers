@@ -39,7 +39,13 @@ const SHOWN = 3;
 // stop saves to Home too, as a card of its arrivals.
 export function StopScreen({ search }: { search: Search }) {
   const { settings } = useSettings();
-  const { data, error, fetchedAt, feed, settled, answered, refresh } = usePoll<StopResponse>(apiUrl.stop(search.from), 30_000);
+  const { toast, show: showToast, clear: clearToast } = useToast();
+  // Whether the stop is saved, the arrival pinned to it, and the notices dismissed, as on results
+  // (see useSearchRecords).
+  const records = useSearchRecords(search, showToast);
+  const { saved, pin, changePin, dismissedIds, dismiss } = records;
+  // Asked with the pin, its answer stored as the stop's, which Home's cards share, as results do.
+  const { data, error, fetchedAt, feed, settled, answered, refresh } = usePoll<StopResponse>(apiUrl.stop(search.from, pin), 30_000, null, apiUrl.stop(search.from));
   const { now, fresh, showStale, secondsSinceUpdate } = liveClock({ data, fetchedAt, settled }, useNow());
   useSwipeBack(() => goBack());
   useEffect(() => {
@@ -48,11 +54,6 @@ export function StopScreen({ search }: { search: Search }) {
 
   // As on results: a stop no longer in the schedule says so plainly.
   const failure = failureOf(error, 'Arrivals');
-  const { toast, show: showToast, clear: clearToast } = useToast();
-  // Whether the stop is saved, the arrival pinned to it, and the notices dismissed, as on results
-  // (see useSearchRecords).
-  const records = useSearchRecords(search, showToast);
-  const { saved, pin, changePin, dismissedIds, dismiss } = records;
   useStopPin(pin, data, answered, search, settings, now, changePin);
   const pinFromStop = (next: Pin | null) => records.pinWithUndo(next, data?.routes);
   const allAlerts = data ? viewAlerts(data, new Set([data.stop, ...data.rows.map(({ stop }) => stop)]), { elevators: settings.stepFree, escalators: settings.escalatorOutages }) : [];

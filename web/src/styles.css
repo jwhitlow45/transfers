@@ -722,7 +722,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-saved__edit-actions { display: flex; align-items: center; gap: var(--space-4); }
 .tf-saved__edit-actions .tf-btn-primary { width: auto; flex: 1; }
 
-.tf-saved__stale { display: inline-flex; align-self: flex-start; align-items: center; gap: 6px; margin-top: var(--space-2); padding: 3px var(--space-2); background: var(--caution-tint); color: var(--caution); font-size: var(--text-sm); font-weight: var(--weight-label); }
+.tf-saved__stale { align-self: flex-start; margin-top: var(--space-2); }
 
 /* Dropdowns stay native, so phones show their own picker, but are drawn in the site's style.
    The open list follows the page's color-scheme, which the theme tokens set, including a theme

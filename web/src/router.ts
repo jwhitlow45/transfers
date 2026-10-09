@@ -20,7 +20,6 @@ export const stopPath = (search: Pick<Search, 'from' | 'fromLabel'>) => `/stop/$
 // A trip's own address, or a stop's for a search with no To.
 export const searchPath = (search: Search) => (isStopSearch(search) ? stopPath(search) : tripPath(search));
 
-
 export function parsePage(location: Location): Page {
   const trip = location.pathname.match(TRIP_PATH);
   if (trip) {

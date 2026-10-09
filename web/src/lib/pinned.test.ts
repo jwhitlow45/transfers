@@ -1,7 +1,8 @@
 import { deepStrictEqual, strictEqual } from 'node:assert/strict';
 import { test } from 'node:test';
+import { clock } from '../format.ts';
 import type { Connection, Departure, PinnedTrip, TripResponse } from '../../../shared/api.ts';
-import { pinOf, pinnedEnd, pinnedFor, pinnedNow, pinnedPhase, pinnedTransfer, samePin, steadyPinned } from './pinned.ts';
+import { pinOf, pinToastText, pinnedEnd, pinnedFor, pinnedNow, pinnedPhase, pinnedTransfer, samePin, steadyPinned } from './pinned.ts';
 
 // BART from Montgomery at 8:00, off at 24th St at 8:08, then the 48 there at 8:17 to Potrero at 8:27.
 const trip: PinnedTrip = {
@@ -130,4 +131,18 @@ test("a trip pinned from the results before the server's first answer keeps thos
   const boarded = { trip: 'BA:extra', route: 'BA:Yellow', on: null, off: null, live: true, added: true };
   const data = { from: 'BA:901201', to: { route: 'BA:Yellow' }, groups: [], pinned: { second: boarded }, pin: asked } as unknown as TripResponse;
   deepStrictEqual(pinnedNow({ ...pin, last }, data, undefined).pinned?.second?.on, last.second.on);
+});
+
+test('pinning says so, and in place of what was pinned before, a trip by its first vehicle and an arrival by its own', () => {
+  const routes = { 'BA:Yellow': { key: 'BA:Yellow', agency: 'BA', name: 'Yellow' }, 'SF:48': { key: 'SF:48', agency: 'SF', name: '48' } } as unknown as TripResponse['routes'];
+  const pinnedTrip = { second: { trip: 'SF:m3', board: 'SF:13477' }, at: 817, ends: 827, last: trip };
+  const arrival = { second: { trip: 'SF:m4', board: 'SF:13477' }, at: 900, ends: 960, arrival: { route: 'SF:48', headsign: 'Potrero' } };
+  strictEqual(pinToastText(null, pinnedTrip, routes), 'Pinned to the top');
+  strictEqual(pinToastText(pinnedTrip, pinnedTrip, routes), 'Pinned to the top');
+  strictEqual(pinToastText(pinnedTrip, null, routes), 'Unpinned');
+  strictEqual(pinToastText(pinnedTrip, arrival, routes, true), `Ding ding! Pinned in place of the BART at ${clock(800)}`);
+  strictEqual(pinToastText(arrival, pinnedTrip, routes), `Pinned in place of the 48 at ${clock(960)}`);
+  // Without the routes, it says what kind of pin it was.
+  strictEqual(pinToastText(arrival, pinnedTrip, undefined), 'Pinned in place of the arrival pinned before');
+  strictEqual(pinToastText(pinnedTrip, arrival, undefined), 'Pinned in place of the trip pinned before');
 });

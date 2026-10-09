@@ -1,4 +1,5 @@
-import type { AgencyId, StopResponse } from '../../shared/api.ts';
+import type { AgencyId, PinRequest, StopResponse } from '../../shared/api.ts';
+import { pinnedTrip } from '../engine/pinned.ts';
 import { type RealtimeView, serviceStatus } from '../engine/realtime-view.ts';
 import { Tables } from '../engine/views.ts';
 import { RequestError } from '../http.ts';
@@ -12,7 +13,7 @@ export const STOP_ARRIVALS = 6;
 // What comes to one stop, for riders who want a stop's arrivals rather than a transfer (J,
 // 2026-10-09). A BART platform stands for its station, so both directions show, and a shared
 // downtown station shows Muni Metro's platforms too.
-export function stopArrivals(schedule: Schedule, realtime: RealtimeView, key: string, now: number): StopResponse {
+export function stopArrivals(schedule: Schedule, realtime: RealtimeView, key: string, now: number, pin?: PinRequest): StopResponse {
   const asked = schedule.stopsByKey.get(key);
   if (!asked) throw new RequestError(404, `No stop ${key}`);
   const stop = schedule.stationOf(asked);
@@ -45,5 +46,7 @@ export function stopArrivals(schedule: Schedule, realtime: RealtimeView, key: st
     stops: tables.stops,
     alerts,
     feeds,
+    // As a trip's pinned vehicle is found, so a canceled one, or one delayed past the list, says so.
+    ...(pin ? { pinned: pinnedTrip(schedule, realtime.trips, { second: pin.second, at: pin.at }, key, [], tables, now), pin } : {}),
   };
 }

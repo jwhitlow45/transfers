@@ -245,6 +245,10 @@ export type StopResponse = {
   stops: Record<string, Stop>;
   alerts: Alert[];
   feeds: FeedStatus[];
+  // Present when the request named a pinned arrival (see readPin): its vehicle as it runs now,
+  // canceled or past this stop's list included, with the pin as it was named, as a trip's answer has.
+  pinned?: PinnedTrip;
+  pin?: PinRequest;
 };
 
 // The schematic map: positions in meters east (x) and north (y) of the rider.

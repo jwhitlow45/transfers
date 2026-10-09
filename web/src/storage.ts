@@ -81,9 +81,8 @@ export const DEFAULT_SETTINGS: DeviceSettings = {
 // The longest a pinned trip can stay after it ends before unpinning itself.
 export const MAX_UNPIN_MINUTES = 120;
 
-// Minutes as the time settings allow them. Settings and searches saved before the 30 minute cap
-// can hold more, which the server would quietly treat as 30 while the page said otherwise.
-
+// Times as the settings allow them. Settings and searches saved before the 30 minute cap can hold
+// more, which the server would quietly treat as 30 while the page said otherwise.
 function clampTimes<T extends { min?: number | null; max?: number | null; hide?: number }>(item: T): T {
   const clamped = { ...item };
   if (typeof clamped.min === 'number') clamped.min = clampMinutes(clamped.min);

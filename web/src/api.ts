@@ -1,3 +1,4 @@
+import type { PinRequest } from '../../shared/api.ts';
 import { writePin } from '../../shared/params.ts';
 import type { Position } from './lib/location.ts';
 import { DEFAULT_SETTINGS, type DeviceSettings, type Pin, type Search, saveCached } from './storage.ts';
@@ -95,8 +96,13 @@ export const apiUrl = {
     }
     return `/api/way-back?${params}`;
   },
-  // A stop's arrivals, which its page, its saved card, and a pinned arrival all ask for.
-  stop: (stop: string) => `/api/stop?${new URLSearchParams({ stop })}`,
+  // A stop's arrivals, which its page, its saved card, and a pinned arrival all ask for, the pin's
+  // vehicle with them when one is pinned there.
+  stop(stop: string, pin: PinRequest | null = null) {
+    const params = new URLSearchParams({ stop });
+    if (pin) writePin(params, pin);
+    return `/api/stop?${params}`;
+  },
   // Rounded to about 10 m, so small GPS jitter reuses the same request.
   nearby: ({ lat, lon }: Position) => `/api/nearby?lat=${lat.toFixed(4)}&lon=${lon.toFixed(4)}`,
   // Stops, and routes too for To, by name or number, nearest first when the rider shared where they are.

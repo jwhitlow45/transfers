@@ -250,11 +250,9 @@ function statusText(phase: PinnedPhase, first: PinnedLeg | null, second: PinnedL
   }
 }
 
-// On Home, the whole card opens the trip's results, as a saved card does. A link laid under it,
-// so the times and Unpin keep their own taps (see styles.css), as a transfer row's pin toggle does.
-// What every pinned card shares, a trip's or a stop's arrival's: on Home, the link under the whole
-// card that opens its page, with what it is pinned to by name; its kicker, any tags, and Unpin; and
-// a note when its times are not live.
+// What every pinned card shares, a trip's or a stop's arrival's. On Home, a link under the whole
+// card opens its page, with what it is pinned to by name. Then come its kicker, any tags, and
+// Unpin, and a note when its times are not live.
 export function PinnedFrame({ label, open, tags, stale, onUnpin, children }: {
   label: string;
   open?: { label: string; href: string } | undefined;
@@ -291,6 +289,8 @@ export function PinnedFrame({ label, open, tags, stale, onUnpin, children }: {
 // A pinned card waiting for its first times.
 export const waitingNote = (offline: boolean) => (offline ? 'Times can’t load right now. They show again once the phone is back online.' : 'Getting live predictions…');
 
+// On Home, the whole card opens the trip's results, as a saved card does. A link laid under it,
+// so the times and Unpin keep their own taps (see styles.css), as a transfer row's pin toggle does.
 export function OpenTrip({ trip }: { trip: { label: string; href: string } }) {
   return <AppLink class="tf-pinned__open" href={trip.href} label={`Open ${trip.label}`} />;
 }

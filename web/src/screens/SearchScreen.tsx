@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import type { SearchResponse, StopResponse, TripResponse } from '../../../shared/api.ts';
+import type { Route, SearchResponse, StopResponse, TripResponse } from '../../../shared/api.ts';
 import { apiUrl, getJson } from '../api.ts';
 import { Collapse } from '../components/Collapse.tsx';
 import { DataCredit } from '../components/DataCredit.tsx';
@@ -12,7 +12,7 @@ import { Toast, useToast } from '../components/Toast.tsx';
 import { ScreenHeader } from '../components/ResultsHeader.tsx';
 import { clock, minutesUntil } from '../format.ts';
 import { type Polled, useNow, usePinnedTrip, usePoll, useStopPin } from '../hooks.ts';
-import { IconFold, IconGear, IconLocation, IconWarn } from '../icons/ui.tsx';
+import { IconFold, IconGear, IconLocation } from '../icons/ui.tsx';
 import { defaultSavedColor } from '../lib/color.ts';
 import { ringsBell } from '../lib/eggs.ts';
 import { pinToastText, samePin } from '../lib/pinned.ts';
@@ -52,6 +52,8 @@ import { chipLabel, dayLabel, stopLabel } from '../view.ts';
 import { AppLink } from '../components/AppLink.tsx';
 import { topUnderHeader } from '../lib/scroll.ts';
 import { tripPath } from '../../../shared/paths.ts';
+import { Flag } from '../components/StatusTag.tsx';
+import { rowKey } from '../components/RouteCard.tsx';
 
 // A picked stop or route. `short` is what headers and lists call it.
 export type Picked = { key: string; label: string; meta: string; short: string };
@@ -138,10 +140,11 @@ export function SearchScreen() {
   // Pinning from a saved card, unpinning from a pinned card, or either from a map's sheet says so
   // with Undo, in the words results use (see pinToastText). A map's sheet holds this from when it
   // opened, so the pin it replaces is read as it is now. A toast of a pin finds its card.
-  const pinWithUndo = (search: Search, next: Pin | null, bell = false) => {
+  // `routes` names the vehicle a pin replaces, from the card's own times.
+  const pinWithUndo = (search: Search, next: Pin | null, routes: Record<string, Route> | undefined, bell = false) => {
     const previous = loadPin(search);
     updatePin(search, next);
-    showToast({ text: pinToastText(previous, next, undefined, bell), about: next ? 'pin' : 'unpin', ...(next ? { pinned: searchId(search) } : {}), undo: () => updatePin(search, previous) });
+    showToast({ text: pinToastText(previous, next, routes, bell), about: next ? 'pin' : 'unpin', ...(next ? { pinned: searchId(search) } : {}), undo: () => updatePin(search, previous) });
   };
   // A saved search's new name or color, and its removal, which Undo puts back in its place.
   const editSaved = (id: string, change: { name: string; color: string | undefined }) =>
@@ -381,9 +384,9 @@ export function SearchScreen() {
           // Marked with its search, for the toast of a trip pinned to find its card.
           <div key={searchId(pin.search)} class="tf-pin-slot" data-pin={searchId(pin.search)}>
             {isStopSearch(pin.search) ? (
-              <StopPinHome pin={pin} name={saved.find(({ id }) => id === searchId(pin.search))?.name} now={now} pulls={pulls} onPin={(next) => pinWithUndo(pin.search, next)} onUpdate={(next) => updatePin(pin.search, next)} onReport={report} />
+              <StopPinHome pin={pin} name={saved.find(({ id }) => id === searchId(pin.search))?.name} now={now} pulls={pulls} onPin={(next, routes) => pinWithUndo(pin.search, next, routes)} onUpdate={(next) => updatePin(pin.search, next)} onReport={report} />
             ) : (
-              <PinnedHome pin={pin} name={saved.find(({ id }) => id === searchId(pin.search))?.name} now={now} pulls={pulls} onPin={(next) => pinWithUndo(pin.search, next)} onUpdate={(next) => updatePin(pin.search, next)} onReport={report} />
+              <PinnedHome pin={pin} name={saved.find(({ id }) => id === searchId(pin.search))?.name} now={now} pulls={pulls} onPin={(next, routes) => pinWithUndo(pin.search, next, routes)} onUpdate={(next) => updatePin(pin.search, next)} onReport={report} />
             )}
           </div>
         ))}
@@ -490,7 +493,7 @@ export function SearchScreen() {
                     canMoveUp={index > 0}
                     canMoveDown={index < saved.length - 1}
                     pin={pins.find((pin) => searchId(pin.search) === search.id) ?? null}
-                    onPin={(pin, bell) => pinWithUndo(search, pin, bell)}
+                    onPin={(pin, routes, bell) => pinWithUndo(search, pin, routes, bell)}
                     onReport={report}
                     onEdit={(change) => editSaved(search.id, change)}
                     onColorless={(lineColor) => {
@@ -557,7 +560,6 @@ function HowItWorks({ open: openAtFirst }: { open: boolean }) {
   );
 }
 
-// A pinned trip, as at the top of its results, polling its own trip like a saved card does.
 // An arrival pinned at a stop, on Home with the pinned trips, following the stop's times as a
 // pinned trip follows its results.
 function StopPinHome({ pin, name, now, pulls, onPin, onUpdate, onReport }: {
@@ -566,27 +568,28 @@ function StopPinHome({ pin, name, now, pulls, onPin, onUpdate, onReport }: {
   name: string | undefined;
   now: number;
   pulls: number;
-  onPin: (pin: Pin | null) => void;
+  onPin: (pin: Pin | null, routes: Record<string, Route> | undefined) => void;
   onUpdate: (pin: Pin | null) => void;
   onReport: Report;
 }) {
   const { settings } = useSettings();
   const { search } = pin;
-  const polled = usePoll<StopResponse>(apiUrl.stop(search.from), 30_000);
+  const polled = usePoll<StopResponse>(apiUrl.stop(search.from, pin), 30_000, null, apiUrl.stop(search.from));
   const { data, feed, answered } = polled;
   const live = useHomeLive(polled, `pin:${searchId(search)}`, pulls, onReport, now);
   const { expired } = useStopPin(pin, data, answered, search, settings, live.now, onUpdate);
   if (expired) return null;
-  return <StopPinCard pin={pin} data={data} now={live.now} open={{ label: name ?? search.fromLabel, href: stopPath(search) }} offline={feed === 'offline'} stale={live.note} onPin={onPin} />;
+  return <StopPinCard pin={pin} data={data} now={live.now} open={{ label: name ?? search.fromLabel, href: stopPath(search) }} offline={feed === 'offline'} stale={live.note} onPin={(next) => onPin(next, data?.routes)} />;
 }
 
+// A pinned trip, as at the top of its results, polling its own trip like a saved card does.
 function PinnedHome({ pin, name, now, pulls, onPin, onUpdate, onReport }: {
   pin: Pin & { search: Search };
   // The saved search's name, when the trip is saved.
   name: string | undefined;
   now: number;
   pulls: number;
-  onPin: (pin: Pin | null) => void;
+  onPin: (pin: Pin | null, routes: Record<string, Route> | undefined) => void;
   onUpdate: (pin: Pin | null) => void;
   onReport: Report;
 }) {
@@ -603,7 +606,7 @@ function PinnedHome({ pin, name, now, pulls, onPin, onUpdate, onReport }: {
   if (expired) return null;
   if (!data) {
     return (
-      <PinnedFrame label="Pinned trip" open={trip} onUnpin={() => onPin(null)}>
+      <PinnedFrame label="Pinned trip" open={trip} onUnpin={() => onPin(null, undefined)}>
         <p class="tf-pinned__note">{waitingNote(feed === 'offline')}</p>
       </PinnedFrame>
     );
@@ -619,7 +622,7 @@ function PinnedHome({ pin, name, now, pulls, onPin, onUpdate, onReport }: {
       pct={timeScale(serverNow, scaleFor(groups, serverNow))}
       now={serverNow}
       unpinAt={unpinAt}
-      onPin={onPin}
+      onPin={(next) => onPin(next, data.routes)}
       trip={trip}
       stale={status}
     />
@@ -638,7 +641,7 @@ function SavedTrip({ search, now, dismissed, pulls, onMove, canMoveUp, canMoveDo
   canMoveDown: boolean;
   // The trip pinned for this search, if any.
   pin: Pin | null;
-  onPin: (pin: Pin | null, bell: boolean) => void;
+  onPin: (pin: Pin | null, routes: Record<string, Route> | undefined, bell: boolean) => void;
   onReport: Report;
   onEdit: (change: { name: string; color: string | undefined }) => void;
   onColorless: (lineColor: string | null) => void;
@@ -667,7 +670,7 @@ function SavedTrip({ search, now, dismissed, pulls, onMove, canMoveUp, canMoveDo
           pinned,
           ready: next !== null,
           label: `Pin the next connection for ${search.name}`,
-          toggle: () => next && onPin(pinned ? null : next.pin, !pinned && ringsBell(next.pin, data)),
+          toggle: () => next && onPin(pinned ? null : next.pin, data?.routes, !pinned && ringsBell(next.pin, data)),
         }}
         href={tripPath(search)}
         onOpen={() => navigate(tripPath(search))}
@@ -684,7 +687,7 @@ function SavedTrip({ search, now, dismissed, pulls, onMove, canMoveUp, canMoveDo
           loading={!data && feed === 'loading'}
           severeAlerts={summary.severeAlerts}
           nextService={summary.nextService}
-          staleText={live.note}
+          staleText={data ? live.note : null}
           unavailable={!data && feed === 'offline'}
         />
       </SavedSearchCard>
@@ -733,7 +736,7 @@ function SavedStop({ search, now, pulls, onMove, canMoveUp, canMoveDown, onRepor
             const routes = row.routes.map((key) => data!.routes[key]).filter((route) => route !== undefined);
             const chips = routes.filter((route, index) => routes.findIndex((other) => chipLabel(other) === chipLabel(route)) === index);
             return (
-              <span key={`${row.stop}|${row.routes.join(',')}|${row.direction}`} class="tf-saved-stop__row">
+              <span key={rowKey(row)} class="tf-saved-stop__row">
                 <span class="tf-saved-stop__routes">
                   {chips.map((route) => (
                     <RouteChip key={route.key} route={route} size="sm" />
@@ -756,10 +759,9 @@ function SavedStop({ search, now, pulls, onMove, canMoveUp, canMoveDown, onRepor
           {data && rows.length === 0 && <span class="tf-muted">Nothing coming soon</span>}
         </span>
         {live.note && data && (
-          <span class="tf-saved__stale">
-            <IconWarn size={14} />
+          <Flag tone="caution" class="tf-saved__stale">
             {live.note}
-          </span>
+          </Flag>
         )}
       </SavedSearchCard>
     </div>
@@ -783,8 +785,6 @@ function useOnScreen(element: { current: Element | null }) {
 
 type Report = (key: string, report: LiveReport | null) => void;
 
-// Tells Home how fresh a card's times are, and that it has gone once it unmounts. Before paint,
-// so the status line shows in the same frame as the cards.
 // A Home card's live times: refreshed by every pull, counted in the status line under the title,
 // on the server's clock, with the note the card shows when they are not live (see liveNote).
 function useHomeLive(polled: Polled<{ generatedAt: number; dataAt: number | null }>, key: string, pulls: number, onReport: Report, deviceNow: number) {
@@ -794,6 +794,8 @@ function useHomeLive(polled: Polled<{ generatedAt: number; dataAt: number | null
   return { ...clock, note: liveNote(polled.feed, clock.fresh, polled.settled) };
 }
 
+// Tells Home how fresh a card's times are, and that it has gone once it unmounts. Before paint,
+// so the status line shows in the same frame as the cards.
 function useLiveReport(onReport: Report, key: string, { feed, fetchedAt, dataAt, skew, settled }: LiveReport) {
   useLayoutEffect(() => onReport(key, { feed, fetchedAt, dataAt, skew, settled }), [key, feed, fetchedAt, dataAt, skew, settled]);
   useLayoutEffect(() => () => onReport(key, null), [key]);
