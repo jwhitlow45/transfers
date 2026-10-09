@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { focusInstead } from '../focus.ts';
 import { motionOff } from '../gestures.ts';
 import { IconBookmark, IconInfo, IconPin, IconUnpin } from '../icons/ui.tsx';
+import { topUnderHeader } from '../lib/scroll.ts';
 
 // `about` picks the icon: a trip pinned or unpinned, a search saved or removed from saved, or a
 // notice. `pinned` is the search a pin is for, where a screen shows several pinned trips.
@@ -11,15 +12,14 @@ export type ToastMessage = { id: number; text: string; about: 'pin' | 'unpin' | 
 // header, and marks it for a moment (J, 2026-10-08).
 function showPinned(pinned: string | undefined) {
   const card = document.querySelector<HTMLElement>(`.tf-layer ${pinned ? `[data-pin="${CSS.escape(pinned)}"] ` : ''}.tf-pinned`);
-  const scroller = card?.closest<HTMLElement>('.tf-scroll');
-  if (!card || !scroller) return;
-  const header = scroller.querySelector('.tf-header')?.getBoundingClientRect().height ?? 0;
-  const top = card.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop - header - 12;
+  const placed = card && topUnderHeader(card, 12);
+  if (!card || !placed) return;
+  const { scroller, top } = placed;
   // A frame after the tap, whose own focus change would otherwise stop the scroll, and the mark
   // a frame after that, as forcing a layout to restart it would stop it too.
   card.classList.remove('tf-pinned--shown');
   requestAnimationFrame(() => {
-    scroller.scrollTo({ top: Math.max(0, top), behavior: motionOff() ? 'auto' : 'smooth' });
+    scroller.scrollTo({ top, behavior: motionOff() ? 'auto' : 'smooth' });
     requestAnimationFrame(() => card.classList.add('tf-pinned--shown'));
   });
 }

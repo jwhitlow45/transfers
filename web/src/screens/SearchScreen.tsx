@@ -51,6 +51,7 @@ import {
 } from '../storage.ts';
 import { chipLabel, dayLabel, stopLabel } from '../view.ts';
 import { AppLink } from '../components/AppLink.tsx';
+import { topUnderHeader } from '../lib/scroll.ts';
 
 // A picked stop or route. `short` is what headers and lists call it.
 export type Picked = { key: string; label: string; meta: string; short: string };
@@ -92,10 +93,7 @@ export function SearchScreen() {
   const raiseFields = () => {
     const target = () => {
       const fields = document.querySelector<HTMLElement>('.tf-layer .tf-fields');
-      const scroller = fields?.closest<HTMLElement>('.tf-scroll');
-      if (!fields || !scroller) return null;
-      const header = scroller.querySelector('.tf-header')?.getBoundingClientRect().height ?? 0;
-      return { scroller, top: Math.max(0, fields.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop - header - 8) };
+      return fields && topUnderHeader(fields, 8);
     };
     const settle = () => {
       if (window.scrollY !== 0) window.scrollTo(0, 0);

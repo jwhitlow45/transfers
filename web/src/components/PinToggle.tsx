@@ -1,3 +1,5 @@
+import { keepInPlace } from '../lib/scroll.ts';
+
 // Pins or unpins a transfer, or a departure from a route already at From. It is a button stretched
 // under the whole row, or a walk card's band, as the band's open and close button lies under the
 // band: a tap anywhere but a link pins, and screen readers, keyboards, and switches reach one
@@ -8,12 +10,7 @@ export function PinToggle({ pinned, label, onToggle }: { pinned: boolean; label:
   // nothing to correct.
   const toggle = (event: { currentTarget: HTMLButtonElement }) => {
     const button = event.currentTarget;
-    const before = button.getBoundingClientRect().top;
-    onToggle();
-    requestAnimationFrame(() => {
-      const moved = button.getBoundingClientRect().top - before;
-      if (moved) button.closest('.tf-scroll')?.scrollBy(0, moved);
-    });
+    keepInPlace(() => button, onToggle);
   };
   return <button type="button" class="tf-pin-toggle" aria-pressed={pinned} aria-label={`Pin ${label}`} onClick={toggle} />;
 }

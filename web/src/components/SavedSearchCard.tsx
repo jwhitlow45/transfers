@@ -7,6 +7,7 @@ import type { NextConnection } from '../lib/summary.ts';
 import { RouteChip } from './RouteChip.tsx';
 import { Flag, StatusTag } from './StatusTag.tsx';
 import { typeWithoutUndo } from '../typing.ts';
+import { keepInPlace } from '../lib/scroll.ts';
 
 // The main daily entry point: one tap opens results, and it leads with a live countdown. The
 // color stripe tells saved searches apart at a glance, and the pencil edits name and color.
@@ -41,17 +42,12 @@ export function SavedSearchCard({ name, color, href, onOpen, onEdit, onRemove, o
   // Pinning puts the trip above Home's fields, and moving the card moves it, which would take the
   // card from under the rider's finger, so the page scrolls by as much, as a results row's pin does.
   // A move keeps focus on its button, or the other one once the card reaches an end.
-  const inPlace = (change: () => void, refocus?: string) => {
-    const before = card.current?.getBoundingClientRect().top ?? 0;
-    change();
-    requestAnimationFrame(() => {
-      const element = card.current;
-      if (!element) return;
-      const moved = element.getBoundingClientRect().top - before;
-      if (moved) element.closest('.tf-scroll')?.scrollBy(0, moved);
-      if (refocus) (element.querySelector<HTMLElement>(`[data-move="${refocus}"]`) ?? element.querySelector<HTMLElement>('[data-move]'))?.focus();
-    });
-  };
+  const inPlace = (change: () => void, refocus?: string) =>
+    keepInPlace(
+      () => card.current,
+      change,
+      (element) => refocus && (element.querySelector<HTMLElement>(`[data-move="${refocus}"]`) ?? element.querySelector<HTMLElement>('[data-move]'))?.focus(),
+    );
   // The color picked shows on the card's stripe while the rider picks.
   const shownColor = editing ? draft.color : color;
   return (
