@@ -35,6 +35,11 @@ export function zoomAbout(view: View, offset: { x: number; y: number }, scale: n
   return { zoom, x: point.x - offset.x / (scale * k), y: point.y - offset.y / (scale * k) };
 }
 
+// The fingers that started on the map, its lines and markers included: a touch belongs to whatever
+// it started on, so targetTouches would count only those on one line or marker.
+export const fingersOn = (map: { contains: (node: Node | null) => boolean }, touches: Iterable<{ target: EventTarget | null }>) =>
+  [...touches].filter(({ target }) => map.contains(target as Node | null)).length;
+
 // Pinching zooms a map, a finger moves it once zoomed in, and a double tap zooms in where it lands
 // (J, 2026-10-09). Until the rider moves it, the map follows `whole`, the picture as its page frames
 // it, so a refresh that grows the picture still shows all of it, and it follows again once the
@@ -159,7 +164,7 @@ export function useMapView(whole: Box, maxZoom: number) {
     // the page (pan-y), and the browser would take two the same way, scrolling the page with the
     // first pinch (J, 2026-10-09). Cancelled before any scroll starts, the pinch stays the map's.
     const hold = (event: TouchEvent) => {
-      if (event.targetTouches.length >= 2 && event.cancelable) event.preventDefault();
+      if (fingersOn(svg, event.touches) >= 2 && event.cancelable) event.preventDefault();
     };
     svg.addEventListener('pointerdown', down);
     svg.addEventListener('pointermove', move);

@@ -1,6 +1,6 @@
-import { deepStrictEqual } from 'node:assert/strict';
+import { deepStrictEqual, strictEqual } from 'node:assert/strict';
 import { test } from 'node:test';
-import { keepIn, zoomAbout } from './map-view.ts';
+import { fingersOn, keepIn, zoomAbout } from './map-view.ts';
 
 const whole = { left: -100, top: -50, width: 200, height: 100 };
 
@@ -19,4 +19,14 @@ test('zooming about a point on screen keeps the map point under it there, at any
     const scale = 2 * zoom;
     deepStrictEqual({ x: next.x + offset.x / scale, y: next.y + offset.y / scale }, { x: 20, y: -10 });
   }
+});
+
+test("a pinch's fingers count as the map's wherever on it they start, a line or a marker or the background", () => {
+  const node = (name: string) => ({ name }) as unknown as Node;
+  const [map, line, halo, page] = [node('svg'), node('polyline'), node('circle'), node('body')];
+  const inside = new Set([map, line, halo]);
+  const svg = { contains: (node: Node | null) => node !== null && inside.has(node) };
+  strictEqual(fingersOn(svg, [{ target: line }, { target: halo }]), 2);
+  strictEqual(fingersOn(svg, [{ target: map }, { target: line }]), 2);
+  strictEqual(fingersOn(svg, [{ target: line }, { target: page }]), 1);
 });
