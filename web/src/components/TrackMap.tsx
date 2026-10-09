@@ -3,7 +3,7 @@ import type { Route, Stop, TrackLeg, TrackResponse } from '../../../shared/api.t
 import { clock, minutesUntil, untilText } from '../format.ts';
 import { useNow, usePoll } from '../hooks.ts';
 import { ModeGlyph } from '../icons/ModeIcon.tsx';
-import { IconFit, IconFold, IconFullRoute, IconRecenter } from '../icons/ui.tsx';
+import { IconFit, IconFold, IconFullRoute } from '../icons/ui.tsx';
 import { routeColor, textOn } from '../lib/color.ts';
 import { useWatchedPosition } from '../lib/location.ts';
 import { useMapView } from '../lib/map-view.ts';
@@ -17,6 +17,7 @@ import { RouteChip } from './RouteChip.tsx';
 import './TrackMap.css';
 import { YouMarker } from './YouMarker.tsx';
 import { failureOf } from '../lib/failure.ts';
+import { PinchHint, Recenter } from './MapControls.tsx';
 
 // Vehicles report about every 30 seconds. The server asks 511 no more often than that however
 // often this asks.
@@ -250,13 +251,8 @@ function LineMap({ legs, label, rider, framedAt }: { legs: Drawn[]; label: strin
   const board = next && next.leg.targetIndex !== null ? next.leg.path[next.leg.targetIndex] : undefined;
   return (
     <>
-    {/* Back to the picture as framed, once the rider has moved it. */}
-    {map.moved && (
-      <button type="button" class="tf-map-btn tf-track__recenter" onClick={map.recenter}>
-        <IconRecenter />
-        Recenter
-      </button>
-    )}
+    <Recenter map={map} />
+    <PinchHint map={map} />
     <svg
       ref={map.ref}
       class={`tf-track__map${map.zoomed ? ' tf-map--zoomed' : ''}`}

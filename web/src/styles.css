@@ -632,7 +632,7 @@ button:disabled { opacity: .45; cursor: default; }
 
 /* nearby */
 .tf-schematic { margin: 0; border: var(--border-strong) solid var(--line); max-width: var(--form-max); }
-.tf-schematic svg { display: block; width: 100%; height: auto; max-height: 340px; }
+.tf-schematic__frame > svg { display: block; width: 100%; height: auto; max-height: 340px; }
 .tf-schematic__stop { fill: var(--bg); stroke: var(--text); }
 .tf-schematic__marker { stroke: var(--bg); }
 .tf-schematic__other { stroke: var(--muted); opacity: .4; }
@@ -642,13 +642,13 @@ button:disabled { opacity: .45; cursor: default; }
    map step by step rather than the page. */
 .tf-map-btn { touch-action: manipulation; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 0 var(--space-3); background: var(--bg); color: var(--text); border: var(--border-hair) solid var(--line); font-size: var(--text-sm); font-weight: var(--weight-label); }
 .tf-map-btn[aria-disabled="true"] { opacity: .45; cursor: default; }
+/* Over a map's corners, inside any border its frame draws (--map-inset). */
+.tf-map-recenter { position: absolute; z-index: 1; top: calc(var(--map-inset, 0px) + var(--space-2)); right: calc(var(--map-inset, 0px) + var(--space-2)); }
+.tf-map-hint { position: absolute; z-index: 1; left: calc(var(--map-inset, 0px) + var(--space-2)); bottom: calc(var(--map-inset, 0px) + var(--space-2)); display: inline-flex; align-items: center; gap: 6px; padding: 3px var(--space-2); background: color-mix(in srgb, var(--bg) 85%, transparent); color: var(--muted); font-size: var(--text-sm); font-weight: var(--weight-label); pointer-events: none; }
 /* The rider on either map (see YouMarker). */
 .tf-you { fill: var(--you); stroke: #fff; }
 .tf-you-halo { fill: var(--you); fill-opacity: .14; }
 /* Inside the map's bottom right corner, like the live map's Fit button. */
-.tf-schematic__zoom { position: absolute; right: var(--space-2); bottom: var(--space-2); display: flex; }
-.tf-schematic__zoom .tf-map-btn { width: 40px; padding: 0; }
-.tf-schematic__zoom .tf-map-btn + .tf-map-btn { border-left: 0; }
 .tf-schematic figcaption { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); font-size: var(--text-sm); color: var(--muted); border-top: var(--border-hair) solid var(--divider); }
 .tf-schematic__you-key { width: 10px; height: 10px; border-radius: var(--radius-dot); background: var(--you); box-shadow: 0 0 0 3px color-mix(in srgb, var(--you) 14%, transparent); }
 .tf-schematic__stop-key { width: 9px; height: 9px; border: 1.5px solid var(--text); margin-left: var(--space-3); }

@@ -39,8 +39,8 @@ export const IconFullRoute = ({ size = 16 }: Props) =>
     { stroke: 2 },
   );
 export const IconFit = ({ size = 16 }: Props) => icon(<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" />, size, { stroke: 2 });
-export const IconZoomOut = ({ size = 16 }: Props) => icon(<path d="M5 12h14" />, size, { stroke: 2.25 });
-export const IconZoomIn = ({ size = 16 }: Props) => icon(<path d="M5 12h14M12 5v14" />, size, { stroke: 2.25 });
+// Two arrows drawn apart, as fingers spread to zoom in.
+export const IconPinch = ({ size = 14 }: Props) => icon(<path d="M10 14l-6 6M4 15v5h5M14 10l6-6M15 4h5v5" />, size);
 export const IconChevronRight = ({ size = 18 }: Props) => icon(<path d="M9 6l6 6-6 6" />, size);
 export const IconWarn = ({ size = 20 }: Props) => icon(<path d="M12 3l9.5 17h-19zM12 10v4M12 17v.5" />, size);
 export const IconInfo = ({ size = 20 }: Props) =>

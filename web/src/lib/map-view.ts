@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { motionOff } from '../gestures.ts';
+import { readStored, writeStored } from '../storage.ts';
 
 // A map's picture as an SVG viewBox: where its middle is, and how far in it is zoomed from the
 // whole picture (`zoom` 1).
@@ -13,6 +14,8 @@ const DOUBLE_TAP_PX = 24;
 const EASE_MS = 200;
 // Zoomed out all the way, within rounding.
 const WHOLE = 1.001;
+// A trackpad's pinch comes as a scroll with Ctrl held: this much of its scroll doubles the zoom.
+const WHEEL_DOUBLING = 100;
 
 // The view zoomed between the whole picture and `maxZoom`, its middle kept where the zoomed
 // picture stays inside the whole one.
@@ -41,7 +44,8 @@ export const fingersOn = (map: { contains: (node: Node | null) => boolean }, tou
   [...touches].filter(({ target }) => map.contains(target as Node | null)).length;
 
 // Pinching zooms a map, a finger moves it once zoomed in, and a double tap zooms in where it lands
-// (J, 2026-10-09). Until the rider moves it, the map follows `whole`, the picture as its page frames
+// (J, 2026-10-09). A trackpad's pinch zooms it too, as the map has no zoom buttons. Until the rider
+// moves it, the map follows `whole`, the picture as its page frames
 // it, so a refresh that grows the picture still shows all of it, and it follows again once the
 // rider zooms all the way back out. `ref` is the map's SVG, which the map draws whenever it draws.
 // Zoomed out all the way, one finger scrolls the page as it did, and the map keeps to the picture's
@@ -50,6 +54,8 @@ export function useMapView(whole: Box, maxZoom: number) {
   const ref = useRef<SVGSVGElement>(null);
   const middle = { x: whole.left + whole.width / 2, y: whole.top + whole.height / 2 };
   const [moved, setMoved] = useState<View | null>(null);
+  // Whether the rider has zoomed a map on this device, after which the maps stop saying they can.
+  const [zoomedBefore, setZoomedBefore] = useState(() => readStored('mapZoomed', false));
   const view = moved ?? { ...middle, zoom: 1 };
   const width = whole.width / view.zoom;
   const height = whole.height / view.zoom;
@@ -79,8 +85,6 @@ export function useMapView(whole: Box, maxZoom: number) {
     };
     easing.current = requestAnimationFrame(step);
   };
-  // Zoomed all the way out, the map follows the page's picture again.
-  const settle = (next: View) => easeTo(next.zoom <= WHOLE ? null : next);
   const latestEase = useRef(easeTo);
   latestEase.current = easeTo;
 
@@ -171,8 +175,19 @@ export function useMapView(whole: Box, maxZoom: number) {
     svg.addEventListener('pointerup', up);
     svg.addEventListener('pointercancel', up);
     svg.addEventListener('lostpointercapture', up);
+    // A trackpad's pinch, about the pointer, as a phone's is about the fingers.
+    const wheel = (event: WheelEvent) => {
+      if (!event.ctrlKey) return;
+      event.preventDefault();
+      const { view: current, keep } = latest.current;
+      const { scale, mid } = frame();
+      const zoom = keep({ ...current, zoom: current.zoom * 2 ** (-event.deltaY / WHEEL_DOUBLING) }).zoom;
+      cancelAnimationFrame(easing.current);
+      setMoved(zoom <= WHOLE ? null : keep(zoomAbout(current, { x: event.clientX - mid.x, y: event.clientY - mid.y }, scale, zoom)));
+    };
     svg.addEventListener('touchstart', hold, { passive: false });
     svg.addEventListener('touchmove', hold, { passive: false });
+    svg.addEventListener('wheel', wheel, { passive: false });
     return () => {
       svg.removeEventListener('pointerdown', down);
       svg.removeEventListener('pointermove', move);
@@ -181,23 +196,28 @@ export function useMapView(whole: Box, maxZoom: number) {
       svg.removeEventListener('lostpointercapture', up);
       svg.removeEventListener('touchstart', hold);
       svg.removeEventListener('touchmove', hold);
+      svg.removeEventListener('wheel', wheel);
       cancelAnimationFrame(easing.current);
     };
   }, []);
 
   const zoomed = view.zoom > WHOLE;
+  useEffect(() => {
+    if (!zoomed || zoomedBefore) return;
+    setZoomedBefore(true);
+    writeStored('mapZoomed', true);
+  }, [zoomed]);
   return {
     ref,
     box: { left: view.x - width / 2, top: view.y - height / 2, width, height },
-    zoom: view.zoom,
-    maxZoom,
     // Moved from the picture as the page frames it, which the Recenter button goes back to.
     moved: moved !== null && (zoomed || Math.hypot(view.x - middle.x, view.y - middle.y) > 1),
     zoomed,
+    // Until the rider first zooms a map, the maps say they can (see PinchHint).
+    hint: !zoomedBefore,
     // Zoomed out, a finger scrolls the page past the map, and pinches are the map's. Zoomed in,
     // every gesture on the map is the map's.
     touchAction: zoomed ? 'none' : 'pan-y',
-    zoomBy: (factor: number) => settle(keep({ ...view, zoom: view.zoom * factor })),
     recenter: () => moved !== null && easeTo(null),
   };
 }

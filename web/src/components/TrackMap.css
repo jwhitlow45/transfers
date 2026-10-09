@@ -4,9 +4,8 @@
 .tf-track__toward { font-size: var(--text-base); color: var(--muted); }
 .tf-track__headline { margin-top: 2px; font-size: var(--text-lg); font-weight: var(--weight-bold); }
 /* The map, with its buttons over the bottom right corner, inside the map's border. */
-.tf-track__frame { position: relative; margin-top: var(--space-3); }
+.tf-track__frame { position: relative; margin-top: var(--space-3); --map-inset: var(--border-strong); }
 .tf-track__frame .tf-track__map { margin-top: 0; }
-.tf-track__recenter { position: absolute; z-index: 1; top: calc(var(--border-strong) + var(--space-2)); right: calc(var(--border-strong) + var(--space-2)); }
 .tf-track__controls { position: absolute; right: calc(var(--border-strong) + var(--space-2)); bottom: calc(var(--border-strong) + var(--space-2)); display: flex; gap: var(--space-2); }
 /* On, as every toggle that is on looks (see .tf-filter in styles.css). */
 .tf-track__fit[aria-pressed="true"] { background: var(--field); color: var(--on-field); border-color: var(--field); }

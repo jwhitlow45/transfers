@@ -1,10 +1,10 @@
 import { useMemo } from 'preact/hooks';
 import type { Route, Schematic as SchematicData } from '../../../shared/api.ts';
-import { IconRecenter, IconZoomIn, IconZoomOut } from '../icons/ui.tsx';
 import { useMapView } from '../lib/map-view.ts';
 import { routeColor, stopLetterColor } from '../lib/color.ts';
 import { spread } from '../lib/spread.ts';
 import { YouMarker } from './YouMarker.tsx';
+import { PinchHint, Recenter } from './MapControls.tsx';
 
 // The area around the rider drawn from our own data: route lines and stops, no streets or map
 // tiles, so it arrives with the results and works offline. Stops the list shows carry the
@@ -86,21 +86,8 @@ export function Schematic({ schematic, routes, letters }: { schematic: Schematic
             );
           })}
         </svg>
-        <div class="tf-schematic__zoom">
-          {/* Back to the whole picture, centered on the rider, once they have moved it. */}
-          {map.moved && (
-            <button type="button" class="tf-map-btn" onClick={map.recenter} aria-label="Recenter on you">
-              <IconRecenter />
-            </button>
-          )}
-          {/* Disabled by aria only, so a button that reaches the end of its range keeps focus. */}
-          <button type="button" class="tf-map-btn" onClick={() => map.zoom > 1.001 && map.zoomBy(0.5)} aria-disabled={map.zoom <= 1.001} aria-label="Zoom out">
-            <IconZoomOut />
-          </button>
-          <button type="button" class="tf-map-btn" onClick={() => map.zoom < map.maxZoom - 0.001 && map.zoomBy(2)} aria-disabled={map.zoom >= map.maxZoom - 0.001} aria-label="Zoom in">
-            <IconZoomIn />
-          </button>
-        </div>
+        <Recenter map={map} />
+        <PinchHint map={map} />
       </div>
       <figcaption>
         <span class="tf-schematic__you-key" aria-hidden="true" />
