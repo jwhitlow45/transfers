@@ -1,6 +1,6 @@
 import { useMemo } from 'preact/hooks';
 import type { Route, Schematic as SchematicData } from '../../../shared/api.ts';
-import { IconRecenter } from '../icons/ui.tsx';
+import { IconRecenter, IconZoomIn, IconZoomOut } from '../icons/ui.tsx';
 import { useMapView } from '../lib/map-view.ts';
 import { routeColor, stopLetterColor } from '../lib/color.ts';
 import { spread } from '../lib/spread.ts';
@@ -95,14 +95,10 @@ export function Schematic({ schematic, routes, letters }: { schematic: Schematic
           )}
           {/* Disabled by aria only, so a button that reaches the end of its range keeps focus. */}
           <button type="button" class="tf-map-btn" onClick={() => map.zoom > 1.001 && map.zoomBy(0.5)} aria-disabled={map.zoom <= 1.001} aria-label="Zoom out">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true">
-              <path d="M5 12h14" />
-            </svg>
+            <IconZoomOut />
           </button>
           <button type="button" class="tf-map-btn" onClick={() => map.zoom < map.maxZoom - 0.001 && map.zoomBy(2)} aria-disabled={map.zoom >= map.maxZoom - 0.001} aria-label="Zoom in">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true">
-              <path d="M5 12h14M12 5v14" />
-            </svg>
+            <IconZoomIn />
           </button>
         </div>
       </div>

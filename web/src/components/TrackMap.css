@@ -32,7 +32,7 @@
 .tf-track__mark--passed .tf-track__stop-dot { position: relative; }
 .tf-track__mark--passed .tf-track__stop-dot::after { content: ''; position: absolute; left: -4px; right: -4px; top: calc(50% - 1px); height: 2px; background: var(--text); box-shadow: 0 0 0 1.5px var(--bg); transform: rotate(-45deg); }
 .tf-track__age { margin-top: var(--space-2); font-size: var(--text-sm); color: var(--muted); }
-.tf-track__age--old { color: var(--late); font-weight: 650; }
+.tf-track__age--old { color: var(--late); font-weight: var(--weight-label); }
 .tf-track__stops { list-style: none; margin: var(--space-3) 0 0; padding: 0; }
 .tf-track__stops li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); padding: var(--space-2) 0; border-top: var(--border-hair) solid var(--divider); }
 .tf-track__stop-dot { flex: none; width: 10px; height: 10px; border-radius: var(--radius-dot); border: 1.5px solid var(--text); background: var(--bg); }
@@ -48,11 +48,11 @@
 .tf-track__stops .tf-track__mark--yours.tf-track__mark--passed { background: repeating-linear-gradient(135deg, transparent 0 7px, color-mix(in srgb, var(--text) 5%, transparent) 7px 14px); box-shadow: inset 4px 0 var(--muted); }
 .tf-track__mark--transfer .tf-track__stop-dot { border-width: 3px; }
 .tf-track__mark--destination .tf-track__stop-dot { background: var(--text); box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--text); }
-.tf-track__tag { font-size: var(--text-sm); font-weight: 650; color: var(--muted); }
+.tf-track__tag { font-size: var(--text-sm); font-weight: var(--weight-label); color: var(--muted); }
 .tf-track__tag--mark { color: var(--text); }
 .tf-track__when { flex: none; min-width: 4.5em; display: flex; flex-direction: column; align-items: flex-end; font-variant-numeric: tabular-nums; }
 .tf-track__in { font-weight: var(--weight-bold); }
-.tf-track__in--passed { font-weight: 650; color: var(--muted); }
+.tf-track__in--passed { font-weight: var(--weight-label); color: var(--muted); }
 .tf-track__time { font-size: var(--text-sm); color: var(--muted); }
 .tf-track__stops .tf-track__fold { display: block; padding: 0; }
 /* Stops in an opened fold sit indented under it. The fold's dots are drawn on the fold itself,
@@ -61,7 +61,7 @@
 .tf-track__stops--between { margin: 0; padding-left: calc(10px + var(--space-3)); }
 .tf-track__fold { background: var(--track-dots) 4px var(--track-dots-top) / 2px calc(100% - 2 * var(--track-dots-top)) no-repeat; }
 .tf-track__more-line { visibility: hidden; }
-.tf-track__more { display: flex; align-items: center; gap: var(--space-2); width: 100%; min-height: var(--tap-min); padding: var(--space-2) 0; color: var(--muted); font-weight: 650; text-align: left; }
+.tf-track__more { display: flex; align-items: center; gap: var(--space-2); width: 100%; min-height: var(--tap-min); padding: var(--space-2) 0; color: var(--muted); font-weight: var(--weight-label); text-align: left; }
 /* A dotted stretch of line where the stop dots would be, standing for the stops folded away. */
 /* The dots, and where they start in a fold's row: the row is the tap height, with the 20 px mark
    centered in it. */

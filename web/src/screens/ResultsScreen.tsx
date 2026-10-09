@@ -1,4 +1,3 @@
-import type { ComponentChildren } from 'preact';
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import type { TripResponse } from '../../../shared/api.ts';
 import { takeInitialData } from '../api.ts';
@@ -23,7 +22,7 @@ import { viewAlerts } from '../lib/alerts.ts';
 import { type StationOutages, groupStops, outagesByStation } from '../lib/outages.ts';
 import { ringsBell } from '../lib/eggs.ts';
 import { liveClock } from '../lib/freshness.ts';
-import { IconFlag, IconHidden } from '../icons/ui.tsx';
+import { IconFilter, IconFlag, IconHidden } from '../icons/ui.tsx';
 import { type CardContext, chooseDirection, directionChoices, hintKey, orderGroups, pageColors, pointId, scaleFor, timeScale, visibleDepartures } from '../lib/results.ts';
 import { summarize } from '../lib/summary.ts';
 import { cameBackTo, goBack, navigate, tripPath } from '../router.ts';
@@ -368,12 +367,3 @@ function EmptyTrip({ data, search, summary, maxWalk, update }: { data: TripRespo
 }
 
 const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
-
-// For the status line: a funnel for route filters, and an open eye for hidden connections shown,
-// beside the struck eye of departures hidden. Drawn to match the set in icons/ui.tsx.
-const statusIcon = (children: ComponentChildren) => (
-  <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-    {children}
-  </svg>
-);
-const IconFilter = () => statusIcon(<path d="M4 5h16l-6 7.5V19l-4-2v-4.5z" />);

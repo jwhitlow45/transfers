@@ -4,8 +4,8 @@ import type { ComponentChildren } from 'preact';
 // Preact core passes attribute names through as written, so SVG attributes are spelled with dashes.
 type Props = { size?: number };
 
-const icon = (children: ComponentChildren, size: number, className?: string) => (
-  <svg class={className} width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+const icon = (children: ComponentChildren, size: number, { className, stroke = 1.75 }: { className?: string; stroke?: number } = {}) => (
+  <svg class={className} width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width={stroke} stroke-linecap="round" stroke-linejoin="round">
     {children}
   </svg>
 );
@@ -23,7 +23,24 @@ export const IconSliders = ({ size = 22 }: Props) =>
   );
 export const IconChevron = ({ size = 20 }: Props) => icon(<path d="M6 9l6 6 6-6" />, size);
 // A fold's chevron, which turns up once the fold is open (see .tf-chev).
-export const IconFold = ({ size = 18 }: Props) => icon(<path d="M6 9l6 6 6-6" />, size, 'tf-chev');
+export const IconFold = ({ size = 18 }: Props) => icon(<path d="M6 9l6 6 6-6" />, size, { className: 'tf-chev' });
+// Route filters, on results' status line.
+export const IconFilter = ({ size = 16 }: Props) => icon(<path d="M4 5h16l-6 7.5V19l-4-2v-4.5z" />, size);
+
+// The maps' buttons, drawn heavier so they read over a map at their small size.
+export const IconFullRoute = ({ size = 16 }: Props) =>
+  icon(
+    <>
+      <circle cx="5" cy="18" r="2" />
+      <circle cx="19" cy="6" r="2" />
+      <path d="M7 18h6a3 3 0 0 0 0-6h-2a3 3 0 0 1 0-6h6" />
+    </>,
+    size,
+    { stroke: 2 },
+  );
+export const IconFit = ({ size = 16 }: Props) => icon(<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" />, size, { stroke: 2 });
+export const IconZoomOut = ({ size = 16 }: Props) => icon(<path d="M5 12h14" />, size, { stroke: 2.25 });
+export const IconZoomIn = ({ size = 16 }: Props) => icon(<path d="M5 12h14M12 5v14" />, size, { stroke: 2.25 });
 export const IconChevronRight = ({ size = 18 }: Props) => icon(<path d="M9 6l6 6-6 6" />, size);
 export const IconWarn = ({ size = 20 }: Props) => icon(<path d="M12 3l9.5 17h-19zM12 10v4M12 17v.5" />, size);
 export const IconInfo = ({ size = 20 }: Props) =>
