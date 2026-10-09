@@ -1,14 +1,13 @@
-import { type AccessOutage, type Alert, type AlertRelevance, type AgencyId, type Departure, type DestinationsResponse, type Group, MAX_MINUTES, type Notice, type PinRequest, type TripResponse, type WayBackResponse } from '../../shared/api.ts';
+import { type AccessOutage, type AgencyId, type Departure, type DestinationsResponse, type Group, MAX_MINUTES, type Notice, type PinRequest, type TripResponse, type WayBackResponse } from '../../shared/api.ts';
 import type { Agency } from '../config.ts';
 import { bartStationCode } from '../bart-stations.ts';
 import { RequestError } from '../http.ts';
 import type { Outage } from '../realtime/access.ts';
-import type { RtAlert } from '../realtime/snapshot.ts';
 import { type Schedule, type StopRow, routeKeyOf, stopKeyOf } from '../schedule.ts';
 import { type FirstLeg, type PairingOptions, type SecondLeg, pairConnections } from './connections.ts';
 import { type Link, arrivalStops, bartSiblings, findLinks, walkBetween } from './links.ts';
 import { pinnedTrip } from './pinned.ts';
-import type { RealtimeView } from './realtime-view.ts';
+import { type RealtimeView, serviceStatus } from './realtime-view.ts';
 import type { RouteRow } from '../schedule.ts';
 import { firstLegs, secondLegs } from './vehicles.ts';
 import { Tables, stopView } from './views.ts';
@@ -299,6 +298,7 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
     tables.stop(destination);
     tripStops.add(stopKeyOf(destination));
   }
+  const { alerts, feeds } = serviceStatus(schedule, realtime, tables, { stops: tripStops, routes: tripRoutes, agencies });
 
   return {
     generatedAt: now,
@@ -313,15 +313,7 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
       : {}),
     routes: tables.routes,
     stops: tables.stops,
-    alerts: (() => {
-      const alerts = relevantAlerts(realtime.alerts, tripStops, tripRoutes, agencies);
-      // Alerts name platforms, so their stops join the tables for the page to name them.
-      for (const key of alerts.flatMap(({ stops }) => stops)) {
-        const stop = schedule.stopsByKey.get(key);
-        if (stop) tables.stop(stop);
-      }
-      return alerts;
-    })(),
+    alerts,
     ...(request.stepFree || request.escalators
       ? {
           access: stationOutages(
@@ -334,7 +326,7 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
           ),
         }
       : {}),
-    feeds: [...agencies].map((agency) => ({ agency, state: realtime.status(agency), updatedAt: realtime.updatedAt })),
+    feeds,
   };
 }
 
@@ -475,52 +467,4 @@ function emptyNotice(schedule: Schedule, from: StopRow, to: { stop: StopRow } | 
   // Walks board nothing at From, so From's own service is never the reason.
   if (feeders.length === 0) return { kind: 'idle', side: 'to', next: schedule.nextStart(targets, now) };
   return { kind: 'idle', side: 'from', next: schedule.nextStart(feeders, now) };
-}
-
-// Alerts that name a stop on the trip (for a route on the trip, or for every route there),
-// that cover a trip route as a whole, or that cover a whole agency the trip uses. An alert
-// about the same route at a stop the rider never uses is left out.
-const LINE_WIDE_STOPS = 20;
-
-function alertView(alert: RtAlert, relevance: AlertRelevance, routes: Set<string>, stops: Set<string>): Alert {
-  return {
-    id: alert.id,
-    relevance,
-    agency: alert.agencies[0]!,
-    header: alert.header,
-    description: alert.description,
-    url: alert.url,
-    effect: alert.effect,
-    activeUntil: alert.activeUntil,
-    routes: alert.routes.filter((route) => routes.has(route)),
-    stops: alert.stops.filter((stop) => stops.has(stop)),
-  };
-}
-
-export function relevantAlerts(alerts: RtAlert[], stops: Set<string>, routes: Set<string>, agencies: Set<AgencyId>): Alert[] {
-  const order: Record<AlertRelevance, number> = { stop: 0, route: 1, agency: 2 };
-  const results: Alert[] = [];
-  for (const alert of alerts) {
-    // Some alerts name every stop on a line, as Muni does for one elevator outage. Naming that
-    // many stops says nothing about any one of them, so such an alert counts for its routes.
-    const lineWide = alert.stops.length > LINE_WIDE_STOPS;
-    if (lineWide) {
-      const coversRoute = alert.routes.some((route) => routes.has(route));
-      if (coversRoute) results.push({ ...alertView(alert, 'route', routes, new Set()), lineWide: true });
-      continue;
-    }
-    const pairedStops = new Set(alert.routeStops.map((pair) => pair.split('|')[1]));
-    const routesWithStops = new Set(alert.routeStops.map((pair) => pair.split('|')[0]));
-    const namesTripStop =
-      alert.routeStops.some((pair) => {
-        const [route, stop] = pair.split('|');
-        return stops.has(stop!) && routes.has(route!);
-      }) || alert.stops.some((stop) => stops.has(stop) && !pairedStops.has(stop));
-    const coversTripRoute = alert.routes.some((route) => routes.has(route) && !routesWithStops.has(route));
-    const coversAgency = alert.agencyWide && alert.agencies.some((agency) => agencies.has(agency));
-    const relevance: AlertRelevance | null = namesTripStop ? 'stop' : coversTripRoute ? 'route' : coversAgency ? 'agency' : null;
-    if (!relevance) continue;
-    results.push(alertView(alert, relevance, routes, stops));
-  }
-  return results.sort((a, b) => order[a.relevance] - order[b.relevance]);
 }

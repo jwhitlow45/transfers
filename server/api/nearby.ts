@@ -5,7 +5,7 @@ import type { RealtimeView } from '../engine/realtime-view.ts';
 import { secondLegs } from '../engine/vehicles.ts';
 import { Tables } from '../engine/views.ts';
 import { distanceMeters, type Point } from '../geo.ts';
-import type { Schedule, StopRow } from '../schedule.ts';
+import { routeKeyOf, type Schedule, type StopRow, stopKeyOf } from '../schedule.ts';
 
 export const DEFAULT_NEARBY_METERS = 400;
 const MAX_GROUPS = 16;
@@ -135,11 +135,10 @@ function schematic(schedule: Schedule, center: Point, radius: number, candidates
   const inside = ([x, y]: [number, number]) => Math.abs(x) <= half && Math.abs(y) <= half;
 
   const stops = new Map<number, { stop: string; x: number; y: number }>();
-  const tables = new Tables(schedule);
   for (const { stop } of candidates) {
     const shown = stop.parent !== null && stop.access === 'bart' ? schedule.stop(stop.parent) : stop;
     const [x, y] = project(shown);
-    stops.set(shown.id, { stop: tables.stop(shown), x, y });
+    stops.set(shown.id, { stop: stopKeyOf(shown), x, y });
   }
 
   const lines: Schematic['lines'] = [];
@@ -153,7 +152,7 @@ function schematic(schedule: Schedule, center: Point, radius: number, candidates
     drawn.add(`${route}|${pattern.shape}`);
     const points = shapePoints(schedule, pattern.shape);
     let segment: [number, number][] = [];
-    const routeKey = tables.route(schedule.route(route));
+    const routeKey = routeKeyOf(schedule.route(route));
     for (const point of points.map(project)) {
       if (inside(point)) {
         const last = segment.at(-1);

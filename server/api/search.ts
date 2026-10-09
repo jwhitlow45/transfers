@@ -1,6 +1,6 @@
 import type { RouteSearchResult, RouteStops, SearchResponse, StopSearchResult } from '../../shared/api.ts';
 import { bartSiblings, headingOf, rankedHeadings } from '../engine/links.ts';
-import { routeView, stopView } from '../engine/views.ts';
+import { Tables, routeView, stopView } from '../engine/views.ts';
 import { distanceMeters, type Point } from '../geo.ts';
 import { searchQuery, searchText } from '../gtfs/search-text.ts';
 import { type PatternRow, type RouteRow, type Schedule, type StopRow, routeKeyOf } from '../schedule.ts';
@@ -15,7 +15,8 @@ const isSearchable = (stop: StopRow) =>
 
 export function search(schedule: Schedule, text: string, options: { routes: boolean; near?: Point }): SearchResponse {
   const query = text.trim();
-  const response: SearchResponse = { results: [], routes: {} };
+  const tables = new Tables(schedule);
+  const response: SearchResponse = { results: [], routes: tables.routes };
   if (!query) return response;
 
   let stops: StopRow[];
@@ -79,7 +80,7 @@ export function search(schedule: Schedule, text: string, options: { routes: bool
       if (!byName.has(name)) byName.set(name, route);
     }
     const routes = [...byName.values()];
-    for (const route of routes) response.routes[routeKeyOf(route)] ??= routeView(route);
+    for (const route of routes) tables.route(route);
     const leaving = (schedule.patternsByStop.get(stop.id) ?? []).filter(({ pattern, position }) => position < pattern.stops.length - 1).map(({ pattern }) => pattern);
     stopResults.push({
       type: 'stop',
@@ -95,14 +96,14 @@ export function search(schedule: Schedule, text: string, options: { routes: bool
   const room = LIMIT - routeMatches.exact.length - routeMatches.byLongName.length;
   const results = [...routeMatches.exact, ...stopResults.slice(0, 3), ...routeMatches.byLongName, ...stopResults.slice(3, Math.max(3, room))];
   for (const result of results) {
-    if (result.type === 'route') response.routes[result.route] ??= routeView(schedule.routesByKey.get(result.route)!);
+    if (result.type === 'route') tables.route(result.route);
   }
   response.results = results;
   // From has to be a stop, so naming a route there lists the stops it makes.
   if (!options.routes) {
     const along = namedRoutes(schedule, query).map((route) => routeStops(schedule, route));
     if (along.length > 0) response.along = along;
-    for (const { route } of along) response.routes[route] ??= routeView(schedule.routesByKey.get(route)!);
+    for (const { route } of along) tables.route(route);
   }
   return response;
 }

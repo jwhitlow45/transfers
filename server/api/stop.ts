@@ -1,6 +1,5 @@
 import type { AgencyId, StopResponse } from '../../shared/api.ts';
-import type { RealtimeView } from '../engine/realtime-view.ts';
-import { relevantAlerts } from '../engine/trip.ts';
+import { type RealtimeView, serviceStatus } from '../engine/realtime-view.ts';
 import { Tables } from '../engine/views.ts';
 import { RequestError } from '../http.ts';
 import { routeKeyOf, type Schedule, stopKeyOf } from '../schedule.ts';
@@ -29,12 +28,7 @@ export function stopArrivals(schedule: Schedule, realtime: RealtimeView, key: st
   const routeIds = new Set(shown.flatMap(({ row }) => row.routes));
   const agencies = new Set<AgencyId>([...routeIds].map((id) => schedule.route(id).agency));
   const stopKeys = new Set([stop, ...schedule.boardingStops(stop)].map(stopKeyOf));
-  const alerts = relevantAlerts(realtime.alerts, stopKeys, new Set([...routeIds].map((id) => routeKeyOf(schedule.route(id)))), agencies);
-  // Alerts name platforms, so their stops join the tables for the page to name them.
-  for (const alertStop of alerts.flatMap(({ stops }) => stops)) {
-    const known = schedule.stopsByKey.get(alertStop);
-    if (known) tables.stop(known);
-  }
+  const { alerts, feeds } = serviceStatus(schedule, realtime, tables, { stops: stopKeys, routes: new Set([...routeIds].map((id) => routeKeyOf(schedule.route(id)))), agencies });
   return {
     generatedAt: now,
     dataAt: realtime.updatedAt,
@@ -50,6 +44,6 @@ export function stopArrivals(schedule: Schedule, realtime: RealtimeView, key: st
     routes: tables.routes,
     stops: tables.stops,
     alerts,
-    feeds: [...agencies].map((agency) => ({ agency, state: realtime.status(agency), updatedAt: realtime.updatedAt })),
+    feeds,
   };
 }
