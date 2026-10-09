@@ -1,4 +1,5 @@
 import type { AccessOutage, Group } from '../../../shared/api.ts';
+import { shortDate } from '../format.ts';
 
 // BART's elevator and escalator outages at one station on the trip.
 export type StationOutages = { station: string; kinds: AccessOutage['kind'][]; outages: AccessOutage[] };
@@ -27,11 +28,9 @@ export function outageLabel(kinds: AccessOutage['kind'][], station: string) {
   return `${what[0]!.toUpperCase()}${what.slice(1)} out at ${station}`;
 }
 
-const date = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric' });
-
 // BART's expected return, "10/23/2026", as "Oct 23". A date, so read at noon UTC to land on the
 // same day in California. Null when BART gives none, or not as a date.
 export function returnDate(returns: string | null) {
   const [month, day, year] = (returns ?? '').split('/').map(Number);
-  return month && day && year ? date.format(Date.UTC(year, month - 1, day, 12)) : null;
+  return month && day && year ? shortDate(Date.UTC(year, month - 1, day, 12)) : null;
 }

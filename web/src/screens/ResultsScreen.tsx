@@ -17,7 +17,7 @@ import { TransferPointGroup } from '../components/TransferPointGroup.tsx';
 import { type SearchUpdate, TRIP_SETTINGS, TripSettingsSheet } from '../components/TripSettingsSheet.tsx';
 import { useSwipeBack } from '../gestures.ts';
 import { useNow, usePinnedTrip, usePoll } from '../hooks.ts';
-import { walkMinutes } from '../format.ts';
+import { walkMinutes, weekdayClock } from '../format.ts';
 import { viewAlerts } from '../lib/alerts.ts';
 import { type StationOutages, groupStops, outagesByStation } from '../lib/outages.ts';
 import { ringsBell } from '../lib/eggs.ts';
@@ -296,15 +296,13 @@ export function ResultsScreen({ search }: { search: Search }) {
   );
 }
 
-const weekdayTime = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', weekday: 'short', hour: 'numeric', minute: '2-digit' });
-
 // Why nothing showed up, in the rider's terms, with the one thing that might help.
 function EmptyTrip({ data, search, summary, maxWalk, update }: { data: TripResponse; search: Search; summary: ReturnType<typeof summarize>; maxWalk: number; update: SearchUpdate }) {
   const notice = data.notice;
   const route = summary.toRoute;
   // "the 48", or a BART line by its color.
   const toName = route ? (route.agency === 'BA' ? `the ${route.name} line` : `the ${summary.to}`) : summary.to;
-  const again = (next: number | null, place: string) => (next ? `${place} starts again ${weekdayTime.format(next * 1000)}.` : `${place} does not run in the next few days.`);
+  const again = (next: number | null, place: string) => (next ? `${place} starts again ${weekdayClock(next)}.` : `${place} does not run in the next few days.`);
   if (notice?.kind === 'idle' && notice.side === 'to') {
     return (
       <EmptyState title={route ? `${capitalize(toName)} isn't running now` : `Nothing boards at ${summary.to} right now`}>

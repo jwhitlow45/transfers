@@ -1,5 +1,5 @@
 import type { Connection, Departure } from '../../../shared/api.ts';
-import { clock, minutesUntil, walkText } from '../format.ts';
+import { clock, minutesSince, minutesUntil, walkText } from '../format.ts';
 import { pinOf, sameRun } from '../lib/pinned.ts';
 import { type CardContext, isTight } from '../lib/results.ts';
 import { IconPin } from '../icons/ui.tsx';
@@ -37,7 +37,7 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
   const minutes = minutesUntil(connection.departs, context.now);
   // Left From already: kept so a rider on it can still pin it.
   const left = connection.departs * 1000 < context.now;
-  const ago = Math.floor((context.now - connection.departs * 1000) / 60_000);
+  const ago = minutesSince(connection.departs, context.now);
   const now = !left && minutes < 1;
   const status = statusOf(connection.departDelay, connection.live);
   const tight = isTight(connection, min);

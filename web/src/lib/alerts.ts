@@ -1,11 +1,10 @@
 import type { Alert, TripResponse } from '../../../shared/api.ts';
 import { agencyOnly, chipLabel, shortStopName } from '../view.ts';
+import { shortDate } from '../format.ts';
 
 export type Severity = 'severe' | 'warning' | 'info';
 // `startOpen` opens the alert at first.
 export type ViewAlert = { id: string; severity: Severity; kicker: string; title: string; body: string | null; meta: string; url: string | null; startOpen: boolean };
-
-const date = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric' });
 
 // How the kicker starts for a notice about no stop of the trip in particular.
 export const NOTICE = 'Notice · ';
@@ -59,7 +58,7 @@ function toView(alert: Alert, data: AlertData, boardingStops: Set<string>, needs
     severity = 'severe';
     if (kicker.startsWith('Notice')) kicker = `Station access · ${routeNames || agencyOnly(alert.agency)}`;
   }
-  const until = alert.activeUntil ? ` · Until ${date.format(alert.activeUntil * 1000)}` : '';
+  const until = alert.activeUntil ? ` · Until ${shortDate(alert.activeUntil * 1000)}` : '';
   return { id: alert.id, severity, kicker, ...titleAndBody(alert.header, alert.description), meta: `${agencyOnly(alert.agency)}${until}`, url: alert.url, startOpen: severity === 'severe' && !relied };
 }
 

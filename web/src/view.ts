@@ -1,7 +1,7 @@
 import type { AgencyId, Route, Stop } from '../../shared/api.ts';
 
 import { chipLabel } from '../../shared/labels.ts';
-import { clock } from './format.ts';
+import { clock, PACIFIC } from './format.ts';
 
 export { chipLabel, shortStopName, stopLabel } from '../../shared/labels.ts';
 
@@ -56,12 +56,15 @@ export function windowText(window: { min: number; max: number }) {
   return `${window.min}–${window.max}\u00a0min`;
 }
 
+// A Pacific day as "2026-10-09", which Date.parse reads.
+const isoDayFormat = new Intl.DateTimeFormat('en-CA', { timeZone: PACIFIC });
+
 // "Today", "Yesterday", a weekday within the week, or a date.
 export function dayLabel(atMs: number, nowMs: number) {
-  const day = (ms: number) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(ms);
+  const day = (ms: number) => isoDayFormat.format(ms);
   const days = Math.round((Date.parse(day(nowMs)) - Date.parse(day(atMs))) / 86_400_000);
   if (days <= 0) return 'Today';
   if (days === 1) return 'Yesterday';
   const options: Intl.DateTimeFormatOptions = days < 7 ? { weekday: 'long' } : { month: 'short', day: 'numeric' };
-  return new Intl.DateTimeFormat('en-US', { ...options, timeZone: 'America/Los_Angeles' }).format(atMs);
+  return new Intl.DateTimeFormat('en-US', { ...options, timeZone: PACIFIC }).format(atMs);
 }

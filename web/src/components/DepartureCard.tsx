@@ -1,7 +1,7 @@
 import { useId } from 'preact/hooks';
 import type { Departure, Group } from '../../../shared/api.ts';
 import { IconFold, IconPin } from '../icons/ui.tsx';
-import { clock, minutesUntil, untilText } from '../format.ts';
+import { clock, minutesSince, minutesUntil, untilText } from '../format.ts';
 import { pinOf, sameRun } from '../lib/pinned.ts';
 import { type CardContext, hintKey } from '../lib/results.ts';
 import { TimeLink } from '../track.tsx';
@@ -54,7 +54,7 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
   // Left where the rider boards it, on its way to the destination: kept so a rider on it can
   // still pin it.
   const left = departure.at * 1000 < context.now;
-  const ago = Math.floor((context.now - departure.at * 1000) / 60_000);
+  const ago = minutesSince(departure.at, context.now);
   const away = left ? (ago < 1 ? 'Just left' : `Left ${ago} min ago`) : null;
   // With no first vehicle, the departure itself is the trip to pin, by tapping its band.
   const walkPinned = walk && context.pin !== null && !context.pin.first && context.pin.second.trip === departure.trip && context.pin.second.board === group.board && sameRun(context.pin.at, departure.at);

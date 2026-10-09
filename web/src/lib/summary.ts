@@ -1,5 +1,5 @@
 import type { Alert, Route, TripResponse } from '../../../shared/api.ts';
-import { clock, clockOrDay } from '../format.ts';
+import { clock, clockOrDay, minutesUntil } from '../format.ts';
 import type { Pin, Search } from '../storage.ts';
 import { type Status, chipLabel, shortStopName, statusOf, windowText } from '../view.ts';
 import { pinOf } from './pinned.ts';
@@ -19,7 +19,7 @@ export const countStopAlerts = (alerts: Alert[], stops: ReadonlySet<string>, dis
 // Minutes until the next two departures after the soonest, from every time the card could have
 // drawn. One first vehicle often connects to several second vehicles, so repeats are dropped.
 export function laterMinutes(departs: number[], soonest: number, now: number): number[] {
-  const minutes = departs.filter((at) => at > soonest).sort((a, b) => a - b).map((at) => Math.floor((at * 1000 - now) / 60_000));
+  const minutes = departs.filter((at) => at > soonest).sort((a, b) => a - b).map((at) => minutesUntil(at, now));
   return [...new Set(minutes)].slice(0, 2);
 }
 
@@ -60,7 +60,7 @@ export function summarize(search: Search, data: TripResponse | null, now: number
         const firstStatus = statusOf(connection.departDelay, connection.live);
         const secondStatus = statusOf(departure.delay, departure.live);
         next = {
-          minutes: Math.floor((connection.departs * 1000 - now) / 60_000),
+          minutes: minutesUntil(connection.departs, now),
           legs: [
             { route: first, at: connection.departs, status: firstStatus },
             { route: second, at: departure.at, status: secondStatus },
@@ -85,7 +85,7 @@ export function summarize(search: Search, data: TripResponse | null, now: number
       const route = data!.routes[departure.route];
       const status = statusOf(departure.delay, departure.live);
       next = {
-        minutes: Math.floor((departure.at * 1000 - now) / 60_000),
+        minutes: minutesUntil(departure.at, now),
         legs: [{ route, at: departure.at, status }],
         transfer: null,
         later: [],
