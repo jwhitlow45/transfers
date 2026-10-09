@@ -84,9 +84,12 @@ export function useMapView(whole: Box, maxZoom: number) {
     if (!svg) return;
     const touching = new Map<number, { x: number; y: number }>();
     // The gesture under way: the view it started from, the point it holds under the fingers, and
-    // their spread, in screen pixels, and the view it has moved to.
-    let gesture: { from: View; spread: number; held: { x: number; y: number }; scale: number; to: View } | null = null;
+    // their spread, in screen pixels.
+    let gesture: { from: View; spread: number; held: { x: number; y: number }; scale: number } | null = null;
     let lastTap = { at: 0, x: 0, y: 0 };
+    // The view the fingers last moved the map to, through every finger lifted and put down until
+    // the last is lifted, or null when they have not moved it.
+    let shown: View | null = null;
     // Screen pixels per map unit, and the screen point the picture's middle sits at.
     const frame = () => {
       const rect = svg.getBoundingClientRect();
@@ -104,7 +107,7 @@ export function useMapView(whole: Box, maxZoom: number) {
       const { view: current } = latest.current;
       const { scale, mid } = frame();
       const { at, spread } = fingers();
-      gesture = { from: current, spread, scale, held: { x: current.x + (at.x - mid.x) / scale, y: current.y + (at.y - mid.y) / scale }, to: current };
+      gesture = { from: current, spread, scale, held: { x: current.x + (at.x - mid.x) / scale, y: current.y + (at.y - mid.y) / scale } };
     };
     const down = (event: PointerEvent) => {
       if (event.pointerType === 'mouse' && event.button !== 0) return;
@@ -132,7 +135,8 @@ export function useMapView(whole: Box, maxZoom: number) {
       if (!touching.delete(event.pointerId)) return;
       // The finger still down carries on from where the map is.
       if (touching.size > 0) return begin();
-      if (gesture && gesture.to.zoom <= WHOLE && gesture.from !== gesture.to) setMoved(null);
+      if (shown && shown.zoom <= WHOLE) setMoved(null);
+      shown = null;
       gesture = null;
     };
     const move = (event: PointerEvent) => {
@@ -147,8 +151,8 @@ export function useMapView(whole: Box, maxZoom: number) {
       const scale = gesture.scale * (zoom / from.zoom);
       const { mid } = frame();
       // The point that was under the fingers stays under them.
-      gesture.to = latest.current.keep({ zoom, x: gesture.held.x - (at.x - mid.x) / scale, y: gesture.held.y - (at.y - mid.y) / scale });
-      setMoved(gesture.to);
+      shown = latest.current.keep({ zoom, x: gesture.held.x - (at.x - mid.x) / scale, y: gesture.held.y - (at.y - mid.y) / scale });
+      setMoved(shown);
       event.preventDefault();
     };
     svg.addEventListener('pointerdown', down);
