@@ -16,6 +16,7 @@ import { Collapse } from './Collapse.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import './TrackMap.css';
 import { YouMarker } from './YouMarker.tsx';
+import { failureOf } from '../lib/failure.ts';
 
 // Vehicles report about every 30 seconds. The server asks 511 no more often than that however
 // often this asks.
@@ -55,7 +56,9 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
     (settings.mapFitOnBoard ? '&autofit=1' : '') +
     (whole ? '&whole=1' : '');
   // Not kept in storage: a position from an earlier visit is no use.
-  const { data, error, fetchedAt, feed } = usePoll<TrackResponse>(url, REFRESH_MS, null, false);
+  const { data, error: refused, fetchedAt, feed } = usePoll<TrackResponse>(url, REFRESH_MS, null, false);
+  // A stop no longer in the schedule says so plainly, as a page does.
+  const error = failureOf(refused, 'The map')?.text ?? null;
   // When the rider last asked to fit the map to the trip from here. Only an answer that arrives
   // after it pins the map again, as the one on screen still shows the old stretch.
   const [refitAt, setRefitAt] = useState(0);
