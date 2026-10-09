@@ -15,12 +15,13 @@ import { type Polled, useNow, usePinnedTrip, usePoll, useStopPin } from '../hook
 import { IconChevron, IconClose, IconGear, IconLocation, IconPin, IconWarn } from '../icons/ui.tsx';
 import { defaultSavedColor } from '../lib/color.ts';
 import { ringsBell } from '../lib/eggs.ts';
-import { samePin } from '../lib/pinned.ts';
+import { pinToastText, samePin } from '../lib/pinned.ts';
 import { homeStatus, liveClock, liveNote, type LiveReport } from '../lib/freshness.ts';
 import { type LocationProblem, type Position, handOver, locate, locationProblemText } from '../lib/location.ts';
 import { pageColors, scaleFor, timeScale } from '../lib/results.ts';
 import { summarize } from '../lib/summary.ts';
 import { tapForGerbils } from '../gerbils.ts';
+import { unsave } from '../records.ts';
 import { motionOff } from '../gestures.ts';
 import { useScreenActive, useShownAgain } from '../layers.ts';
 import { navigate, searchPath, stopPath, tripPath } from '../router.ts';
@@ -42,7 +43,6 @@ import {
   loadSaved,
   removeRecent,
   rememberPicked,
-  removeSaved,
   saveFields,
   savePin,
   saveRecent,
@@ -136,19 +136,29 @@ export function SearchScreen() {
     savePin(search, next && { ...next, search });
     setPins(loadPins());
   };
-  // Unpinned by the rider, rather than on its own, says so with Undo, as on results. A map's sheet
-  // holds this from when it opened, so the pin it replaces is read as it is now.
-  const pinFromHome = (search: Search, next: Pin | null) => {
+  // Pinning from a saved card, unpinning from a pinned card, or either from a map's sheet says so
+  // with Undo, in the words results use (see pinToastText). A map's sheet holds this from when it
+  // opened, so the pin it replaces is read as it is now. A toast of a pin finds its card.
+  const pinWithUndo = (search: Search, next: Pin | null, bell = false) => {
     const previous = loadPin(search);
     updatePin(search, next);
-    if (!next) showToast({ text: 'Unpinned', about: 'unpin', undo: () => updatePin(search, previous) });
+    showToast({ text: pinToastText(previous, next, undefined, bell), about: next ? 'pin' : 'unpin', ...(next ? { pinned: searchId(search) } : {}), undo: () => updatePin(search, previous) });
   };
-  // Pinned from a saved card, which shows its trip pinned at the top. A pin it replaces can come back.
-  const pinFromCard = (search: Search, next: Pin | null, bell: boolean) => {
-    if (!next) return pinFromHome(search, null);
-    const previous = loadPin(search);
-    updatePin(search, next);
-    showToast({ text: bell ? 'Ding ding! Pinned to the top' : 'Pinned to the top', about: 'pin', pinned: searchId(search), undo: () => updatePin(search, previous) });
+  // A saved search's new name or color, and its removal, which Undo puts back in its place.
+  const editSaved = (id: string, change: { name: string; color: string | undefined }) =>
+    updateSaved(loadSaved().map((item) => (item.id === id ? { ...item, ...change, renamed: change.name !== item.name ? true : item.renamed } : item)));
+  const removeFromSaved = (id: string) => {
+    // One tap removes a search and its name, color and settings, so it can be undone (J, 2026-10-08).
+    const undo = unsave(id);
+    setSaved(loadSaved());
+    showToast({
+      text: 'Removed from Saved',
+      about: 'unsaved',
+      undo: () => {
+        undo();
+        setSaved(loadSaved());
+      },
+    });
   };
   // Saved searches in the order the rider set, one place at a time.
   const moveSaved = (id: string, step: -1 | 1) => {
@@ -373,9 +383,9 @@ export function SearchScreen() {
           // Marked with its search, for the toast of a trip pinned to find its card.
           <div key={searchId(pin.search)} class="tf-pin-slot" data-pin={searchId(pin.search)}>
             {isStopSearch(pin.search) ? (
-              <StopPinHome pin={pin} name={saved.find(({ id }) => id === searchId(pin.search))?.name} now={now} pulls={pulls} onPin={(next) => pinFromHome(pin.search, next)} onUpdate={(next) => updatePin(pin.search, next)} onReport={report} />
+              <StopPinHome pin={pin} name={saved.find(({ id }) => id === searchId(pin.search))?.name} now={now} pulls={pulls} onPin={(next) => pinWithUndo(pin.search, next)} onUpdate={(next) => updatePin(pin.search, next)} onReport={report} />
             ) : (
-              <PinnedHome pin={pin} name={saved.find(({ id }) => id === searchId(pin.search))?.name} now={now} pulls={pulls} onPin={(next) => pinFromHome(pin.search, next)} onUpdate={(next) => updatePin(pin.search, next)} onReport={report} />
+              <PinnedHome pin={pin} name={saved.find(({ id }) => id === searchId(pin.search))?.name} now={now} pulls={pulls} onPin={(next) => pinWithUndo(pin.search, next)} onUpdate={(next) => updatePin(pin.search, next)} onReport={report} />
             )}
           </div>
         ))}
@@ -468,13 +478,8 @@ export function SearchScreen() {
                       canMoveUp={index > 0}
                       canMoveDown={index < saved.length - 1}
                       onReport={report}
-                      onEdit={(change) => updateSaved(loadSaved().map((item) => (item.id === search.id ? { ...item, ...change, renamed: change.name !== item.name ? true : item.renamed } : item)))}
-                      onRemove={() => {
-                        const before = loadSaved();
-                        removeSaved(search.id);
-                        setSaved(loadSaved());
-                        showToast({ text: 'Removed from Saved', about: 'unsaved', undo: () => updateSaved(before) });
-                      }}
+                      onEdit={(change) => editSaved(search.id, change)}
+                      onRemove={() => removeFromSaved(search.id)}
                     />
                   ) : (
                   <SavedTrip
@@ -487,25 +492,16 @@ export function SearchScreen() {
                     canMoveUp={index > 0}
                     canMoveDown={index < saved.length - 1}
                     pin={pins.find((pin) => searchId(pin.search) === search.id) ?? null}
-                    onPin={(pin, bell) => pinFromCard(search, pin, bell)}
+                    onPin={(pin, bell) => pinWithUndo(search, pin, bell)}
                     onReport={report}
-                    onEdit={(change) =>
-                      updateSaved(loadSaved().map((item) => (item.id === search.id ? { ...item, ...change, renamed: change.name !== item.name ? true : item.renamed } : item)))
-                    }
+                    onEdit={(change) => editSaved(search.id, change)}
                     onColorless={(lineColor) => {
                       // Saved before colors existed: take one now, avoiding the rest.
                       const all = loadSaved();
                       const taken = all.filter(({ id, color }) => id !== search.id && color).map(({ color }) => color!);
                       updateSaved(all.map((item) => (item.id === search.id && !item.color ? { ...item, color: defaultSavedColor(lineColor, taken) } : item)));
                     }}
-                    onRemove={() => {
-                      // One tap removes a search and its name, color and settings, so it can be
-                      // undone (J, 2026-10-08).
-                      const before = loadSaved();
-                      removeSaved(search.id);
-                      setSaved(loadSaved());
-                      showToast({ text: 'Removed from Saved', about: 'unsaved', undo: () => updateSaved(before) });
-                    }}
+                    onRemove={() => removeFromSaved(search.id)}
                   />
                   ),
                 )}

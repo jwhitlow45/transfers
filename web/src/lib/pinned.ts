@@ -1,4 +1,6 @@
-import type { Connection, Departure, PinRequest, PinnedLeg, PinnedTrip, TripResponse } from '../../../shared/api.ts';
+import type { Connection, Departure, PinRequest, PinnedLeg, PinnedTrip, Route, TripResponse } from '../../../shared/api.ts';
+import { clock } from '../format.ts';
+import { chipLabel } from '../view.ts';
 import type { Pin } from '../storage.ts';
 
 // When a pinned trip ends: arriving at the destination, or with none set, boarding the second
@@ -125,4 +127,20 @@ export function pinnedNow(pin: Pin, data: TripResponse | null, dest: string | un
   const fresh = data ? pinnedFor(pin, data, dest) : null;
   if (!fresh) return { pinned: pin.last ?? null, fresh: false };
   return { pinned: steadyPinned(fresh, pin.last, pin, pinnedDestination(pin, data!, dest)), fresh: true };
+}
+
+// What pinning says: unpinned, pinned, or pinned in place of the one before, named as its card
+// named it, a trip by its first vehicle and an arrival by its vehicle. A cable car rings its bell.
+export function pinToastText(previous: Pin | null, next: Pin | null, routes: Record<string, Route> | undefined, bell = false) {
+  if (!next) return 'Unpinned';
+  const base = previous && !samePin(previous, next) ? `Pinned in place of ${pinName(previous, routes)}` : 'Pinned to the top';
+  return bell ? `Ding ding! ${base}` : base;
+}
+
+function pinName(pin: Pin, routes: Record<string, Route> | undefined) {
+  const leg = pin.last?.first ?? pin.last?.second;
+  const route = routes?.[pin.arrival?.route ?? leg?.route ?? ''];
+  const at = pin.arrival ? pin.ends : leg?.on?.at;
+  if (route && at !== undefined) return `the ${chipLabel(route)} at ${clock(at)}`;
+  return pin.arrival ? 'the arrival pinned before' : 'the trip pinned before';
 }

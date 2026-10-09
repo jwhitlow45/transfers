@@ -13,41 +13,22 @@ import { ScreenHeader, TripChain } from '../components/ResultsHeader.tsx';
 import { RouteChip } from '../components/RouteChip.tsx';
 import { SkeletonResults } from '../components/SkeletonResults.tsx';
 import { Toast, useToast } from '../components/Toast.tsx';
+import { useSearchRecords } from '../records.ts';
 import { TransferPointGroup } from '../components/TransferPointGroup.tsx';
 import { type SearchUpdate, TRIP_SETTINGS, TripSettingsSheet } from '../components/TripSettingsSheet.tsx';
 import { useSwipeBack } from '../gestures.ts';
-import { useShownAgain } from '../layers.ts';
 import { useNow, usePinnedTrip, usePoll } from '../hooks.ts';
-import { defaultSavedColor } from '../lib/color.ts';
-import { clock, walkMinutes } from '../format.ts';
-import { type ViewAlert, viewAlerts } from '../lib/alerts.ts';
+import { walkMinutes } from '../format.ts';
+import { viewAlerts } from '../lib/alerts.ts';
 import { type StationOutages, groupStops, outagesByStation } from '../lib/outages.ts';
 import { ringsBell } from '../lib/eggs.ts';
-import { samePin } from '../lib/pinned.ts';
 import { liveClock } from '../lib/freshness.ts';
 import { IconFlag, IconHidden } from '../icons/ui.tsx';
 import { type CardContext, chooseDirection, directionChoices, hintKey, orderGroups, pageColors, pointId, scaleFor, timeScale, visibleDepartures } from '../lib/results.ts';
 import { summarize } from '../lib/summary.ts';
 import { cameBackTo, goBack, navigate, tripPath } from '../router.ts';
 import { matchesServerDefaults, tripApiUrl, useSettings } from '../settings.tsx';
-import {
-  type Pin,
-  type Search,
-  clearPinHint,
-  dismissNotice,
-  findSaved,
-  loadDismissed,
-  loadPin,
-  loadSaved,
-  rememberRecent,
-  removeSaved,
-  restoreNotice,
-  savePin,
-  saveSaved,
-  saveSearch,
-  takePinHint,
-  updateSaved,
-} from '../storage.ts';
+import { type Pin, type Search, clearPinHint, rememberRecent, takePinHint, updateSaved } from '../storage.ts';
 import { agencyOnly, chipLabel, shortStopName, spokenRoute } from '../view.ts';
 
 // The server puts the first trip's results in the page. They seed only the first visit, as of
@@ -67,7 +48,11 @@ export function ResultsScreen({ search }: { search: Search }) {
   const setShowHidden = (shown: boolean) => updateSettings({ showHidden: shown });
   // Open again when the rider comes back from a page they left it for, such as Settings.
   const [settingsOpen, setSettingsOpen] = useState(() => cameBackTo()?.sheet === TRIP_SETTINGS);
-  const [saved, setSaved] = useState(() => findSaved(search));
+  const { toast, show: showToast, clear: clearToast } = useToast();
+  // Whether it is saved, the trip pinned to these results, which the results request follows too,
+  // and the notices dismissed (see useSearchRecords).
+  const records = useSearchRecords(search, showToast);
+  const { saved, pin, changePin } = records;
   // Cards the rider opened or closed, by group and trip. Others start as the device's setting
   // says: all open, each group's soonest open, or all closed. Kept across refreshes, which reuse
   // trip ids.
@@ -75,14 +60,7 @@ export function ResultsScreen({ search }: { search: Search }) {
   const openAtFirst = (first: boolean) => settings.cards === 'expanded' || (settings.cards === 'first' && first);
   const isExpanded = (card: string, first: boolean) => toggled[card] ?? openAtFirst(first);
   const toggleCard = (card: string, first: boolean) => setToggled((current) => ({ ...current, [card]: !(current[card] ?? openAtFirst(first)) }));
-  // The trip the rider pinned to these results, which the results request follows too.
-  const [pin, setPin] = useState(() => loadPin(search));
   // Kept with the search as it stands, so Home can show the pin and open these results.
-  const changePin = (next: Pin | null) => {
-    const kept = next && { ...next, search };
-    savePin(search, kept);
-    setPin(kept);
-  };
   useEffect(() => {
     if (pin) changePin(pin);
   }, [tripPath(search)]);
@@ -110,50 +88,20 @@ export function ResultsScreen({ search }: { search: Search }) {
   const { pinned, unpinAt, expired } = usePinnedTrip(pin, data, answered, search, settings, now, changePin);
   // Whether this visit shows how to pin, counted once per visit, until the rider first pins.
   const [hint, setHint] = useState(() => !pin && takePinHint());
-  const { toast, show: showToast, clear: clearToast } = useToast();
-  // Pinning from a row, the pinned card, or a map's sheet says what happened, with Undo putting
-  // back whatever was pinned before, in case the tap was not meant.
-  // A map's sheet holds this from when it opened, so the pin it replaces is read as it is now.
+  // Pinning says what happened, with Undo, and stops showing how to pin.
   const pinFromResults = (next: Pin | null) => {
-    const previous = loadPin(search);
-    changePin(next);
     if (next) {
       clearPinHint();
       setHint(false);
     }
-    const leg = previous?.last?.first ?? previous?.last?.second;
-    const route = leg && data?.routes[leg.route];
-    const was = leg?.on && route ? `the ${chipLabel(route)} at ${clock(leg.on.at)}` : 'the trip pinned before';
-    const base = !next ? 'Unpinned' : previous && !samePin(previous, next) ? `Pinned in place of ${was}` : 'Pinned to the top';
-    const text = next && ringsBell(next, data) ? `Ding ding! ${base}` : base;
-    showToast({ text, about: next ? 'pin' : 'unpin', undo: () => changePin(previous) });
+    records.pinWithUndo(next, data?.routes, next !== null && ringsBell(next, data));
   };
   // Notices the rider dismissed stay hidden here and on every other search, until the Notices
-  // page puts them back. Dismissing says so, with Undo.
-  const [dismissed, setDismissed] = useState(loadDismissed);
-  // Kept under a page it opens (see main.tsx), these results read storage again on the way back,
-  // for notices put back or a pin changed there.
-  useShownAgain(() => {
-    setSaved(findSaved(search));
-    setPin(loadPin(search));
-    setDismissed(loadDismissed());
-  });
-  const dismissedIds = new Set(dismissed.map(({ id }) => id));
+  // page puts them back.
+  const { dismissedIds, dismiss } = records;
   const allAlerts = data ? viewAlerts(data, summary.boarding, { elevators: settings.stepFree, escalators: settings.escalatorOutages }) : [];
   const alerts = allAlerts.filter(({ id }) => !dismissedIds.has(id));
   const dismissedHere = allAlerts.length - alerts.length;
-  const dismiss = ({ id, kicker, title, body, meta, url, severity }: ViewAlert) => {
-    dismissNotice({ id, kicker, title, body, meta, url, severity });
-    setDismissed(loadDismissed());
-    showToast({
-      text: 'Notice dismissed',
-      about: 'notice',
-      undo: () => {
-        restoreNotice(id);
-        setDismissed(loadDismissed());
-      },
-    });
-  };
 
   useSwipeBack(() => goBack());
 
@@ -162,38 +110,7 @@ export function ResultsScreen({ search }: { search: Search }) {
     if (saved) updateSaved(next);
     navigate(tripPath(next), { replace: true });
   };
-  const toggleSaved = () => {
-    if (saved) {
-      // The record as stored keeps the name, color, and settings, and Undo puts it back in its place.
-      const all = loadSaved();
-      const index = all.findIndex(({ id }) => id === saved.id);
-      const removed = all[index] ?? saved;
-      removeSaved(saved.id);
-      setSaved(null);
-      showToast({
-        text: 'Removed from Saved',
-        about: 'unsaved',
-        undo: () => {
-          const rest = loadSaved().filter(({ id }) => id !== saved.id);
-          saveSaved([...rest.slice(0, index), removed, ...rest.slice(index)]);
-          setSaved(removed);
-        },
-      });
-    } else {
-      const taken = loadSaved().map(({ color }) => color).filter((color) => color !== undefined);
-      const added = saveSearch(search, `${summary.from} to ${summary.to}`, defaultSavedColor(summary.lineColor, taken));
-      setSaved(added);
-      // Saving says so too, with Undo, as removing does.
-      showToast({
-        text: 'Saved to Home',
-        about: 'saved',
-        undo: () => {
-          removeSaved(added.id);
-          setSaved(null);
-        },
-      });
-    }
-  };
+  const toggleSaved = () => records.toggleSaved(`${summary.from} to ${summary.to}`, summary.lineColor);
 
   const groups = summary.groups;
   const scaleMinutes = scaleFor(groups, now);

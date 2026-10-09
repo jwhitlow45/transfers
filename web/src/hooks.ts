@@ -209,55 +209,50 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
 
 // A pinned trip as its vehicles run now (see pinnedNow). Keeps the pin's end and last times
 // current, and unpins it the set time after its end, counted from the latest times, with that
-// setting on. Only once `answered` (see Polled), so times from long ago cannot unpin a trip that is
-// running late. `now` is milliseconds on the server's clock.
+// setting on (see useKeptPin). `now` is milliseconds on the server's clock.
 export function usePinnedTrip(pin: Pin | null, data: TripResponse | null, answered: boolean, search: Search, settings: DeviceSettings, now: number, change: (pin: Pin | null) => void) {
   const { pinned, fresh } = pin ? pinnedNow(pin, data, search.dest) : { pinned: null, fresh: false };
   const ends = pinned ? pinnedEnd(pinned) : null;
   const seen = fresh && pinned ? JSON.stringify(pinned) : null;
-  // Only the screen showing changes the pin, and only while it is still the one stored: a screen
-  // kept under another may hold one the rider has since replaced there (see main.tsx).
-  const active = useScreenActive();
-  const changeOwn = (next: Pin | null) => {
-    const stored = loadPin(search);
-    if (active && pin && stored && samePin(stored, pin)) change(next);
-  };
-  // Times kept from before are not written over newer ones another screen saved, so only times
-  // just answered are (see Polled).
-  useEffect(() => {
-    if (!answered || !pin || !pinned || seen === null || seen === JSON.stringify(pin.last)) return;
-    changeOwn({ ...pin, last: pinned, ...(ends !== null ? { ends } : {}) });
-  }, [seen, active, answered]);
-  const end = ends ?? pin?.ends ?? null;
-  const unpinAt = pin && settings.autoUnpin && end !== null ? (end + settings.unpinAfter * 60) * 1000 : null;
-  const expired = answered && unpinAt !== null && now >= unpinAt;
-  useEffect(() => {
-    if (expired) changeOwn(null);
-  }, [expired, active]);
-  return { pinned, unpinAt, expired };
+  const kept = useKeptPin(pin, answered, search, settings, now, change, {
+    seen,
+    known: pin ? JSON.stringify(pin.last) : null,
+    latest: () => ({ ...pin!, last: pinned!, ...(ends !== null ? { ends } : {}) }),
+    end: ends ?? pin?.ends ?? null,
+  });
+  return { pinned, ...kept };
 }
 
 // An arrival pinned at a stop as it comes (see stopPinOf): keeps its end as the latest times move
-// it, and unpins it the set time after it arrives, with that setting on, as usePinnedTrip does a
-// trip, and on the same terms: only once `answered`, and only by the screen showing while the pin
-// is still the one stored.
+// it, and unpins it the set time after it arrives, with that setting on, as a trip is (see
+// useKeptPin).
 export function useStopPin(pin: Pin | null, data: StopResponse | null, answered: boolean, search: Search, settings: DeviceSettings, now: number, change: (pin: Pin | null) => void) {
   const found = pin ? pinnedArrival(pin, data) : null;
   const seen = found?.arrival.at ?? null;
+  const kept = useKeptPin(pin, answered, search, settings, now, change, { seen, known: pin?.ends ?? null, latest: () => ({ ...pin!, ends: seen! }), end: seen ?? pin?.ends ?? null });
+  return { found, ...kept };
+}
+
+// What every pin shares as its times come: when the latest answer has seen it anew (`seen`, unlike
+// `known`, what the pin holds), its times are written back (`latest`), and the set time after its
+// `end` it unpins, with that setting on. Only once `answered` (see Polled), so times from long ago
+// cannot unpin a trip that is running late, nor be written over newer ones another screen saved.
+// Only the screen showing changes the pin, and only while it is still the one stored: a screen
+// kept under another may hold one the rider has since replaced there (see main.tsx).
+function useKeptPin(pin: Pin | null, answered: boolean, search: Search, settings: DeviceSettings, now: number, change: (pin: Pin | null) => void, { seen, known, latest, end }: { seen: string | number | null; known: string | number | null; latest: () => Pin; end: number | null }) {
   const active = useScreenActive();
   const changeOwn = (next: Pin | null) => {
     const stored = loadPin(search);
     if (active && pin && stored && samePin(stored, pin)) change(next);
   };
   useEffect(() => {
-    if (!answered || !pin || seen === null || seen === pin.ends) return;
-    changeOwn({ ...pin, ends: seen });
+    if (!answered || !pin || seen === null || seen === known) return;
+    changeOwn(latest());
   }, [seen, active, answered]);
-  const end = seen ?? pin?.ends ?? null;
   const unpinAt = pin && settings.autoUnpin && end !== null ? (end + settings.unpinAfter * 60) * 1000 : null;
   const expired = answered && unpinAt !== null && now >= unpinAt;
   useEffect(() => {
     if (expired) changeOwn(null);
   }, [expired, active]);
-  return { found, unpinAt, expired };
+  return { unpinAt, expired };
 }

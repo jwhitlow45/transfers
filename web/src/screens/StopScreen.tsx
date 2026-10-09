@@ -12,13 +12,13 @@ import { SkeletonResults } from '../components/SkeletonResults.tsx';
 import { StatusTag } from '../components/StatusTag.tsx';
 import { StopPinCard } from '../components/StopPinCard.tsx';
 import { Toast, useToast } from '../components/Toast.tsx';
+import { useSearchRecords } from '../records.ts';
 import { clock, minutesUntil } from '../format.ts';
 import { useSwipeBack } from '../gestures.ts';
 import { useNow, usePoll, useStopPin } from '../hooks.ts';
 import { IconChevron } from '../icons/ui.tsx';
-import { useShownAgain } from '../layers.ts';
-import { type ViewAlert, viewAlerts } from '../lib/alerts.ts';
-import { defaultSavedColor, routeColor } from '../lib/color.ts';
+import { viewAlerts } from '../lib/alerts.ts';
+import { routeColor } from '../lib/color.ts';
 import { liveClock } from '../lib/freshness.ts';
 import { samePin } from '../lib/pinned.ts';
 import { stopApiUrl, stopPinOf } from '../lib/stop-pins.ts';
@@ -27,17 +27,7 @@ import { useSettings } from '../settings.tsx';
 import {
   type Pin,
   type Search,
-  dismissNotice,
-  findSaved,
-  loadDismissed,
-  loadPin,
-  loadSaved,
   rememberRecent,
-  removeSaved,
-  restoreNotice,
-  saveSaved,
-  saveSearch,
-  savePin,
 } from '../storage.ts';
 import { TimeLink } from '../track.tsx';
 import { chipLabel, statusOf } from '../view.ts';
@@ -58,78 +48,19 @@ export function StopScreen({ search }: { search: Search }) {
     if (data) rememberRecent(search);
   }, [Boolean(data)]);
 
-  const [saved, setSaved] = useState(() => findSaved(search));
-  const [pin, setPin] = useState(() => loadPin(search));
-  const changePin = (next: Pin | null) => {
-    const kept = next && { ...next, search };
-    savePin(search, kept);
-    setPin(kept);
-  };
-  useStopPin(pin, data, answered, search, settings, now, changePin);
   const { toast, show: showToast, clear: clearToast } = useToast();
-  // As on results: what happened, with Undo putting back whatever was pinned before.
-  const pinFromStop = (next: Pin | null) => {
-    const previous = loadPin(search);
-    changePin(next);
-    const was = previous?.arrival && data?.routes[previous.arrival.route] ? `the ${chipLabel(data.routes[previous.arrival.route]!)} at ${clock(previous.ends)}` : 'the arrival pinned before';
-    const text = !next ? 'Unpinned' : previous && !samePin(previous, next) ? `Pinned in place of ${was}` : 'Pinned to the top';
-    showToast({ text, about: next ? 'pin' : 'unpin', undo: () => changePin(previous) });
-  };
-
-  const [dismissed, setDismissed] = useState(loadDismissed);
-  // Kept under a page it opens (see main.tsx), it reads storage again on the way back.
-  useShownAgain(() => {
-    setSaved(findSaved(search));
-    setPin(loadPin(search));
-    setDismissed(loadDismissed());
-  });
-  const dismissedIds = new Set(dismissed.map(({ id }) => id));
+  // Whether the stop is saved, the arrival pinned to it, and the notices dismissed, as on results
+  // (see useSearchRecords).
+  const records = useSearchRecords(search, showToast);
+  const { saved, pin, changePin, dismissedIds, dismiss } = records;
+  useStopPin(pin, data, answered, search, settings, now, changePin);
+  const pinFromStop = (next: Pin | null) => records.pinWithUndo(next, data?.routes);
   const allAlerts = data ? viewAlerts(data, new Set([data.stop, ...data.rows.map(({ stop }) => stop)]), { elevators: settings.stepFree, escalators: settings.escalatorOutages }) : [];
   const alerts = allAlerts.filter(({ id }) => !dismissedIds.has(id));
-  const dismiss = ({ id, kicker, title, body, meta, url: link, severity }: ViewAlert) => {
-    dismissNotice({ id, kicker, title, body, meta, url: link, severity });
-    setDismissed(loadDismissed());
-    showToast({
-      text: 'Notice dismissed',
-      about: 'notice',
-      undo: () => {
-        restoreNotice(id);
-        setDismissed(loadDismissed());
-      },
-    });
-  };
-
-  // Saved by the stop's own name, in the color of its busiest route where that color is free.
+  // Saved by the stop's own name, in the color of its busiest route.
   const toggleSaved = () => {
-    if (saved) {
-      const all = loadSaved();
-      const index = all.findIndex(({ id }) => id === saved.id);
-      const removed = all[index] ?? saved;
-      removeSaved(saved.id);
-      setSaved(null);
-      showToast({
-        text: 'Removed from Saved',
-        about: 'unsaved',
-        undo: () => {
-          const rest = loadSaved().filter(({ id }) => id !== saved.id);
-          saveSaved([...rest.slice(0, index), removed, ...rest.slice(index)]);
-          setSaved(removed);
-        },
-      });
-      return;
-    }
     const busiest = data?.rows[0] && data.routes[data.rows[0].routes[0]!];
-    const taken = loadSaved().map(({ color }) => color).filter((color) => color !== undefined);
-    const added = saveSearch(search, search.fromLabel, defaultSavedColor(busiest ? routeColor(busiest) : null, taken));
-    setSaved(added);
-    showToast({
-      text: 'Saved to Home',
-      about: 'saved',
-      undo: () => {
-        removeSaved(added.id);
-        setSaved(null);
-      },
-    });
+    records.toggleSaved(search.fromLabel, busiest ? routeColor(busiest) : null);
   };
 
   const [opened, setOpened] = useState<Record<string, boolean>>({});
