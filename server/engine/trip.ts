@@ -1,12 +1,14 @@
-import { type AccessOutage, type Alert, type AlertRelevance, type AgencyId, type Departure, type DestinationsResponse, type FeedStatus, type Group, MAX_MINUTES, type Notice, type PinRequest, type TripResponse, type WayBackResponse } from '../../shared/api.ts';
+import { type AccessOutage, type Alert, type AlertRelevance, type AgencyId, type Departure, type DestinationsResponse, type Group, MAX_MINUTES, type Notice, type PinRequest, type TripResponse, type WayBackResponse } from '../../shared/api.ts';
 import type { Agency } from '../config.ts';
 import { bartStationCode } from '../bart-stations.ts';
+import { RequestError } from '../http.ts';
 import type { Outage } from '../realtime/access.ts';
-import type { RtAlert, TripSnapshot } from '../realtime/snapshot.ts';
+import type { RtAlert } from '../realtime/snapshot.ts';
 import { type Schedule, type StopRow, routeKeyOf, stopKeyOf } from '../schedule.ts';
 import { type FirstLeg, type PairingOptions, type SecondLeg, pairConnections } from './connections.ts';
 import { type Link, arrivalStops, bartSiblings, findLinks, walkBetween } from './links.ts';
 import { pinnedTrip } from './pinned.ts';
+import type { RealtimeView } from './realtime-view.ts';
 import type { RouteRow } from '../schedule.ts';
 import { firstLegs, secondLegs } from './vehicles.ts';
 import { Tables, stopView } from './views.ts';
@@ -38,27 +40,10 @@ export type TripRequest = {
   pin?: PinRequest;
 };
 
-export type RealtimeView = {
-  trips: TripSnapshot | null;
-  alerts: RtAlert[];
-  status: (agency: Agency) => FeedStatus['state'];
-  updatedAt: number | null;
-  // BART's elevator and escalator outages, when the rider asked for them.
-  access?: Outage[] | null;
-};
-
 // Changing at a station step-free means waiting for and riding elevators, so the default transfer
 // minimum gets this much more. A minimum the rider set is theirs as it is: the page sends the
 // window back as shown, so adding to it would add again on every edit.
 const STEP_FREE_MINUTES = 3;
-
-export class RequestError extends Error {
-  readonly status: number;
-  constructor(status: number, message: string) {
-    super(message);
-    this.status = status;
-  }
-}
 
 const DEPARTURES_PER_GROUP = 3;
 

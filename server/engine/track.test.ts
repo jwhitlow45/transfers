@@ -6,11 +6,11 @@ import { join } from 'node:path';
 import { after, before, test } from 'node:test';
 import type { Agency } from '../config.ts';
 import { buildScheduleDatabase } from '../gtfs/ingest.ts';
+import { RequestError } from '../http.ts';
 import type { RtTrip, RtVehicle, TripSnapshot, VehicleSnapshot } from '../realtime/snapshot.ts';
 import { Schedule } from '../schedule.ts';
 import { serviceDayStart } from '../time.ts';
 import { trackVehicle } from './track.ts';
-import { RequestError } from './trip.ts';
 
 // One bus line running east along a street, with a stop every 0.002 degrees of longitude
 // (about 176 m), and its shape drawn through every stop and the points between them. A second
@@ -102,7 +102,8 @@ test('a vehicle with no position shows the stops before the rider and no vehicle
 test('an unknown trip, or a stop the trip does not make, is not found', () => {
   const notFound = (error: unknown) => error instanceof RequestError && error.status === 404;
   throws(() => trackVehicle(schedule, { vehicles: null }, { trip: 'SF:nope', stop: 'SF:104' }, NOW), notFound);
-  throws(() => trackVehicle(schedule, { vehicles: null }, { trip: 'SF:t1', stop: 'SF:999' }, NOW), notFound);
+  // Worded as every other answer about a stop that does not exist.
+  throws(() => trackVehicle(schedule, { vehicles: null }, { trip: 'SF:t1', stop: 'SF:999' }, NOW), (error) => notFound(error) && (error as Error).message === 'No stop SF:999');
 });
 
 test('on a loop, the visit the vehicle reports by sequence, or else the one due nearest now, places it', () => {

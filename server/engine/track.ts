@@ -1,10 +1,10 @@
 import type { TrackLeg, TrackResponse } from '../../shared/api.ts';
 import { bearingDegrees, distanceMeters, type Point } from '../geo.ts';
+import { RequestError } from '../http.ts';
 import type { RtStopTime, RtTrip, RtVehicle, TripSnapshot, VehicleSnapshot } from '../realtime/snapshot.ts';
 import type { Schedule, StopRow } from '../schedule.ts';
 import { headingOf } from './links.ts';
 import { projector, shapePoints } from './shapes.ts';
-import { RequestError } from './trip.ts';
 import { Tables } from './views.ts';
 
 // Stops drawn before the rider's when the vehicle has no position to start from.
@@ -29,7 +29,7 @@ export function trackTarget(schedule: Schedule, request: TrackRequest) {
   // Trips 511 runs that its published schedule leaves out have no line or stops to draw.
   if (!trip || !pattern) throw new RequestError(404, 'This trip is not in the published schedule, so there is no map for it');
   const target = schedule.stopsByKey.get(request.stop);
-  if (!target) throw new RequestError(404, 'Unknown stop');
+  if (!target) throw new RequestError(404, `No stop ${request.stop}`);
   const visits = visitsTo(schedule, pattern.stops, target);
   if (visits.length === 0) throw new RequestError(404, 'That trip does not stop there');
   return { trip, pattern, target, visits };

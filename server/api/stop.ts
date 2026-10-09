@@ -1,6 +1,8 @@
 import type { AgencyId, StopResponse } from '../../shared/api.ts';
-import { type RealtimeView, RequestError, relevantAlerts } from '../engine/trip.ts';
+import type { RealtimeView } from '../engine/realtime-view.ts';
+import { relevantAlerts } from '../engine/trip.ts';
 import { Tables } from '../engine/views.ts';
+import { RequestError } from '../http.ts';
 import { routeKeyOf, type Schedule, stopKeyOf } from '../schedule.ts';
 import { arrivalsFor, boardingRows } from './nearby.ts';
 

@@ -1,7 +1,7 @@
 import type { NearbyArrival, NearbyResponse, NearbyStop, Schematic } from '../../shared/api.ts';
 import { type Link, rankedHeading } from '../engine/links.ts';
 import { projector, shapePoints } from '../engine/shapes.ts';
-import type { RealtimeView } from '../engine/trip.ts';
+import type { RealtimeView } from '../engine/realtime-view.ts';
 import { secondLegs } from '../engine/vehicles.ts';
 import { Tables } from '../engine/views.ts';
 import { distanceMeters, type Point } from '../geo.ts';
