@@ -6,6 +6,7 @@
 /* The map, with its buttons over the bottom right corner, inside the map's border. */
 .tf-track__frame { position: relative; margin-top: var(--space-3); }
 .tf-track__frame .tf-track__map { margin-top: 0; }
+.tf-track__recenter { position: absolute; z-index: 1; top: calc(var(--border-strong) + var(--space-2)); right: calc(var(--border-strong) + var(--space-2)); }
 .tf-track__controls { position: absolute; right: calc(var(--border-strong) + var(--space-2)); bottom: calc(var(--border-strong) + var(--space-2)); display: flex; gap: var(--space-2); }
 .tf-track__fit { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 var(--space-3); background: var(--bg); color: var(--text); border: var(--border-hair) solid var(--line); font-size: var(--text-sm); font-weight: 650; }
 /* On, as every toggle that is on looks (see .tf-filter in styles.css). */

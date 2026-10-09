@@ -54,6 +54,8 @@ export function useDrag(element: () => Element | null | undefined, axis: 'x' | '
 
     const onStart = (event: TouchEvent) => {
       if (event.touches.length > 1) return cut();
+      // A zoomed map's gestures move the map, never the page or sheet around it (see map-view.ts).
+      if ((event.target as Element).closest?.('.tf-map--zoomed')) return;
       const point = event.touches[0]!;
       touch = { id: point.identifier, x: point.clientX, y: point.clientY, origin: event.target as Element, dragging: false };
       last = { at: performance.now(), position: along(point) };

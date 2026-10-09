@@ -1,11 +1,12 @@
-import { useEffect, useId, useState } from 'preact/hooks';
+import { useEffect, useId, useRef, useState } from 'preact/hooks';
 import type { Route, Stop, TrackLeg, TrackResponse } from '../../../shared/api.ts';
 import { clock, minutesUntil } from '../format.ts';
 import { useNow, usePoll } from '../hooks.ts';
 import { ModeGlyph } from '../icons/ModeIcon.tsx';
-import { IconChevron } from '../icons/ui.tsx';
+import { IconChevron, IconRecenter } from '../icons/ui.tsx';
 import { routeColor, textOn } from '../lib/color.ts';
 import { useWatchedPosition } from '../lib/location.ts';
+import { useMapView } from '../lib/map-view.ts';
 import { metersFrom } from '../../../shared/projection.ts';
 import { ageText, clockSkewMs } from '../lib/freshness.ts';
 import type { Mark, Tracked } from '../track.tsx';
@@ -135,7 +136,7 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
         {headline}
       </p>
       <div class="tf-track__frame">
-        <LineMap legs={legs} label={headline} rider={position && { x: riderX, y: riderY, accuracy: position.accuracy }} />
+        <LineMap legs={legs} label={headline} rider={position && { x: riderX, y: riderY, accuracy: position.accuracy }} framedAt={refitAt} />
         <div class="tf-track__controls">
           <button type="button" class="tf-track__fit" aria-pressed={whole} aria-label="Full route" onClick={toggleWhole}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -198,7 +199,9 @@ const passedAt = (leg: TrackLeg, index: number) => (leg.nextIndex === null ? leg
 // heads, the transfer's drawn first so the rider's own vehicle sits on top. A walk between the
 // stop they get off at and the one they board is a dashed line. Sizes are in meters, scaled to the
 // picture, so a long ride and a short one look alike. North is up.
-function LineMap({ legs, label, rider }: { legs: Drawn[]; label: string; rider: Rider | null }) {
+// `framedAt` is when the rider last asked for the picture framed afresh, with Fit or Full, which
+// undoes any zoom of theirs too.
+function LineMap({ legs, label, rider, framedAt }: { legs: Drawn[]; label: string; rider: Rider | null; framedAt: number }) {
   // The frame fits the lines and stops, which stay put on a pinned map, so the picture holds still
   // as the vehicles move. A vehicle off the padded frame, as before its trip starts, widens it.
   const route: [number, number][] = legs.flatMap(({ leg }) => [...leg.line, ...leg.path.map(({ x, y }): [number, number] => [x, y])]);
@@ -231,14 +234,39 @@ function LineMap({ legs, label, rider }: { legs: Drawn[]; label: string; rider: 
   height = Math.max(height, width / 2);
   const left = (Math.max(...xs) + Math.min(...xs)) / 2 - width / 2;
   const top = (Math.max(...ys) + Math.min(...ys)) / 2 - (height - clear) / 2;
-  const unit = Math.max(width, height) / 70;
+  // Pinched in, it shows down to a few blocks across.
+  const map = useMapView({ left, top, width, height }, Math.max(1, Math.min(8, Math.max(width, height) / 400)));
+  const framed = useRef(framedAt);
+  useEffect(() => {
+    if (framed.current === framedAt) return;
+    framed.current = framedAt;
+    map.recenter();
+  }, [framedAt]);
+  const shown = map.box;
+  // Sizes follow the picture as shown, so markers and lines keep their size on screen at any zoom.
+  const unit = Math.max(shown.width, shown.height) / 70;
   // Where the rider gets off, and where they board the next vehicle, when those differ.
   const [next, main] = legs.length === 2 ? legs : [null, legs[0]!];
   const off = main && [...main.labels].find(([, kinds]) => kinds.includes('transfer'))?.[0];
   const getOff = off === undefined ? undefined : main!.leg.path[off];
   const board = next && next.leg.targetIndex !== null ? next.leg.path[next.leg.targetIndex] : undefined;
   return (
-    <svg class="tf-track__map" viewBox={`${left} ${top} ${width} ${height}`} role="img" aria-label={label}>
+    <>
+    {/* Back to the picture as framed, once the rider has moved it. */}
+    {map.moved && (
+      <button type="button" class="tf-track__fit tf-track__recenter" onClick={map.recenter}>
+        <IconRecenter />
+        Recenter
+      </button>
+    )}
+    <svg
+      ref={map.ref}
+      class={`tf-track__map${map.zoomed ? ' tf-map--zoomed' : ''}`}
+      style={{ touchAction: map.touchAction }}
+      viewBox={`${shown.left} ${shown.top} ${shown.width} ${shown.height}`}
+      role="img"
+      aria-label={label}
+    >
       {legs.map(({ leg, color }, n) => (
         <polyline key={`line-${n}`} points={leg.line.map(([x, y]) => `${x},${-y}`).join(' ')} fill="none" stroke={color} stroke-width={unit * 0.9} stroke-linecap="round" stroke-linejoin="round" />
       ))}
@@ -260,6 +288,7 @@ function LineMap({ legs, label, rider }: { legs: Drawn[]; label: string; rider: 
         <LegVehicle key={`vehicle-${n}`} drawn={drawn} unit={unit} />
       ))}
     </svg>
+    </>
   );
 }
 

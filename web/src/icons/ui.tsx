@@ -110,6 +110,15 @@ export const GerbilShape = () => (
   </>
 );
 export const IconGerbil = ({ size = 16 }: Props) => icon(<GerbilShape />, size);
+// Crosshairs, as maps mark going back to where they started.
+export const IconRecenter = ({ size = 16 }: Props) =>
+  icon(
+    <>
+      <circle cx="12" cy="12" r="6" />
+      <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+    </>,
+    size,
+  );
 // The phone's own share mark, a box with an arrow out of it, and a U-turn for the trip back.
 export const IconShare = ({ size = 18 }: Props) => icon(<path d="M12 3v12M8 7l4-4 4 4M6 11H5v10h14V11h-1" />, size);
 export const IconReturn = ({ size = 18 }: Props) => icon(<path d="M9 14l-5-5 5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />, size);

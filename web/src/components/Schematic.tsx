@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useMemo } from 'preact/hooks';
 import type { Route, Schematic as SchematicData } from '../../../shared/api.ts';
-import { motionOff } from '../gestures.ts';
+import { IconRecenter } from '../icons/ui.tsx';
+import { useMapView } from '../lib/map-view.ts';
 import { routeColor, stopLetterColor } from '../lib/color.ts';
 import { spread } from '../lib/spread.ts';
 
@@ -9,14 +10,11 @@ import { spread } from '../lib/spread.ts';
 // letter their cards do, so the rider can tell which stop each route uses.
 export function Schematic({ schematic, routes, letters }: { schematic: SchematicData; routes: Record<string, Route>; letters: Record<string, string> }) {
   const extent = Math.max(150, ...schematic.stops.flatMap(({ x, y }) => [Math.abs(x), Math.abs(y)])) * 1.15;
-  // Zooming in stays centered on the rider, and stops short of a view so close the corner it
-  // separates fills the map.
-  const zooms = ZOOMS.filter((zoom) => zoom === 1 || extent / zoom >= 45);
-  const [zoomIndex, setZoomIndex] = useState(0);
-  const level = Math.min(zoomIndex, zooms.length - 1);
+  // Pinched or zoomed in, it stops short of a view so close the corner it separates fills the map.
+  const map = useMapView({ left: -extent, top: -extent, width: extent * 2, height: extent * 2 }, Math.max(1, Math.min(8, extent / 45)));
   // Half the width shown, in meters. Every size below follows it, so markers and lines keep
   // their size on screen at any zoom.
-  const view = useEased(extent / zooms[level]!);
+  const view = map.box.width / 2;
   const stop = view / 28;
   const marker = view / 11;
   const you = view / 26;
@@ -36,7 +34,14 @@ export function Schematic({ schematic, routes, letters }: { schematic: Schematic
   return (
     <figure class="tf-schematic">
       <div class="tf-schematic__frame">
-        <svg viewBox={`${-view} ${-view} ${view * 2} ${view * 2}`} role="img" aria-label={`Map of ${schematic.stops.length} nearby stops and the routes through them. You are in the middle.`}>
+        <svg
+          ref={map.ref}
+          class={map.zoomed ? 'tf-map--zoomed' : undefined}
+          style={{ touchAction: map.touchAction }}
+          viewBox={`${map.box.left} ${map.box.top} ${map.box.width} ${map.box.height}`}
+          role="img"
+          aria-label={`Map of ${schematic.stops.length} nearby stops and the routes through them. You are in the middle.`}
+        >
           {others.map((points, index) => (
             <polyline key={`other-${index}`} points={points} fill="none" class="tf-schematic__other" stroke-width={width / 2} stroke-linecap="round" stroke-linejoin="round" />
           ))}
@@ -81,13 +86,19 @@ export function Schematic({ schematic, routes, letters }: { schematic: Schematic
           })}
         </svg>
         <div class="tf-schematic__zoom">
+          {/* Back to the whole picture, centered on the rider, once they have moved it. */}
+          {map.moved && (
+            <button type="button" onClick={map.recenter} aria-label="Recenter on you">
+              <IconRecenter />
+            </button>
+          )}
           {/* Disabled by aria only, so a button that reaches the end of its range keeps focus. */}
-          <button type="button" onClick={() => level > 0 && setZoomIndex(level - 1)} aria-disabled={level === 0} aria-label="Zoom out">
+          <button type="button" onClick={() => map.zoom > 1.001 && map.zoomBy(0.5)} aria-disabled={map.zoom <= 1.001} aria-label="Zoom out">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true">
               <path d="M5 12h14" />
             </svg>
           </button>
-          <button type="button" onClick={() => level < zooms.length - 1 && setZoomIndex(level + 1)} aria-disabled={level === zooms.length - 1} aria-label="Zoom in around you">
+          <button type="button" onClick={() => map.zoom < map.maxZoom - 0.001 && map.zoomBy(2)} aria-disabled={map.zoom >= map.maxZoom - 0.001} aria-label="Zoom in">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true">
               <path d="M5 12h14M12 5v14" />
             </svg>
@@ -109,33 +120,3 @@ export function Schematic({ schematic, routes, letters }: { schematic: Schematic
   );
 }
 
-const ZOOMS = [1, 2, 4, 8];
-const ZOOM_MS = 200;
-
-// Eases the view to each new width in log scale, so every doubling takes the same time. A tap
-// partway through carries on from where the map is.
-function useEased(target: number) {
-  const [shown, setShown] = useState(target);
-  const current = useRef(target);
-  useEffect(() => {
-    const from = current.current;
-    if (from === target) return;
-    const show = (value: number) => {
-      current.current = value;
-      setShown(value);
-    };
-    if (motionOff()) {
-      show(target);
-      return;
-    }
-    const start = performance.now();
-    let frame = requestAnimationFrame(function step(time) {
-      // A frame's time can be from just before the start.
-      const progress = Math.max(0, Math.min(1, (time - start) / ZOOM_MS));
-      show(from * (target / from) ** (1 - (1 - progress) ** 3));
-      if (progress < 1) frame = requestAnimationFrame(step);
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [target]);
-  return shown;
-}
