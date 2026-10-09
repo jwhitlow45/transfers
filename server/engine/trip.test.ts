@@ -13,6 +13,7 @@ import { serviceDayStart } from '../time.ts';
 import { nearby } from '../api/nearby.ts';
 import { mergeOrder, search } from '../api/search.ts';
 import { stopArrivals } from '../api/stop.ts';
+import { trackVehicle } from './track.ts';
 import { destinations, planTrip } from './trip.ts';
 
 // A tiny network shaped like J's commute: BART from Montgomery to 24th St Mission, where the
@@ -113,8 +114,50 @@ function crowdedFeeds() {
   return network;
 }
 
+// The same network with names as agencies publish them, which riders should not see: Muni's F
+// to "Fisherman`s Wharf" and M to "Balboa Park via S.F. State", a Golden Gate ferry with no
+// headsign, and BART trains headed by their last stations' full names.
+function namedFeeds() {
+  const network = feeds();
+  const run = (trip: string, visits: [string, number][]) => visits.map(([stop, at], n) => `${trip},${clock(at)},${clock(at)},${stop},${n + 1}`).join('\n');
+  const muni = network.get('SF')!;
+  muni.set('routes.txt', `${muni.get('routes.txt')}F,F,MARKET & WHARVES,0\nM,M,OCEAN VIEW,0\n`);
+  muni.set('trips.txt', `${muni.get('trips.txt')}F,all,f0,Fisherman\`s Wharf,0,,\nM,all,v0,Balboa Park via S.F. State,0,,\n`);
+  muni.set('stop_times.txt', `${muni.get('stop_times.txt')}${run('f0', [['13486', 8 * 3600 + 600], ['13477', 8 * 3600 + 720]])}\n${run('v0', [['13477', 8 * 3600 + 600], ['13500', 8 * 3600 + 1200]])}\n`);
+  const bart = network.get('BA')!;
+  bart.set('routes.txt', `${bart.get('routes.txt')}Grey-S,Grey-S,Coliseum to Oakland Airport,1\n`);
+  bart.set(
+    'stops.txt',
+    [
+      bart.get('stops.txt'),
+      '907109,907109,San Francisco International Airport,37.616035,-122.392612,1,',
+      '907101,907101,San Francisco International Airport,37.616035,-122.392612,0,907109',
+      '907209,907209,Coliseum,37.753661,-122.196869,1,',
+      '907201,907201,Coliseum,37.753661,-122.196869,0,907209',
+      '907409,907409,Oakland International Airport,37.713238,-122.212191,1,',
+      '907401,907401,Oakland International Airport Station,37.713238,-122.212191,0,907409',
+    ].join('\n'),
+  );
+  bart.set('trips.txt', `${bart.get('trips.txt')}Yellow-S,all,sfo,San Francisco International Airport,1,,\nGrey-S,all,oak,Oakland Airport,1,,\n`);
+  bart.set('stop_times.txt', `${bart.get('stop_times.txt')}${run('sfo', [['901201', 8 * 3600 + 600], ['901601', 8 * 3600 + 1080], ['907101', 8 * 3600 + 2400]])}\n${run('oak', [['907201', 8 * 3600 + 600], ['907401', 8 * 3600 + 1080]])}\n`);
+  network.set(
+    'GF',
+    new Map(
+      Object.entries({
+        'routes.txt': 'route_id,route_short_name,route_long_name,route_type\nLARK,Larkspur,Larkspur - San Francisco,4\n',
+        'stops.txt': 'stop_id,stop_code,stop_name,stop_lat,stop_lon\n43002,43002,Larkspur Ferry Terminal,37.945900,-122.508800\n43003,43003,San Francisco Ferry Building,37.795500,-122.393700\n',
+        'calendar.txt': muni.get('calendar.txt')!,
+        'trips.txt': 'route_id,service_id,trip_id,trip_headsign,direction_id,block_id,shape_id\nLARK,all,g0,,0,,\n',
+        'stop_times.txt': `trip_id,arrival_time,departure_time,stop_id,stop_sequence\n${run('g0', [['43002', 8 * 3600 + 600], ['43003', 8 * 3600 + 2400]])}\n`,
+      }),
+    ),
+  );
+  return network;
+}
+
 let schedule: Schedule;
 let crowded: Schedule;
+let named: Schedule;
 before(() => {
   const path = join(mkdtempSync(join(tmpdir(), 'trip-')), 'schedule.db');
   buildScheduleDatabase(feeds(), path);
@@ -122,10 +165,14 @@ before(() => {
   const crowdedPath = join(mkdtempSync(join(tmpdir(), 'crowded-')), 'schedule.db');
   buildScheduleDatabase(crowdedFeeds(), crowdedPath);
   crowded = new Schedule(crowdedPath);
+  const namedPath = join(mkdtempSync(join(tmpdir(), 'named-')), 'schedule.db');
+  buildScheduleDatabase(namedFeeds(), namedPath);
+  named = new Schedule(namedPath);
 });
 after(() => {
   schedule.close();
   crowded.close();
+  named.close();
 });
 
 // Trains b6 to b8 are live and on time. Bus m4 (scheduled 8:32) runs 2 minutes late, bus m5
@@ -614,4 +661,28 @@ test("a stop's arrivals list each route and direction there, soonest first, and 
   deepStrictEqual(station.rows.map(({ routes }) => routes.join(',')).sort(), ['BA:Yellow-S', 'SF:N']);
   ok(station.rows.every(({ stop }) => stop === 'BA:901209'));
   throws(() => stopArrivals(schedule, realtime(), 'SF:0', NOW), /No stop/);
+});
+
+test('every page names a direction as results do: a ferry by its last stop, a backtick as ’, and no "via"', () => {
+  const headsignOf = (rows: { routes: string[]; headsign: string }[], route: string) => rows.find(({ routes }) => routes.includes(route))?.headsign;
+  const near = nearby(named, realtime(), { lat: 37.752178, lon: -122.41855 }, 400, NOW).nearby;
+  deepStrictEqual([headsignOf(near, 'SF:F'), headsignOf(near, 'SF:M')], ['Fisherman’s Wharf', 'Balboa Park']);
+  deepStrictEqual(stopArrivals(named, realtime(), 'GF:43002', NOW).rows.map(({ headsign }) => headsign), ['San Francisco Ferry Building']);
+  const toward = (code: string) => search(named, code, { routes: false }).results.flatMap((result) => (result.type === 'stop' ? result.toward : []));
+  deepStrictEqual([toward('13486'), toward('13477'), toward('43002')], [['22nd St + Iowa St', 'Fisherman’s Wharf'], ['22nd St + Iowa St', 'Balboa Park'], ['San Francisco Ferry Building']]);
+  const [route] = search(named, 'M', { routes: true }).results.filter((result) => result.type === 'route');
+  deepStrictEqual(route?.directions.map(({ headsign }) => headsign), ['Balboa Park']);
+  // An M to Balboa Park via S.F. State goes where its group does, so it says nothing more.
+  const group = planTrip(named, realtime(), { from: 'SF:13477', to: 'route:SF:M' }, NOW).groups[0]!;
+  deepStrictEqual([group.headsign, group.departures.map(({ toward }) => toward ?? null)], ['Balboa Park', [null]]);
+});
+
+test('the live map names where a vehicle is going as results do, BART by the place its line ends', () => {
+  const headsign = (trip: string, stop: string) => trackVehicle(named, { vehicles: null }, { trip, stop }, NOW).headsign;
+  deepStrictEqual(
+    [headsign('BA:sfo', 'BA:901601'), headsign('BA:oak', 'BA:907201'), headsign('SF:f0', 'SF:13477'), headsign('SF:v0', 'SF:13477')],
+    ['SFO', 'Oakland Airport', 'Fisherman’s Wharf', 'Balboa Park'],
+  );
+  // Oakland's airport is no more SFO in results than on the map.
+  strictEqual(planTrip(named, realtime(), { from: 'BA:907209', to: 'route:BA:Grey-S' }, NOW).groups[0]?.headsign, 'Oakland Airport');
 });

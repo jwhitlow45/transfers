@@ -1,5 +1,5 @@
 import type { RouteSearchResult, RouteStops, SearchResponse, StopSearchResult } from '../../shared/api.ts';
-import { bartSiblings, destinationOf } from '../engine/links.ts';
+import { bartSiblings, headingOf, rankedHeadings } from '../engine/links.ts';
 import { routeView, stopView } from '../engine/views.ts';
 import { distanceMeters, type Point } from '../geo.ts';
 import { searchQuery, searchText } from '../gtfs/search-text.ts';
@@ -80,12 +80,13 @@ export function search(schedule: Schedule, text: string, options: { routes: bool
     }
     const routes = [...byName.values()];
     for (const route of routes) response.routes[routeKeyOf(route)] ??= routeView(route);
+    const leaving = (schedule.patternsByStop.get(stop.id) ?? []).filter(({ pattern, position }) => position < pattern.stops.length - 1).map(({ pattern }) => pattern);
     stopResults.push({
       type: 'stop',
       ...stopView(schedule, stop),
       routes: sortRoutes(routes).map(routeKeyOf),
       // BART's lines head everywhere, so its stations list lines, not headsigns.
-      toward: stop.access === 'bart' ? [] : [...new Set(served.map(({ headsign }) => headsign))].slice(0, 3),
+      toward: stop.access === 'bart' ? [] : rankedHeadings(schedule, leaving).slice(0, 3),
     });
   }
   // A route named exactly ("22") is almost surely what was meant. Place names also appear in
@@ -139,7 +140,7 @@ function routeStops(schedule: Schedule, route: RouteRow): RouteStops {
     .map(([id, patterns]) => {
       const busiest = [...patterns].sort((a, b) => b.trips - a.trips);
       const top = busiest[0]!;
-      const headsign = destinationOf(schedule, top);
+      const headsign = headingOf(schedule, top);
       const stations = new Set(mergeOrder(busiest.map(({ stops }) => stops)).map((stop) => schedule.stationOf(schedule.stop(stop))));
       const stops = [...stations].filter(isSearchable).map(
         (stop): StopSearchResult => ({ type: 'stop', ...stopView(schedule, stop), routes: [], toward: route.agency === 'BA' ? [] : [headsign] }),
@@ -196,7 +197,7 @@ function routeSummaries(schedule: Schedule, routes: RouteRow[]): RouteSearchResu
           const id = pattern.direction ?? 0;
           const current = directions.get(id);
           if (!current || pattern.trips > current.trips) {
-            directions.set(id, { id, name: schedule.directionName(member.id, pattern.direction), headsign: destinationOf(schedule, pattern), trips: pattern.trips });
+            directions.set(id, { id, name: schedule.directionName(member.id, pattern.direction), headsign: headingOf(schedule, pattern), trips: pattern.trips });
           }
         }
       }

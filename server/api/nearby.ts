@@ -1,5 +1,5 @@
 import type { NearbyArrival, NearbyResponse, NearbyStop, Schematic } from '../../shared/api.ts';
-import { type Link, destinationOf } from '../engine/links.ts';
+import { type Link, rankedHeading } from '../engine/links.ts';
 import { projector, shapePoints } from '../engine/shapes.ts';
 import type { RealtimeView } from '../engine/trip.ts';
 import { secondLegs } from '../engine/vehicles.ts';
@@ -16,15 +16,16 @@ const ARRIVALS_PER_STOP = 3;
 // something coming within the arrivals' horizon, so one whose nearest stop is idle, such as a
 // stop only a night variant serves, shows at the next. A route with nothing coming at any stop in
 // range is left out, making room for one farther off.
-type Candidate = { stop: StopRow; meters: number; route: number; direction: number | null; headsign: string; trips: number };
-export type BoardingRow = Candidate & { key: string; routes: number[] };
+type Candidate = { stop: StopRow; meters: number; route: number; direction: number | null; trips: number };
+export type BoardingRow = Candidate & { key: string; routes: number[]; headsign: string };
 
-// Each route and direction boarding at `stops`, a row each, with how far each stop is. BART riders
-// pick a platform, not a line, so lines through the same platform share a row, and `bartLines`
-// keeps each platform's own.
+// Each route and direction boarding at `stops`, a row each, with how far each stop is and where
+// it heads, as results name it. BART riders pick a platform, not a line, so lines through the same
+// platform share a row, and `bartLines` keeps each platform's own.
 export function boardingRows(schedule: Schedule, stops: Iterable<StopRow>, metersTo: (stop: StopRow) => number) {
   const rows: BoardingRow[] = [];
   const bartLines = new Map<number, Candidate[]>();
+  const leaving = (stop: number) => (schedule.patternsByStop.get(stop) ?? []).filter(({ pattern, position }) => position < pattern.stops.length - 1).map(({ pattern }) => pattern);
   for (const stop of stops) {
     // Vehicles stop at platforms and street stops, never at a station's own point.
     if (stop.kind !== 'stop' && stop.kind !== 'platform') continue;
@@ -32,25 +33,20 @@ export function boardingRows(schedule: Schedule, stops: Iterable<StopRow>, meter
     if (!Number.isFinite(meters)) continue;
     for (const served of schedule.stopRoutes.get(stop.id) ?? []) {
       const direction = served.direction === -1 ? null : served.direction;
+      const line = { stop, meters, route: served.route, direction, trips: served.trips };
       if (stop.access === 'bart') {
-        const lines = bartLines.get(stop.id) ?? [];
-        bartLines.set(stop.id, [...lines, { stop, meters, route: served.route, direction, headsign: served.headsign, trips: served.trips }]);
+        bartLines.set(stop.id, [...(bartLines.get(stop.id) ?? []), line]);
         continue;
       }
-      rows.push({ stop, meters, route: served.route, direction, headsign: served.headsign, trips: served.trips, key: `${served.route}|${direction}`, routes: [served.route] });
+      const patterns = leaving(stop.id).filter((pattern) => pattern.route === served.route && pattern.direction === direction);
+      rows.push({ ...line, key: `${served.route}|${direction}`, routes: [served.route], headsign: rankedHeading(schedule, patterns, [schedule.route(served.route)]) });
     }
   }
   for (const [platform, lines] of bartLines) {
     const busiest = [...lines].sort((a, b) => b.trips - a.trips);
-    // Where the lines end, as results name a BART direction: "Antioch, Dublin/Pleasanton, Richmond".
-    const ends = new Map<string, number>();
-    for (const { pattern } of schedule.patternsByStop.get(platform) ?? []) {
-      if (pattern.stops.at(-1) === platform) continue;
-      const end = destinationOf(schedule, pattern);
-      ends.set(end, (ends.get(end) ?? 0) + pattern.trips);
-    }
-    const headsign = [...ends].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([end]) => end).join(', ');
-    rows.push({ ...busiest[0]!, key: `bart|${platform}`, routes: [...new Set(busiest.map(({ route }) => route))], headsign });
+    const routes = [...new Set(busiest.map(({ route }) => route))];
+    // Where every line through the platform goes: "Antioch, Dublin/Pleasanton, Richmond".
+    rows.push({ ...busiest[0]!, key: `bart|${platform}`, routes, headsign: rankedHeading(schedule, leaving(platform), routes.map((id) => schedule.route(id))) });
   }
   return { rows, bartLines };
 }

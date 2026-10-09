@@ -2,6 +2,7 @@ import type { TrackLeg, TrackResponse } from '../../shared/api.ts';
 import { bearingDegrees, distanceMeters, type Point } from '../geo.ts';
 import type { RtStopTime, RtTrip, RtVehicle, TripSnapshot, VehicleSnapshot } from '../realtime/snapshot.ts';
 import type { Schedule, StopRow } from '../schedule.ts';
+import { headingOf } from './links.ts';
 import { projector, shapePoints } from './shapes.ts';
 import { RequestError } from './trip.ts';
 import { Tables } from './views.ts';
@@ -185,7 +186,7 @@ function drawLeg(schedule: Schedule, leg: Leg, project: (point: Point) => [numbe
   if (final && line.at(-1) !== final) line.push(final);
   return {
     route: tables.route(schedule.route(pattern.route)),
-    headsign: trip.headsign || pattern.headsign,
+    headsign: headingOf(schedule, pattern, trip.headsign),
     target: tables.stop(schedule.stationOf(target)),
     path: shown.map((stop, index) => {
       const [x, y] = project(stop);

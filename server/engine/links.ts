@@ -555,32 +555,41 @@ export function bartSiblings(schedule: Schedule, route: RouteRow) {
   return [...schedule.routes.values()].filter((other) => other.agency === 'BA' && other.shortName.replace(/-[NS]$/, '') === line);
 }
 
-// Where a group's vehicles are going, as riders read it. BART's own headsigns name stations
-// behind the rider ("SFO / SF / Antioch" on every northbound Yellow train), so BART uses each
-// line's last stop. Ferries publish no headsign, so they use the last stop too.
-function headsignFor(schedule: Schedule, target: Target) {
-  const counts = new Map<string, number>();
-  for (const { pattern } of target.stops.flatMap(({ patterns }) => patterns)) {
-    // "Balboa Park via S.F. State" is still Balboa Park for a heading.
-    const name = destinationOf(schedule, pattern).replace(/ via .*$/, '');
-    counts.set(name, (counts.get(name) ?? 0) + pattern.trips);
-  }
-  const ranked = [...counts].sort((a, b) => b[1] - a[1]).map(([name]) => name);
-  if (target.routes.length === 1 && target.routes[0]!.agency !== 'BA') return ranked[0] ?? '';
+const headsignFor = (schedule: Schedule, target: Target) => rankedHeading(schedule, target.stops.flatMap(({ patterns }) => patterns.map(({ pattern }) => pattern)), target.routes);
+
+// Where a group's vehicles are going, as every page names a direction: the busiest place for one
+// route, and up to four for BART or a platform's lines together, which head several ways. A
+// pattern listed once for each stop it boards at counts once for each.
+export function rankedHeading(schedule: Schedule, patterns: PatternRow[], routes: RouteRow[]) {
+  const ranked = rankedHeadings(schedule, patterns);
+  if (routes.length === 1 && routes[0]!.agency !== 'BA') return ranked[0] ?? '';
   return ranked.slice(0, 4).join(', ');
 }
 
-// Where one pattern, or one trip with its own headsign, is going.
-export function destinationOf(schedule: Schedule, pattern: PatternRow, headsign = pattern.headsign) {
-  const route = schedule.route(pattern.route);
-  if (route.agency !== 'BA' && headsign.trim()) return headsign.replace(/`/g, '’');
-  const last = schedule.stop(pattern.stops.at(-1)!);
-  return route.agency === 'BA' ? bartPlace(schedule.stationOf(last).name) : last.name.replace(/`/g, '’');
+// Each place the patterns go, busiest first by trips.
+export function rankedHeadings(schedule: Schedule, patterns: PatternRow[]) {
+  const counts = new Map<string, number>();
+  for (const pattern of patterns) {
+    const name = headingOf(schedule, pattern);
+    counts.set(name, (counts.get(name) ?? 0) + pattern.trips);
+  }
+  return [...counts].sort((a, b) => b[1] - a[1]).map(([name]) => name);
 }
 
-// BART station names as a destination: "SFO", "Millbrae", "Berryessa".
+// Where one pattern, or one trip with its own headsign, is going, as riders read it. BART's own
+// headsigns name stations behind the rider ("SFO / SF / Antioch" on every northbound Yellow
+// train), so BART uses the line's last stop. Ferries publish no headsign, so they use the last
+// stop too. "Balboa Park via S.F. State" is still Balboa Park.
+export function headingOf(schedule: Schedule, pattern: PatternRow, headsign = pattern.headsign) {
+  const route = schedule.route(pattern.route);
+  const last = schedule.stop(pattern.stops.at(-1)!);
+  const name = route.agency === 'BA' ? bartPlace(schedule.stationOf(last).name) : headsign.trim() ? headsign : last.name;
+  return name.replace(/`/g, '’').replace(/ via .*$/, '');
+}
+
+// BART station names as a destination: "SFO", "Oakland Airport", "Millbrae", "Berryessa".
 function bartPlace(name: string) {
-  if (/International Airport/.test(name)) return 'SFO';
-  const place = name.replace(/\s*\(.*\)$/, '').replace(/\s*\/\s*/g, '/');
+  if (/^San Francisco International Airport/.test(name)) return 'SFO';
+  const place = name.replace(/ International Airport$/, ' Airport').replace(/\s*\(.*\)$/, '').replace(/\s*\/\s*/g, '/');
   return place === 'Berryessa/North San Jose' ? 'Berryessa' : place;
 }

@@ -2,7 +2,7 @@ import type { RtTrip, TripSnapshot } from '../realtime/snapshot.ts';
 import { stopKey, tripKey } from '../realtime/snapshot.ts';
 import { type PatternRow, type Schedule, type StopRow, routeKeyOf, stopKeyOf } from '../schedule.ts';
 import type { FirstLeg, SecondLeg } from './connections.ts';
-import { type Link, destinationOf } from './links.ts';
+import { type Link, headingOf } from './links.ts';
 
 export type VehicleContext = {
   schedule: Schedule;
@@ -149,7 +149,7 @@ export function secondLegs(context: VehicleContext, link: Link, destinationStops
       const leg: SecondLeg = {
         trip: tripKey(trip.agency, trip.tripId),
         route: routeKeyOf(schedule.route(routeId)),
-        ...(pattern ? { toward: destinationOf(schedule, pattern, staticTrip?.headsign) } : {}),
+        ...(pattern ? { toward: headingOf(schedule, pattern, staticTrip?.headsign) } : {}),
         at: at.at,
         delay: at.delay,
         live: true,
@@ -185,7 +185,7 @@ export function secondLegs(context: VehicleContext, link: Link, destinationStops
         legs.set(trip.key, {
           trip: trip.key,
           route: routeKeyOf(schedule.route(pattern.route)),
-          toward: destinationOf(schedule, pattern, staticTrip.headsign),
+          toward: headingOf(schedule, pattern, staticTrip.headsign),
           at: at.at,
           delay: at.delay,
           live: true,
@@ -200,7 +200,7 @@ export function secondLegs(context: VehicleContext, link: Link, destinationStops
       const leg: SecondLeg = {
         trip: trip.key,
         route: routeKeyOf(schedule.route(pattern.route)),
-        toward: destinationOf(schedule, pattern, schedule.trips.get(trip.key)?.headsign),
+        toward: headingOf(schedule, pattern, schedule.trips.get(trip.key)?.headsign),
         at: at.arrival,
         delay: null,
         // Past its predictions, a running trip has only its timetable time. A canceled one is live news.
