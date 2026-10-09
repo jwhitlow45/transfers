@@ -15,9 +15,9 @@ import { stopLetterColor } from '../lib/color.ts';
 import { ageText, clockSkewMs, freshness } from '../lib/freshness.ts';
 import { type LocationProblem, type Position, locate, locationProblemText, takeHanded } from '../lib/location.ts';
 import { useSwipeBack } from '../gestures.ts';
-import { goBack, navigate } from '../router.ts';
+import { goBack, navigate, stopPath } from '../router.ts';
 import { TimeLink } from '../track.tsx';
-import { agencyName, chipLabel, directionText, shortStopName, statusOf } from '../view.ts';
+import { agencyName, chipLabel, directionText, shortStopName, statusOf, stopLabel } from '../view.ts';
 import type { Picked } from './SearchScreen.tsx';
 
 type Located = { state: 'idle' | 'asking' | LocationProblem } | { state: 'found'; position: Position };
@@ -185,6 +185,12 @@ function NearbyResults({ position, onRelocate }: { position: Position; onRelocat
                     <button type="button" class="tf-btn-outline tf-btn-secondary" onClick={() => pick(row, 'to')}>
                       Transfer here
                     </button>
+                    {/* The stop's every route and direction, with no transfer (J, 2026-10-09). */}
+                    {stop && (
+                      <a class="tf-btn-outline tf-btn-secondary" href={stopPath({ from: stop.key, fromLabel: stopLabel(stop) })} onClick={(event) => (event.preventDefault(), navigate(stopPath({ from: stop.key, fromLabel: stopLabel(stop) })))}>
+                        Arrivals
+                      </a>
+                    )}
                   </div>
                 </article>
               );

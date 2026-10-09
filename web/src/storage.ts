@@ -122,6 +122,11 @@ export type RecentSearch = Search & { at: number; via?: string };
 
 export const searchId = (search: Search) => `${search.from}>${search.to}`;
 
+// A stop's arrivals, with no transfer (J, 2026-10-09), kept as a search with no To, so saving it,
+// pinning one of its arrivals, and its place among recent searches work as for a trip.
+export const stopSearch = (stop: string, label: string): Search => ({ from: stop, to: '', fromLabel: label, toLabel: '' });
+export const isStopSearch = (search: Pick<Search, 'to'>) => search.to === '';
+
 // A trip pinned to a search's results, kept until the rider unpins it or, with that setting on,
 // a while after it ends. The vehicle to transfer to and where it is boarded, with the first
 // vehicle and where it is left unless the route is already at From, each with when it was
@@ -132,7 +137,9 @@ export const searchId = (search: Search) => `${search.from}>${search.to}`;
 // vehicle.
 // `search` is the search it is pinned to as it stands now, so Home can show the pin and open its
 // results. Pins saved before it was kept lack it. `last` is the trip's times as last seen.
-export type Pin = PinRequest & { ends: number; search?: Search; last?: PinnedTrip };
+// An arrival pinned at a stop, with no transfer, has no first vehicle, and `arrival` keeps what its
+// card says while the stop's times are away: the route and where it is going.
+export type Pin = PinRequest & { ends: number; search?: Search; last?: PinnedTrip; arrival?: { route: string; headsign: string } };
 
 export function loadPin(search: Search): Pin | null {
   return read<Record<string, Pin>>('pins', {})[searchId(search)] ?? null;

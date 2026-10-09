@@ -17,12 +17,15 @@ export type Needs = { elevators: boolean; escalators: boolean };
 // station access. Info: everything else, such as agency-wide notices. An alert about an elevator
 // or escalator the rider relies on counts as severe. BART's own elevator and escalator outages
 // are not notices: the results tag them where they matter (see Outages.tsx).
-export function viewAlerts(data: TripResponse, boardingStops: Set<string>, needs: Needs = { elevators: false, escalators: false }): ViewAlert[] {
+// What naming an alert takes from a page's answer: a trip's, or a stop's arrivals.
+type AlertData = Pick<TripResponse, 'alerts' | 'routes' | 'stops'>;
+
+export function viewAlerts(data: AlertData, boardingStops: Set<string>, needs: Needs = { elevators: false, escalators: false }): ViewAlert[] {
   const order: Record<Severity, number> = { severe: 0, warning: 1, info: 2 };
   return data.alerts.map((alert) => toView(alert, data, boardingStops, needs)).sort((a, b) => order[a.severity] - order[b.severity]);
 }
 
-function toView(alert: Alert, data: TripResponse, boardingStops: Set<string>, needs: Needs): ViewAlert {
+function toView(alert: Alert, data: AlertData, boardingStops: Set<string>, needs: Needs): ViewAlert {
   // A platform the page does not know is named by its agency, never by its key.
   const stopName = (key: string | undefined) => shortStopName(key ? data.stops[key] : undefined, agencyOnly(alert.agency));
   const routeNames = alert.routes.map((key) => (data.routes[key] ? chipLabel(data.routes[key]!) : key)).join(', ');

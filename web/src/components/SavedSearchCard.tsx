@@ -1,3 +1,4 @@
+import type { ComponentChildren } from 'preact';
 import { useRef, useState } from 'preact/hooks';
 import { clock } from '../format.ts';
 import { IconPencil, IconPin, IconTransfer, IconWarn } from '../icons/ui.tsx';
@@ -10,23 +11,9 @@ import { typeWithoutUndo } from '../typing.ts';
 
 // The main daily entry point: one tap opens results, and it leads with a live countdown. The
 // color stripe tells saved searches apart at a glance, and the pencil edits name and color.
-export function SavedSearchCard({ name, color, chain, named, windowText, next, loading, severeAlerts, nextService, staleText, unavailable = false, href, onOpen, onEdit, onRemove, onMove, canMoveUp = false, canMoveDown = false, pinned = false, onPin }: {
+export function SavedSearchCard({ name, color, href, onOpen, onEdit, onRemove, onMove, canMoveUp = false, canMoveDown = false, pin, children }: {
   name: string;
   color: string | undefined;
-  chain: string;
-  // Whether to show the trip under the name: when the rider renamed the search, or when the trip
-  // names a stop to get off at that the default name leaves out.
-  named: boolean;
-  windowText: string | null;
-  next: NextConnection | null;
-  loading: boolean;
-  severeAlerts: number;
-  // When the routes start again, if the answer is that none is running (summarize's nextService).
-  nextService?: string | null;
-  // Set when the live times behind the countdown are over a minute old.
-  staleText: string | null;
-  // No times to show, as the phone is offline and has none stored.
-  unavailable?: boolean;
   href: string;
   onOpen: () => void;
   onEdit: (change: { name: string; color: string | undefined }) => void;
@@ -35,10 +22,13 @@ export function SavedSearchCard({ name, color, chain, named, windowText, next, l
   onMove?: (step: -1 | 1) => void;
   canMoveUp?: boolean;
   canMoveDown?: boolean;
-  // Pins the connection the card shows. Whether that connection is the trip pinned for this search,
-  // which the pin button then unpins.
-  pinned?: boolean;
-  onPin?: (pin: Pin | null) => void;
+  // Pins what the card shows next, there before its times arrive, if dimmed until then, so the
+  // name does not rewrap when it can be used. `pinned` is whether that is the trip pinned for this
+  // search, which the button then unpins.
+  pin?: { pinned: boolean; ready: boolean; label: string; toggle: () => void };
+  // What the card shows, which opens its page: a trip's next connection (SavedTripBody), or a
+  // stop's arrivals.
+  children: ComponentChildren;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ name, color });
@@ -63,7 +53,6 @@ export function SavedSearchCard({ name, color, chain, named, windowText, next, l
       if (refocus) (element.querySelector<HTMLElement>(`[data-move="${refocus}"]`) ?? element.querySelector<HTMLElement>('[data-move]'))?.focus();
     });
   };
-  const now = next !== null && next.minutes < 1;
   // The color picked shows on the card's stripe while the rider picks.
   const shownColor = editing ? draft.color : color;
   return (
@@ -82,17 +71,16 @@ export function SavedSearchCard({ name, color, chain, named, windowText, next, l
         ) : (
           <h3 class="tf-saved__name">{name}</h3>
         )}
-        {/* There before times arrive, if dimmed, so the name does not rewrap when it can be used. */}
-        {!editing && onPin && (
+        {!editing && pin && (
           <button
             type="button"
-            class={`tf-btn-icon ${pinned ? 'tf-saved__pinned' : 'tf-muted'}`}
-            disabled={!next}
-            onClick={() => next && inPlace(() => onPin(pinned ? null : next.pin))}
-            aria-pressed={pinned}
-            aria-label={`Pin the next connection for ${name}`}
+            class={`tf-btn-icon ${pin.pinned ? 'tf-saved__pinned' : 'tf-muted'}`}
+            disabled={!pin.ready}
+            onClick={() => pin.ready && inPlace(pin.toggle)}
+            aria-pressed={pin.pinned}
+            aria-label={pin.label}
           >
-            <IconPin size={18} filled={pinned} />
+            <IconPin size={18} filled={pin.pinned} />
           </button>
         )}
         {!editing && (
@@ -156,96 +144,122 @@ export function SavedSearchCard({ name, color, chain, named, windowText, next, l
             onOpen();
           }}
         >
-          {(named || windowText || loading) && (
-            <span class="tf-saved__chain">
-              {named && <span>{chain}</span>}
-              {windowText ? (
-                <span class="tf-saved__window">
-                  <span class="tf-sr">Transfer window </span>
-                  <IconTransfer />
-                  {windowText}
-                </span>
-              ) : (
-                loading && <span class="tf-skeleton__text" style={{ width: '4.5em' }} />
-              )}
-            </span>
-          )}
-          {/* The countdown column of a results row, with the connection to its right: each vehicle
-              on a line of its own, and the transfer between them, so nothing wraps. */}
-          <span class="tf-saved__row">
-            <span class="tf-saved__count">
-              <span class="tf-row__lead">{!next ? (loading ? 'Checking' : unavailable ? 'Offline' : 'No connection') : now ? 'Arriving' : 'Arrives in'}</span>
-              {next && (
-                <span class="tf-saved__amount">
-                  <span class="tf-row__num">{now ? 'Now' : next.minutes}</span>
-                  {!now && <span class="tf-row__unit">min</span>}
-                </span>
-              )}
-              {loading && <span class="tf-row__num tf-skeleton__text" style={{ width: '2em', height: '1em' }} />}
-              {loading && <span class="tf-saved__then tf-skeleton__text" style={{ width: '5em' }} />}
-              {/* Under the countdown it goes on from, not under the transfer, which it would seem
-                  to be about there, on one line, as the "min" above it says what the numbers are
-                  (J, 2026-10-08). */}
-              {next && next.later.length > 0 && (
-                <span class="tf-saved__then">
-                  then {next.later.join(', ')}
-                  <span class="tf-sr"> min</span>
-                </span>
-              )}
-            </span>
-            {next ? (
-              <span class="tf-saved__next">
-                <span class="tf-sr">{next.line}</span>
-                <span class="tf-saved__drawn" aria-hidden="true">
-                  {next.legs.map((leg, index) => [
-                    index > 0 && next.transfer !== null && (
-                      <span key={`xfer${index}`} class="tf-saved__xfer">
-                        <IconTransfer />
-                        {next.transfer} min transfer
-                      </span>
-                    ),
-                    <span key={`leg${index}`} class="tf-saved__leg">
-                      <RouteChip route={leg.route} size="sm" />
-                      <span class="tf-saved__time">{clock(leg.at)}</span>
-                      <StatusTag status={leg.status} plain />
-                    </span>,
-                  ])}
-                  {next.transfer === null && <span class="tf-saved__xfer">No transfer needed</span>}
-                </span>
-              </span>
-            ) : loading ? (
-              // Until the first answer, the shape of one, so the card opens at the height it keeps
-              // rather than growing under the rider's thumb.
-              <span class="tf-saved__next">
-                <span class="tf-sr">Getting live predictions…</span>
-                <span class="tf-saved__drawn" aria-hidden="true">
-                  <span class="tf-saved__time tf-skeleton__text" style={{ width: '10em' }} />
-                  <span class="tf-saved__time tf-skeleton__text tf-saved__status-line" style={{ width: '5em' }} />
-                  <span class="tf-saved__xfer tf-skeleton__text" style={{ width: '9em' }} />
-                  <span class="tf-saved__time tf-skeleton__text" style={{ width: '10em' }} />
-                  <span class="tf-saved__time tf-skeleton__text tf-saved__status-line" style={{ width: '5em' }} />
-                </span>
-              </span>
-            ) : (
-              <span class="tf-saved__next tf-muted">
-                {unavailable ? 'Times can’t load right now' : nextService ? `Next service ${nextService}` : 'Open to widen the window'}
-              </span>
-            )}
-          </span>
-          {staleText && (
-            <span class="tf-saved__stale">
-              <IconWarn size={14} />
-              {staleText}
-            </span>
-          )}
-          {severeAlerts > 0 && (
-            <span class="tf-saved__alert">
-              <IconWarn size={14} />
-              {severeAlerts === 1 ? '1 alert' : `${severeAlerts} alerts`} at your boarding or transfer stop
-            </span>
-          )}
+          {children}
         </a>
       )}
     </div>
+  );
+}
+
+// A saved trip's card body: the next connection as a countdown, with later ones under it, each
+// vehicle and the transfer between them, and what is wrong when there is none.
+export function SavedTripBody({ chain, named, windowText, next, loading, severeAlerts, nextService, staleText, unavailable = false }: {
+  chain: string;
+  // Whether to show the trip under the name: when the rider renamed the search, or when the trip
+  // names a stop to get off at that the default name leaves out.
+  named: boolean;
+  windowText: string | null;
+  next: NextConnection | null;
+  loading: boolean;
+  severeAlerts: number;
+  // When the routes start again, if the answer is that none is running (summarize's nextService).
+  nextService?: string | null;
+  // Set when the live times behind the countdown are over a minute old.
+  staleText: string | null;
+  // No times to show, as the phone is offline and has none stored.
+  unavailable?: boolean;
+}) {
+  const now = next !== null && next.minutes < 1;
+  return (
+    <>
+      {(named || windowText || loading) && (
+        <span class="tf-saved__chain">
+          {named && <span>{chain}</span>}
+          {windowText ? (
+            <span class="tf-saved__window">
+              <span class="tf-sr">Transfer window </span>
+              <IconTransfer />
+              {windowText}
+            </span>
+          ) : (
+            loading && <span class="tf-skeleton__text" style={{ width: '4.5em' }} />
+          )}
+        </span>
+      )}
+      {/* The countdown column of a results row, with the connection to its right: each vehicle
+          on a line of its own, and the transfer between them, so nothing wraps. */}
+      <span class="tf-saved__row">
+        <span class="tf-saved__count">
+          <span class="tf-row__lead">{!next ? (loading ? 'Checking' : unavailable ? 'Offline' : 'No connection') : now ? 'Arriving' : 'Arrives in'}</span>
+          {next && (
+            <span class="tf-saved__amount">
+              <span class="tf-row__num">{now ? 'Now' : next.minutes}</span>
+              {!now && <span class="tf-row__unit">min</span>}
+            </span>
+          )}
+          {loading && <span class="tf-row__num tf-skeleton__text" style={{ width: '2em', height: '1em' }} />}
+          {loading && <span class="tf-saved__then tf-skeleton__text" style={{ width: '5em' }} />}
+          {/* Under the countdown it goes on from, not under the transfer, which it would seem
+              to be about there, on one line, as the "min" above it says what the numbers are
+              (J, 2026-10-08). */}
+          {next && next.later.length > 0 && (
+            <span class="tf-saved__then">
+              then {next.later.join(', ')}
+              <span class="tf-sr"> min</span>
+            </span>
+          )}
+        </span>
+        {next ? (
+          <span class="tf-saved__next">
+            <span class="tf-sr">{next.line}</span>
+            <span class="tf-saved__drawn" aria-hidden="true">
+              {next.legs.map((leg, index) => [
+                index > 0 && next.transfer !== null && (
+                  <span key={`xfer${index}`} class="tf-saved__xfer">
+                    <IconTransfer />
+                    {next.transfer} min transfer
+                  </span>
+                ),
+                <span key={`leg${index}`} class="tf-saved__leg">
+                  <RouteChip route={leg.route} size="sm" />
+                  <span class="tf-saved__time">{clock(leg.at)}</span>
+                  <StatusTag status={leg.status} plain />
+                </span>,
+              ])}
+              {next.transfer === null && <span class="tf-saved__xfer">No transfer needed</span>}
+            </span>
+          </span>
+        ) : loading ? (
+          // Until the first answer, the shape of one, so the card opens at the height it keeps
+          // rather than growing under the rider's thumb.
+          <span class="tf-saved__next">
+            <span class="tf-sr">Getting live predictions…</span>
+            <span class="tf-saved__drawn" aria-hidden="true">
+              <span class="tf-saved__time tf-skeleton__text" style={{ width: '10em' }} />
+              <span class="tf-saved__time tf-skeleton__text tf-saved__status-line" style={{ width: '5em' }} />
+              <span class="tf-saved__xfer tf-skeleton__text" style={{ width: '9em' }} />
+              <span class="tf-saved__time tf-skeleton__text" style={{ width: '10em' }} />
+              <span class="tf-saved__time tf-skeleton__text tf-saved__status-line" style={{ width: '5em' }} />
+            </span>
+          </span>
+        ) : (
+          <span class="tf-saved__next tf-muted">
+            {unavailable ? 'Times can’t load right now' : nextService ? `Next service ${nextService}` : 'Open to widen the window'}
+          </span>
+        )}
+      </span>
+      {staleText && (
+        <span class="tf-saved__stale">
+          <IconWarn size={14} />
+          {staleText}
+        </span>
+      )}
+      {severeAlerts > 0 && (
+        <span class="tf-saved__alert">
+          <IconWarn size={14} />
+          {severeAlerts === 1 ? '1 alert' : `${severeAlerts} alerts`} at your boarding or transfer stop
+        </span>
+      )}
+    </>
   );
 }

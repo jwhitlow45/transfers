@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { getJson } from './api.ts';
 import { usePeeking } from './gestures.ts';
 import { useScreenActive } from './layers.ts';
-import type { TripResponse } from '../../shared/api.ts';
+import type { StopResponse, TripResponse } from '../../shared/api.ts';
 import { pinnedEnd, pinnedNow, samePin } from './lib/pinned.ts';
+import { pinnedArrival } from './lib/stop-pins.ts';
 import { type DeviceSettings, type Pin, type Search, loadCached, loadPin, saveCached } from './storage.ts';
 
 // The device clock, ticking every second so countdowns move offline too.
@@ -234,4 +235,29 @@ export function usePinnedTrip(pin: Pin | null, data: TripResponse | null, answer
     if (expired) changeOwn(null);
   }, [expired, active]);
   return { pinned, unpinAt, expired };
+}
+
+// An arrival pinned at a stop as it comes (see stopPinOf): keeps its end as the latest times move
+// it, and unpins it the set time after it arrives, with that setting on, as usePinnedTrip does a
+// trip, and on the same terms: only once `answered`, and only by the screen showing while the pin
+// is still the one stored.
+export function useStopPin(pin: Pin | null, data: StopResponse | null, answered: boolean, search: Search, settings: DeviceSettings, now: number, change: (pin: Pin | null) => void) {
+  const found = pin ? pinnedArrival(pin, data) : null;
+  const seen = found?.arrival.at ?? null;
+  const active = useScreenActive();
+  const changeOwn = (next: Pin | null) => {
+    const stored = loadPin(search);
+    if (active && pin && stored && samePin(stored, pin)) change(next);
+  };
+  useEffect(() => {
+    if (!answered || !pin || seen === null || seen === pin.ends) return;
+    changeOwn({ ...pin, ends: seen });
+  }, [seen, active, answered]);
+  const end = seen ?? pin?.ends ?? null;
+  const unpinAt = pin && settings.autoUnpin && end !== null ? (end + settings.unpinAfter * 60) * 1000 : null;
+  const expired = answered && unpinAt !== null && now >= unpinAt;
+  useEffect(() => {
+    if (expired) changeOwn(null);
+  }, [expired, active]);
+  return { found, unpinAt, expired };
 }

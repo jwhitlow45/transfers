@@ -1,15 +1,23 @@
 import { useEffect, useState } from 'preact/hooks';
-import { type Search, clampMinutes } from './storage.ts';
+import { type Search, clampMinutes, isStopSearch, stopSearch } from './storage.ts';
 
 export type Page =
   | { name: 'home' }
   | { name: 'trip'; search: Search }
+  // A stop's arrivals, its search with no To (see stopSearch).
+  | { name: 'stop'; search: Search }
   | { name: 'nearby' }
   | { name: 'settings' }
   | { name: 'notices' };
 
 // Trip links carry the whole search, so a saved link or home screen shortcut opens it directly:
 // /t/BA:901209/SF:13477?min=3&max=12
+// A stop's arrivals: /stop/SF:13477?fl=24th+St+%26+Mission+St+(13477)
+export const stopPath = (search: Pick<Search, 'from' | 'fromLabel'>) => `/stop/${encodeURIComponent(search.from)}?${new URLSearchParams({ fl: search.fromLabel })}`;
+
+// A trip's own address, or a stop's for a search with no To.
+export const searchPath = (search: Search) => (isStopSearch(search) ? stopPath(search) : tripPath(search));
+
 export function tripPath(search: Search) {
   const params = new URLSearchParams();
   params.set('fl', search.fromLabel);
@@ -64,6 +72,11 @@ export function parsePage(location: Location): Page {
     if (fromSystem) search.fromSystem = fromSystem;
     if (toSystem) search.toSystem = toSystem;
     return { name: 'trip', search };
+  }
+  const stop = location.pathname.match(/^\/stop\/([^/]+)$/);
+  if (stop) {
+    const key = decodeURIComponent(stop[1]!);
+    return { name: 'stop', search: stopSearch(key, new URLSearchParams(location.search).get('fl') ?? key) };
   }
   if (location.pathname === '/nearby') return { name: 'nearby' };
   if (location.pathname === '/settings') return { name: 'settings' };

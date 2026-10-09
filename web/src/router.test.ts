@@ -194,3 +194,16 @@ test('a page put in place of one with no sheet open replaces it', async () => {
   strictEqual(currentDepth(), 1);
   strictEqual(history.length, 2);
 });
+
+test("a stop's arrivals have an address of their own, a search with no To", async () => {
+  const history = new FakeHistory();
+  const { parsePage, stopPath, searchPath } = await load(history, { getItem: () => null, setItem: () => {} });
+  const path = stopPath({ from: 'SF:13477', fromLabel: '24th St & Mission St (13477)' });
+  strictEqual(path, '/stop/SF%3A13477?fl=24th+St+%26+Mission+St+%2813477%29');
+  deepStrictEqual(parsePage(new URL(path, 'https://transfers.test') as unknown as Location), {
+    name: 'stop',
+    search: { from: 'SF:13477', to: '', fromLabel: '24th St & Mission St (13477)', toLabel: '' },
+  });
+  strictEqual(searchPath({ from: 'SF:13477', to: '', fromLabel: 'a', toLabel: '' }), '/stop/SF%3A13477?fl=a');
+  strictEqual(searchPath({ from: 'SF:13477', to: 'SF:13517', fromLabel: 'a', toLabel: 'b' }), '/t/SF%3A13477/SF%3A13517?fl=a&tl=b');
+});

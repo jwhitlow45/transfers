@@ -10,12 +10,13 @@ import { IconBack, IconBookmark, IconSliders } from '../icons/ui.tsx';
 // `children` sit just above the bar, such as a toast, and slide with it when swiping back.
 // `failed` says the trip has no results to set or save, such as for a stop no longer in the
 // schedule. A search saved before then can still be removed.
+// A stop's arrivals have no trip settings, so without `onOpen` the bar has back and save alone.
 export function BottomBar({ windowText, saved, failed = false, onBack, onOpen, onToggleSaved, children }: {
   windowText: string | null;
   saved: boolean;
   failed?: boolean;
   onBack: () => void;
-  onOpen: () => void;
+  onOpen?: () => void;
   onToggleSaved: () => void;
   children?: ComponentChildren;
 }) {
@@ -26,7 +27,8 @@ export function BottomBar({ windowText, saved, failed = false, onBack, onOpen, o
         <button type="button" class="tf-btn-outline tf-bottombar__icon" onClick={onBack} aria-label="Back to search">
           <IconBack />
         </button>
-        <button type="button" class="tf-btn-outline tf-bottombar__open" disabled={failed} onClick={onOpen}>
+        {!onOpen && <span class="tf-bottombar__fill" />}
+        {onOpen && <button type="button" class="tf-btn-outline tf-bottombar__open" disabled={failed} onClick={onOpen}>
           {/* The name stays when the narrowest screens hide the visible label. */}
           <span class="tf-sr">{windowText === null ? 'Trip settings' : 'Trip settings: '}</span>
           {windowText === null ? (
@@ -44,7 +46,7 @@ export function BottomBar({ windowText, saved, failed = false, onBack, onOpen, o
             {windowText !== null && <strong>{windowText}</strong>}
             <IconSliders />
           </span>
-        </button>
+        </button>}
         <button type="button" class="tf-btn-outline tf-bottombar__icon" disabled={failed && !saved} aria-pressed={saved} aria-label={saved ? 'Saved. Remove from saved searches' : 'Save this search'} onClick={onToggleSaved}>
           <IconBookmark filled={saved} />
         </button>

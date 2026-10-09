@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import type { SearchResponse, TripResponse } from '../../../shared/api.ts';
+import type { SearchResponse, StopResponse, TripResponse } from '../../../shared/api.ts';
 import { getJson } from '../api.ts';
 import { Collapse } from '../components/Collapse.tsx';
 import { DataCredit } from '../components/DataCredit.tsx';
 import { RecentList } from '../components/RecentList.tsx';
 import { OpenTrip, PinnedCard } from '../components/PinnedCard.tsx';
-import { SavedSearchCard } from '../components/SavedSearchCard.tsx';
+import { SavedSearchCard, SavedTripBody } from '../components/SavedSearchCard.tsx';
 import { SearchFields } from '../components/SearchFields.tsx';
 import { type SearchHit, StopResults, hitMeta, hitName } from '../components/StopResults.tsx';
 import { Toast, type ToastMessage } from '../components/Toast.tsx';
 import { ScreenHeader } from '../components/ResultsHeader.tsx';
-import { clock } from '../format.ts';
-import { useNow, usePinnedTrip, usePoll } from '../hooks.ts';
-import { IconChevron, IconClose, IconGear, IconLocation, IconPin } from '../icons/ui.tsx';
+import { clock, minutesUntil } from '../format.ts';
+import { useNow, usePinnedTrip, usePoll, useStopPin } from '../hooks.ts';
+import { IconChevron, IconClose, IconGear, IconLocation, IconPin, IconWarn } from '../icons/ui.tsx';
 import { defaultSavedColor } from '../lib/color.ts';
 import { ringsBell } from '../lib/eggs.ts';
 import { samePin } from '../lib/pinned.ts';
@@ -23,12 +23,16 @@ import { summarize } from '../lib/summary.ts';
 import { tapForGerbils } from '../gerbils.ts';
 import { motionOff } from '../gestures.ts';
 import { useScreenActive, useShownAgain } from '../layers.ts';
-import { navigate, tripPath } from '../router.ts';
+import { navigate, searchPath, stopPath, tripPath } from '../router.ts';
+import { stopApiUrl } from '../lib/stop-pins.ts';
+import { StopPinCard } from '../components/StopPinCard.tsx';
+import { RouteChip } from '../components/RouteChip.tsx';
 import { tripApiUrl, useSettings } from '../settings.tsx';
 import {
   type Pin,
   type SavedSearch,
   type Search,
+  isStopSearch,
   loadDismissed,
   loadFields,
   loadPin,
@@ -238,6 +242,7 @@ export function SearchScreen() {
     if (field) advance(field, picked);
   };
   const open = (fromPicked: Picked, toPicked: Picked) => navigate(tripPath({ from: fromPicked.key, to: toPicked.key, fromLabel: fromPicked.short, toLabel: toPicked.short }));
+  const showArrivals = () => from.picked && navigate(stopPath({ from: from.picked.key, fromLabel: from.picked.short }));
   const go = () => {
     if (from.picked && to.picked) open(from.picked, to.picked);
   };
@@ -309,9 +314,10 @@ export function SearchScreen() {
     .filter((search) => !saved.some((item) => item.id === searchId(search)))
     .map((search) => ({
       id: searchId(search),
-      label: `${search.fromLabel} → ${search.toLabel}`,
-      sub: [search.via && `via ${search.via}`, dayLabel(search.at, now)].filter(Boolean).join(' · '),
-      href: tripPath(search),
+      // A stop's arrivals go by the stop alone.
+      label: isStopSearch(search) ? search.fromLabel : `${search.fromLabel} → ${search.toLabel}`,
+      sub: [isStopSearch(search) && 'Arrivals', search.via && `via ${search.via}`, dayLabel(search.at, now)].filter(Boolean).join(' · '),
+      href: searchPath(search),
     }));
   // An empty field the rider is in offers the stops and routes of their recent and saved
   // searches, newest first, so the usual stop is one tap (J, 2026-10-08).
@@ -321,7 +327,8 @@ export function SearchScreen() {
     return [...loadRecent(), ...saved].flatMap((search) => {
       const key = field === 'from' ? search.from : search.to;
       const label = field === 'from' ? search.fromLabel : search.toLabel;
-      if (seen.has(key)) return [];
+      // A stop's arrivals have no To.
+      if (!key || seen.has(key)) return [];
       seen.add(key);
       return [known[key] ?? { key, label, meta: key.startsWith('route:') ? 'Route from a recent search' : 'Stop from a recent search', short: label }];
     }).slice(0, 5);
@@ -359,7 +366,11 @@ export function SearchScreen() {
         {pins.map((pin) => (
           // Marked with its search, for the toast of a trip pinned to find its card.
           <div key={searchId(pin.search)} class="tf-pin-slot" data-pin={searchId(pin.search)}>
-            <PinnedHome pin={pin} name={saved.find(({ id }) => id === searchId(pin.search))?.name} now={now} pulls={pulls} onPin={(next) => pinFromHome(pin.search, next)} onUpdate={(next) => updatePin(pin.search, next)} onReport={report} />
+            {isStopSearch(pin.search) ? (
+              <StopPinHome pin={pin} name={saved.find(({ id }) => id === searchId(pin.search))?.name} now={now} pulls={pulls} onPin={(next) => pinFromHome(pin.search, next)} onUpdate={(next) => updatePin(pin.search, next)} onReport={report} />
+            ) : (
+              <PinnedHome pin={pin} name={saved.find(({ id }) => id === searchId(pin.search))?.name} now={now} pulls={pulls} onPin={(next) => pinFromHome(pin.search, next)} onUpdate={(next) => updatePin(pin.search, next)} onReport={report} />
+            )}
           </div>
         ))}
         <SearchFields
@@ -388,10 +399,17 @@ export function SearchScreen() {
           }}
         />
         {/* Not over the suggestions, which a phone's keyboard leaves little room for. */}
+        {/* A From stop alone opens its arrivals, with no transfer (J, 2026-10-09). */}
         {(from.query || to.query) && !showingResults && (
-          <button type="button" class="tf-btn-primary" disabled={!(from.picked && to.picked)} onClick={go} aria-describedby="find-hint">
-            Find transfers
-          </button>
+          <div class="tf-find-row">
+            <button type="button" class="tf-btn-outline tf-btn-secondary" disabled={!from.picked} onClick={showArrivals} aria-describedby={from.picked ? undefined : 'find-hint'}>
+              <span class="tf-find-row__long">Show arrivals</span>
+              <span class="tf-find-row__short">Arrivals</span>
+            </button>
+            <button type="button" class="tf-btn-primary" disabled={!(from.picked && to.picked)} onClick={go} aria-describedby="find-hint">
+              Find transfers
+            </button>
+          </div>
         )}
         {/* What the dimmed button is waiting for, as typing alone does not pick a stop. */}
         {(from.query || to.query) && !showingResults && !(from.picked && to.picked) && (
@@ -433,7 +451,26 @@ export function SearchScreen() {
             <section class="tf-section" aria-labelledby="saved-heading">
               <h2 id="saved-heading">Saved</h2>
               <div class="tf-saved-grid">
-                {saved.map((search, index) => (
+                {saved.map((search, index) =>
+                  isStopSearch(search) ? (
+                    <SavedStop
+                      key={search.id}
+                      search={search}
+                      now={now}
+                      pulls={pulls}
+                      onMove={(step) => moveSaved(search.id, step)}
+                      canMoveUp={index > 0}
+                      canMoveDown={index < saved.length - 1}
+                      onReport={report}
+                      onEdit={(change) => updateSaved(loadSaved().map((item) => (item.id === search.id ? { ...item, ...change, renamed: change.name !== item.name ? true : item.renamed } : item)))}
+                      onRemove={() => {
+                        const before = loadSaved();
+                        removeSaved(search.id);
+                        setSaved(loadSaved());
+                        setToast({ id: ++toastId.current, text: 'Removed from Saved', about: 'unsaved', undo: () => updateSaved(before) });
+                      }}
+                    />
+                  ) : (
                   <SavedTrip
                     key={search.id}
                     search={search}
@@ -464,7 +501,8 @@ export function SearchScreen() {
                       setToast({ id: ++toastId.current, text: 'Removed from Saved', about: 'unsaved', undo: () => updateSaved(before) });
                     }}
                   />
-                ))}
+                  ),
+                )}
               </div>
             </section>
           )}
@@ -521,6 +559,33 @@ function HowItWorks({ open: openAtFirst }: { open: boolean }) {
 }
 
 // A pinned trip, as at the top of its results, polling its own trip like a saved card does.
+// An arrival pinned at a stop, on Home with the pinned trips, following the stop's times as a
+// pinned trip follows its results.
+function StopPinHome({ pin, name, now, pulls, onPin, onUpdate, onReport }: {
+  pin: Pin & { search: Search };
+  // The saved stop's name, when the stop is saved.
+  name: string | undefined;
+  now: number;
+  pulls: number;
+  onPin: (pin: Pin | null) => void;
+  onUpdate: (pin: Pin | null) => void;
+  onReport: Report;
+}) {
+  const { settings } = useSettings();
+  const { search } = pin;
+  const { data, fetchedAt, feed, settled, answered, refresh } = usePoll<StopResponse>(stopApiUrl(search.from), 30_000);
+  useEffect(() => void (pulls && refresh()), [pulls]);
+  const skew = clockSkewMs(data?.generatedAt, fetchedAt);
+  useLiveReport(onReport, `pin:${searchId(search)}`, { feed, fetchedAt, dataAt: data?.dataAt ?? null, skew, settled });
+  const serverNow = now + skew;
+  const { expired } = useStopPin(pin, data, answered, search, settings, serverNow, onUpdate);
+  const fresh = freshness(serverNow, fetchedAt === null ? null : fetchedAt + skew, data?.dataAt ?? null);
+  const age = fresh.ageSeconds === null ? null : ageText(fresh.ageSeconds);
+  const status = feed === 'offline' ? `Offline${age ? ` · times ${age} old` : ''}` : fresh.stale && settled && age ? `Live times ${age} old` : null;
+  if (expired) return null;
+  return <StopPinCard pin={pin} data={data} now={serverNow} open={{ label: name ?? search.fromLabel, href: stopPath(search) }} offline={feed === 'offline'} stale={status} onPin={onPin} />;
+}
+
 function PinnedHome({ pin, name, now, pulls, onPin, onUpdate, onReport }: {
   pin: Pin & { search: Search };
   // The saved search's name, when the trip is saved.
@@ -608,6 +673,8 @@ function SavedTrip({ search, now, dismissed, pulls, onMove, canMoveUp, canMoveDo
   const skew = clockSkewMs(data?.generatedAt, fetchedAt);
   useLiveReport(onReport, `saved:${search.id}`, { feed, fetchedAt, dataAt: data?.dataAt ?? null, skew, settled });
   const summary = summarize(search, data, now + skew, dismissed);
+  const next = summary.next;
+  const pinned = pin !== null && next !== null && samePin(pin, next.pin);
   const fresh = freshness(now + skew, fetchedAt === null ? null : fetchedAt + skew, data?.dataAt ?? null);
   useEffect(() => {
     if (!search.color && data) onColorless(summary.lineColor);
@@ -617,27 +684,110 @@ function SavedTrip({ search, now, dismissed, pulls, onMove, canMoveUp, canMoveDo
       <SavedSearchCard
         name={search.name}
         color={search.color}
-        chain={summary.chain}
-        // A name the rider chose says nothing of the trip, and the default leaves out where to get
-        // off. Searches saved before renames were kept compare against the default name.
-        named={(search.renamed ?? search.name !== `${summary.from} to ${summary.to}`) || summary.via !== null}
-        windowText={summary.windowText}
-        next={summary.next}
-        loading={!data && feed === 'loading'}
-        severeAlerts={summary.severeAlerts}
-        nextService={summary.nextService}
         onMove={onMove}
         canMoveUp={canMoveUp}
         canMoveDown={canMoveDown}
-        pinned={pin !== null && summary.next !== null && samePin(pin, summary.next.pin)}
-        onPin={(next) => onPin(next, next !== null && ringsBell(next, data))}
-        staleText={fresh.stale && settled ? `Live times ${ageText(fresh.ageSeconds!)} old` : null}
-        unavailable={!data && feed === 'offline'}
+        pin={{
+          pinned,
+          ready: next !== null,
+          label: `Pin the next connection for ${search.name}`,
+          toggle: () => next && onPin(pinned ? null : next.pin, !pinned && ringsBell(next.pin, data)),
+        }}
         href={tripPath(search)}
         onOpen={() => navigate(tripPath(search))}
         onEdit={onEdit}
         onRemove={onRemove}
-      />
+      >
+        <SavedTripBody
+          chain={summary.chain}
+          // A name the rider chose says nothing of the trip, and the default leaves out where to get
+          // off. Searches saved before renames were kept compare against the default name.
+          named={(search.renamed ?? search.name !== `${summary.from} to ${summary.to}`) || summary.via !== null}
+          windowText={summary.windowText}
+          next={next}
+          loading={!data && feed === 'loading'}
+          severeAlerts={summary.severeAlerts}
+          nextService={summary.nextService}
+          staleText={fresh.stale && settled ? `Live times ${ageText(fresh.ageSeconds!)} old` : null}
+          unavailable={!data && feed === 'offline'}
+        />
+      </SavedSearchCard>
+    </div>
+  );
+}
+
+// A saved stop: its routes with something coming soonest, each with its next few arrivals, as many
+// as a glance takes in. It opens the stop's arrivals.
+function SavedStop({ search, now, pulls, onMove, canMoveUp, canMoveDown, onReport, onEdit, onRemove }: {
+  search: SavedSearch;
+  now: number;
+  pulls: number;
+  onMove: (step: -1 | 1) => void;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  onReport: Report;
+  onEdit: (change: { name: string; color: string | undefined }) => void;
+  onRemove: () => void;
+}) {
+  const slot = useRef<HTMLDivElement>(null);
+  const { data, feed, fetchedAt, settled, refresh } = usePoll<StopResponse>(stopApiUrl(search.from), useOnScreen(slot) ? 30_000 : OFF_SCREEN_POLL_MS);
+  useEffect(() => void (pulls && refresh()), [pulls]);
+  const skew = clockSkewMs(data?.generatedAt, fetchedAt);
+  useLiveReport(onReport, `saved:${search.id}`, { feed, fetchedAt, dataAt: data?.dataAt ?? null, skew, settled });
+  const serverNow = now + skew;
+  const fresh = freshness(serverNow, fetchedAt === null ? null : fetchedAt + skew, data?.dataAt ?? null);
+  const rows = (data?.rows ?? [])
+    .map((row) => ({ row, minutes: row.arrivals.map(({ at }) => minutesUntil(at, serverNow)).filter((minutes) => minutes >= 0).slice(0, 3) }))
+    .filter(({ minutes }) => minutes.length > 0)
+    .slice(0, 3);
+  return (
+    <div class="tf-saved-slot" ref={slot}>
+      <SavedSearchCard
+        name={search.name}
+        color={search.color}
+        onMove={onMove}
+        canMoveUp={canMoveUp}
+        canMoveDown={canMoveDown}
+        href={stopPath(search)}
+        onOpen={() => navigate(stopPath(search))}
+        onEdit={onEdit}
+        onRemove={onRemove}
+      >
+        <span class="tf-saved-stop">
+          {rows.map(({ row, minutes }) => {
+            // BART's lines through one platform go by one chip, as their rider takes whichever comes.
+            const routes = row.routes.map((key) => data!.routes[key]).filter((route) => route !== undefined);
+            const chips = routes.filter((route, index) => routes.findIndex((other) => chipLabel(other) === chipLabel(route)) === index);
+            return (
+              <span key={`${row.stop}|${row.routes.join(',')}|${row.direction}`} class="tf-saved-stop__row">
+                <span class="tf-saved-stop__routes">
+                  {chips.map((route) => (
+                    <RouteChip key={route.key} route={route} size="sm" />
+                  ))}
+                </span>
+                <span class="tf-saved-stop__to">
+                  <span aria-hidden="true">→ </span>
+                  <span class="tf-sr">toward </span>
+                  {row.headsign}
+                </span>
+                <span class="tf-saved-stop__in">
+                  {minutes.map((value) => (value < 1 ? 'Now' : value)).join(', ')}
+                  {minutes.at(-1)! >= 1 && ' min'}
+                </span>
+              </span>
+            );
+          })}
+          {!data && feed === 'loading' && <span class="tf-saved-stop__row tf-skeleton__text" style={{ width: '14em' }} />}
+          {!data && feed === 'offline' && <span class="tf-muted">Times can’t load right now</span>}
+          {data && rows.length === 0 && <span class="tf-muted">Nothing coming soon</span>}
+        </span>
+        {fresh.stale && settled && fresh.ageSeconds !== null && (
+          <span class="tf-saved__stale">
+            <IconWarn size={14} />
+            Live times {ageText(fresh.ageSeconds)} old
+          </span>
+        )}
+      </SavedSearchCard>
     </div>
   );
 }

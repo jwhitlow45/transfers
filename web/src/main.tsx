@@ -8,6 +8,7 @@ import { NoticesScreen } from './screens/NoticesScreen.tsx';
 import { ResultsScreen } from './screens/ResultsScreen.tsx';
 import { SearchScreen } from './screens/SearchScreen.tsx';
 import { SettingsScreen } from './screens/SettingsScreen.tsx';
+import { StopScreen } from './screens/StopScreen.tsx';
 import { SettingsProvider } from './settings.tsx';
 import { searchId } from './storage.ts';
 import { TrackProvider } from './track.tsx';
@@ -34,7 +35,8 @@ function useLayers(page: Page, peeking: boolean) {
   if (s.current.page !== page) {
     const depth = currentDepth();
     s.outgoing = null;
-    const same = (layer: Layer | null) => layer !== null && layer.page.name === page.name && (page.name !== 'trip' || (layer.page.name === 'trip' && searchId(layer.page.search) === searchId(page.search)));
+    const searchOf = (shown: Page) => ('search' in shown ? searchId(shown.search) : null);
+    const same = (layer: Layer | null) => layer !== null && layer.page.name === page.name && searchOf(layer.page) === searchOf(page);
     if (depth > s.current.depth) {
       s.under = s.current;
       s.current = make(depth);
@@ -97,6 +99,7 @@ function screenFor(layer: Layer) {
   const { page } = layer;
   if (page.name === 'home') return <SearchScreen key={layer.homeKey} />;
   if (page.name === 'trip') return <ResultsScreen key={searchId(page.search)} search={page.search} />;
+  if (page.name === 'stop') return <StopScreen key={page.search.from} search={page.search} />;
   if (page.name === 'nearby') return <NearbyScreen />;
   if (page.name === 'settings') return <SettingsScreen />;
   return <NoticesScreen />;
@@ -118,7 +121,14 @@ function App() {
   // Each screen scrolls inside the app shell, so the page title is the only way a screen
   // change reaches a screen reader without moving focus.
   useEffect(() => {
-    document.title = page.name === 'trip' ? `${page.search.fromLabel} to ${page.search.toLabel} · Transfers` : page.name === 'home' ? 'Transfers' : `${page.name[0]!.toUpperCase()}${page.name.slice(1)} · Transfers`;
+    document.title =
+      page.name === 'trip'
+        ? `${page.search.fromLabel} to ${page.search.toLabel} · Transfers`
+        : page.name === 'stop'
+          ? `${page.search.fromLabel} arrivals · Transfers`
+          : page.name === 'home'
+            ? 'Transfers'
+            : `${page.name[0]!.toUpperCase()}${page.name.slice(1)} · Transfers`;
   }, [page]);
   // Under first, then the screen showing, so a step either way never moves one in the page,
   // which would lose its scroll. One whose place the screen showing is taking lies between.
