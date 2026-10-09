@@ -3,7 +3,7 @@ import { clock, countdownTo, minutesUntil } from '../format.ts';
 import { pinnedArrival } from '../lib/stop-pins.ts';
 import type { Pin } from '../storage.ts';
 import { TimeLink } from '../track.tsx';
-import { chipLabel, shortStopName, statusOf } from '../view.ts';
+import { pinLabel, shortStopName, statusOf, vehicleAt } from '../view.ts';
 import { PinnedFrame, waitingNote } from './PinnedCard.tsx';
 import { Countdown } from './Countdown.tsx';
 import { RouteChip } from './RouteChip.tsx';
@@ -30,7 +30,7 @@ export function StopPinCard({ pin, data, now, open, offline, stale, onPin }: {
   const minutes = minutesUntil(at, now);
   const gone = !found && data !== null && now / 1000 > at;
   const stop = data?.stops[pin.second.board];
-  const name = `${route ? chipLabel(route) : 'Vehicle'} at ${clock(at)}`;
+  const name = vehicleAt(route, at);
   const status = found ? statusOf(found.arrival.delay, found.arrival.live) : null;
   const countdown = gone ? { lead: 'Arrived', num: '✓', unit: null } : countdownTo(at, now, 'Arrives in', 'Arriving');
   const note = !data ? waitingNote(offline) : null;
@@ -49,7 +49,7 @@ export function StopPinCard({ pin, data, now, open, offline, stale, onPin }: {
           <div class="tf-row__main">
             <div class="tf-row__line">
               {route && <RouteChip route={route} hidden />}
-              <TimeLink trip={pin.second.trip} stop={stop} title={name} marks={[{ stop: pin.second.board, kind: 'yours' }]} pin={{ pinned: true, label: `the ${name}`, set: (on) => onPin(on ? pin : null) }}>
+              <TimeLink trip={pin.second.trip} stop={stop} title={name} marks={[{ stop: pin.second.board, kind: 'yours' }]} pin={{ pinned: true, label: pinLabel([route, at]), set: (on) => onPin(on ? pin : null) }}>
                 {clock(at)}
               </TimeLink>
             </div>

@@ -2,13 +2,13 @@ import type { ComponentChildren } from 'preact';
 import type { PinnedLeg, PinnedStop, PinnedTrip, TripResponse } from '../../../shared/api.ts';
 import type { Pin } from '../storage.ts';
 import { clock, countdownTo, minutesUntil, walkText } from '../format.ts';
-import { IconClose, IconPin, IconWarn } from '../icons/ui.tsx';
+import { IconClose, IconPin } from '../icons/ui.tsx';
 import { type PinnedPhase, pinnedPhase, pinnedTransfer } from '../lib/pinned.ts';
 import { type Mark, TimeLink } from '../track.tsx';
-import { chipLabel, dayLabel, shortStopName, statusOf } from '../view.ts';
+import { chipLabel, dayLabel, pinLabel, shortStopName, statusOf } from '../view.ts';
 import { Countdown } from './Countdown.tsx';
 import { RouteChip } from './RouteChip.tsx';
-import { StatusTag } from './StatusTag.tsx';
+import { Flag, StatusTag } from './StatusTag.tsx';
 import { TimeBar } from './TimeBar.tsx';
 import { AppLink } from './AppLink.tsx';
 
@@ -68,7 +68,7 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
   const status = canceled ? `The ${label(canceled)} at ${clock(canceled.on?.at ?? canceled.off!.at)} is canceled` : statusText(phase, first, second, name, label, now);
   const countdown = countdownOf(phase, first, second, now);
   // The maps' sheets can unpin the trip, and pin it again.
-  const sheetPin = { pinned: true, label: `the ${first ? `${label(first)} at ${clock(first.on!.at)} to the ` : ''}${label(second)} at ${clock(second.on!.at)}`, set: (on: boolean) => onPin(on ? pin : null) };
+  const sheetPin = { pinned: true, label: pinLabel(...(first ? [[data.routes[first.route], first.on!.at] as const] : []), [data.routes[second.route], second.on!.at]), set: (on: boolean) => onPin(on ? pin : null) };
 
   // The first vehicle's map watches From until it leaves, then where the rider gets off, with the
   // second vehicle drawn on to the destination. The second's watches where it is boarded until
@@ -278,10 +278,9 @@ export function PinnedFrame({ label, open, tags, stale, onUnpin, children }: {
         </button>
       </div>
       {stale && (
-        <p class="tf-pinned__stale">
-          <IconWarn size={14} />
+        <Flag tone="caution" class="tf-pinned__stale">
           {stale}
-        </p>
+        </Flag>
       )}
       {children}
     </section>

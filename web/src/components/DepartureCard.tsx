@@ -5,7 +5,7 @@ import { clock, minutesUntil, untilText } from '../format.ts';
 import { pinOf, sameRun } from '../lib/pinned.ts';
 import { type CardContext, hintKey } from '../lib/results.ts';
 import { TimeLink } from '../track.tsx';
-import { chipLabel, shortStopName, spokenRoute, statusOf } from '../view.ts';
+import { chipLabel, pinLabel, shortStopName, spokenRoute, statusOf, vehicleAt } from '../view.ts';
 import { Collapse } from './Collapse.tsx';
 import { ConnectionRow } from './ConnectionRow.tsx';
 import { Departed } from './Departed.tsx';
@@ -59,7 +59,7 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
   // With no first vehicle, the departure itself is the trip to pin, by tapping its band.
   const walkPinned = walk && context.pin !== null && !context.pin.first && context.pin.second.trip === departure.trip && context.pin.second.board === group.board && sameRun(context.pin.at, departure.at);
   const setWalkPinned = (on: boolean) => context.onPin(on ? pinOf(departure, group.board) : null);
-  const walkPinLabel = `the ${route ? chipLabel(route) : 'vehicle'} at ${clock(departure.at)}`;
+  const walkPinLabel = pinLabel([route, departure.at]);
   const destinationName = context.destinationName ?? (walk ? context.toName : null);
   const destination = destinationName && departure.destination ? `${destinationName} ${clock(departure.destination)}` : null;
   const toward = departure.toward ? `To ${departure.toward}` : null;
@@ -82,7 +82,7 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
             <TimeLink
               trip={departure.trip}
               stop={context.data.stops[group.board]}
-              title={`${route ? chipLabel(route) : 'Vehicle'} at ${clock(departure.at)}`}
+              title={vehicleAt(route, departure.at)}
               color={color}
               // A route already at From is boarded there. Otherwise the rider boards it where they
               // transfer, and From shows only if this route passes it too.

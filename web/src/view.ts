@@ -1,5 +1,8 @@
 import type { AgencyId, Route, Stop } from '../../shared/api.ts';
 
+import { chipLabel } from '../../shared/labels.ts';
+import { clock } from './format.ts';
+
 export { chipLabel, shortStopName, stopLabel } from '../../shared/labels.ts';
 
 // How the interface names things, kept in one place so screens and spoken summaries agree.
@@ -12,6 +15,13 @@ export function agencyName(item: { agency: AgencyId; mode: Route['mode'] }) {
 }
 
 export const agencyOnly = (agency: AgencyId) => AGENCY_NAMES[agency];
+
+// A vehicle by its route and its time at a stop, such as "49 at 6:22 PM", as a map's title.
+export const vehicleAt = (route: Route | undefined, at: number) => `${route ? chipLabel(route) : 'Vehicle'} at ${clock(at)}`;
+
+// What a pin names, such as "the BART at 6:11 PM to the 49 at 6:22 PM": the same words wherever
+// the trip is pinned, since an open map's sheet knows its pin by them.
+export const pinLabel = (...vehicles: (readonly [Route | undefined, number])[]) => vehicles.map(([route, at]) => `the ${route ? chipLabel(route) : 'vehicle'} at ${clock(at)}`).join(' to ');
 
 export const spokenRoute = (route: Route) => (route.agency === 'BA' ? `BART ${route.name} line` : `${agencyName(route)} ${route.name}`);
 

@@ -5,7 +5,7 @@ import { IconPencil, IconPin, IconTransfer, IconWarn } from '../icons/ui.tsx';
 import { SAVED_COLORS } from '../lib/color.ts';
 import type { NextConnection } from '../lib/summary.ts';
 import { RouteChip } from './RouteChip.tsx';
-import { StatusTag } from './StatusTag.tsx';
+import { Flag, StatusTag } from './StatusTag.tsx';
 import { typeWithoutUndo } from '../typing.ts';
 
 // The main daily entry point: one tap opens results, and it leads with a live countdown. The
@@ -254,10 +254,9 @@ export function SavedTripBody({ chain, named, windowText, next, loading, severeA
         </span>
       )}
       {severeAlerts > 0 && (
-        <span class="tf-saved__alert">
-          <IconWarn size={14} />
+        <Flag tone="late" class="tf-saved__alert">
           {severeAlerts === 1 ? '1 alert' : `${severeAlerts} alerts`} at your boarding or transfer stop
-        </span>
+        </Flag>
       )}
     </>
   );

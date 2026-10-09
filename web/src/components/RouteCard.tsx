@@ -2,7 +2,7 @@ import type { ComponentChildren } from 'preact';
 import type { NearbyArrival, NearbyStop, Route, Stop } from '../../../shared/api.ts';
 import { clock, minutesUntil, untilText } from '../format.ts';
 import { TimeLink, type PinAction } from '../track.tsx';
-import { chipLabel, statusOf } from '../view.ts';
+import { pinLabel, statusOf, vehicleAt } from '../view.ts';
 import { PinToggle } from './PinToggle.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import { StatusTag } from './StatusTag.tsx';
@@ -52,14 +52,13 @@ export function ArrivalItem({ arrival, route, chip, stop, board, now, pin }: {
   now: number;
   pin?: { pinned: boolean; set: (on: boolean) => void };
 }) {
-  const name = `${route ? chipLabel(route) : 'Vehicle'} at ${clock(arrival.at)}`;
-  const action: PinAction | undefined = pin && { ...pin, label: `the ${name}` };
+  const action: PinAction | undefined = pin && { ...pin, label: pinLabel([route, arrival.at]) };
   return (
     <li class={pin?.pinned ? 'tf-arrival--pinned' : undefined}>
       {action && <PinToggle pinned={action.pinned} label={action.label} onToggle={() => action.set(!action.pinned)} />}
       {chip && <RouteChip route={route} size="sm" label={route?.agency === 'BA' ? route.name : undefined} />}
       <span class="tf-near__time">
-        <TimeLink trip={arrival.trip} stop={stop} title={name} marks={[{ stop: board, kind: 'yours' }]} pin={action}>
+        <TimeLink trip={arrival.trip} stop={stop} title={vehicleAt(route, arrival.at)} marks={[{ stop: board, kind: 'yours' }]} pin={action}>
           {clock(arrival.at)}
         </TimeLink>
       </span>

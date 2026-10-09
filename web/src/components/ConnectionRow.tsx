@@ -4,7 +4,7 @@ import { pinOf, sameRun } from '../lib/pinned.ts';
 import { type CardContext, isTight } from '../lib/results.ts';
 import { IconPin } from '../icons/ui.tsx';
 import { TimeLink } from '../track.tsx';
-import { chipLabel, shortStopName, spokenRoute, statusOf } from '../view.ts';
+import { pinLabel, shortStopName, spokenRoute, statusOf, vehicleAt } from '../view.ts';
 import { Countdown } from './Countdown.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import { StopLink } from './StopLink.tsx';
@@ -68,12 +68,12 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
   const setPinned = (on: boolean) =>
     context.onPin(on ? pinOf(departure, board, { connection, alight: offStop }) : null);
   const secondRoute = context.data.routes[departure.route];
-  const pinLabel = `${route ? chipLabel(route) : 'vehicle'} at ${clock(connection.departs)} to the ${secondRoute ? chipLabel(secondRoute) : 'vehicle'} at ${clock(departure.at)}`;
+  const label = pinLabel([route, connection.departs], [secondRoute, departure.at]);
   return (
     <div role="listitem" class={`tf-row${tight ? ' tf-row--tight' : ''}${hidden ? ' tf-row--hidden' : ''}${pinned ? ' tf-row--pinned' : ''}${left ? ' tf-row--left' : ''}`}>
       <span class="tf-sr">{spoken}</span>
       {/* First, so what follows lies over it and takes no taps but its links' (see styles.css). */}
-      <PinToggle pinned={pinned} label={pinLabel} onToggle={() => setPinned(!pinned)} />
+      <PinToggle pinned={pinned} label={label} onToggle={() => setPinned(!pinned)} />
       {/* Pinned says so in words where the countdown's kicker was. */}
       <Countdown
         lead={
@@ -101,10 +101,10 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
           <TimeLink
             trip={connection.trip}
             stop={context.data.stops[context.data.from]}
-            title={`${route ? chipLabel(route) : 'Vehicle'} at ${clock(connection.departs)}`}
+            title={vehicleAt(route, connection.departs)}
             marks={marks}
             transfer={transfer}
-            pin={{ pinned, label: pinLabel, set: setPinned }}
+            pin={{ pinned, label, set: setPinned }}
           >
             {clock(connection.departs)}
           </TimeLink>
