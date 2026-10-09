@@ -5,11 +5,12 @@ import { IconChevron, IconReturn, IconShare } from '../icons/ui.tsx';
 import { routeColor } from '../lib/color.ts';
 import { pointId } from '../lib/results.ts';
 import { shortTripPath } from '../../../shared/short-links.ts';
-import { navigate, replacePage, tripPath } from '../router.ts';
+import { replacePage, tripPath } from '../router.ts';
 import type { Search } from '../storage.ts';
 import { chipLabel, shortStopName } from '../view.ts';
 import { Sheet, Toggle, useLeaveOpen } from './Sheet.tsx';
 import { MinutesSlider, WindowSlider } from './Slider.tsx';
+import { AppLink } from './AppLink.tsx';
 
 export type SearchUpdate = (change: (search: Search) => Search) => void;
 // The sheet's title, which also names it among what a page left open (see Left in router.ts).
@@ -259,9 +260,9 @@ export function TripSettingsSheet({ search, data, window, savedName, chain, dest
           </Toggle>
         </div>
         <div class="tf-setting__help tf-setting__more">Walking speed, accessibility, pinned trips, and more.</div>
-        <a class="tf-link-button" href="/settings" onClick={(event) => (event.preventDefault(), navigate('/settings'))}>
+        <AppLink class="tf-link-button" href="/settings">
           Device settings
-        </a>
+        </AppLink>
       </div>
     </Sheet>
   );

@@ -1,22 +1,16 @@
-import { useEffect, useState } from 'preact/hooks';
-import type { NearbyArrival, NearbyStop, StopResponse } from '../../../shared/api.ts';
+import { useEffect } from 'preact/hooks';
+import type { NearbyArrival, StopResponse } from '../../../shared/api.ts';
 import { AlertList } from '../components/AlertList.tsx';
-import { Collapse } from '../components/Collapse.tsx';
 import { BottomBar } from '../components/BottomBar.tsx';
 import { DataCredit } from '../components/DataCredit.tsx';
 import { LiveBanners } from '../components/Banners.tsx';
-import { PinToggle } from '../components/PinToggle.tsx';
 import { ScreenHeader } from '../components/ResultsHeader.tsx';
-import { RouteChip } from '../components/RouteChip.tsx';
 import { SkeletonResults } from '../components/SkeletonResults.tsx';
-import { StatusTag } from '../components/StatusTag.tsx';
 import { StopPinCard } from '../components/StopPinCard.tsx';
 import { Toast, useToast } from '../components/Toast.tsx';
 import { useSearchRecords } from '../records.ts';
-import { clock, minutesUntil, untilText } from '../format.ts';
 import { useSwipeBack } from '../gestures.ts';
 import { useNow, usePoll, useStopPin } from '../hooks.ts';
-import { IconChevron } from '../icons/ui.tsx';
 import { viewAlerts } from '../lib/alerts.ts';
 import { routeColor } from '../lib/color.ts';
 import { liveClock } from '../lib/freshness.ts';
@@ -29,8 +23,8 @@ import {
   type Search,
   rememberRecent,
 } from '../storage.ts';
-import { TimeLink } from '../track.tsx';
-import { chipLabel, statusOf } from '../view.ts';
+import { Fold } from '../components/Fold.tsx';
+import { ArrivalItem, RouteCard, routesOf, rowKey, upcoming } from '../components/RouteCard.tsx';
 
 // A row's arrivals until it is opened for the rest the server sent.
 const SHOWN = 3;
@@ -63,10 +57,7 @@ export function StopScreen({ search }: { search: Search }) {
     records.toggleSaved(search.fromLabel, busiest ? routeColor(busiest) : null);
   };
 
-  const [opened, setOpened] = useState<Record<string, boolean>>({});
-  // A row's arrivals that have not gone by since the latest times came.
-  const rows = (data?.rows ?? []).map((row) => ({ row, arrivals: row.arrivals.filter(({ at }) => minutesUntil(at, now) >= 0) }));
-  const rowKey = (row: NearbyStop) => `${row.stop}|${row.routes.join(',')}|${row.direction}`;
+  const rows = upcoming(data?.rows ?? [], now);
 
   return (
     <>
@@ -90,43 +81,26 @@ export function StopScreen({ search }: { search: Search }) {
           {data && (
             <div class="tf-near-grid">
               {rows.map(({ row, arrivals }) => {
-                const key = rowKey(row);
-                const routes = row.routes.map((route) => data.routes[route]).filter((route) => route !== undefined);
+                const routes = routesOf(row, data.routes);
                 const more = arrivals.slice(SHOWN);
                 const arrival = (item: NearbyArrival) => {
-                  const minutes = minutesUntil(item.at, now);
-                  const route = data.routes[item.route];
-                  const name = `${route ? chipLabel(route) : 'Vehicle'} at ${clock(item.at)}`;
                   const next = stopPinOf(item, row, search);
                   const pinned = pin !== null && samePin(pin, next);
                   return (
-                    <li key={item.trip} class={pinned ? 'tf-arrival--pinned' : undefined}>
-                      <PinToggle pinned={pinned} label={`the ${name}`} onToggle={() => pinFromStop(pinned ? null : next)} />
-                      {routes.length > 1 && <RouteChip route={route} size="sm" label={route?.agency === 'BA' ? route.name : undefined} />}
-                      <span class="tf-near__time">
-                        <TimeLink trip={item.trip} stop={data.stops[row.stop]} title={name} marks={[{ stop: row.stop, kind: 'yours' }]} pin={{ pinned, label: `the ${name}`, set: (on) => pinFromStop(on ? next : null) }}>
-                          {clock(item.at)}
-                        </TimeLink>
-                      </span>
-                      <StatusTag status={statusOf(item.delay, item.live)} plain />
-                      <span class="tf-near__in">{untilText(minutes)}</span>
-                    </li>
+                    <ArrivalItem
+                      key={item.trip}
+                      arrival={item}
+                      route={data.routes[item.route]}
+                      chip={routes.length > 1}
+                      stop={data.stops[row.stop]}
+                      board={row.stop}
+                      now={now}
+                      pin={{ pinned, set: (on) => pinFromStop(on ? next : null) }}
+                    />
                   );
                 };
                 return (
-                  <article key={key} class="tf-near" aria-label={`${routes.map(({ name }) => name).join(', ')} toward ${row.headsign}`}>
-                    <div class="tf-near__head">
-                      <h2 class="tf-group__title">
-                        {routes.map((route) => (
-                          <RouteChip key={route.key} route={route} iconSize={18} label={routes.length > 1 && route.agency === 'BA' ? route.name : undefined} />
-                        ))}
-                        <span>
-                          <span aria-hidden="true">→ </span>
-                          <span class="tf-sr">toward </span>
-                          {row.headsign}
-                        </span>
-                      </h2>
-                    </div>
+                  <RouteCard key={rowKey(row)} routes={routes} headsign={row.headsign}>
                     {arrivals.length > 0 ? (
                       <ul class="tf-near__times tf-near__times--pins" aria-label="Next arrivals">
                         {arrivals.slice(0, SHOWN).map(arrival)}
@@ -137,19 +111,13 @@ export function StopScreen({ search }: { search: Search }) {
                     {/* Opens as the app's other folds do, with a chevron that turns, rather than as a
                         link, which here goes somewhere or does one thing. */}
                     {more.length > 0 && (
-                      <>
-                        <button type="button" class="tf-near__more" aria-expanded={Boolean(opened[key])} aria-controls={`more-${key}`} onClick={() => setOpened({ ...opened, [key]: !opened[key] })}>
-                          <IconChevron size={18} />
-                          {more.length} more {more.length === 1 ? 'time' : 'times'}
-                        </button>
-                        <Collapse open={Boolean(opened[key])} id={`more-${key}`}>
-                          <ul class="tf-near__times tf-near__times--pins" aria-label="Later arrivals">
-                            {more.map(arrival)}
-                          </ul>
-                        </Collapse>
-                      </>
+                      <Fold class="tf-near__more" label={`${more.length} more ${more.length === 1 ? 'time' : 'times'}`}>
+                        <ul class="tf-near__times tf-near__times--pins" aria-label="Later arrivals">
+                          {more.map(arrival)}
+                        </ul>
+                      </Fold>
                     )}
-                  </article>
+                  </RouteCard>
                 );
               })}
             </div>

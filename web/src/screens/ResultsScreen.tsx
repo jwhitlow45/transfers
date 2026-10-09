@@ -30,6 +30,7 @@ import { cameBackTo, goBack, navigate, tripPath } from '../router.ts';
 import { matchesServerDefaults, tripApiUrl, useSettings } from '../settings.tsx';
 import { type Pin, type Search, clearPinHint, rememberRecent, takePinHint, updateSaved } from '../storage.ts';
 import { agencyOnly, chipLabel, shortStopName, spokenRoute } from '../view.ts';
+import { AppLink } from '../components/AppLink.tsx';
 
 // The server puts the first trip's results in the page. They seed only the first visit, as of
 // when the page arrived: shown again on a later visit, even to the same trip, they would pass
@@ -219,9 +220,9 @@ export function ResultsScreen({ search }: { search: Search }) {
           {error && (
             <div class="tf-empty" role="alert">
               <div class="tf-empty__title">{errorText}</div>
-              <a class="tf-link-button" href="/" onClick={(event) => (event.preventDefault(), goBack())}>
+              <AppLink class="tf-link-button" href="/" back>
                 Search again
-              </a>
+              </AppLink>
             </div>
           )}
           {pin && data && !expired && (

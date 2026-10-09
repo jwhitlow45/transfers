@@ -119,6 +119,12 @@ a { color: var(--accent-ink); text-underline-offset: 3px; }
 a:hover { color: var(--text); }
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
 button:disabled { opacity: .45; cursor: default; }
+/* Every fold's chevron points down closed and turns up open. A card's band has its toggle beside
+   the chevron rather than around it. */
+.tf-chev { flex: none; transition: transform var(--motion-fast) ease; }
+[aria-expanded="true"] .tf-chev, .tf-band__toggle[aria-expanded="true"] ~ .tf-band__right .tf-chev { transform: rotate(180deg); }
+/* A fold's button (see Fold): the chevron, then what it holds, in small muted type. */
+.tf-fold { display: flex; align-items: center; gap: var(--space-2); width: 100%; color: var(--muted); font-size: var(--text-sm); font-weight: 650; text-align: left; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .tf-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .tf-kicker { font-size: var(--text-xs); font-weight: var(--weight-bold); letter-spacing: var(--tracking-kicker); text-transform: uppercase; color: var(--muted); }
@@ -348,8 +354,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-alert__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .tf-alert__text .tf-kicker { line-height: 20px; }
 .tf-alert__title { font-weight: 650; text-wrap: pretty; }
-.tf-alert__chev { flex: none; display: flex; margin: 0 var(--space-1); color: var(--muted); transition: transform .15s; }
-.tf-alert[data-open="true"] .tf-alert__chev { transform: rotate(180deg); }
+.tf-alert__chev { flex: none; display: flex; margin: 0 var(--space-1); color: var(--muted); }
 .tf-alert__sep { display: none; }
 /* Folded, an alert is one line the height of its icon: the kicker, then as much of the title as
    fits, each centered on the icon. */
@@ -371,9 +376,7 @@ button:disabled { opacity: .45; cursor: default; }
 /* As Restore is on the Notices page. */
 .tf-alert__dismiss { flex: none; min-height: var(--tap-min); padding: 0 var(--space-4); }
 /* Vehicles that have left, folded at the top of the rows or cards they left from. */
-.tf-departed__toggle { display: flex; align-items: center; gap: var(--space-2); width: 100%; min-height: 40px; padding: 0 var(--space-3); background: none; border: 0; border-bottom: var(--border-hair) dashed var(--divider); color: var(--muted); font-size: var(--text-sm); font-weight: 650; text-align: left; }
-.tf-departed__toggle svg { transition: transform var(--motion-fast) ease; }
-.tf-departed__toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+.tf-departed__toggle { min-height: 40px; padding: 0 var(--space-3); border-bottom: var(--border-hair) dashed var(--divider); }
 .tf-group > .tf-departed { margin-bottom: var(--space-3); border: var(--border-hair) dashed var(--line); }
 .tf-group > .tf-departed .tf-departed__toggle { border-bottom: 0; }
 /* Cards folded at the top of a group sit inside its dashed edge, apart from it and each other,
@@ -654,9 +657,7 @@ button:disabled { opacity: .45; cursor: default; }
 @media (hover: hover) { .tf-near__times--pins li:has(> .tf-pin-toggle:hover) { background-color: color-mix(in srgb, var(--text) 4%, transparent); } }
 .tf-near__times--pins li.tf-arrival--pinned { background-color: color-mix(in srgb, var(--accent-tint) 50%, var(--bg)); box-shadow: inset 4px 0 var(--accent); }
 .tf-near__none { margin: 0; padding: 0 var(--space-4) var(--space-3); }
-.tf-near__more { display: flex; align-items: center; gap: var(--space-2); width: 100%; min-height: var(--tap-min); padding: 0 var(--space-4); border-top: var(--border-hair) solid var(--divider); color: var(--muted); font-size: var(--text-sm); font-weight: 650; text-align: left; }
-.tf-near__more svg { transition: transform var(--motion-fast) ease; }
-.tf-near__more[aria-expanded="true"] svg { transform: rotate(180deg); }
+.tf-near__more { min-height: var(--tap-min); padding: 0 var(--space-4); border-top: var(--border-hair) solid var(--divider); }
 .tf-near__more + * .tf-near__times { padding-top: var(--space-1); }
 /* Home's two ways on from a picked From: its arrivals, and with a To, the transfers. */
 .tf-find-row { display: grid; grid-template-columns: 1fr 1.4fr; gap: var(--space-2); }
@@ -682,8 +683,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-band__main, .tf-band__sub, .tf-band__in, .tf-band__inlabel { display: block; }
 .tf-band__right { display: flex; flex-direction: column; align-items: flex-end; }
 .tf-band__dest { display: block; margin-top: 2px; font-size: var(--text-md); font-weight: 650; color: var(--on-field); }
-.tf-band__chev { display: block; margin-top: var(--space-1); color: var(--on-field-muted); transition: transform .15s; }
-.tf-band__toggle[aria-expanded="true"] ~ .tf-band__right .tf-band__chev { transform: rotate(180deg); }
+.tf-band__chev { display: block; margin-top: var(--space-1); color: var(--on-field-muted); }
 .tf-card__summary { padding: 10px var(--space-4); font-size: 15px; font-weight: var(--weight-semibold); }
 
 /* Group headings lead with the direction, and say once where to get off. */
@@ -826,8 +826,6 @@ button:disabled { opacity: .45; cursor: default; }
 
 /* ── how it works (home) ───────────────────────────── */
 .tf-about__toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: var(--tap-min); font-size: var(--text-sm); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-kicker); text-transform: uppercase; color: var(--muted); }
-.tf-about__toggle svg { transition: transform var(--motion-fast); }
-.tf-about[data-open="true"] .tf-about__toggle svg { transform: rotate(180deg); }
 .tf-about p { margin: 0 0 var(--space-3); font-size: var(--text-base); line-height: 1.45; }
 
 /* ── motion ────────────────────────────────────────── */

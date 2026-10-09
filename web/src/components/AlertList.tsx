@@ -1,10 +1,10 @@
 import { useRef, useState } from 'preact/hooks';
 import { focusInstead } from '../focus.ts';
 import { motionOff } from '../gestures.ts';
-import { navigate } from '../router.ts';
-import { IconChevron, IconChevronRight, IconInfo, IconWarn } from '../icons/ui.tsx';
+import { IconChevronRight, IconFold, IconInfo, IconWarn } from '../icons/ui.tsx';
 import { NOTICE, type ViewAlert } from '../lib/alerts.ts';
 import { Collapse } from './Collapse.tsx';
+import { AppLink } from './AppLink.tsx';
 
 // Inline, collapsible, ordered by importance. Alerts on the rider's boarding stop open at first.
 // Folded, each is one line, since riders often have a notice from each agency above their
@@ -65,7 +65,7 @@ export function AlertList({ alerts, dismissed, onDismiss }: { alerts: ViewAlert[
                 </span>
                 {/* The size of every disclosure chevron on results: departed folds' and bands'. */}
                 <span class="tf-alert__chev">
-                  <IconChevron size={18} />
+                  <IconFold />
                 </span>
               </button>
               <Collapse open={isOpen} id={panel}>
@@ -91,7 +91,7 @@ export function AlertList({ alerts, dismissed, onDismiss }: { alerts: ViewAlert[
         );
       })}
       {dismissed > 0 && (
-        <a class="tf-alert tf-alert--dismissed" href="/notices" onClick={(event) => (event.preventDefault(), navigate('/notices'))}>
+        <AppLink class="tf-alert tf-alert--dismissed" href="/notices">
           <span class="tf-alert__icon">
             <IconInfo />
           </span>
@@ -99,7 +99,7 @@ export function AlertList({ alerts, dismissed, onDismiss }: { alerts: ViewAlert[
           <span class="tf-alert__chev">
             <IconChevronRight />
           </span>
-        </a>
+        </AppLink>
       )}
     </section>
   );

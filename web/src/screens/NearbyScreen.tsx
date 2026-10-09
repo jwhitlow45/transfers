@@ -3,12 +3,9 @@ import type { NearbyResponse, NearbyStop } from '../../../shared/api.ts';
 import { DataCredit } from '../components/DataCredit.tsx';
 import { LiveBanners } from '../components/Banners.tsx';
 import { ScreenHeader } from '../components/ResultsHeader.tsx';
-import { RouteChip } from '../components/RouteChip.tsx';
 import { Schematic } from '../components/Schematic.tsx';
 import { SkeletonResults } from '../components/SkeletonResults.tsx';
-import { StatusTag } from '../components/StatusTag.tsx';
 import { StopLink } from '../components/StopLink.tsx';
-import { clock, minutesUntil, untilText } from '../format.ts';
 import { useNow, usePoll } from '../hooks.ts';
 import { IconLocation } from '../icons/ui.tsx';
 import { stopLetterColor } from '../lib/color.ts';
@@ -16,9 +13,10 @@ import { liveClock } from '../lib/freshness.ts';
 import { type LocationProblem, type Position, locate, locationProblemText, takeHanded } from '../lib/location.ts';
 import { useSwipeBack } from '../gestures.ts';
 import { goBack, navigate, stopPath } from '../router.ts';
-import { TimeLink } from '../track.tsx';
-import { agencyName, chipLabel, directionText, shortStopName, statusOf, stopLabel } from '../view.ts';
+import { agencyName, directionText, shortStopName, stopLabel } from '../view.ts';
 import type { Picked } from './SearchScreen.tsx';
+import { AppLink } from '../components/AppLink.tsx';
+import { ArrivalItem, RouteCard, routesOf, rowKey, upcoming } from '../components/RouteCard.tsx';
 
 type Located = { state: 'idle' | 'asking' | LocationProblem } | { state: 'found'; position: Position };
 
@@ -72,9 +70,9 @@ export function NearbyScreen() {
             <IconLocation />
             {located.state === 'asking' ? 'Finding you…' : 'Show nearby routes'}
           </button>
-          <a class="tf-link-button" href="/" onClick={(event) => (event.preventDefault(), goBack())}>
+          <AppLink class="tf-link-button" href="/" back>
             Search by name instead
-          </a>
+          </AppLink>
         </div>
       </main>
     </div>
@@ -88,7 +86,7 @@ function NearbyResults({ position, onRelocate }: { position: Position; onRelocat
   const { now, fresh, showStale, secondsSinceUpdate } = liveClock({ data, fetchedAt, settled }, useNow());
   // The server leaves out routes with nothing coming. A row whose last arrival has passed since
   // is hidden too, until a refresh brings more.
-  const rows = (data?.nearby ?? []).map((row) => ({ row, arrivals: row.arrivals.filter(({ at }) => minutesUntil(at, now) >= 0) })).filter(({ arrivals }) => arrivals.length > 0);
+  const rows = upcoming(data?.nearby ?? [], now).filter(({ arrivals }) => arrivals.length > 0);
   // A letter for each stop, nearest first, on its cards and its marker on the map, which tells
   // apart stops that share a name and shows which routes use the same one.
   const letters: Record<string, string> = {};
@@ -133,45 +131,29 @@ function NearbyResults({ position, onRelocate }: { position: Position; onRelocat
           <div class="tf-near-grid">
             {rows.map(({ row, arrivals }) => {
               const stop = data.stops[row.stop];
-              const routes = row.routes.map((key) => data.routes[key]).filter((route) => route !== undefined);
+              const routes = routesOf(row, data.routes);
+              const stopPage = stop && stopPath({ from: stop.key, fromLabel: stopLabel(stop) });
               return (
-                <article key={`${row.stop}|${row.routes.join(',')}|${row.direction}`} class="tf-near" aria-label={`${routes.map(({ name }) => name).join(', ')} toward ${row.headsign}`}>
-                  <div class="tf-near__head">
-                    <h2 class="tf-group__title">
-                      <span class="tf-stop-letter" style={{ background: stopLetterColor(letters[row.stop]!) }} aria-hidden="true">
-                        {letters[row.stop]}
-                      </span>
-                      {routes.map((route) => (
-                        <RouteChip key={route.key} route={route} iconSize={18} label={routes.length > 1 && route.agency === 'BA' ? route.name : undefined} />
-                      ))}
-                      <span>
-                        <span aria-hidden="true">→ </span>
-                        <span class="tf-sr">toward </span>
-                        {row.headsign}
-                      </span>
-                    </h2>
-                    <div class="tf-group__meta">
+                <RouteCard
+                  key={rowKey(row)}
+                  routes={routes}
+                  headsign={row.headsign}
+                  marker={
+                    <span class="tf-stop-letter" style={{ background: stopLetterColor(letters[row.stop]!) }} aria-hidden="true">
+                      {letters[row.stop]}
+                    </span>
+                  }
+                  meta={
+                    <>
                       <StopLink stop={stop}>{shortStopName(stop, row.stop)}</StopLink>
                       {stop?.code ? ` · Stop ${stop.code}` : ''} · {row.meters}&nbsp;m away
-                    </div>
-                  </div>
+                    </>
+                  }
+                >
                   <ul class="tf-near__times" aria-label="Next arrivals">
-                    {arrivals.map((arrival) => {
-                      const minutes = minutesUntil(arrival.at, now);
-                      const route = data.routes[arrival.route];
-                      return (
-                        <li key={arrival.trip}>
-                          {routes.length > 1 && <RouteChip route={route} size="sm" label={route?.agency === 'BA' ? route.name : undefined} />}
-                          <span class="tf-near__time">
-                            <TimeLink trip={arrival.trip} stop={stop} title={`${route ? chipLabel(route) : 'Vehicle'} at ${clock(arrival.at)}`} marks={[{ stop: row.stop, kind: 'yours' }]}>
-                              {clock(arrival.at)}
-                            </TimeLink>
-                          </span>
-                          <StatusTag status={statusOf(arrival.delay, arrival.live)} plain />
-                          <span class="tf-near__in">{untilText(minutes)}</span>
-                        </li>
-                      );
-                    })}
+                    {arrivals.map((arrival) => (
+                      <ArrivalItem key={arrival.trip} arrival={arrival} route={data.routes[arrival.route]} chip={routes.length > 1} stop={stop} board={row.stop} now={now} />
+                    ))}
                   </ul>
                   <div class="tf-near__actions">
                     <button type="button" class="tf-btn-outline tf-btn-secondary" onClick={() => pick(row, 'from')}>
@@ -181,13 +163,13 @@ function NearbyResults({ position, onRelocate }: { position: Position; onRelocat
                       Transfer here
                     </button>
                     {/* The stop's every route and direction, with no transfer (J, 2026-10-09). */}
-                    {stop && (
-                      <a class="tf-btn-outline tf-btn-secondary" href={stopPath({ from: stop.key, fromLabel: stopLabel(stop) })} onClick={(event) => (event.preventDefault(), navigate(stopPath({ from: stop.key, fromLabel: stopLabel(stop) })))}>
+                    {stopPage && (
+                      <AppLink class="tf-btn-outline tf-btn-secondary" href={stopPage}>
                         Arrivals
-                      </a>
+                      </AppLink>
                     )}
                   </div>
-                </article>
+                </RouteCard>
               );
             })}
           </div>

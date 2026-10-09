@@ -1,6 +1,6 @@
 import { useId } from 'preact/hooks';
 import type { Departure, Group } from '../../../shared/api.ts';
-import { IconChevron, IconPin } from '../icons/ui.tsx';
+import { IconFold, IconPin } from '../icons/ui.tsx';
 import { clock, minutesUntil, untilText } from '../format.ts';
 import { pinOf, sameRun } from '../lib/pinned.ts';
 import { type CardContext, hintKey } from '../lib/results.ts';
@@ -117,7 +117,7 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
         )}
         {!walk && (
           <span class="tf-band__chev">
-            <IconChevron size={18} />
+            <IconFold />
           </span>
         )}
       </span>

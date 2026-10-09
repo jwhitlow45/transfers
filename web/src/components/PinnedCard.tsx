@@ -4,13 +4,13 @@ import type { Pin } from '../storage.ts';
 import { clock, countdownTo, minutesUntil, walkText } from '../format.ts';
 import { IconClose, IconPin, IconWarn } from '../icons/ui.tsx';
 import { type PinnedPhase, pinnedPhase, pinnedTransfer } from '../lib/pinned.ts';
-import { navigate } from '../router.ts';
 import { type Mark, TimeLink } from '../track.tsx';
 import { chipLabel, dayLabel, shortStopName, statusOf } from '../view.ts';
 import { Countdown } from './Countdown.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import { StatusTag } from './StatusTag.tsx';
 import { TimeBar } from './TimeBar.tsx';
+import { AppLink } from './AppLink.tsx';
 
 // The trip the rider pinned, at the top of its results until they unpin it, drawn as its row is
 // once pinned: a countdown to what happens next, each vehicle's live times where the rider gets
@@ -292,5 +292,5 @@ export function PinnedFrame({ label, open, tags, stale, onUnpin, children }: {
 export const waitingNote = (offline: boolean) => (offline ? 'Times can’t load right now. They show again once the phone is back online.' : 'Getting live predictions…');
 
 export function OpenTrip({ trip }: { trip: { label: string; href: string } }) {
-  return <a class="tf-pinned__open" href={trip.href} aria-label={`Open ${trip.label}`} onClick={(event) => (event.preventDefault(), navigate(trip.href))} />;
+  return <AppLink class="tf-pinned__open" href={trip.href} label={`Open ${trip.label}`} />;
 }

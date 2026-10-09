@@ -70,8 +70,6 @@
    centered in it. */
 .tf-track { --track-dots: repeating-linear-gradient(var(--muted) 0 2px, transparent 2px 5px); --track-dots-top: calc((var(--tap-min) - 20px) / 2); }
 .tf-track__more-line { flex: none; width: 10px; height: 20px; background: var(--track-dots) center / 2px 100% no-repeat; }
-.tf-track__more svg { transition: transform var(--motion-fast); }
-.tf-track__more[aria-expanded="true"] svg { transform: rotate(180deg); }
 /* The change of vehicles between the two lists, set off like a new section: the vehicle changed
    to, with the transfer on the right, as a results row has it. */
 .tf-track__change { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-3); align-items: center; margin-top: var(--space-4); padding-top: var(--space-3); border-top: var(--border-strong) solid var(--line); }

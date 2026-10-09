@@ -3,7 +3,7 @@ import type { Route, Stop, TrackLeg, TrackResponse } from '../../../shared/api.t
 import { clock, minutesUntil, untilText } from '../format.ts';
 import { useNow, usePoll } from '../hooks.ts';
 import { ModeGlyph } from '../icons/ModeIcon.tsx';
-import { IconChevron, IconRecenter } from '../icons/ui.tsx';
+import { IconFold, IconRecenter } from '../icons/ui.tsx';
 import { routeColor, textOn } from '../lib/color.ts';
 import { useWatchedPosition } from '../lib/location.ts';
 import { useMapView } from '../lib/map-view.ts';
@@ -431,7 +431,7 @@ function LegList({ leg, stops, labels, color, now }: { leg: TrackLeg; stops: Rec
         <button type="button" class="tf-track__more" aria-expanded={isOpen} aria-controls={`${between}-${run[0]}`} onClick={toggle}>
           <span class="tf-track__more-line" aria-hidden="true" />
           {run.length} stops
-          <IconChevron size={16} />
+          <IconFold size={16} />
         </button>
         <Collapse open={isOpen} id={`${between}-${run[0]}`}>
           <ol class="tf-track__stops tf-track__stops--between">{run.map(item)}</ol>

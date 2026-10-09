@@ -4,8 +4,8 @@ import type { ComponentChildren } from 'preact';
 // Preact core passes attribute names through as written, so SVG attributes are spelled with dashes.
 type Props = { size?: number };
 
-const icon = (children: ComponentChildren, size: number) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+const icon = (children: ComponentChildren, size: number, className?: string) => (
+  <svg class={className} width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
     {children}
   </svg>
 );
@@ -22,6 +22,8 @@ export const IconSliders = ({ size = 22 }: Props) =>
     size,
   );
 export const IconChevron = ({ size = 20 }: Props) => icon(<path d="M6 9l6 6 6-6" />, size);
+// A fold's chevron, which turns up once the fold is open (see .tf-chev).
+export const IconFold = ({ size = 18 }: Props) => icon(<path d="M6 9l6 6 6-6" />, size, 'tf-chev');
 export const IconChevronRight = ({ size = 18 }: Props) => icon(<path d="M9 6l6 6-6 6" />, size);
 export const IconWarn = ({ size = 20 }: Props) => icon(<path d="M12 3l9.5 17h-19zM12 10v4M12 17v.5" />, size);
 export const IconInfo = ({ size = 20 }: Props) =>

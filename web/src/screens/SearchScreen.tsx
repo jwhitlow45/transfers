@@ -12,7 +12,7 @@ import { Toast, useToast } from '../components/Toast.tsx';
 import { ScreenHeader } from '../components/ResultsHeader.tsx';
 import { clock, minutesUntil } from '../format.ts';
 import { type Polled, useNow, usePinnedTrip, usePoll, useStopPin } from '../hooks.ts';
-import { IconChevron, IconGear, IconLocation, IconWarn } from '../icons/ui.tsx';
+import { IconFold, IconGear, IconLocation, IconWarn } from '../icons/ui.tsx';
 import { defaultSavedColor } from '../lib/color.ts';
 import { ringsBell } from '../lib/eggs.ts';
 import { pinToastText, samePin } from '../lib/pinned.ts';
@@ -50,6 +50,7 @@ import {
   searchId,
 } from '../storage.ts';
 import { chipLabel, dayLabel, stopLabel } from '../view.ts';
+import { AppLink } from '../components/AppLink.tsx';
 
 // A picked stop or route. `short` is what headers and lists call it.
 export type Picked = { key: string; label: string; meta: string; short: string };
@@ -371,9 +372,9 @@ export function SearchScreen() {
         end={
           <span class="tf-header__end">
             <span class="tf-muted">{clock(now / 1000)}</span>
-            <a class="tf-btn-icon tf-muted" href="/settings" aria-label="Settings" onClick={(event) => (event.preventDefault(), navigate('/settings'))}>
+            <AppLink class="tf-btn-icon tf-muted" href="/settings" label="Settings">
               <IconGear />
-            </a>
+            </AppLink>
           </span>
         }
         {...(liveStatus ? { feed: liveStatus.feed, secondsSinceUpdate: liveStatus.secondsSinceUpdate, stale: liveStatus.stale, onRefresh: () => setPulls((count) => count + 1) } : {})}
@@ -538,10 +539,10 @@ export function SearchScreen() {
 function HowItWorks({ open: openAtFirst }: { open: boolean }) {
   const [open, setOpen] = useState(openAtFirst);
   return (
-    <div class="tf-about" data-open={String(open)}>
+    <div class="tf-about">
       <button type="button" class="tf-about__toggle" aria-expanded={open} aria-controls="how-it-works" onClick={() => setOpen(!open)}>
         How Transfers works
-        <IconChevron size={18} />
+        <IconFold />
       </button>
       <Collapse open={open} id="how-it-works">
         <p>

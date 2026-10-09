@@ -2,10 +2,11 @@ import { ScreenHeader } from '../components/ResultsHeader.tsx';
 import { Choices, Toggle } from '../components/Sheet.tsx';
 import { MinutesSlider, WindowSlider } from '../components/Slider.tsx';
 import { useSwipeBack } from '../gestures.ts';
-import { goBack, navigate } from '../router.ts';
+import { goBack } from '../router.ts';
 import { useSettings } from '../settings.tsx';
 import { type DeviceSettings, MAX_UNPIN_MINUTES } from '../storage.ts';
 import { forceRefresh, ownBuild } from '../update.ts';
+import { AppLink } from '../components/AppLink.tsx';
 
 const SPEEDS = [
   { value: 0.9, label: 'Unhurried' },
@@ -181,9 +182,9 @@ export function SettingsScreen() {
           <div class="tf-setting">
             <div class="tf-setting__label">Dismissed notices</div>
             <div class="tf-setting__help">Notices you dismiss stay hidden on every trip until you restore them.</div>
-            <a class="tf-link-button" href="/notices" onClick={(event) => (event.preventDefault(), navigate('/notices'))}>
+            <AppLink class="tf-link-button" href="/notices">
               Show dismissed notices
-            </a>
+            </AppLink>
           </div>
           <div class="tf-setting tf-setting--last">
             <div class="tf-setting__label">Force refresh</div>
