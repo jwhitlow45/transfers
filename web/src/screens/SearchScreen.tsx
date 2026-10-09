@@ -241,8 +241,15 @@ export function SearchScreen() {
     // On to the other field, or the results, as Enter and a recent stop do.
     if (field) advance(field, picked);
   };
-  const open = (fromPicked: Picked, toPicked: Picked) => navigate(tripPath({ from: fromPicked.key, to: toPicked.key, fromLabel: fromPicked.short, toLabel: toPicked.short }));
-  const showArrivals = () => from.picked && navigate(stopPath({ from: from.picked.key, fromLabel: from.picked.short }));
+  // Home leaves once its suggestions have closed and the keyboard has gone, a frame later, as an
+  // iPhone keeps a picture of the page left for its own back swipe, which would otherwise show Home
+  // mid-search rather than as the rider comes back to it (J, 2026-10-09).
+  const leave = (path: string) => {
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    requestAnimationFrame(() => requestAnimationFrame(() => navigate(path)));
+  };
+  const open = (fromPicked: Picked, toPicked: Picked) => leave(tripPath({ from: fromPicked.key, to: toPicked.key, fromLabel: fromPicked.short, toLabel: toPicked.short }));
+  const showArrivals = () => from.picked && leave(stopPath({ from: from.picked.key, fromLabel: from.picked.short }));
   const go = () => {
     if (from.picked && to.picked) open(from.picked, to.picked);
   };

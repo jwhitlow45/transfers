@@ -23,7 +23,7 @@ export type Direction = 'up' | 'down' | 'left' | 'right';
 export type Drag = {
   // Whether a touch moving this way is this drag's to follow. Asked once per touch, when it first
   // moves clearly along the axis. Touches it turns down scroll as usual.
-  claim: (direction: Direction, origin: Element) => boolean;
+  claim: (direction: Direction, origin: Element, start: { x: number; y: number }) => boolean;
   move?: (distance: number) => void;
   // Release is null when the browser or a second finger cut the drag short.
   end: (release: Release | null) => void;
@@ -70,7 +70,7 @@ export function useDrag(element: () => Element | null | undefined, axis: 'x' | '
         const across = axis === 'x' ? dy : dx;
         const leans = Math.abs(main) > Math.abs(across) * (axis === 'x' ? SIDEWAYS_LEAN : 1);
         const direction: Direction = axis === 'x' ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'down' : 'up';
-        if (!event.cancelable || !leans || !latest.current.claim(direction, touch.origin)) {
+        if (!event.cancelable || !leans || !latest.current.claim(direction, touch.origin, { x: touch.x, y: touch.y })) {
           touch = null;
           return;
         }
@@ -118,6 +118,8 @@ export const motionOff = () => document.documentElement.dataset.motion === 'off'
 
 // A swipe right goes back past this share of the screen's width, or when flung this fast.
 const BACK_SHARE = 0.35;
+// How far in from the left edge the phone's own back swipe starts, in px.
+const SYSTEM_EDGE = 24;
 const BACK_FLING = 0.4;
 
 // Whether Home is drawn under a screen being swiped back to it (see main.tsx).
@@ -170,7 +172,10 @@ export function useSwipeBack(onBack: () => void) {
     }
   };
   useDrag(shell, 'x', {
-    claim: (direction, origin) => active && direction === 'right' && !origin.closest('.tf-sheet, input, select, textarea') && !scrollsSideways(origin, shell()),
+    // A swipe from the screen's very edge is the phone's own back, which on iPhones slides the whole
+    // page away over its picture of the page before. Taking it too ran both at once, two Homes
+    // side by side (J, 2026-10-09), so the edge is left to the phone.
+    claim: (direction, origin, start) => active && direction === 'right' && start.x > SYSTEM_EDGE && !origin.closest('.tf-sheet, input, select, textarea') && !scrollsSideways(origin, shell()),
     move: (distance) => {
       // The screen going back to shows under this one (see main.tsx).
       if (!peeking) setPeeking(true);
