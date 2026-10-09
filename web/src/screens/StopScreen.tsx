@@ -3,7 +3,7 @@ import type { NearbyArrival, StopResponse } from '../../../shared/api.ts';
 import { AlertList } from '../components/AlertList.tsx';
 import { BottomBar } from '../components/BottomBar.tsx';
 import { DataCredit } from '../components/DataCredit.tsx';
-import { LiveBanners } from '../components/Banners.tsx';
+import { FeedOutages, LiveBanners } from '../components/Banners.tsx';
 import { ScreenHeader } from '../components/ResultsHeader.tsx';
 import { SkeletonResults } from '../components/SkeletonResults.tsx';
 import { StopPinCard } from '../components/StopPinCard.tsx';
@@ -25,6 +25,9 @@ import {
 } from '../storage.ts';
 import { Fold } from '../components/Fold.tsx';
 import { ArrivalItem, RouteCard, routesOf, rowKey, upcoming } from '../components/RouteCard.tsx';
+import { EmptyState } from '../components/EmptyState.tsx';
+import { failureOf } from '../lib/failure.ts';
+import { AppLink } from '../components/AppLink.tsx';
 
 // A row's arrivals until it is opened for the rest the server sent.
 const SHOWN = 3;
@@ -42,6 +45,8 @@ export function StopScreen({ search }: { search: Search }) {
     if (data) rememberRecent(search);
   }, [Boolean(data)]);
 
+  // As on results: a stop no longer in the schedule says so plainly.
+  const failure = failureOf(error, 'Arrivals');
   const { toast, show: showToast, clear: clearToast } = useToast();
   // Whether the stop is saved, the arrival pinned to it, and the notices dismissed, as on results
   // (see useSearchRecords).
@@ -62,22 +67,21 @@ export function StopScreen({ search }: { search: Search }) {
   return (
     <>
       <div class="tf-scroll">
-        <ScreenHeader title={<span class="tf-chain__step">{search.fromLabel}</span>} feed={feed} secondsSinceUpdate={secondsSinceUpdate} stale={showStale} onRefresh={refresh} />
+        <ScreenHeader title={<span class="tf-chain__step">{search.fromLabel}</span>} feed={feed} secondsSinceUpdate={secondsSinceUpdate} stale={showStale} failed={failure} onRefresh={refresh} />
         <main class="tf-page" id="main">
           <LiveBanners feed={feed} fresh={fresh} showStale={showStale} secondsSinceUpdate={secondsSinceUpdate} />
-          {error && (
-            <div class="tf-empty" role="alert">
-              <div class="tf-empty__title">{error}</div>
-            </div>
+          {data && <FeedOutages feeds={data.feeds} routeKeys={data.rows.flatMap(({ routes }) => routes)} routes={data.routes} />}
+          {failure && (
+            <EmptyState alert title={failure.text}>
+              <AppLink class="tf-link-button" href="/" back>
+                Search again
+              </AppLink>
+            </EmptyState>
           )}
           {pin && <StopPinCard pin={pin} data={data} now={now} offline={feed === 'offline'} stale={null} onPin={pinFromStop} />}
           {data && <AlertList key={data.stop} alerts={alerts} dismissed={allAlerts.length - alerts.length} onDismiss={dismiss} />}
           {!data && feed === 'loading' && <SkeletonResults />}
-          {data && rows.length === 0 && (
-            <div class="tf-empty">
-              <div class="tf-empty__title">No routes stop here</div>
-            </div>
-          )}
+          {data && rows.length === 0 && <EmptyState title="No routes stop here" />}
           {data && (
             <div class="tf-near-grid">
               {rows.map(({ row, arrivals }) => {
@@ -125,7 +129,7 @@ export function StopScreen({ search }: { search: Search }) {
           <DataCredit />
         </main>
       </div>
-      <BottomBar windowText={null} saved={saved !== null} failed={Boolean(error) && !data} onBack={() => goBack()} onToggleSaved={toggleSaved}>
+      <BottomBar windowText={null} saved={saved !== null} failed={failure !== null && !data} onBack={() => goBack()} onToggleSaved={toggleSaved}>
         <Toast message={toast} onDone={clearToast} />
       </BottomBar>
     </>

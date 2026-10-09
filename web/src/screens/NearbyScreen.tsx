@@ -17,6 +17,8 @@ import { agencyName, directionText, shortStopName, stopLabel } from '../view.ts'
 import type { Picked } from './SearchScreen.tsx';
 import { AppLink } from '../components/AppLink.tsx';
 import { ArrivalItem, RouteCard, routesOf, rowKey, upcoming } from '../components/RouteCard.tsx';
+import { EmptyState } from '../components/EmptyState.tsx';
+import { failureOf } from '../lib/failure.ts';
 
 type Located = { state: 'idle' | 'asking' | LocationProblem } | { state: 'found'; position: Position };
 
@@ -58,8 +60,7 @@ export function NearbyScreen() {
     <div class="tf-scroll">
       <ScreenHeader title="Nearby" onBack={() => goBack()} />
       <main class="tf-page tf-page--form" id="main">
-        <div class="tf-empty">
-          <div class="tf-empty__title">See the routes around you</div>
+        <EmptyState title="See the routes around you">
           <div class="tf-muted">Your location is used once to find stops within a few blocks. It is not saved or shared.</div>
           {(located.state === 'denied' || located.state === 'unavailable') && (
             <div class="tf-near__problem" role="alert">
@@ -73,7 +74,7 @@ export function NearbyScreen() {
           <AppLink class="tf-link-button" href="/" back>
             Search by name instead
           </AppLink>
-        </div>
+        </EmptyState>
       </main>
     </div>
   );
@@ -84,6 +85,7 @@ function NearbyResults({ position, onRelocate }: { position: Position; onRelocat
   const url = `/api/nearby?lat=${position.lat.toFixed(4)}&lon=${position.lon.toFixed(4)}`;
   const { data, error, fetchedAt, feed, settled, refresh } = usePoll<NearbyResponse>(url, 30_000);
   const { now, fresh, showStale, secondsSinceUpdate } = liveClock({ data, fetchedAt, settled }, useNow());
+  const failure = failureOf(error, 'Nearby');
   // The server leaves out routes with nothing coming. A row whose last arrival has passed since
   // is hidden too, until a refresh brings more.
   const rows = upcoming(data?.nearby ?? [], now).filter(({ arrivals }) => arrivals.length > 0);
@@ -106,6 +108,7 @@ function NearbyResults({ position, onRelocate }: { position: Position; onRelocat
         feed={feed}
         secondsSinceUpdate={secondsSinceUpdate}
         stale={showStale}
+        failed={failure}
         onBack={() => goBack()}
         // A move of more than about 10 m makes a new request by itself, through the new position.
         onRefresh={() => {
@@ -115,17 +118,11 @@ function NearbyResults({ position, onRelocate }: { position: Position; onRelocat
       />
       <main class="tf-page" id="main">
         <LiveBanners feed={feed} fresh={fresh} showStale={showStale} secondsSinceUpdate={secondsSinceUpdate} />
-        {error && (
-          <div class="tf-empty" role="alert">
-            <div class="tf-empty__title">{error}</div>
-          </div>
-        )}
+        {failure && <EmptyState alert title={failure.text} />}
         {!data && feed === 'loading' && <SkeletonResults />}
         {data && <Schematic schematic={data.schematic} routes={data.routes} letters={letters} />}
         {data && rows.length === 0 && (
-          <div class="tf-empty">
-            <div class="tf-empty__title">{data.schematic.stops.length > 0 ? 'Nothing leaves stops within a few blocks in the next few hours' : 'No stops within a few blocks'}</div>
-          </div>
+          <EmptyState title={data.schematic.stops.length > 0 ? 'Nothing leaves stops within a few blocks in the next few hours' : 'No stops within a few blocks'} />
         )}
         {data && (
           <div class="tf-near-grid">

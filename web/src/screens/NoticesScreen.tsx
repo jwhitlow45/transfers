@@ -8,6 +8,7 @@ import { useSwipeBack } from '../gestures.ts';
 import { goBack } from '../router.ts';
 import { DISMISSED_DAYS, type DismissedNotice, dismissNotice, loadDismissed, restoreAllNotices, restoreNotice } from '../storage.ts';
 import { dayLabel } from '../view.ts';
+import { EmptyState } from '../components/EmptyState.tsx';
 
 // Notices the rider dismissed from results, newest first, as they read then, each with a way to
 // put it back on every trip it concerns. Reached from the results that hid one, and Settings.
@@ -49,10 +50,9 @@ export function NoticesScreen() {
         <ScreenHeader title="Dismissed notices" onBack={back} />
         <main class="tf-page tf-page--form" id="main">
           {notices.length === 0 ? (
-            <div class="tf-empty">
-              <div class="tf-empty__title">No dismissed notices</div>
+            <EmptyState title="No dismissed notices">
               <div class="tf-muted">Notices you dismiss from your results show here, so you can put them back.</div>
-            </div>
+            </EmptyState>
           ) : (
             <>
               <p class="tf-muted tf-notices__intro">These stay hidden on every trip until you restore them, for up to {DISMISSED_DAYS} days.</p>

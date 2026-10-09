@@ -10,6 +10,7 @@ import { Departed } from './Departed.tsx';
 import { OutageTag } from './Outages.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import { StopLink } from './StopLink.tsx';
+import { EmptyState } from './EmptyState.tsx';
 
 // One group per connecting route, or per transfer point when To is a route. Up to 3 departures.
 export function TransferPointGroup({ group, context, isExpanded, onToggle, onWiden, onShowHidden }: {
@@ -142,14 +143,9 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
       {/* Rows that have left are no use to a rider still at From, so with only those, the group
           says nothing connects, and offers what might. */}
       {ahead.length === 0 && walk ? (
-        <div class="tf-empty">
-          <div class="tf-empty__title">No {routeLabel.replace(/^the /, '')} coming soon</div>
-        </div>
+        <EmptyState title={`No ${routeLabel.replace(/^the /, '')} coming soon`} />
       ) : ahead.length === 0 ? (
-        <div class="tf-empty">
-          <div class="tf-empty__title">
-            No {firstWord(group, data)} connects to {routeLabel} within {keepUnit(windowText(group.window))}
-          </div>
+        <EmptyState title={`No ${firstWord(group, data)} connects to ${routeLabel} within ${keepUnit(windowText(group.window))}`}>
           <div class="tf-muted">{group.widen ? 'The closest connections fall just outside your window.' : 'Nothing connects in the next few hours.'}</div>
           {group.widen && (
             <button type="button" class="tf-btn-primary" onClick={() => onWiden(group.widen!)}>
@@ -161,7 +157,7 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
               Show hidden connections
             </button>
           )}
-        </div>
+        </EmptyState>
       ) : (
         ahead.map(card)
       )}

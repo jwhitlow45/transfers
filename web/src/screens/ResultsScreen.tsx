@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'preact/hooks';
 import type { TripResponse } from '../../../shared/api.ts';
 import { takeInitialData } from '../api.ts';
 import { AlertList } from '../components/AlertList.tsx';
-import { FeedOutageBanner, LiveBanners } from '../components/Banners.tsx';
+import { FeedOutages, LiveBanners } from '../components/Banners.tsx';
 import { OutageSheet, OutageTag } from '../components/Outages.tsx';
 import { PinnedCard } from '../components/PinnedCard.tsx';
 import { BottomBar } from '../components/BottomBar.tsx';
@@ -29,8 +29,10 @@ import { summarize } from '../lib/summary.ts';
 import { cameBackTo, goBack, navigate, tripPath } from '../router.ts';
 import { matchesServerDefaults, tripApiUrl, useSettings } from '../settings.tsx';
 import { type Pin, type Search, clearPinHint, rememberRecent, takePinHint, updateSaved } from '../storage.ts';
-import { agencyOnly, chipLabel, shortStopName, spokenRoute } from '../view.ts';
+import { shortStopName, spokenRoute } from '../view.ts';
 import { AppLink } from '../components/AppLink.tsx';
+import { EmptyState } from '../components/EmptyState.tsx';
+import { failureOf } from '../lib/failure.ts';
 
 // The server puts the first trip's results in the page. They seed only the first visit, as of
 // when the page arrived: shown again on a later visit, even to the same trip, they would pass
@@ -159,16 +161,10 @@ export function ResultsScreen({ search }: { search: Search }) {
   };
   // A request the server refused, such as for a stop no longer in the schedule, is no live time.
   // With no results at all, there is nothing to set or save either.
-  const missing = error !== null && /^No (stop|route)/.test(error);
-  const errorText = missing ? "This stop or route isn't in the schedule anymore" : error;
-  const failure = error ? { short: missing ? 'Not found' : 'Error', full: missing ? errorText! : `Results could not load: ${error}` } : null;
+  const failure = failureOf(error, 'Results');
   const failed = error !== null && !data;
   const window = summary.window ?? { min: search.min ?? 3, max: search.max ?? 12 };
   const hide = search.hide ?? settings.hide;
-  const outages = (data?.feeds ?? []).filter(({ state }) => state === 'down' || state === 'stale');
-  const liveAgencies = (data?.feeds ?? []).filter(({ state }) => state === 'live').map(({ agency }) => agencyOnly(agency));
-  const routesOf = (agency: string) =>
-    [...new Set(groups.flatMap(({ routes }) => routes).filter((key) => key.startsWith(`${agency}:`)).map((key) => (data?.routes[key] ? chipLabel(data.routes[key]!) : key)))].join(', ');
   // The header chip takes the same color its group gives it, which may have stepped away from a clash.
   const toColor = summary.toRoute && data ? context.colorOf(summary.toRoute.key) : undefined;
   const toChip = summary.toRoute ? <RouteChip route={summary.toRoute} {...(toColor ? { color: toColor } : {})} /> : <span>{summary.to}</span>;
@@ -214,16 +210,13 @@ export function ResultsScreen({ search }: { search: Search }) {
         />
         <main class="tf-page" id="main">
           <LiveBanners feed={feed} fresh={fresh} showStale={showStale} secondsSinceUpdate={secondsSinceUpdate} />
-          {outages.map(({ agency }) => (
-            <FeedOutageBanner key={agency} agency={agencyOnly(agency)} routes={routesOf(agency)} liveAgencies={liveAgencies.join(' and ')} />
-          ))}
-          {error && (
-            <div class="tf-empty" role="alert">
-              <div class="tf-empty__title">{errorText}</div>
+          {data && <FeedOutages feeds={data.feeds} routeKeys={groups.flatMap(({ routes }) => routes)} routes={data.routes} />}
+          {failure && (
+            <EmptyState alert title={failure.text}>
               <AppLink class="tf-link-button" href="/" back>
                 Search again
               </AppLink>
-            </div>
+            </EmptyState>
           )}
           {pin && data && !expired && (
             <PinnedCard pin={pin} pinned={pinned} data={data} destination={search.dest} colorOf={context.colorOf} pct={context.pct} now={now} unpinAt={unpinAt} onPin={pinFromResults} />
@@ -324,49 +317,38 @@ function EmptyTrip({ data, search, summary, maxWalk, update }: { data: TripRespo
   const again = (next: number | null, place: string) => (next ? `${place} starts again ${weekdayTime.format(next * 1000)}.` : `${place} does not run in the next few days.`);
   if (notice?.kind === 'idle' && notice.side === 'to') {
     return (
-      <div class="tf-empty">
-        <div class="tf-empty__title">{route ? `${capitalize(toName)} isn't running now` : `Nothing boards at ${summary.to} right now`}</div>
+      <EmptyState title={route ? `${capitalize(toName)} isn't running now` : `Nothing boards at ${summary.to} right now`}>
         <div class="tf-muted">{again(notice.next, route ? 'Service' : 'Service there')}</div>
-      </div>
+      </EmptyState>
     );
   }
   if (notice?.kind === 'idle') {
     return (
-      <div class="tf-empty">
-        <div class="tf-empty__title">
-          Nothing from {summary.from} connects to {toName} at this hour
-        </div>
+      <EmptyState title={`Nothing from ${summary.from} connects to ${toName} at this hour`}>
         <div class="tf-muted">{again(notice.next, `Service from ${summary.from}`)}</div>
-      </div>
+      </EmptyState>
     );
   }
   if (notice?.kind === 'walkable') {
     return (
-      <div class="tf-empty">
-        <div class="tf-empty__title">
-          {notice.meters < 15
-            ? `${shortStopName(data.stops[notice.stop], notice.stop)} is where you start`
-            : `${shortStopName(data.stops[notice.stop], notice.stop)} is a ${walkMinutes(notice.meters)}\u00a0min walk from ${summary.from}`}
-        </div>
+      <EmptyState title={notice.meters < 15 ? `${shortStopName(data.stops[notice.stop], notice.stop)} is where you start` : `${shortStopName(data.stops[notice.stop], notice.stop)} is a ${walkMinutes(notice.meters)}\u00a0min walk from ${summary.from}`}>
         {notice.meters >= 15 && <div class="tf-muted">Walking there is about as quick as any ride.</div>}
-      </div>
+      </EmptyState>
     );
   }
   if (notice?.kind === 'destination') {
     return (
-      <div class="tf-empty">
-        <div class="tf-empty__title">Nothing from here reaches {search.destLabel ?? 'your destination'}</div>
+      <EmptyState title={`Nothing from here reaches ${search.destLabel ?? 'your destination'}`}>
         <div class="tf-muted">No route you could transfer to goes on to that stop.</div>
         <button type="button" class="tf-btn-outline tf-btn-secondary" onClick={() => update(({ dest: _dest, destLabel: _label, ...rest }) => rest)}>
           Clear the destination
         </button>
-      </div>
+      </EmptyState>
     );
   }
   if (notice?.kind === 'filtered' || data.groups.length > 0) {
     return (
-      <div class="tf-empty">
-        <div class="tf-empty__title">No transfers to show with your route filters</div>
+      <EmptyState title="No transfers to show with your route filters">
         <div class="tf-muted">Trip settings has the routes and directions this search leaves out.</div>
         <button
           type="button"
@@ -375,16 +357,13 @@ function EmptyTrip({ data, search, summary, maxWalk, update }: { data: TripRespo
         >
           Show every route
         </button>
-      </div>
+      </EmptyState>
     );
   }
   return (
-    <div class="tf-empty">
-      <div class="tf-empty__title">
-        Nothing from {summary.from} gets within a short walk of {toName}
-      </div>
+    <EmptyState title={`Nothing from ${summary.from} gets within a short walk of ${toName}`}>
       <div class="tf-muted">{maxWalk < 650 ? 'A longer walk between stops, in Settings, may find one.' : 'Try a stop or route closer to where you start.'}</div>
-    </div>
+    </EmptyState>
   );
 }
 

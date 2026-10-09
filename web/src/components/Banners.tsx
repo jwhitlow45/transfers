@@ -1,6 +1,8 @@
+import type { AgencyId, FeedStatus, Route } from '../../../shared/api.ts';
 import type { FeedState } from '../hooks.ts';
 import { IconOffline, IconWarn } from '../icons/ui.tsx';
 import { type Freshness, ageText } from '../lib/freshness.ts';
+import { agencyOnly, chipLabel } from '../view.ts';
 import { liveStatusText } from './ResultsHeader.tsx';
 
 export function OfflineBanner({ statusText }: { statusText: string }) {
@@ -15,8 +17,26 @@ export function OfflineBanner({ statusText }: { statusText: string }) {
   );
 }
 
-// One agency's live feed is down while others still work.
-export function FeedOutageBanner({ agency, routes, liveAgencies }: { agency: string; routes: string; liveAgencies: string }) {
+// A banner for each agency whose live feed is down or stale while others still work. `routeKeys`
+// are the routes the page shows, which each banner names those of its agency from.
+export function FeedOutages({ feeds, routeKeys, routes }: { feeds: FeedStatus[]; routeKeys: string[]; routes: Record<string, Route> }) {
+  const liveAgencies = feeds
+    .filter(({ state }) => state === 'live')
+    .map(({ agency }) => agencyOnly(agency))
+    .join(' and ');
+  const routesOf = (agency: AgencyId) => [...new Set(routeKeys.filter((key) => key.startsWith(`${agency}:`)).map((key) => (routes[key] ? chipLabel(routes[key]) : key)))].join(', ');
+  return (
+    <>
+      {feeds
+        .filter(({ state }) => state === 'down' || state === 'stale')
+        .map(({ agency }) => (
+          <FeedOutageBanner key={agency} agency={agencyOnly(agency)} routes={routesOf(agency)} liveAgencies={liveAgencies} />
+        ))}
+    </>
+  );
+}
+
+function FeedOutageBanner({ agency, routes, liveAgencies }: { agency: string; routes: string; liveAgencies: string }) {
   return (
     <div class="tf-banner tf-banner--outage" role="status">
       <IconWarn size={22} />
