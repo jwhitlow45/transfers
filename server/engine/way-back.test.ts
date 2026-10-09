@@ -1,25 +1,18 @@
 import { deepStrictEqual } from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { after, before, test } from 'node:test';
 import type { Agency } from '../config.ts';
-import { buildScheduleDatabase } from '../gtfs/ingest.ts';
-import { Schedule } from '../schedule.ts';
+import type { Schedule } from '../schedule.ts';
+import { CALENDAR, buildSchedule, clock, files } from '../test-gtfs.ts';
 import { wayBack } from './trip.ts';
 
 // J's commute both ways: BART between Montgomery and 24th St Mission, a Yellow line route each
 // way, and the 48 along 24th St, westbound on one side and eastbound across the street.
-const clock = (seconds: number) => `${Math.floor(seconds / 3600)}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}:00`;
-
 function feeds() {
-  const calendar = `service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,start_date,end_date\nall,1,1,1,1,1,1,1,20260101,20271231\n`;
   const trips = (rows: [route: string, id: string, headsign: string, direction: number][]) =>
     `route_id,service_id,trip_id,trip_headsign,direction_id,block_id,shape_id\n${rows.map(([route, id, headsign, direction]) => `${route},all,${id},${headsign},${direction},,`).join('\n')}\n`;
   const times = (rows: [trip: string, at: number, stop: string][]) =>
     `trip_id,arrival_time,departure_time,stop_id,stop_sequence\n${rows.map(([trip, at, stop], index) => `${trip},${clock(at)},${clock(at)},${stop},${index + 1}`).join('\n')}\n`;
   const at = 8 * 3600;
-  const files = (entries: Record<string, string>) => new Map(Object.entries(entries));
   return new Map<Agency, Map<string, string>>([
     [
       'BA',
@@ -35,7 +28,7 @@ function feeds() {
           '901602,901602,24th Street / Mission,37.752416,-122.418418,0,901609',
           '24TH_3,,SW Entrance,37.75194137,-122.4188268,2,901609',
         ].join('\n'),
-        'calendar.txt': calendar,
+        'calendar.txt': CALENDAR,
         'trips.txt': trips([['Yellow-S', 's1', 'SFO', 1], ['Yellow-N', 'n1', 'Antioch', 0]]),
         'stop_times.txt': times([['s1', at, '901201'], ['s1', at + 480, '901601'], ['n1', at, '901602'], ['n1', at + 480, '901202']]),
       }),
@@ -51,7 +44,7 @@ function feeds() {
           '13460,13460,24th St & Church St,37.751400,-122.427000',
           '13461,13461,24th St & Church St,37.751330,-122.426880',
         ].join('\n'),
-        'calendar.txt': calendar,
+        'calendar.txt': CALENDAR,
         'trips.txt': trips([['48', 'w1', 'Great Highway', 0], ['48', 'e1', '22nd St + Iowa St', 1]]),
         'stop_times.txt': times([['w1', at + 600, '13476'], ['w1', at + 900, '13460'], ['e1', at + 600, '13461'], ['e1', at + 900, '13477']]),
       }),
@@ -61,9 +54,7 @@ function feeds() {
 
 let schedule: Schedule;
 before(() => {
-  const path = join(mkdtempSync(join(tmpdir(), 'way-back-')), 'schedule.db');
-  buildScheduleDatabase(feeds(), path);
-  schedule = new Schedule(path);
+  schedule = buildSchedule(feeds());
 });
 after(() => schedule.close());
 

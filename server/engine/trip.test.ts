@@ -1,14 +1,11 @@
 import { deepStrictEqual, ok, strictEqual, throws } from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { after, before, test } from 'node:test';
 import type { Agency } from '../config.ts';
-import { buildScheduleDatabase } from '../gtfs/ingest.ts';
 import { type FeedObject, decodeFeed, encodeFeed } from '../realtime/feed.ts';
 import { buildAlerts, buildTripSnapshot } from '../realtime/snapshot.ts';
 import { all } from '../db.ts';
-import { Schedule } from '../schedule.ts';
+import type { Schedule } from '../schedule.ts';
+import { CALENDAR, buildSchedule, clock, files } from '../test-gtfs.ts';
 import { serviceDayStart } from '../time.ts';
 import { nearby } from '../api/nearby.ts';
 import { mergeOrder, search } from '../api/search.ts';
@@ -21,10 +18,8 @@ import { destinations, planTrip } from './trip.ts';
 const DATE = 20261005;
 const DAY = serviceDayStart(DATE);
 const NOW = DAY + 8 * 3600;
-const clock = (seconds: number) => `${Math.floor(seconds / 3600)}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}:00`;
 
 function feeds() {
-  const calendar = `service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,start_date,end_date\nall,1,1,1,1,1,1,1,20260101,20271231\n`;
   const bartTrips: string[] = [];
   const bartTimes: string[] = [];
   for (let n = 0; n < 12; n++) {
@@ -55,7 +50,6 @@ function feeds() {
     muniTrips.push(`48,all,m${n},22nd St + Iowa St,1,,`);
     muniTimes.push(`m${n},${clock(at - 120)},${clock(at - 120)},13486,1`, `m${n},${clock(at)},${clock(at)},13477,2`, `m${n},${clock(at + 600)},${clock(at + 600)},13500,3`);
   }
-  const files = (entries: Record<string, string>) => new Map(Object.entries(entries));
   return new Map<Agency, Map<string, string>>([
     [
       'BA',
@@ -71,7 +65,7 @@ function feeds() {
           '902109,902109,Glen Park,37.733064,-122.433817,1,',
           '902101,902101,Glen Park,37.733064,-122.433817,0,902109',
         ].join('\n'),
-        'calendar.txt': calendar,
+        'calendar.txt': CALENDAR,
         'trips.txt': `route_id,service_id,trip_id,trip_headsign,direction_id,block_id,shape_id\n${bartTrips.join('\n')}\n`,
         'stop_times.txt': `trip_id,arrival_time,departure_time,stop_id,stop_sequence\n${bartTimes.join('\n')}\n`,
       }),
@@ -92,7 +86,7 @@ function feeds() {
           '16994,16994,Metro Montgomery Station/Outbound,37.789200,-122.401700',
           '16998,16998,Metro Church Station/Outbound,37.767194,-122.429168',
         ].join('\n'),
-        'calendar.txt': calendar,
+        'calendar.txt': CALENDAR,
         'trips.txt': `route_id,service_id,trip_id,trip_headsign,direction_id,block_id,shape_id\n${muniTrips.join('\n')}\n`,
         'stop_times.txt': `trip_id,arrival_time,departure_time,stop_id,stop_sequence\n${muniTimes.join('\n')}\n`,
       }),
@@ -142,15 +136,13 @@ function namedFeeds() {
   bart.set('stop_times.txt', `${bart.get('stop_times.txt')}${run('sfo', [['901201', 8 * 3600 + 600], ['901601', 8 * 3600 + 1080], ['907101', 8 * 3600 + 2400]])}\n${run('oak', [['907201', 8 * 3600 + 600], ['907401', 8 * 3600 + 1080]])}\n`);
   network.set(
     'GF',
-    new Map(
-      Object.entries({
-        'routes.txt': 'route_id,route_short_name,route_long_name,route_type\nLARK,Larkspur,Larkspur - San Francisco,4\n',
-        'stops.txt': 'stop_id,stop_code,stop_name,stop_lat,stop_lon\n43002,43002,Larkspur Ferry Terminal,37.945900,-122.508800\n43003,43003,San Francisco Ferry Building,37.795500,-122.393700\n',
-        'calendar.txt': muni.get('calendar.txt')!,
-        'trips.txt': 'route_id,service_id,trip_id,trip_headsign,direction_id,block_id,shape_id\nLARK,all,g0,,0,,\n',
-        'stop_times.txt': `trip_id,arrival_time,departure_time,stop_id,stop_sequence\n${run('g0', [['43002', 8 * 3600 + 600], ['43003', 8 * 3600 + 2400]])}\n`,
-      }),
-    ),
+    files({
+      'routes.txt': 'route_id,route_short_name,route_long_name,route_type\nLARK,Larkspur,Larkspur - San Francisco,4\n',
+      'stops.txt': 'stop_id,stop_code,stop_name,stop_lat,stop_lon\n43002,43002,Larkspur Ferry Terminal,37.945900,-122.508800\n43003,43003,San Francisco Ferry Building,37.795500,-122.393700\n',
+      'calendar.txt': CALENDAR,
+      'trips.txt': 'route_id,service_id,trip_id,trip_headsign,direction_id,block_id,shape_id\nLARK,all,g0,,0,,\n',
+      'stop_times.txt': `trip_id,arrival_time,departure_time,stop_id,stop_sequence\n${run('g0', [['43002', 8 * 3600 + 600], ['43003', 8 * 3600 + 2400]])}\n`,
+    }),
   );
   return network;
 }
@@ -159,15 +151,9 @@ let schedule: Schedule;
 let crowded: Schedule;
 let named: Schedule;
 before(() => {
-  const path = join(mkdtempSync(join(tmpdir(), 'trip-')), 'schedule.db');
-  buildScheduleDatabase(feeds(), path);
-  schedule = new Schedule(path);
-  const crowdedPath = join(mkdtempSync(join(tmpdir(), 'crowded-')), 'schedule.db');
-  buildScheduleDatabase(crowdedFeeds(), crowdedPath);
-  crowded = new Schedule(crowdedPath);
-  const namedPath = join(mkdtempSync(join(tmpdir(), 'named-')), 'schedule.db');
-  buildScheduleDatabase(namedFeeds(), namedPath);
-  named = new Schedule(namedPath);
+  schedule = buildSchedule(feeds());
+  crowded = buildSchedule(crowdedFeeds());
+  named = buildSchedule(namedFeeds());
 });
 after(() => {
   schedule.close();
@@ -525,9 +511,7 @@ test('nearby shows a route at its next nearest stop when nothing comes to the ne
   const muni = network.get('SF')!;
   muni.set('trips.txt', `${muni.get('trips.txt')}48,all,early,22nd St + Iowa St,1,,\n`);
   muni.set('stop_times.txt', `${muni.get('stop_times.txt')}${[['13478', 0], ['13477', 120], ['13500', 720]].map(([stop, after], n) => `early,${clock(5.5 * 3600 + Number(after))},${clock(5.5 * 3600 + Number(after))},${stop},${n + 1}`).join('\n')}\n`);
-  const path = join(mkdtempSync(join(tmpdir(), 'early-')), 'schedule.db');
-  buildScheduleDatabase(network, path);
-  const early = new Schedule(path);
+  const early = buildSchedule(network);
   try {
     const response = nearby(early, realtime(), { lat: 37.752178, lon: -122.4175 }, 400, NOW);
     const row = response.nearby.find(({ routes }) => routes.includes('SF:48'));
@@ -609,9 +593,7 @@ test("a pinned loop keeps the visit it was pinned at once the vehicle has gone p
   muni.set('trips.txt', `${muni.get('trips.txt')}48,all,loop,22nd St + Iowa St,1,,\n`);
   const visits: [string, number][] = [['13486', 8 * 3600 + 600], ['13477', 8 * 3600 + 720], ['13486', 8 * 3600 + 1200], ['13500', 8 * 3600 + 1800]];
   muni.set('stop_times.txt', `${muni.get('stop_times.txt')}${visits.map(([stop, at], n) => `loop,${clock(at)},${clock(at)},${stop},${n + 1}`).join('\n')}\n`);
-  const path = join(mkdtempSync(join(tmpdir(), 'loop-')), 'schedule.db');
-  buildScheduleDatabase(network, path);
-  const looped = new Schedule(path);
+  const looped = buildSchedule(network);
   try {
     const pin = { second: { trip: 'SF:loop', board: 'SF:13486' }, at: DAY + 8 * 3600 + 600 };
     // To a route, so nothing past boarding pins where the rider goes on it.

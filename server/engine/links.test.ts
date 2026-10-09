@@ -1,11 +1,8 @@
 import { deepStrictEqual, strictEqual } from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { test } from 'node:test';
 import type { Agency } from '../config.ts';
-import { buildScheduleDatabase } from '../gtfs/ingest.ts';
-import { Schedule } from '../schedule.ts';
+import type { Schedule } from '../schedule.ts';
+import { CALENDAR, buildSchedule, files } from '../test-gtfs.ts';
 import { serviceDayStart } from '../time.ts';
 import { findLinks } from './links.ts';
 import { planTrip } from './trip.ts';
@@ -41,19 +38,14 @@ function build(stops: [string, number, boolean][], runs: { id: string; route?: s
       });
     }
   }
-  const calendar = 'service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,start_date,end_date\nall,1,1,1,1,1,1,1,20260101,20271231\n';
-  const files = new Map(
-    Object.entries({
-      'routes.txt': `route_id,route_short_name,route_long_name,route_type\n${[...new Set(runs.map(({ route = 'C' }) => route))].map((route) => `${route},${route},${route},3`).join('\n')}\n`,
-      'stops.txt': `${rows.join('\n')}\n`,
-      'calendar.txt': calendar,
-      'trips.txt': `route_id,service_id,trip_id,trip_headsign,direction_id,block_id,shape_id\n${trips.join('\n')}\n`,
-      'stop_times.txt': `trip_id,arrival_time,departure_time,stop_id,stop_sequence\n${times.join('\n')}\n`,
-    }),
-  );
-  const path = join(mkdtempSync(join(tmpdir(), 'links-')), 'schedule.db');
-  buildScheduleDatabase(new Map<Agency, Map<string, string>>([['SF', files]]), path);
-  return new Schedule(path);
+  const muni = files({
+    'routes.txt': `route_id,route_short_name,route_long_name,route_type\n${[...new Set(runs.map(({ route = 'C' }) => route))].map((route) => `${route},${route},${route},3`).join('\n')}\n`,
+    'stops.txt': `${rows.join('\n')}\n`,
+    'calendar.txt': CALENDAR,
+    'trips.txt': `route_id,service_id,trip_id,trip_headsign,direction_id,block_id,shape_id\n${trips.join('\n')}\n`,
+    'stop_times.txt': `trip_id,arrival_time,departure_time,stop_id,stop_sequence\n${times.join('\n')}\n`,
+  });
+  return buildSchedule(new Map<Agency, Map<string, string>>([['SF', muni]]));
 }
 
 function network(shortRunTrips: number) {

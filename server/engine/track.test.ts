@@ -1,14 +1,11 @@
 import { metersFrom } from '../../shared/projection.ts';
 import { deepStrictEqual, strictEqual, throws } from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { after, before, test } from 'node:test';
 import type { Agency } from '../config.ts';
-import { buildScheduleDatabase } from '../gtfs/ingest.ts';
 import { RequestError } from '../http.ts';
 import type { RtTrip, RtVehicle, TripSnapshot, VehicleSnapshot } from '../realtime/snapshot.ts';
-import { Schedule } from '../schedule.ts';
+import type { Schedule } from '../schedule.ts';
+import { CALENDAR, buildSchedule, files } from '../test-gtfs.ts';
 import { serviceDayStart } from '../time.ts';
 import { trackVehicle } from './track.ts';
 
@@ -41,21 +38,17 @@ before(() => {
   const feeds = new Map<Agency, Map<string, string>>([
     [
       'SF',
-      new Map(
-        Object.entries({
-          'routes.txt': 'route_id,route_short_name,route_long_name,route_type\nF,F,MARKET & WHARVES,0\n',
-          'stops.txt': `stop_id,stop_code,stop_name,stop_lat,stop_lon\n${stops.join('\n')}\n`,
-          'shapes.txt': `shape_id,shape_pt_lat,shape_pt_lon,shape_pt_sequence\n${[...shape, ...loop].join('\n')}\n`,
-          'calendar.txt': 'service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,start_date,end_date\nall,1,1,1,1,1,1,1,20260101,20271231\n',
-          'trips.txt': 'route_id,service_id,trip_id,trip_headsign,direction_id,block_id,shape_id\nF,all,t1,Fishermans Wharf,0,,east\nF,all,l1,Loop,0,,loop\n',
-          'stop_times.txt': `trip_id,arrival_time,departure_time,stop_id,stop_sequence\n${times.join('\n')}\n`,
-        }),
-      ),
+      files({
+        'routes.txt': 'route_id,route_short_name,route_long_name,route_type\nF,F,MARKET & WHARVES,0\n',
+        'stops.txt': `stop_id,stop_code,stop_name,stop_lat,stop_lon\n${stops.join('\n')}\n`,
+        'shapes.txt': `shape_id,shape_pt_lat,shape_pt_lon,shape_pt_sequence\n${[...shape, ...loop].join('\n')}\n`,
+        'calendar.txt': CALENDAR,
+        'trips.txt': 'route_id,service_id,trip_id,trip_headsign,direction_id,block_id,shape_id\nF,all,t1,Fishermans Wharf,0,,east\nF,all,l1,Loop,0,,loop\n',
+        'stop_times.txt': `trip_id,arrival_time,departure_time,stop_id,stop_sequence\n${times.join('\n')}\n`,
+      }),
     ],
   ]);
-  const path = join(mkdtempSync(join(tmpdir(), 'track-')), 'schedule.db');
-  buildScheduleDatabase(feeds, path);
-  schedule = new Schedule(path);
+  schedule = buildSchedule(feeds);
 });
 after(() => schedule.close());
 
