@@ -95,18 +95,6 @@ export function buildTripSnapshot(
   return { fetchedAt, feedTime: feed.header.timestamp ?? null, trips, byStop, horizon };
 }
 
-// Merges snapshots from separate feeds (511's regional feed and BART's own).
-export function mergeSnapshots(snapshots: TripSnapshot[]): TripSnapshot {
-  const merged: TripSnapshot = { fetchedAt: 0, feedTime: null, trips: new Map(), byStop: new Map(), horizon: new Map() };
-  for (const snapshot of snapshots) {
-    merged.fetchedAt = Math.max(merged.fetchedAt, snapshot.fetchedAt);
-    for (const [key, trip] of snapshot.trips) merged.trips.set(key, trip);
-    for (const [key, list] of snapshot.byStop) merged.byStop.set(key, [...(merged.byStop.get(key) ?? []), ...list]);
-    for (const [agency, time] of snapshot.horizon) merged.horizon.set(agency, Math.max(merged.horizon.get(agency) ?? 0, time));
-  }
-  return merged;
-}
-
 export type RtAlert = {
   id: string;
   agencies: Agency[];

@@ -36,13 +36,6 @@ export function compassLabel(degrees: number) {
   return COMPASS[Math.round(degrees / 45) % 8] ?? null;
 }
 
-// Degrees of latitude and longitude spanning a distance, for a bounding box before exact checks.
-export function boundingBox(center: Point, meters: number) {
-  const dLat = (meters / EARTH_RADIUS_METERS) * (180 / Math.PI);
-  const dLon = dLat / Math.cos(toRadians(center.lat));
-  return { minLat: center.lat - dLat, maxLat: center.lat + dLat, minLon: center.lon - dLon, maxLon: center.lon + dLon };
-}
-
 // Google's encoded polyline format at 5 decimal places: about a meter of precision in a few
 // bytes per point, which keeps stored route shapes small.
 export function encodePolyline(points: Point[]) {
