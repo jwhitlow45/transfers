@@ -237,6 +237,12 @@ export class Schedule {
     return stop.kind === 'platform' && stop.access === 'bart' && stop.parent !== null ? this.stop(stop.parent) : stop;
   }
 
+  // A BART platform's station, or the stop itself. Unlike stationOf, it leaves a shared station's
+  // Muni Metro platforms as they are, where a page lists them apart from BART's.
+  bartStationOf(stop: StopRow) {
+    return stop.parent !== null && stop.access === 'bart' ? this.stop(stop.parent) : stop;
+  }
+
   directionName(route: number, direction: number | null) {
     return direction === null ? null : (this.directionNames.get(`${route}|${direction}`) ?? null);
   }

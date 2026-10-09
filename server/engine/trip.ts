@@ -98,9 +98,8 @@ export function destinations(schedule: Schedule, request: TripRequest): Destinat
       for (const id of pattern.stops.slice(position + 1)) {
         if (seen.has(id)) continue;
         seen.add(id);
-        const stop = schedule.stop(id);
         // BART riders get off at a station, not a platform.
-        stops.push(tables.stop(stop.parent !== null && stop.access === 'bart' ? schedule.stop(stop.parent) : stop));
+        stops.push(tables.stop(schedule.bartStationOf(schedule.stop(id))));
       }
     }
     groups.push({ board: tables.stop(link.board), routes: link.routes.map((route) => tables.route(route)), headsign: link.headsign, stops: [...new Set(stops)] });

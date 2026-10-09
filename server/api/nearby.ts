@@ -86,7 +86,7 @@ export function nearby(schedule: Schedule, realtime: RealtimeView, center: Point
   const tables = new Tables(schedule);
   // Every stop in range for each route and direction.
   const { rows, bartLines } = boardingRows(schedule, schedule.stops.values(), (stop) => {
-    const meters = distanceMeters(center, stop.parent !== null && stop.access === 'bart' ? schedule.stop(stop.parent) : stop);
+    const meters = distanceMeters(center, schedule.bartStationOf(stop));
     return meters <= radius ? meters : Infinity;
   });
   // Nearest first, and at one distance, the stop more trips serve.
@@ -106,7 +106,7 @@ export function nearby(schedule: Schedule, realtime: RealtimeView, center: Point
     if (arrivals.length === 0) continue;
     shown.set(candidate.key, candidate);
     groups.push({
-      stop: tables.stop(candidate.stop.parent !== null && candidate.stop.access === 'bart' ? schedule.stop(candidate.stop.parent) : candidate.stop),
+      stop: tables.stop(schedule.bartStationOf(candidate.stop)),
       routes: routes.map((route) => tables.route(route)),
       direction: candidate.direction,
       headsign: candidate.headsign,
@@ -136,7 +136,7 @@ function schematic(schedule: Schedule, center: Point, radius: number, candidates
 
   const stops = new Map<number, { stop: string; x: number; y: number }>();
   for (const { stop } of candidates) {
-    const shown = stop.parent !== null && stop.access === 'bart' ? schedule.stop(stop.parent) : stop;
+    const shown = schedule.bartStationOf(stop);
     const [x, y] = project(shown);
     stops.set(shown.id, { stop: stopKeyOf(shown), x, y });
   }
