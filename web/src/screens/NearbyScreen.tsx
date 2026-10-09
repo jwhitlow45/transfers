@@ -19,6 +19,7 @@ import { AppLink } from '../components/AppLink.tsx';
 import { ArrivalItem, RouteCard, routesOf, rowKey, upcoming } from '../components/RouteCard.tsx';
 import { EmptyState } from '../components/EmptyState.tsx';
 import { failureOf } from '../lib/failure.ts';
+import { apiUrl } from '../api.ts';
 
 type Located = { state: 'idle' | 'asking' | LocationProblem } | { state: 'found'; position: Position };
 
@@ -81,9 +82,7 @@ export function NearbyScreen() {
 }
 
 function NearbyResults({ position, onRelocate }: { position: Position; onRelocate: () => void }) {
-  // Rounded to about 10 m, so small GPS jitter reuses the same request.
-  const url = `/api/nearby?lat=${position.lat.toFixed(4)}&lon=${position.lon.toFixed(4)}`;
-  const { data, error, fetchedAt, feed, settled, refresh } = usePoll<NearbyResponse>(url, 30_000);
+  const { data, error, fetchedAt, feed, settled, refresh } = usePoll<NearbyResponse>(apiUrl.nearby(position), 30_000);
   const { now, fresh, showStale, secondsSinceUpdate } = liveClock({ data, fetchedAt, settled }, useNow());
   const failure = failureOf(error, 'Nearby');
   // The server leaves out routes with nothing coming. A row whose last arrival has passed since

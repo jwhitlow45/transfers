@@ -1,7 +1,7 @@
 import { createContext } from 'preact';
 import { useContext, useLayoutEffect, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
-import { DEFAULT_SETTINGS, type DeviceSettings, type Pin, type Search, loadSettings, saveSettings } from './storage.ts';
+import { DEFAULT_SETTINGS, type DeviceSettings, loadSettings, saveSettings } from './storage.ts';
 
 const SettingsContext = createContext<{ settings: DeviceSettings; update: (change: Partial<DeviceSettings>) => void }>({
   settings: DEFAULT_SETTINGS,
@@ -39,38 +39,6 @@ export function SettingsProvider({ children }: { children: ComponentChildren }) 
 }
 
 export const useSettings = () => useContext(SettingsContext);
-
-// The API request for a search: its own settings first, then the device's.
-export function tripApiUrl(search: Search, settings: DeviceSettings, showHidden: boolean, pin: Pin | null = null) {
-  const params = new URLSearchParams({ from: search.from, to: search.to });
-  const min = search.min ?? settings.min;
-  const max = search.max ?? settings.max;
-  const hide = search.hide ?? settings.hide;
-  if (min !== null && min !== undefined) params.set('min', String(min));
-  if (max !== null && max !== undefined) params.set('max', String(max));
-  if (hide) params.set('hide', String(hide));
-  if (settings.maxWalk !== DEFAULT_SETTINGS.maxWalk) params.set('walk', String(settings.maxWalk));
-  if (settings.walkSpeed !== DEFAULT_SETTINGS.walkSpeed) params.set('speed', String(settings.walkSpeed));
-  if (search.dest) params.set('dest', search.dest);
-  if (search.firstRoutes?.length) params.set('r1', search.firstRoutes.join(','));
-  if (search.secondRoutes?.length) params.set('r2', search.secondRoutes.join(','));
-  if (search.fromSystem) params.set('fm', search.fromSystem);
-  if (search.toSystem) params.set('tm', search.toSystem);
-  if (showHidden) params.set('hidden', '1');
-  if (settings.stepFree) params.set('stepfree', '1');
-  if (settings.escalatorOutages) params.set('escalators', '1');
-  if (pin) {
-    params.set('p2', pin.second.trip);
-    params.set('pb', pin.second.board);
-    params.set('pt', String(pin.at));
-    if (pin.first) {
-      params.set('p1', pin.first.trip);
-      params.set('pa', pin.first.alight);
-      if (pin.first.at !== undefined) params.set('pf', String(pin.first.at));
-    }
-  }
-  return `/api/trip?${params}`;
-}
 
 // Whether the server's inlined results answer the same question this device would ask.
 export function matchesServerDefaults(settings: DeviceSettings) {

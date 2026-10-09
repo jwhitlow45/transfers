@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import type { TripResponse } from '../../../shared/api.ts';
-import { takeInitialData } from '../api.ts';
+import { apiUrl, takeInitialData } from '../api.ts';
 import { AlertList } from '../components/AlertList.tsx';
 import { FeedOutages, LiveBanners } from '../components/Banners.tsx';
 import { OutageSheet, OutageTag } from '../components/Outages.tsx';
@@ -26,7 +26,7 @@ import { IconFilter, IconFlag, IconHidden } from '../icons/ui.tsx';
 import { type CardContext, chooseDirection, directionChoices, hintKey, orderGroups, pageColors, pointId, scaleFor, timeScale, visibleDepartures } from '../lib/results.ts';
 import { summarize } from '../lib/summary.ts';
 import { cameBackTo, goBack, navigate, tripPath } from '../router.ts';
-import { matchesServerDefaults, tripApiUrl, useSettings } from '../settings.tsx';
+import { matchesServerDefaults, useSettings } from '../settings.tsx';
 import { type Pin, type Search, clearPinHint, rememberRecent, takePinHint, updateSaved } from '../storage.ts';
 import { shortStopName, spokenRoute } from '../view.ts';
 import { AppLink } from '../components/AppLink.tsx';
@@ -66,7 +66,7 @@ export function ResultsScreen({ search }: { search: Search }) {
   useEffect(() => {
     if (pin) changePin(pin);
   }, [tripPath(search)]);
-  const url = tripApiUrl(search, settings, showHidden, pin);
+  const url = apiUrl.trip(search, settings, showHidden, pin);
   // Results the server put in the page answer this request only if nothing differs from its defaults.
   const initial = useMemo(() => {
     const page = initialData;
@@ -76,7 +76,7 @@ export function ResultsScreen({ search }: { search: Search }) {
     return matches ? { data: page, fetchedAt: initialAt } : null;
   }, []);
   // Stored under the search's own address, so pinning adds no stored copy of its own.
-  const { data, error, fetchedAt, feed, settled, answered, refresh } = usePoll<TripResponse>(url, 30_000, initial, tripApiUrl(search, settings, showHidden));
+  const { data, error, fetchedAt, feed, settled, answered, refresh } = usePoll<TripResponse>(url, 30_000, initial, apiUrl.trip(search, settings, showHidden));
   // Every time on the page is the server's, so the clock is too.
   const { now, fresh, showStale, secondsSinceUpdate } = liveClock({ data, fetchedAt, settled }, deviceNow);
   const summary = summarize(search, data, now);
@@ -167,20 +167,11 @@ export function ResultsScreen({ search }: { search: Search }) {
   // The header chip takes the same color its group gives it, which may have stepped away from a clash.
   const toColor = summary.toRoute && data ? context.colorOf(summary.toRoute.key) : undefined;
   const toChip = summary.toRoute ? <RouteChip route={summary.toRoute} {...(toColor ? { color: toColor } : {})} /> : <span>{summary.to}</span>;
-  const params = new URLSearchParams(url.split('?')[1]);
   // The return trip heads back by the transfer point the rider pinned, or else the first ride the
-  // page lists, past the points and routes they turned off. It asks with only what decides it, so
-  // moving a slider in the sheet asks nothing again.
+  // page lists, past the points and routes they turned off.
   const backPoint = pin?.first ? { alight: pin.first.alight, board: pin.second.board } : ordered.find((group) => group.kind !== 'walk');
-  const wayBackParams = new URLSearchParams([...params].filter(([name]) => ['from', 'to', 'dest', 'walk', 'speed', 'fm', 'tm', 'r1', 'r2'].includes(name)));
-  if (backPoint) {
-    wayBackParams.set('wa', backPoint.alight);
-    wayBackParams.set('wb', backPoint.board);
-  }
-  const wayBackUrl = `/api/way-back?${wayBackParams}`;
-  // The destinations a trip can have do not depend on what is shown or pinned.
-  for (const name of ['hidden', 'p1', 'pa', 'pf', 'p2', 'pb', 'pt']) params.delete(name);
-  const destinationsUrl = `/api/destinations?${params}`;
+  const wayBackUrl = apiUrl.wayBack(url, backPoint && { alight: backPoint.alight, board: backPoint.board });
+  const destinationsUrl = apiUrl.destinations(url);
 
   return (
     <>

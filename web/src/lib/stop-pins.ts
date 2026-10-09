@@ -1,10 +1,6 @@
 import type { NearbyArrival, NearbyStop, StopResponse } from '../../../shared/api.ts';
 import type { Pin, Search } from '../storage.ts';
 
-// A stop's arrivals, which its page, its saved card, and a pinned arrival all ask for, and share
-// the stored answer of.
-export const stopApiUrl = (stop: string) => `/api/stop?stop=${encodeURIComponent(stop)}`;
-
 // An arrival at a stop as a pin: the vehicle and where it is boarded, with no first vehicle, as a
 // ride already at From is pinned on results. `at` is when it was due before any delay, which stays
 // the same as its predictions change, and it ends as it arrives.

@@ -15,7 +15,7 @@ import { viewAlerts } from '../lib/alerts.ts';
 import { routeColor } from '../lib/color.ts';
 import { liveClock } from '../lib/freshness.ts';
 import { samePin } from '../lib/pinned.ts';
-import { stopApiUrl, stopPinOf } from '../lib/stop-pins.ts';
+import { stopPinOf } from '../lib/stop-pins.ts';
 import { goBack } from '../router.ts';
 import { useSettings } from '../settings.tsx';
 import {
@@ -28,6 +28,7 @@ import { ArrivalItem, RouteCard, routesOf, rowKey, upcoming } from '../component
 import { EmptyState } from '../components/EmptyState.tsx';
 import { failureOf } from '../lib/failure.ts';
 import { AppLink } from '../components/AppLink.tsx';
+import { apiUrl } from '../api.ts';
 
 // A row's arrivals until it is opened for the rest the server sent.
 const SHOWN = 3;
@@ -38,7 +39,7 @@ const SHOWN = 3;
 // stop saves to Home too, as a card of its arrivals.
 export function StopScreen({ search }: { search: Search }) {
   const { settings } = useSettings();
-  const { data, error, fetchedAt, feed, settled, answered, refresh } = usePoll<StopResponse>(stopApiUrl(search.from), 30_000);
+  const { data, error, fetchedAt, feed, settled, answered, refresh } = usePoll<StopResponse>(apiUrl.stop(search.from), 30_000);
   const { now, fresh, showStale, secondsSinceUpdate } = liveClock({ data, fetchedAt, settled }, useNow());
   useSwipeBack(() => goBack());
   useEffect(() => {

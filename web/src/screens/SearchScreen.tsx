@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import type { SearchResponse, StopResponse, TripResponse } from '../../../shared/api.ts';
-import { getJson } from '../api.ts';
+import { apiUrl, getJson } from '../api.ts';
 import { Collapse } from '../components/Collapse.tsx';
 import { DataCredit } from '../components/DataCredit.tsx';
 import { RecentList } from '../components/RecentList.tsx';
@@ -25,10 +25,9 @@ import { unsave } from '../records.ts';
 import { motionOff } from '../gestures.ts';
 import { useScreenActive, useShownAgain } from '../layers.ts';
 import { navigate, searchPath, stopPath, tripPath } from '../router.ts';
-import { stopApiUrl } from '../lib/stop-pins.ts';
 import { StopPinCard } from '../components/StopPinCard.tsx';
 import { RouteChip } from '../components/RouteChip.tsx';
-import { tripApiUrl, useSettings } from '../settings.tsx';
+import { useSettings } from '../settings.tsx';
 import {
   type Pin,
   type SavedSearch,
@@ -221,8 +220,7 @@ export function SearchScreen() {
     const controller = new AbortController();
     // Waits for a pause in typing, so each keystroke does not cost a request.
     const timer = setTimeout(() => {
-      const params = new URLSearchParams({ q: query, kind: focus === 'to' ? 'any' : 'stop', ...(near ? { lat: near.lat.toFixed(4), lon: near.lon.toFixed(4) } : {}) });
-      getJson<SearchResponse>(`/api/search?${params}`, { signal: controller.signal }).then(
+      getJson<SearchResponse>(apiUrl.search(query, focus === 'to', near), { signal: controller.signal }).then(
         (answer) => {
           answeredFor.current = `${focus}|${query}`;
           setResponse(answer);
@@ -573,7 +571,7 @@ function StopPinHome({ pin, name, now, pulls, onPin, onUpdate, onReport }: {
 }) {
   const { settings } = useSettings();
   const { search } = pin;
-  const polled = usePoll<StopResponse>(stopApiUrl(search.from), 30_000);
+  const polled = usePoll<StopResponse>(apiUrl.stop(search.from), 30_000);
   const { data, feed, answered } = polled;
   const live = useHomeLive(polled, `pin:${searchId(search)}`, pulls, onReport, now);
   const { expired } = useStopPin(pin, data, answered, search, settings, live.now, onUpdate);
@@ -593,7 +591,7 @@ function PinnedHome({ pin, name, now, pulls, onPin, onUpdate, onReport }: {
 }) {
   const { settings } = useSettings();
   const { search } = pin;
-  const polled = usePoll<TripResponse>(tripApiUrl(search, settings, false, pin), 30_000, null, tripApiUrl(search, settings, false));
+  const polled = usePoll<TripResponse>(apiUrl.trip(search, settings, false, pin), 30_000, null, apiUrl.trip(search, settings, false));
   const { data, feed, answered } = polled;
   const live = useHomeLive(polled, `pin:${searchId(search)}`, pulls, onReport, now);
   const serverNow = live.now;
@@ -647,7 +645,7 @@ function SavedTrip({ search, now, dismissed, pulls, onMove, canMoveUp, canMoveDo
 }) {
   const { settings } = useSettings();
   const slot = useRef<HTMLDivElement>(null);
-  const polled = usePoll<TripResponse>(tripApiUrl(search, settings, false), useOnScreen(slot) ? 30_000 : OFF_SCREEN_POLL_MS);
+  const polled = usePoll<TripResponse>(apiUrl.trip(search, settings, false), useOnScreen(slot) ? 30_000 : OFF_SCREEN_POLL_MS);
   const { data, feed } = polled;
   const live = useHomeLive(polled, `saved:${search.id}`, pulls, onReport, now);
   const summary = summarize(search, data, live.now, dismissed);
@@ -707,7 +705,7 @@ function SavedStop({ search, now, pulls, onMove, canMoveUp, canMoveDown, onRepor
   onRemove: () => void;
 }) {
   const slot = useRef<HTMLDivElement>(null);
-  const polled = usePoll<StopResponse>(stopApiUrl(search.from), useOnScreen(slot) ? 30_000 : OFF_SCREEN_POLL_MS);
+  const polled = usePoll<StopResponse>(apiUrl.stop(search.from), useOnScreen(slot) ? 30_000 : OFF_SCREEN_POLL_MS);
   const { data, feed } = polled;
   const live = useHomeLive(polled, `saved:${search.id}`, pulls, onReport, now);
   const serverNow = live.now;
