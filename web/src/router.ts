@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { type Search, clampMinutes, isStopSearch, stopSearch } from './storage.ts';
+import { type Search, clampMinutes, isStopSearch, readStored, stopSearch, writeStored } from './storage.ts';
 
 export type Page =
   | { name: 'home' }
@@ -99,41 +99,22 @@ const newKey = () => `${Date.now().toString(36)}-${++keys}`;
 // Addresses the pages under an open sheet took on while it was open, such as from Trip settings,
 // by the page entry's key, put back when the rider returns to it. Kept for the tab's session where
 // it can be, so a reload with the sheet open loses none. Keys are never reused, so one left behind,
-// as when the rider jumps back past that page, can never touch another.
-const MOVED = 'transfers:moved';
-let moved: Record<string, string> = {};
-try {
-  moved = JSON.parse(sessionStorage.getItem(MOVED) ?? '{}') as Record<string, string>;
-} catch {
-  // Without storage, they last as long as the page.
-}
+// as when the rider jumps back past that page, can never touch another. Without storage, they last
+// as long as the page.
+let moved = readStored<Record<string, string>>('moved', {}, 'session');
 const setMoved = (all: Record<string, string>) => {
   // The latest few are all a tab needs.
   moved = Object.fromEntries(Object.entries(all).slice(-20));
-  try {
-    sessionStorage.setItem(MOVED, JSON.stringify(moved));
-  } catch {
-    // Without storage, they last as long as the page.
-  }
+  writeStored('moved', moved, 'session');
 };
 // How the rider left a page for another, by the page entry's key: how far it was scrolled, and the
 // sheet open over it, such as Trip settings when its Settings link was followed, so that coming
 // back finds the page as it was (J, 2026-10-08). Kept for the tab's session where it can be.
 export type Left = { scroll: number; sheet?: string; sheetScroll?: number };
-const LEFT = 'transfers:left';
-let left: Record<string, Left> = {};
-try {
-  left = JSON.parse(sessionStorage.getItem(LEFT) ?? '{}') as Record<string, Left>;
-} catch {
-  // Without storage, it lasts as long as the page.
-}
+let left = readStored<Record<string, Left>>('left', {}, 'session');
 const setLeft = (all: Record<string, Left>) => {
   left = Object.fromEntries(Object.entries(all).slice(-20));
-  try {
-    sessionStorage.setItem(LEFT, JSON.stringify(left));
-  } catch {
-    // Without storage, it lasts as long as the page.
-  }
+  writeStored('left', left, 'session');
 };
 const remember = (current: Entry) => {
   const key = current.sheet ? current.under : current.key;

@@ -6,18 +6,22 @@ import { MAX_MINUTES, type PinRequest, type PinnedTrip } from '../../shared/api.
 
 const PREFIX = 'transfers:';
 
-function read<T>(key: string, fallback: T): T {
+// `session` keeps a value for this tab only, as sessionStorage does.
+type Area = 'device' | 'session';
+const area = (where: Area) => (where === 'session' ? sessionStorage : localStorage);
+
+export function readStored<T>(key: string, fallback: T, where: Area = 'device'): T {
   try {
-    const text = localStorage.getItem(PREFIX + key);
+    const text = area(where).getItem(PREFIX + key);
     return text === null ? fallback : (JSON.parse(text) as T);
   } catch {
     return fallback;
   }
 }
 
-function write(key: string, value: unknown) {
+export function writeStored(key: string, value: unknown, where: Area = 'device') {
   try {
-    localStorage.setItem(PREFIX + key, JSON.stringify(value));
+    area(where).setItem(PREFIX + key, JSON.stringify(value));
   } catch {
     // Full or blocked storage loses this value, nothing more.
   }
@@ -88,11 +92,11 @@ function clampTimes<T extends { min?: number | null; max?: number | null; hide?:
 }
 
 export function loadSettings(): DeviceSettings {
-  return clampTimes({ ...DEFAULT_SETTINGS, ...read<Partial<DeviceSettings>>('settings', {}) });
+  return clampTimes({ ...DEFAULT_SETTINGS, ...readStored<Partial<DeviceSettings>>('settings', {}) });
 }
 
 export function saveSettings(settings: DeviceSettings) {
-  write('settings', settings);
+  writeStored('settings', settings);
 }
 
 // A search as the rider set it up. Labels are kept so lists render without a request.
@@ -142,17 +146,17 @@ export const isStopSearch = (search: Pick<Search, 'to'>) => search.to === '';
 export type Pin = PinRequest & { ends: number; search?: Search; last?: PinnedTrip; arrival?: { route: string; headsign: string } };
 
 export function loadPin(search: Search): Pin | null {
-  return read<Record<string, Pin>>('pins', {})[searchId(search)] ?? null;
+  return readStored<Record<string, Pin>>('pins', {})[searchId(search)] ?? null;
 }
 
 // Every pin Home can show, with its search.
 export function loadPins(): (Pin & { search: Search })[] {
-  return Object.values(read<Record<string, Pin>>('pins', {})).filter((pin): pin is Pin & { search: Search } => pin.search !== undefined);
+  return Object.values(readStored<Record<string, Pin>>('pins', {})).filter((pin): pin is Pin & { search: Search } => pin.search !== undefined);
 }
 
 export function savePin(search: Search, pin: Pin | null) {
-  const { [searchId(search)]: _old, ...others } = read<Record<string, Pin>>('pins', {});
-  write('pins', pin ? { ...others, [searchId(search)]: pin } : others);
+  const { [searchId(search)]: _old, ...others } = readStored<Record<string, Pin>>('pins', {});
+  writeStored('pins', pin ? { ...others, [searchId(search)]: pin } : others);
 }
 
 // A notice the rider dismissed, kept as it read then, so the Notices page can show it and put it
@@ -176,21 +180,21 @@ export const DISMISSED_DAYS = 60;
 
 export function loadDismissed(): DismissedNotice[] {
   const now = Date.now() / 1000;
-  return read<DismissedNotice[]>('dismissed', []).filter(({ at }) => now - at < DISMISSED_DAYS * 86_400);
+  return readStored<DismissedNotice[]>('dismissed', []).filter(({ at }) => now - at < DISMISSED_DAYS * 86_400);
 }
 
 // Dismissed now, or with `at`, put back as dismissed then, as Undo after Restore does.
 export function dismissNotice(notice: Omit<DismissedNotice, 'at'>, at = Math.floor(Date.now() / 1000)) {
   const others = loadDismissed().filter(({ id }) => id !== notice.id);
-  write('dismissed', [...others, { ...notice, at }].sort((a, b) => b.at - a.at));
+  writeStored('dismissed', [...others, { ...notice, at }].sort((a, b) => b.at - a.at));
 }
 
 export function restoreNotice(id: string) {
-  write('dismissed', loadDismissed().filter((notice) => notice.id !== id));
+  writeStored('dismissed', loadDismissed().filter((notice) => notice.id !== id));
 }
 
 export function restoreAllNotices() {
-  write('dismissed', []);
+  writeStored('dismissed', []);
 }
 
 // Results tell a rider that tapping a connection pins it on their first few visits, until they
@@ -198,22 +202,22 @@ export function restoreAllNotices() {
 const PIN_HINT_VISITS = 3;
 
 export function takePinHint() {
-  const left = read<number>('pinHint', PIN_HINT_VISITS);
+  const left = readStored<number>('pinHint', PIN_HINT_VISITS);
   if (left <= 0) return false;
-  write('pinHint', left - 1);
+  writeStored('pinHint', left - 1);
   return true;
 }
 
 export function clearPinHint() {
-  write('pinHint', 0);
+  writeStored('pinHint', 0);
 }
 
 export function loadSaved(): SavedSearch[] {
-  return read<SavedSearch[]>('saved', []).map(clampTimes);
+  return readStored<SavedSearch[]>('saved', []).map(clampTimes);
 }
 
 export function saveSaved(saved: SavedSearch[]) {
-  write('saved', saved);
+  writeStored('saved', saved);
 }
 
 export function saveSearch(search: Search, name: string, color?: string) {
@@ -241,59 +245,46 @@ export function updateSaved(search: Search) {
 }
 
 // What the search screen's fields held when the rider left it, so coming back restores them.
-export function loadFields<T>() {
-  try {
-    const text = sessionStorage.getItem(`${PREFIX}fields`);
-    return text ? (JSON.parse(text) as T) : null;
-  } catch {
-    return null;
-  }
-}
+export const loadFields = <T>() => readStored<T | null>('fields', null, 'session');
 
-export function saveFields(fields: unknown) {
-  try {
-    sessionStorage.setItem(`${PREFIX}fields`, JSON.stringify(fields));
-  } catch {
-    // Without session storage the fields start empty, nothing more.
-  }
-}
+export const saveFields = (fields: unknown) => writeStored('fields', fields, 'session');
 
 export function loadRecent(): RecentSearch[] {
-  return read<RecentSearch[]>('recent', []);
+  return readStored<RecentSearch[]>('recent', []);
 }
 
 // Stops and routes picked from search, by key, with what tells them apart ("Muni · Stop 13477 ·
 // Eastbound"), so recent ones offered in an empty field say it too. The latest 30.
 export type PickedStop = { key: string; label: string; meta: string; short: string };
 export function loadPicked(): Record<string, PickedStop> {
-  return read<Record<string, PickedStop>>('picked', {});
+  return readStored<Record<string, PickedStop>>('picked', {});
 }
 export function rememberPicked(picked: PickedStop) {
   const { [picked.key]: _old, ...others } = loadPicked();
-  write('picked', Object.fromEntries([...Object.entries(others), [picked.key, { key: picked.key, label: picked.label, meta: picked.meta, short: picked.short }]].slice(-30)));
+  writeStored('picked', Object.fromEntries([...Object.entries(others), [picked.key, { key: picked.key, label: picked.label, meta: picked.meta, short: picked.short }]].slice(-30)));
 }
 
 // The whole list back as it was, as when a removal is undone.
 export function saveRecent(recent: RecentSearch[]) {
-  write('recent', recent);
+  writeStored('recent', recent);
 }
 
 export function removeRecent(id: string) {
-  write('recent', loadRecent().filter((item) => searchId(item) !== id));
+  writeStored('recent', loadRecent().filter((item) => searchId(item) !== id));
 }
 
 export function rememberRecent(search: Search, via?: string) {
   const recent = loadRecent().filter((item) => searchId(item) !== searchId(search));
-  write('recent', [{ ...search, at: Date.now(), ...(via ? { via } : {}) }, ...recent].slice(0, 8));
+  writeStored('recent', [{ ...search, at: Date.now(), ...(via ? { via } : {}) }, ...recent].slice(0, 8));
 }
 
 // The last response for each request, shown at once on return or while offline.
 export function loadCached<T>(url: string) {
-  return read<{ data: T; fetchedAt: number } | null>(`cache:${url}`, null);
+  return readStored<{ data: T; fetchedAt: number } | null>(`cache:${url}`, null);
 }
 
 export function saveCached(url: string, data: unknown, fetchedAt = Date.now()) {
-  write(`cache:${url}`, { data, fetchedAt });
+  writeStored(`cache:${url}`, { data, fetchedAt });
 }
 
 // Forgets every stored response, keeping settings and saved and recent searches.
