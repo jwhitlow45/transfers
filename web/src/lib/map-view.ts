@@ -155,17 +155,27 @@ export function useMapView(whole: Box, maxZoom: number) {
       setMoved(shown);
       event.preventDefault();
     };
+    // Two fingers on the map are always the map's. Zoomed out, the map leaves one finger to scroll
+    // the page (pan-y), and the browser would take two the same way, scrolling the page with the
+    // first pinch (J, 2026-10-09). Cancelled before any scroll starts, the pinch stays the map's.
+    const hold = (event: TouchEvent) => {
+      if (event.targetTouches.length >= 2 && event.cancelable) event.preventDefault();
+    };
     svg.addEventListener('pointerdown', down);
     svg.addEventListener('pointermove', move);
     svg.addEventListener('pointerup', up);
     svg.addEventListener('pointercancel', up);
     svg.addEventListener('lostpointercapture', up);
+    svg.addEventListener('touchstart', hold, { passive: false });
+    svg.addEventListener('touchmove', hold, { passive: false });
     return () => {
       svg.removeEventListener('pointerdown', down);
       svg.removeEventListener('pointermove', move);
       svg.removeEventListener('pointerup', up);
       svg.removeEventListener('pointercancel', up);
       svg.removeEventListener('lostpointercapture', up);
+      svg.removeEventListener('touchstart', hold);
+      svg.removeEventListener('touchmove', hold);
       cancelAnimationFrame(easing.current);
     };
   }, []);
