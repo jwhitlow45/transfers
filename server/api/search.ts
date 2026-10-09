@@ -81,7 +81,7 @@ export function search(schedule: Schedule, text: string, options: { routes: bool
     }
     const routes = [...byName.values()];
     for (const route of routes) tables.route(route);
-    const leaving = (schedule.patternsByStop.get(stop.id) ?? []).filter(({ pattern, position }) => position < pattern.stops.length - 1).map(({ pattern }) => pattern);
+    const leaving = schedule.boardingPatterns(stop.id).map(({ pattern }) => pattern);
     stopResults.push({
       type: 'stop',
       ...stopView(schedule, stop),

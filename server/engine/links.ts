@@ -131,8 +131,9 @@ export function findLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow
       .filter(({ stops }) => stops.length > 0);
   const targets = runningTargets('stop' in to ? stopTargets(schedule, to.stop, settings.toAgencies ?? null) : routeTargets(schedule, to.route));
   const feeders: Feeder[] = origins.flatMap((originStop) =>
-    (schedule.patternsByStop.get(originStop.id) ?? [])
-      .filter(({ pattern, position }) => runs(pattern) && position < pattern.stops.length - 1)
+    schedule
+      .boardingPatterns(originStop.id)
+      .filter(({ pattern }) => runs(pattern))
       .map(({ pattern, position }) => ({ pattern, position, originStop })),
   );
 

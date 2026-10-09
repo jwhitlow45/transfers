@@ -237,6 +237,12 @@ export class Schedule {
     return stop.kind === 'platform' && stop.access === 'bart' && stop.parent !== null ? this.stop(stop.parent) : stop;
   }
 
+  // The patterns a rider can board at a stop, with where it is in each: every one but those that
+  // end there.
+  boardingPatterns(stop: number) {
+    return (this.patternsByStop.get(stop) ?? []).filter(({ pattern, position }) => position < pattern.stops.length - 1);
+  }
+
   // A BART platform's station, or the stop itself. Unlike stationOf, it leaves a shared station's
   // Muni Metro platforms as they are, where a page lists them apart from BART's.
   bartStationOf(stop: StopRow) {

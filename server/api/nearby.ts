@@ -25,7 +25,7 @@ export type BoardingRow = Candidate & { key: string; routes: number[]; headsign:
 export function boardingRows(schedule: Schedule, stops: Iterable<StopRow>, metersTo: (stop: StopRow) => number) {
   const rows: BoardingRow[] = [];
   const bartLines = new Map<number, Candidate[]>();
-  const leaving = (stop: number) => (schedule.patternsByStop.get(stop) ?? []).filter(({ pattern, position }) => position < pattern.stops.length - 1).map(({ pattern }) => pattern);
+  const leaving = (stop: number) => schedule.boardingPatterns(stop).map(({ pattern }) => pattern);
   for (const stop of stops) {
     // Vehicles stop at platforms and street stops, never at a station's own point.
     if (stop.kind !== 'stop' && stop.kind !== 'platform') continue;
@@ -66,8 +66,9 @@ export function arrivalsFor(context: { schedule: Schedule; snapshot: RealtimeVie
     routes: row.routes.map((id) => schedule.route(id)),
     direction: row.direction,
     headsign: row.headsign,
-    boardPatterns: (schedule.patternsByStop.get(row.stop.id) ?? [])
-      .filter(({ pattern, position }) => routeIds.has(pattern.route) && (row.direction === null || pattern.direction === row.direction) && position < pattern.stops.length - 1)
+    boardPatterns: schedule
+      .boardingPatterns(row.stop.id)
+      .filter(({ pattern }) => routeIds.has(pattern.route) && (row.direction === null || pattern.direction === row.direction))
       .map((entry) => ({ ...entry, stop: row.stop })),
     firstLegs: [],
     walkMeters: 0,
