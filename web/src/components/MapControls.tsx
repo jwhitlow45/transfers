@@ -21,7 +21,9 @@ export function PinchHint({ map }: { map: MapView }) {
   return (
     <span class="tf-map-hint" aria-hidden="true">
       <IconPinch />
-      Pinch to zoom
+      <span>
+        Pinch<span class="tf-map-hint__more"> to zoom</span>
+      </span>
     </span>
   );
 }

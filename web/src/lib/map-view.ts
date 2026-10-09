@@ -43,19 +43,37 @@ export function zoomAbout(view: View, offset: { x: number; y: number }, scale: n
 export const fingersOn = (map: { contains: (node: Node | null) => boolean }, touches: Iterable<{ target: EventTarget | null }>) =>
   [...touches].filter(({ target }) => map.contains(target as Node | null)).length;
 
+// Whether the rider has zoomed a map on this device, after which no map says it can (see
+// PinchHint). Every map showing hears when one first zooms.
+let zoomedOnce = readStored('mapZoomed', false);
+const zoomListeners = new Set<() => void>();
+function markZoomed() {
+  if (zoomedOnce) return;
+  zoomedOnce = true;
+  writeStored('mapZoomed', true);
+  for (const listener of zoomListeners) listener();
+}
+function useZoomedOnce() {
+  const [, heard] = useState(0);
+  useEffect(() => {
+    const listener = () => heard((count) => count + 1);
+    zoomListeners.add(listener);
+    return () => void zoomListeners.delete(listener);
+  }, []);
+  return zoomedOnce;
+}
+
 // Pinching zooms a map, a finger moves it once zoomed in, and a double tap zooms in where it lands
 // (J, 2026-10-09). A trackpad's pinch zooms it too, as the map has no zoom buttons. Until the rider
-// moves it, the map follows `whole`, the picture as its page frames
-// it, so a refresh that grows the picture still shows all of it, and it follows again once the
-// rider zooms all the way back out. `ref` is the map's SVG, which the map draws whenever it draws.
-// Zoomed out all the way, one finger scrolls the page as it did, and the map keeps to the picture's
-// bounds however it is moved.
+// moves it, the map follows `whole`, the picture as its page frames it, so a refresh that grows the
+// picture still shows all of it, and it follows again once the rider zooms all the way back out.
+// `ref` is the map's SVG, which the map draws whenever it draws. Zoomed out all the way, one finger
+// scrolls the page as it did, and the map keeps to the picture's bounds however it is moved.
 export function useMapView(whole: Box, maxZoom: number) {
   const ref = useRef<SVGSVGElement>(null);
   const middle = { x: whole.left + whole.width / 2, y: whole.top + whole.height / 2 };
   const [moved, setMoved] = useState<View | null>(null);
-  // Whether the rider has zoomed a map on this device, after which the maps stop saying they can.
-  const [zoomedBefore, setZoomedBefore] = useState(() => readStored('mapZoomed', false));
+  const zoomedBefore = useZoomedOnce();
   const view = moved ?? { ...middle, zoom: 1 };
   const width = whole.width / view.zoom;
   const height = whole.height / view.zoom;
@@ -202,11 +220,7 @@ export function useMapView(whole: Box, maxZoom: number) {
   }, []);
 
   const zoomed = view.zoom > WHOLE;
-  useEffect(() => {
-    if (!zoomed || zoomedBefore) return;
-    setZoomedBefore(true);
-    writeStored('mapZoomed', true);
-  }, [zoomed]);
+  useEffect(() => void (zoomed && markZoomed()), [zoomed]);
   return {
     ref,
     box: { left: view.x - width / 2, top: view.y - height / 2, width, height },

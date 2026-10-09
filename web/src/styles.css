@@ -638,17 +638,17 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-schematic__other { stroke: var(--muted); opacity: .4; }
 .tf-schematic__letter { fill: #fff; font-weight: var(--weight-heavy); }
 .tf-schematic__frame { position: relative; }
-/* A button over a map's corner: its Fit, Recenter, and zoom. Taps in quick succession zoom the
-   map step by step rather than the page. */
+/* A button over a map's corner: Recenter, and the live map's Full and Fit. Quick taps on one
+   stay taps rather than zooming the page. */
 .tf-map-btn { touch-action: manipulation; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 0 var(--space-3); background: var(--bg); color: var(--text); border: var(--border-hair) solid var(--line); font-size: var(--text-sm); font-weight: var(--weight-label); }
-.tf-map-btn[aria-disabled="true"] { opacity: .45; cursor: default; }
 /* Over a map's corners, inside any border its frame draws (--map-inset). */
 .tf-map-recenter { position: absolute; z-index: 1; top: calc(var(--map-inset, 0px) + var(--space-2)); right: calc(var(--map-inset, 0px) + var(--space-2)); }
+/* On the narrowest phones the live map's hint says only "Pinch", to clear Full and Fit. */
+@media (max-width: 359px) { .tf-track__frame .tf-map-hint__more { display: none; } }
 .tf-map-hint { position: absolute; z-index: 1; left: calc(var(--map-inset, 0px) + var(--space-2)); bottom: calc(var(--map-inset, 0px) + var(--space-2)); display: inline-flex; align-items: center; gap: 6px; padding: 3px var(--space-2); background: color-mix(in srgb, var(--bg) 85%, transparent); color: var(--muted); font-size: var(--text-sm); font-weight: var(--weight-label); pointer-events: none; }
 /* The rider on either map (see YouMarker). */
 .tf-you { fill: var(--you); stroke: #fff; }
 .tf-you-halo { fill: var(--you); fill-opacity: .14; }
-/* Inside the map's bottom right corner, like the live map's Fit button. */
 .tf-schematic figcaption { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); font-size: var(--text-sm); color: var(--muted); border-top: var(--border-hair) solid var(--divider); }
 .tf-schematic__you-key { width: 10px; height: 10px; border-radius: var(--radius-dot); background: var(--you); box-shadow: 0 0 0 3px color-mix(in srgb, var(--you) 14%, transparent); }
 .tf-schematic__stop-key { width: 9px; height: 9px; border: 1.5px solid var(--text); margin-left: var(--space-3); }

@@ -120,7 +120,8 @@ export const motionOff = () => document.documentElement.dataset.motion === 'off'
 
 // A swipe right goes back past this share of the screen's width, or when flung this fast.
 const BACK_SHARE = 0.35;
-// How far in from the left edge the phone's own back swipe starts, in px.
+// How far in from the left edge the phone's own back swipe starts, in px. Safari has it, and so does
+// the app opened from the Home Screen (iOS 12.2 on), which cannot turn it off.
 const SYSTEM_EDGE = 24;
 const BACK_FLING = 0.4;
 
