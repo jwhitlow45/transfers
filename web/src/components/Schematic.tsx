@@ -4,6 +4,7 @@ import { IconRecenter } from '../icons/ui.tsx';
 import { useMapView } from '../lib/map-view.ts';
 import { routeColor, stopLetterColor } from '../lib/color.ts';
 import { spread } from '../lib/spread.ts';
+import { YouMarker } from './YouMarker.tsx';
 
 // The area around the rider drawn from our own data: route lines and stops, no streets or map
 // tiles, so it arrives with the results and works offline. Stops the list shows carry the
@@ -72,7 +73,7 @@ export function Schematic({ schematic, routes, letters }: { schematic: Schematic
               </g>
             );
           })}
-          <circle cx="0" cy="0" r={you} class="tf-schematic__you" stroke-width={view / 90} />
+          <YouMarker x={0} y={0} dot={you} ring={you * 0.46} halo={you * 1.85} />
           {lettered.map(({ key }, index) => {
             const { x, y } = placed[index]!;
             return (
@@ -88,17 +89,17 @@ export function Schematic({ schematic, routes, letters }: { schematic: Schematic
         <div class="tf-schematic__zoom">
           {/* Back to the whole picture, centered on the rider, once they have moved it. */}
           {map.moved && (
-            <button type="button" onClick={map.recenter} aria-label="Recenter on you">
+            <button type="button" class="tf-map-btn" onClick={map.recenter} aria-label="Recenter on you">
               <IconRecenter />
             </button>
           )}
           {/* Disabled by aria only, so a button that reaches the end of its range keeps focus. */}
-          <button type="button" onClick={() => map.zoom > 1.001 && map.zoomBy(0.5)} aria-disabled={map.zoom <= 1.001} aria-label="Zoom out">
+          <button type="button" class="tf-map-btn" onClick={() => map.zoom > 1.001 && map.zoomBy(0.5)} aria-disabled={map.zoom <= 1.001} aria-label="Zoom out">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true">
               <path d="M5 12h14" />
             </svg>
           </button>
-          <button type="button" onClick={() => map.zoom < map.maxZoom - 0.001 && map.zoomBy(2)} aria-disabled={map.zoom >= map.maxZoom - 0.001} aria-label="Zoom in">
+          <button type="button" class="tf-map-btn" onClick={() => map.zoom < map.maxZoom - 0.001 && map.zoomBy(2)} aria-disabled={map.zoom >= map.maxZoom - 0.001} aria-label="Zoom in">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true">
               <path d="M5 12h14M12 5v14" />
             </svg>

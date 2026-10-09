@@ -46,6 +46,11 @@
 
   --motion-indeterminate: 1.1s linear infinite;
   --motion-fast: 150ms;   /* opening and closing */
+  /* A pinned trip, row, or arrival: the accent's tint, lightened, with an accent edge. */
+  --pinned-bg: color-mix(in srgb, var(--accent-tint) 50%, var(--bg));
+  --pinned-edge: inset 4px 0 var(--accent);
+  /* The rider on a map, in the blue phones' own maps use, in either theme. */
+  --you: #2f80ed;
   /* Room at the bottom of the screen: the home indicator's, and on a phone with one, a little more,
      as its rounded corners crowd square buttons sitting right above it. Zero on a phone with no
      home indicator, which reports no inset. */
@@ -242,7 +247,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-result { display: flex; flex-direction: column; gap: var(--space-1); width: 100%; text-align: left; padding: var(--space-3) var(--space-4); min-height: 64px; border-bottom: var(--border-hair) solid var(--divider); }
 @media (hover: hover) { .tf-result:hover { background: color-mix(in srgb, var(--text) 5%, transparent); } }
 /* The match Enter would take, marked so the rider knows before pressing it. */
-.tf-result--enter { background: color-mix(in srgb, var(--accent) 12%, transparent); box-shadow: inset 4px 0 var(--accent); }
+.tf-result--enter { background: color-mix(in srgb, var(--accent) 12%, transparent); box-shadow: var(--pinned-edge); }
 @media (hover: hover) { .tf-result--enter:hover { background: color-mix(in srgb, var(--accent) 18%, transparent); } }
 .tf-result__top { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
 .tf-result__name { font-size: var(--text-lg); font-weight: 650; }
@@ -565,9 +570,9 @@ button:disabled { opacity: .45; cursor: default; }
 @media (hover: hover) { .tf-row:has(> .tf-pin-toggle:hover) { background-color: color-mix(in srgb, var(--text) 4%, transparent); } }
 /* Pinned: chosen, as a pressed filter chip is, at half its tint so muted text keeps its contrast,
    with the pinned card's accent bar, and saying so in words where the countdown's kicker was. */
-.tf-row--pinned { background-color: color-mix(in srgb, var(--accent-tint) 50%, var(--bg)); box-shadow: inset 4px 0 var(--accent); }
+.tf-row--pinned { background-color: var(--pinned-bg); box-shadow: var(--pinned-edge); }
 .tf-row--pinned .tf-row__lead { display: flex; align-items: center; gap: 3px; color: var(--accent-ink); }
-.tf-band--pinned { box-shadow: inset 4px 0 var(--accent); }
+.tf-band--pinned { box-shadow: var(--pinned-edge); }
 .tf-band__inlabel--pinned { display: flex; align-items: center; justify-content: flex-end; gap: 3px; font-weight: var(--weight-bold); color: var(--on-field); }
 .tf-pin-hint { display: flex; align-items: center; gap: 6px; margin: 0; padding: 2px var(--space-4) var(--space-2); font-size: var(--text-sm); color: var(--muted); }
 /* Above the bottom bar, sliding with it when swiping back, and above any sheet (z-index 10), as a
@@ -590,7 +595,7 @@ button:disabled { opacity: .45; cursor: default; }
 
 /* The pinned trip, above the results, drawn as its row is once pinned: the same tint and accent
    bar, under a line naming it pinned with the way to unpin. */
-.tf-pinned { border: var(--border-strong) solid var(--line); background-color: color-mix(in srgb, var(--accent-tint) 50%, var(--bg)); box-shadow: inset 4px 0 var(--accent); }
+.tf-pinned { border: var(--border-strong) solid var(--line); background-color: var(--pinned-bg); box-shadow: var(--pinned-edge); }
 .tf-pinned__head { display: flex; align-items: center; gap: var(--space-2); padding: 2px var(--space-4) 0; }
 .tf-pinned__head .tf-tight { margin-top: 0; }
 .tf-pinned__kicker { display: inline-flex; align-items: center; gap: 3px; color: var(--accent-ink); }
@@ -631,15 +636,19 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-schematic__other { stroke: var(--muted); opacity: .4; }
 .tf-schematic__letter { fill: #fff; font-weight: var(--weight-heavy); }
 .tf-schematic__frame { position: relative; }
+/* A button over a map's corner: its Fit, Recenter, and zoom. Taps in quick succession zoom the
+   map step by step rather than the page. */
+.tf-map-btn { touch-action: manipulation; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 0 var(--space-3); background: var(--bg); color: var(--text); border: var(--border-hair) solid var(--line); font-size: var(--text-sm); font-weight: 650; }
+.tf-map-btn[aria-disabled="true"] { opacity: .45; cursor: default; }
+/* The rider on either map (see YouMarker). */
+.tf-you { fill: var(--you); stroke: #fff; }
+.tf-you-halo { fill: var(--you); fill-opacity: .14; }
 /* Inside the map's bottom right corner, like the live map's Fit button. */
 .tf-schematic__zoom { position: absolute; right: var(--space-2); bottom: var(--space-2); display: flex; }
-/* Taps in quick succession zoom the map step by step rather than the page. */
-.tf-schematic__zoom button { touch-action: manipulation; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 36px; background: var(--bg); color: var(--text); border: var(--border-hair) solid var(--line); }
-.tf-schematic__zoom button + button { border-left: 0; }
-.tf-schematic__zoom button[aria-disabled="true"] { opacity: .45; cursor: default; }
-.tf-schematic__you { fill: var(--accent); stroke: var(--bg); }
+.tf-schematic__zoom .tf-map-btn { width: 40px; padding: 0; }
+.tf-schematic__zoom .tf-map-btn + .tf-map-btn { border-left: 0; }
 .tf-schematic figcaption { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); font-size: var(--text-sm); color: var(--muted); border-top: var(--border-hair) solid var(--divider); }
-.tf-schematic__you-key { width: 10px; height: 10px; border-radius: var(--radius-dot); background: var(--accent); }
+.tf-schematic__you-key { width: 10px; height: 10px; border-radius: var(--radius-dot); background: var(--you); box-shadow: 0 0 0 3px color-mix(in srgb, var(--you) 14%, transparent); }
 .tf-schematic__stop-key { width: 9px; height: 9px; border: 1.5px solid var(--text); margin-left: var(--space-3); }
 .tf-near-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: var(--space-4); }
 .tf-near { border: var(--border-strong) solid var(--line); display: flex; flex-direction: column; }
@@ -659,7 +668,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-near__times--pins li > :not(.tf-pin-toggle, .tf-sr) { position: relative; pointer-events: none; }
 .tf-near__times--pins li .tf-time-link { pointer-events: auto; }
 @media (hover: hover) { .tf-near__times--pins li:has(> .tf-pin-toggle:hover) { background-color: color-mix(in srgb, var(--text) 4%, transparent); } }
-.tf-near__times--pins li.tf-arrival--pinned { background-color: color-mix(in srgb, var(--accent-tint) 50%, var(--bg)); box-shadow: inset 4px 0 var(--accent); }
+.tf-near__times--pins li.tf-arrival--pinned { background-color: var(--pinned-bg); box-shadow: var(--pinned-edge); }
 .tf-near__none { margin: 0; padding: 0 var(--space-4) var(--space-3); }
 .tf-near__more { min-height: var(--tap-min); padding: 0 var(--space-4); border-top: var(--border-hair) solid var(--divider); }
 .tf-near__more + * .tf-near__times { padding-top: var(--space-1); }

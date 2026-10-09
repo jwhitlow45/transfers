@@ -8,7 +8,6 @@
 .tf-track__frame .tf-track__map { margin-top: 0; }
 .tf-track__recenter { position: absolute; z-index: 1; top: calc(var(--border-strong) + var(--space-2)); right: calc(var(--border-strong) + var(--space-2)); }
 .tf-track__controls { position: absolute; right: calc(var(--border-strong) + var(--space-2)); bottom: calc(var(--border-strong) + var(--space-2)); display: flex; gap: var(--space-2); }
-.tf-track__fit { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 var(--space-3); background: var(--bg); color: var(--text); border: var(--border-hair) solid var(--line); font-size: var(--text-sm); font-weight: 650; }
 /* On, as every toggle that is on looks (see .tf-filter in styles.css). */
 .tf-track__fit[aria-pressed="true"] { background: var(--field); color: var(--on-field); border-color: var(--field); }
 .tf-track__map { display: block; width: 100%; height: auto; max-height: 50vh; margin-top: var(--space-3); border: var(--border-strong) solid var(--line); background: var(--bg); }
@@ -24,8 +23,6 @@
 .tf-track__change-mark--passed { opacity: .5; }
 .tf-track__vehicle { stroke: var(--bg); }
 /* The rider, as phones' own maps show them: a blue dot in a ring, inside how sure the phone is. */
-.tf-track__you { fill: #2f80ed; stroke: #fff; }
-.tf-track__you-halo { fill: #2f80ed; fill-opacity: .14; }
 .tf-track__vehicle--estimate { fill-opacity: .55; stroke: var(--text); }
 .tf-track__heading { fill: var(--text); stroke: var(--bg); }
 /* A slash through a stop the vehicle has passed: a line in the text color inside a wider one in

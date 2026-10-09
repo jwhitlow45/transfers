@@ -15,6 +15,7 @@ import { shortStopName } from '../view.ts';
 import { Collapse } from './Collapse.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import './TrackMap.css';
+import { YouMarker } from './YouMarker.tsx';
 
 // Vehicles report about every 30 seconds. The server asks 511 no more often than that however
 // often this asks.
@@ -138,7 +139,7 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
       <div class="tf-track__frame">
         <LineMap legs={legs} label={headline} rider={position && { x: riderX, y: riderY, accuracy: position.accuracy }} framedAt={refitAt} />
         <div class="tf-track__controls">
-          <button type="button" class="tf-track__fit" aria-pressed={whole} aria-label="Full route" onClick={toggleWhole}>
+          <button type="button" class="tf-map-btn tf-track__fit" aria-pressed={whole} aria-label="Full route" onClick={toggleWhole}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <circle cx="5" cy="18" r="2" />
               <circle cx="19" cy="6" r="2" />
@@ -147,7 +148,7 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
             Full
           </button>
           {/* Drops the stops behind the vehicle and fits the map to the trip from where it is now. */}
-          <button type="button" class="tf-track__fit" onClick={refit} disabled={!spans && !whole} aria-label="Fit the map to the trip from here">
+          <button type="button" class="tf-map-btn tf-track__fit" onClick={refit} disabled={!spans && !whole} aria-label="Fit the map to the trip from here">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
               <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" />
             </svg>
@@ -254,7 +255,7 @@ function LineMap({ legs, label, rider, framedAt }: { legs: Drawn[]; label: strin
     <>
     {/* Back to the picture as framed, once the rider has moved it. */}
     {map.moved && (
-      <button type="button" class="tf-track__fit tf-track__recenter" onClick={map.recenter}>
+      <button type="button" class="tf-map-btn tf-track__recenter" onClick={map.recenter}>
         <IconRecenter />
         Recenter
       </button>
@@ -279,10 +280,7 @@ function LineMap({ legs, label, rider, framedAt }: { legs: Drawn[]; label: strin
       ))}
       {/* The rider over the stops, as they are often at one, and under the vehicles. */}
       {rider && nearby && (
-        <g transform={`translate(${rider.x} ${-rider.y})`} aria-hidden="true">
-          <circle r={Math.max(unit * 2.4, Math.min(rider.accuracy, span * 0.2))} class="tf-track__you-halo" />
-          <circle r={unit * 1.3} class="tf-track__you" stroke-width={unit * 0.6} />
-        </g>
+        <YouMarker x={rider.x} y={-rider.y} dot={unit * 1.3} ring={unit * 0.6} halo={Math.max(unit * 2.4, Math.min(rider.accuracy, span * 0.2))} />
       )}
       {legs.map((drawn, n) => (
         <LegVehicle key={`vehicle-${n}`} drawn={drawn} unit={unit} />
