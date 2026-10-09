@@ -1,5 +1,5 @@
-import type { NearbyResponse, NearbyStop, Schematic } from '../../shared/api.ts';
-import type { Link } from '../engine/links.ts';
+import type { NearbyArrival, NearbyResponse, NearbyStop, Schematic } from '../../shared/api.ts';
+import { type Link, destinationOf } from '../engine/links.ts';
 import { projector, shapePoints } from '../engine/shapes.ts';
 import type { RealtimeView } from '../engine/trip.ts';
 import { secondLegs } from '../engine/vehicles.ts';
@@ -16,19 +16,20 @@ const ARRIVALS_PER_STOP = 3;
 // something coming within the arrivals' horizon, so one whose nearest stop is idle, such as a
 // stop only a night variant serves, shows at the next. A route with nothing coming at any stop in
 // range is left out, making room for one farther off.
-export function nearby(schedule: Schedule, realtime: RealtimeView, center: Point, radius: number, now: number): NearbyResponse {
-  const tables = new Tables(schedule);
-  type Candidate = { stop: StopRow; meters: number; route: number; direction: number | null; headsign: string; trips: number };
-  type Row = Candidate & { key: string; routes: number[] };
-  // Every stop in range for each route and direction, BART aside.
-  const rows: Row[] = [];
-  // BART riders pick a platform, not a line, so lines through the same platform share a row.
+type Candidate = { stop: StopRow; meters: number; route: number; direction: number | null; headsign: string; trips: number };
+export type BoardingRow = Candidate & { key: string; routes: number[] };
+
+// Each route and direction boarding at `stops`, a row each, with how far each stop is. BART riders
+// pick a platform, not a line, so lines through the same platform share a row, and `bartLines`
+// keeps each platform's own.
+export function boardingRows(schedule: Schedule, stops: Iterable<StopRow>, metersTo: (stop: StopRow) => number) {
+  const rows: BoardingRow[] = [];
   const bartLines = new Map<number, Candidate[]>();
-  for (const stop of schedule.stops.values()) {
+  for (const stop of stops) {
     // Vehicles stop at platforms and street stops, never at a station's own point.
     if (stop.kind !== 'stop' && stop.kind !== 'platform') continue;
-    const meters = distanceMeters(center, stop.parent !== null && stop.access === 'bart' ? schedule.stop(stop.parent) : stop);
-    if (meters > radius) continue;
+    const meters = metersTo(stop);
+    if (!Number.isFinite(meters)) continue;
     for (const served of schedule.stopRoutes.get(stop.id) ?? []) {
       const direction = served.direction === -1 ? null : served.direction;
       if (stop.access === 'bart') {
@@ -41,46 +42,70 @@ export function nearby(schedule: Schedule, realtime: RealtimeView, center: Point
   }
   for (const [platform, lines] of bartLines) {
     const busiest = [...lines].sort((a, b) => b.trips - a.trips);
-    const headsigns = [...new Set(busiest.map(({ headsign }) => headsign))];
-    rows.push({ ...busiest[0]!, key: `bart|${platform}`, routes: [...new Set(busiest.map(({ route }) => route))], headsign: headsigns.slice(0, 3).join(' / ') });
+    // Where the lines end, as results name a BART direction: "Antioch, Dublin/Pleasanton, Richmond".
+    const ends = new Map<string, number>();
+    for (const { pattern } of schedule.patternsByStop.get(platform) ?? []) {
+      if (pattern.stops.at(-1) === platform) continue;
+      const end = destinationOf(schedule, pattern);
+      ends.set(end, (ends.get(end) ?? 0) + pattern.trips);
+    }
+    const headsign = [...ends].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([end]) => end).join(', ');
+    rows.push({ ...busiest[0]!, key: `bart|${platform}`, routes: [...new Set(busiest.map(({ route }) => route))], headsign });
   }
+  return { rows, bartLines };
+}
+
+// The next `count` arrivals of a row's routes at its stop, soonest first, leaving out canceled
+// trips and those already gone.
+export function arrivalsFor(context: { schedule: Schedule; snapshot: RealtimeView['trips']; now: number }, tables: Tables, row: BoardingRow, count: number): NearbyArrival[] {
+  const { schedule, now } = context;
+  const routeIds = new Set(row.routes);
+  const link: Link = {
+    key: '',
+    kind: 'walk',
+    alight: row.stop,
+    alights: [row.stop],
+    board: row.stop,
+    boards: [row.stop],
+    routes: row.routes.map((id) => schedule.route(id)),
+    direction: row.direction,
+    headsign: row.headsign,
+    boardPatterns: (schedule.patternsByStop.get(row.stop.id) ?? [])
+      .filter(({ pattern, position }) => routeIds.has(pattern.route) && (row.direction === null || pattern.direction === row.direction) && position < pattern.stops.length - 1)
+      .map((entry) => ({ ...entry, stop: row.stop })),
+    firstLegs: [],
+    walkMeters: 0,
+    longestWalkMeters: 0,
+    defaultMinutes: 0,
+    stopsRidden: 0,
+  };
+  return secondLegs(context, link, [])
+    .filter(({ at, canceled }) => !canceled && at >= now - 30)
+    .sort((a, b) => a.at - b.at)
+    .slice(0, count)
+    .map(({ trip, route, at, delay, live }) => ({ trip, route: tables.route(schedule.routesByKey.get(route)!), at, delay, live }));
+}
+
+export function nearby(schedule: Schedule, realtime: RealtimeView, center: Point, radius: number, now: number): NearbyResponse {
+  const tables = new Tables(schedule);
+  // Every stop in range for each route and direction.
+  const { rows, bartLines } = boardingRows(schedule, schedule.stops.values(), (stop) => {
+    const meters = distanceMeters(center, stop.parent !== null && stop.access === 'bart' ? schedule.stop(stop.parent) : stop);
+    return meters <= radius ? meters : Infinity;
+  });
   // Nearest first, and at one distance, the stop more trips serve.
   rows.sort((a, b) => a.meters - b.meters || b.trips - a.trips);
-  const nearest = new Map<string, Row>();
+  const nearest = new Map<string, BoardingRow>();
   for (const row of rows) if (!nearest.has(row.key)) nearest.set(row.key, row);
 
   const context = { schedule, snapshot: realtime.trips, now };
   const groups: NearbyStop[] = [];
-  const shown = new Map<string, Row>();
+  const shown = new Map<string, BoardingRow>();
   for (const candidate of rows) {
     if (groups.length === MAX_GROUPS) break;
     if (shown.has(candidate.key)) continue;
     const routes = candidate.routes.map((id) => schedule.route(id));
-    const routeIds = new Set(candidate.routes);
-    const link: Link = {
-      key: '',
-      kind: 'walk',
-      alight: candidate.stop,
-      alights: [candidate.stop],
-      board: candidate.stop,
-      boards: [candidate.stop],
-      routes,
-      direction: candidate.direction,
-      headsign: candidate.headsign,
-      boardPatterns: (schedule.patternsByStop.get(candidate.stop.id) ?? []).filter(
-        ({ pattern, position }) => routeIds.has(pattern.route) && (candidate.direction === null || pattern.direction === candidate.direction) && position < pattern.stops.length - 1,
-      ).map((entry) => ({ ...entry, stop: candidate.stop })),
-      firstLegs: [],
-      walkMeters: 0,
-      longestWalkMeters: 0,
-      defaultMinutes: 0,
-      stopsRidden: 0,
-    };
-    const arrivals = secondLegs(context, link, [])
-      .filter(({ at, canceled }) => !canceled && at >= now - 30)
-      .sort((a, b) => a.at - b.at)
-      .slice(0, ARRIVALS_PER_STOP)
-      .map(({ trip, route, at, delay, live }) => ({ trip, route: tables.route(schedule.routesByKey.get(route)!), at, delay, live }));
+    const arrivals = arrivalsFor(context, tables, candidate, ARRIVALS_PER_STOP);
     // Nothing coming here: the route's next nearest stop gets its turn.
     if (arrivals.length === 0) continue;
     shown.set(candidate.key, candidate);

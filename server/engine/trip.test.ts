@@ -1,4 +1,4 @@
-import { deepStrictEqual, ok, strictEqual } from 'node:assert/strict';
+import { deepStrictEqual, ok, strictEqual, throws } from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -12,6 +12,7 @@ import { Schedule } from '../schedule.ts';
 import { serviceDayStart } from '../time.ts';
 import { nearby } from '../api/nearby.ts';
 import { mergeOrder, search } from '../api/search.ts';
+import { stopArrivals } from '../api/stop.ts';
 import { destinations, planTrip } from './trip.ts';
 
 // A tiny network shaped like J's commute: BART from Montgomery to 24th St Mission, where the
@@ -596,4 +597,21 @@ test('a route that ends at To is a ride straight there, with when each bus arriv
   );
   const m2 = response.groups[0]!.departures.find(({ trip }) => trip === 'SF:m2')!;
   strictEqual(m2.destination, m2.at + 720);
+});
+
+test("a stop's arrivals list each route and direction there, soonest first, and a platform opens its station", () => {
+  const street = stopArrivals(schedule, realtime(), 'SF:13477', NOW);
+  strictEqual(street.stop, 'SF:13477');
+  deepStrictEqual(street.rows.map(({ routes }) => routes), [['SF:48']]);
+  const times = street.rows[0]!.arrivals.map(({ at }) => at);
+  deepStrictEqual(times, [...times].sort((a, b) => a - b));
+  ok(times.length > 0 && times.length <= 6 && times.every((at) => at >= NOW - 30));
+  // The 8:47 is canceled, so it is left out.
+  ok(street.rows[0]!.arrivals.every(({ trip }) => trip !== 'SF:m5'));
+  // Montgomery's BART platform stands for the station, whose Muni Metro platform comes too.
+  const station = stopArrivals(schedule, realtime(), 'BA:901201', NOW);
+  strictEqual(station.stop, 'BA:901209');
+  deepStrictEqual(station.rows.map(({ routes }) => routes.join(',')).sort(), ['BA:Yellow-S', 'SF:N']);
+  ok(station.rows.every(({ stop }) => stop === 'BA:901209'));
+  throws(() => stopArrivals(schedule, realtime(), 'SF:0', NOW), /No stop/);
 });

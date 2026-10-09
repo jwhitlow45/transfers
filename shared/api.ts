@@ -230,6 +230,21 @@ export type NearbyStop = {
   arrivals: NearbyArrival[];
 };
 
+// What comes to one stop, without a transfer (see stopArrivals in server/api/stop.ts): every route
+// and direction boarding there, a station's platforms included, each with its next arrivals.
+// `stop` is the stop or station asked for, as the page names it. Rows are soonest first, and a
+// route with nothing coming soon has a row with no arrivals, after the rest.
+export type StopResponse = {
+  generatedAt: number;
+  dataAt: number | null;
+  stop: string;
+  rows: NearbyStop[];
+  routes: Record<string, Route>;
+  stops: Record<string, Stop>;
+  alerts: Alert[];
+  feeds: FeedStatus[];
+};
+
 // The schematic map: positions in meters east (x) and north (y) of the rider.
 export type Schematic = {
   stops: { stop: string; x: number; y: number }[];

@@ -6,6 +6,7 @@ import { chipLabel, stopLabel } from '../shared/labels.ts';
 import { parseShortTrip } from '../shared/short-links.ts';
 import { DEFAULT_NEARBY_METERS, nearby } from './api/nearby.ts';
 import { search } from './api/search.ts';
+import { stopArrivals } from './api/stop.ts';
 import { config, requireApiKeys } from './config.ts';
 import { trackTarget, trackVehicle } from './engine/track.ts';
 import { routeView, stopView } from './engine/views.ts';
@@ -78,6 +79,11 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
       const alight = url.searchParams.get('wa');
       const board = url.searchParams.get('wb');
       return sendJson(request, response, wayBack(schedule, tripRequest(url.searchParams), alight && board ? { alight, board } : undefined));
+    }
+    case '/api/stop': {
+      const stop = url.searchParams.get('stop');
+      if (!stop) throw new RequestError(400, 'Send stop');
+      return sendJson(request, response, stopArrivals(schedule, await realtimeView(), stop, nowSeconds()));
     }
     case '/api/nearby': {
       const center = point(url.searchParams);
