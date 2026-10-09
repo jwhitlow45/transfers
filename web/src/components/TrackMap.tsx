@@ -17,7 +17,7 @@ import { RouteChip } from './RouteChip.tsx';
 import './TrackMap.css';
 import { YouMarker } from './YouMarker.tsx';
 import { failureOf } from '../lib/failure.ts';
-import { MAP_KEYS, MapHint, Recenter } from './MapControls.tsx';
+import { MapHint, Recenter } from './MapControls.tsx';
 
 // Vehicles report about every 30 seconds. The server asks 511 no more often than that however
 // often this asks.
@@ -258,11 +258,10 @@ function LineMap({ legs, label, rider, framedAt }: { legs: Drawn[]; label: strin
       class={`tf-track__map${map.zoomed ? ' tf-map--zoomed' : ''}`}
       style={{ touchAction: map.touchAction }}
       viewBox={`${shown.left} ${shown.top} ${shown.width} ${shown.height}`}
-      tabindex={0}
-      role="region"
-      aria-roledescription="map"
-      aria-label={`${label} ${MAP_KEYS}`}
+      {...map.widget}
+      aria-label={label}
     >
+      <g aria-hidden="true">
       {legs.map(({ leg, color }, n) => (
         <polyline key={`line-${n}`} points={leg.line.map(([x, y]) => `${x},${-y}`).join(' ')} fill="none" stroke={color} stroke-width={unit * 0.9} stroke-linecap="round" stroke-linejoin="round" />
       ))}
@@ -280,6 +279,7 @@ function LineMap({ legs, label, rider, framedAt }: { legs: Drawn[]; label: strin
       {legs.map((drawn, n) => (
         <LegVehicle key={`vehicle-${n}`} drawn={drawn} unit={unit} />
       ))}
+      </g>
     </svg>
     </>
   );

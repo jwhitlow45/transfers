@@ -4,7 +4,7 @@ import { useMapView } from '../lib/map-view.ts';
 import { routeColor, stopLetterColor } from '../lib/color.ts';
 import { spread } from '../lib/spread.ts';
 import { YouMarker } from './YouMarker.tsx';
-import { MAP_KEYS, MapHint, Recenter } from './MapControls.tsx';
+import { MapHint, Recenter } from './MapControls.tsx';
 
 // The area around the rider drawn from our own data: route lines and stops, no streets or map
 // tiles, so it arrives with the results and works offline. Stops the list shows carry the
@@ -40,11 +40,10 @@ export function Schematic({ schematic, routes, letters }: { schematic: Schematic
           class={map.zoomed ? 'tf-map--zoomed' : undefined}
           style={{ touchAction: map.touchAction }}
           viewBox={`${map.box.left} ${map.box.top} ${map.box.width} ${map.box.height}`}
-          tabindex={0}
-          role="region"
-          aria-roledescription="map"
-          aria-label={`Map of ${schematic.stops.length} nearby stops and the routes through them. You are in the middle. ${MAP_KEYS}`}
+          {...map.widget}
+          aria-label={`Map of ${schematic.stops.length} nearby stops and the routes through them. You are in the middle.`}
         >
+          <g aria-hidden="true">
           {others.map((points, index) => (
             <polyline key={`other-${index}`} points={points} fill="none" class="tf-schematic__other" stroke-width={width / 2} stroke-linecap="round" stroke-linejoin="round" />
           ))}
@@ -87,6 +86,7 @@ export function Schematic({ schematic, routes, letters }: { schematic: Schematic
               </g>
             );
           })}
+          </g>
         </svg>
         <Recenter map={map} />
         <MapHint map={map} />

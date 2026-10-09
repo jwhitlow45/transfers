@@ -1,6 +1,6 @@
 import { deepStrictEqual, strictEqual } from 'node:assert/strict';
 import { test } from 'node:test';
-import { fingersOn, keepIn, zoomAbout } from './map-view.ts';
+import { fingersOn, keepIn, keyView, zoomAbout } from './map-view.ts';
 
 const whole = { left: -100, top: -50, width: 200, height: 100 };
 
@@ -29,4 +29,26 @@ test("a pinch's fingers count as the map's wherever on it they start, a line or 
   strictEqual(fingersOn(svg, [{ target: line }, { target: halo }]), 2);
   strictEqual(fingersOn(svg, [{ target: map }, { target: line }]), 2);
   strictEqual(fingersOn(svg, [{ target: line }, { target: page }]), 1);
+});
+
+test('keys zoom about the middle, move a zoomed map a fifth of what it shows, and leave the page what it would have', () => {
+  const keep = (view: { x: number; y: number; zoom: number }) => keepIn(view, whole, 4);
+  const press = (key: string, more: Partial<{ altKey: boolean; ctrlKey: boolean; metaKey: boolean }> = {}) => ({ key, altKey: false, ctrlKey: false, metaKey: false, ...more });
+  const out = { x: 0, y: 0, zoom: 1 };
+  deepStrictEqual(keyView(out, press('+'), whole, keep), { x: 0, y: 0, zoom: 2 });
+  deepStrictEqual(keyView(out, press('='), whole, keep), { x: 0, y: 0, zoom: 2 });
+  // Zoomed out, the arrows scroll the page, and a modified key is the browser's.
+  strictEqual(keyView(out, press('ArrowDown'), whole, keep), undefined);
+  strictEqual(keyView(out, press('+', { ctrlKey: true }), whole, keep), undefined);
+  strictEqual(keyView(out, press('+', { metaKey: true }), whole, keep), undefined);
+  strictEqual(keyView(out, press('a'), whole, keep), undefined);
+  // At zoom 2 the map shows 100 by 50, so a press moves it 20 or 10, as far as the picture goes.
+  const zoomed = { x: 0, y: 0, zoom: 2 };
+  deepStrictEqual(keyView(zoomed, press('ArrowRight'), whole, keep), { x: 20, y: 0, zoom: 2 });
+  deepStrictEqual(keyView(zoomed, press('ArrowUp'), whole, keep), { x: 0, y: -10, zoom: 2 });
+  deepStrictEqual(keyView({ x: 45, y: 0, zoom: 2 }, press('ArrowRight'), whole, keep), { x: 50, y: 0, zoom: 2 });
+  // Back out to the whole picture, the map follows the page's frame again, and at the closest zoom
+  // plus stays.
+  strictEqual(keyView(zoomed, press('-'), whole, keep), null);
+  deepStrictEqual(keyView({ x: 0, y: 0, zoom: 4 }, press('+'), whole, keep), { x: 0, y: 0, zoom: 4 });
 });

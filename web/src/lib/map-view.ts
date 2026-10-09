@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useId, useRef, useState } from 'preact/hooks';
 import { motionOff } from '../gestures.ts';
 import { readStored, writeStored } from '../storage.ts';
 
@@ -41,13 +41,30 @@ export function zoomAbout(view: View, offset: { x: number; y: number }, scale: n
   return { zoom, x: point.x - offset.x / (scale * k), y: point.y - offset.y / (scale * k) };
 }
 
+// The view a key asks for: the next one, null for the whole picture as the page frames it, or
+// undefined for a key the map leaves to the page, as zoomed out, the arrows scroll the page as they
+// would anywhere else. Keys zoom about the middle, as the buttons the map once had did.
+export function keyView(view: View, event: { key: string; altKey: boolean; ctrlKey: boolean; metaKey: boolean }, whole: Box, keep: (view: View) => View): View | null | undefined {
+  if (event.altKey || event.ctrlKey || event.metaKey) return undefined;
+  const pan = KEY_PAN[event.key];
+  let next: View;
+  if (pan) {
+    if (view.zoom <= WHOLE) return undefined;
+    next = { ...view, x: view.x + (pan[0] * KEY_PAN_SHARE * whole.width) / view.zoom, y: view.y + (pan[1] * KEY_PAN_SHARE * whole.height) / view.zoom };
+  } else if (event.key === '+' || event.key === '=') next = { ...view, zoom: view.zoom * 2 };
+  else if (event.key === '-' || event.key === '_') next = { ...view, zoom: view.zoom / 2 };
+  else return undefined;
+  const kept = keep(next);
+  return kept.zoom <= WHOLE ? null : kept;
+}
+
 // The fingers that started on the map, its lines and markers included: a touch belongs to whatever
 // it started on, so targetTouches would count only those on one line or marker.
 export const fingersOn = (map: { contains: (node: Node | null) => boolean }, touches: Iterable<{ target: EventTarget | null }>) =>
   [...touches].filter(({ target }) => map.contains(target as Node | null)).length;
 
 // Whether the rider has zoomed a map on this device, after which no map says it can (see
-// PinchHint). Every map showing hears when one first zooms.
+// MapHint, which then shows its keys alone). Every map showing hears when one first zooms.
 let zoomedOnce = readStored('mapZoomed', false);
 const zoomListeners = new Set<() => void>();
 function markZoomed() {
@@ -78,6 +95,7 @@ export function useMapView(whole: Box, maxZoom: number) {
   const middle = { x: whole.left + whole.width / 2, y: whole.top + whole.height / 2 };
   const [moved, setMoved] = useState<View | null>(null);
   const zoomedBefore = useZoomedOnce();
+  const keysId = useId();
   const view = moved ?? { ...middle, zoom: 1 };
   const width = whole.width / view.zoom;
   const height = whole.height / view.zoom;
@@ -207,22 +225,12 @@ export function useMapView(whole: Box, maxZoom: number) {
       cancelAnimationFrame(easing.current);
       setMoved(zoom <= WHOLE ? null : keep(zoomAbout(current, { x: event.clientX - mid.x, y: event.clientY - mid.y }, scale, zoom)));
     };
-    // Keys zoom about the middle, as the buttons the map once had did. Zoomed out, the arrows scroll
-    // the page as they would anywhere else.
     const key = (event: KeyboardEvent) => {
-      if (event.altKey || event.ctrlKey || event.metaKey) return;
       const { view: current, whole: box, keep } = latest.current;
-      const pan = KEY_PAN[event.key];
-      let next: View;
-      if (pan) {
-        if (current.zoom <= WHOLE) return;
-        next = { ...current, x: current.x + (pan[0] * KEY_PAN_SHARE * box.width) / current.zoom, y: current.y + (pan[1] * KEY_PAN_SHARE * box.height) / current.zoom };
-      } else if (event.key === '+' || event.key === '=') next = { ...current, zoom: current.zoom * 2 };
-      else if (event.key === '-' || event.key === '_') next = { ...current, zoom: current.zoom / 2 };
-      else return;
+      const next = keyView(current, event, box, keep);
+      if (next === undefined) return;
       event.preventDefault();
-      const kept = keep(next);
-      latestEase.current(kept.zoom <= WHOLE ? null : kept);
+      latestEase.current(next);
     };
     svg.addEventListener('keydown', key);
     svg.addEventListener('touchstart', hold, { passive: false });
@@ -250,8 +258,13 @@ export function useMapView(whole: Box, maxZoom: number) {
     // Moved from the picture as the page frames it, which the Recenter button goes back to.
     moved: moved !== null && (zoomed || Math.hypot(view.x - middle.x, view.y - middle.y) > 1),
     zoomed,
-    // Until the rider first zooms a map, the maps say they can (see PinchHint).
+    // Until the rider first zooms a map, the maps say they can pinch (see MapHint).
     hint: !zoomedBefore,
+    // What makes the map's SVG one widget that takes its own keys, rather than a picture: a screen
+    // reader passes it the arrows and plus and minus, and says how to use it from `keysId`. The
+    // drawing inside is hidden from screen readers, as the map's label says what it shows.
+    keysId,
+    widget: { tabindex: 0, role: 'application', 'aria-roledescription': 'map', 'aria-describedby': keysId } as const,
     // Zoomed out, a finger scrolls the page past the map, and pinches are the map's. Zoomed in,
     // every gesture on the map is the map's.
     touchAction: zoomed ? 'none' : 'pan-y',

@@ -1,16 +1,22 @@
 import { IconPinch, IconRecenter } from '../icons/ui.tsx';
 
-type MapView = { moved: boolean; zoomed: boolean; hint: boolean; recenter: () => void };
+import type { RefObject } from 'preact';
 
-// Said to screen readers with each map's own description, as the keys work once it has focus.
-export const MAP_KEYS = 'Plus and minus zoom the map, and the arrow keys move it once zoomed in.';
+type MapView = { ref: RefObject<SVGSVGElement | null>; moved: boolean; zoomed: boolean; hint: boolean; keysId: string; recenter: () => void };
+
+// How to use a map from the keyboard, which a screen reader says after the map's name.
+const MAP_KEYS = 'Plus and minus zoom the map, and the arrow keys move it once zoomed in.';
 
 // Back to the picture as framed, once the rider has moved the map: the same button on every map,
-// over its top right corner.
+// over its top right corner. It goes once the map is back, so focus in it goes back to the map.
 export function Recenter({ map }: { map: MapView }) {
   if (!map.moved) return null;
+  const recenter = (event: { currentTarget: HTMLButtonElement }) => {
+    if (document.activeElement === event.currentTarget) map.ref.current?.focus({ preventScroll: true });
+    map.recenter();
+  };
   return (
-    <button type="button" class="tf-map-btn tf-map-recenter" onClick={map.recenter}>
+    <button type="button" class="tf-map-btn tf-map-recenter" onClick={recenter}>
       <IconRecenter />
       Recenter
     </button>
@@ -23,6 +29,9 @@ export function Recenter({ map }: { map: MapView }) {
 export function MapHint({ map }: { map: MapView }) {
   return (
     <>
+      <span id={map.keysId} hidden>
+        {MAP_KEYS}
+      </span>
       {map.hint && !map.zoomed && (
         <span class="tf-map-hint tf-map-hint--touch" aria-hidden="true">
           <IconPinch />
