@@ -375,14 +375,14 @@ function firstContact(context: Context, feeder: Feeder, target: Target, onlyBoar
       const walk = walkBetween(schedule, alight, board.stop);
       const limit = namedStop ? NAMED_STOP_MAX_WALK_METERS : walk.involvesStation ? maxWalk * STATION_WALK_FACTOR : maxWalk;
       if (walk.meters > limit || walk.meters >= (startingDistance.get(board.stop.id) ?? Infinity)) continue;
-      const seconds = walk.fixedSeconds ?? transferSeconds({ exit: alight.access, entry: board.stop.access, meters: walk.meters, ...(speed ? { speed } : {}) });
+      const seconds = changeSeconds(walk, alight, board.stop, speed);
       if (best && seconds >= best.seconds) continue;
       const patterns = board.patterns.filter(
         ({ pattern: onward, position: at }) =>
           !endsNear(schedule, onward, at, alight, maxWalk) && !doublesBack(schedule, onward, at, ridden, maxWalk) && !returnsToAlight(schedule, onward, at, alight, walk.meters),
       );
       if (patterns.length === 0) continue;
-      const calibrated = CALIBRATED_MINUTES[`${stopKeyOf(alight)}>${stopKeyOf(board.stop)}`];
+      const calibrated = calibratedMinutes(alight, board.stop);
       best = { feeder, position, alight, board: { stop: board.stop, patterns }, meters: walk.meters, seconds, minutes: calibrated ?? minimumMinutes(seconds) };
     }
     if (best) run.push(best);
@@ -450,16 +450,28 @@ export function walkBetween(schedule: Schedule, alight: StopRow, board: StopRow)
   if (sharedAlight !== undefined && sharedAlight === schedule.sharedStation.get(board.id)) {
     return { meters: distanceMeters(alight, board), involvesStation, fixedSeconds: SHARED_STATION_SECONDS };
   }
-  const points = (stop: StopRow) => {
-    const station = schedule.sharedStation.get(stop.id) ?? (stop.access === 'bart' ? (stop.kind === 'station' ? stop.id : stop.parent) : null);
-    if (station === null) return [stop];
-    const entrances = schedule.entrances.get(station) ?? [];
-    return entrances.length > 0 ? entrances : [stop];
-  };
   let meters = Infinity;
-  for (const a of points(alight)) for (const b of points(board)) meters = Math.min(meters, distanceMeters(a, b));
+  for (const a of walkPoints(schedule, alight)) for (const b of walkPoints(schedule, board)) meters = Math.min(meters, distanceMeters(a, b));
   return { meters, involvesStation, fixedSeconds: undefined };
 }
+
+// Where a walk to or from a stop starts: the station's entrances for a BART stop or a shared
+// station's Muni Metro platform, or else the stop itself.
+export function walkPoints(schedule: Schedule, stop: StopRow) {
+  const station = schedule.sharedStation.get(stop.id) ?? (stop.access === 'bart' ? (stop.kind === 'station' ? stop.id : stop.parent) : null);
+  if (station === null) return [stop];
+  const entrances = schedule.entrances.get(station) ?? [];
+  return entrances.length > 0 ? entrances : [stop];
+}
+
+// How long changing vehicles takes on a walk from walkBetween: a station's own time between its
+// platforms, or else getting off one, walking, and getting on the other.
+export function changeSeconds(walk: ReturnType<typeof walkBetween>, alight: StopRow, board: StopRow, speed?: number) {
+  return walk.fixedSeconds ?? transferSeconds({ exit: alight.access, entry: board.access, meters: walk.meters, ...(speed ? { speed } : {}) });
+}
+
+// The minutes J timed for this change, when he has.
+export const calibratedMinutes = (alight: StopRow, board: StopRow): number | undefined => CALIBRATED_MINUTES[`${stopKeyOf(alight)}>${stopKeyOf(board)}`];
 
 // Every route and direction that boards at a stop. At a rail platform (BART or Muni Metro
 // underground), one target per platform: the next train that way, whatever its line.

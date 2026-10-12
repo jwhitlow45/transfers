@@ -10,6 +10,31 @@ export function distanceMeters(a: Point, b: Point) {
   return 2 * EARTH_RADIUS_METERS * Math.asin(Math.sqrt(h));
 }
 
+// Points by grid cell, for finding those within `meters` of somewhere without measuring to every
+// one: they are all in its own cell or the eight around it, as each cell is at least `meters`
+// across. A degree of longitude shortens away from the equator, so cells are sized for the
+// longitude of the point furthest from it.
+export function pointGrid<T extends Point>(points: T[], meters: number) {
+  const furthest = Math.max(0, ...points.map(({ lat }) => Math.abs(lat)));
+  const size = meters / (((EARTH_RADIUS_METERS * Math.PI) / 180) * Math.cos(toRadians(furthest)));
+  const cell = (value: number) => Math.floor(value / size);
+  const cells = new Map<string, T[]>();
+  for (const point of points) {
+    const key = `${cell(point.lat)}:${cell(point.lon)}`;
+    let list = cells.get(key);
+    if (!list) cells.set(key, (list = []));
+    list.push(point);
+  }
+  // Every point within `meters` of `at`, among others a little further.
+  return (at: Point) => {
+    const found: T[] = [];
+    for (let dLat = -1; dLat <= 1; dLat++) {
+      for (let dLon = -1; dLon <= 1; dLon++) found.push(...(cells.get(`${cell(at.lat) + dLat}:${cell(at.lon) + dLon}`) ?? []));
+    }
+    return found;
+  };
+}
+
 // Initial compass bearing from a to b, 0 to 360 with 0 as north.
 export function bearingDegrees(a: Point, b: Point) {
   const dLon = toRadians(b.lon - a.lon);

@@ -1,12 +1,9 @@
 import type { PinRequest, PinnedLeg, PinnedStop, PinnedTrip } from '../../shared/api.ts';
 import { type RtTrip, type TripSnapshot, stopKey } from '../realtime/snapshot.ts';
 import type { Schedule, StopRow } from '../schedule.ts';
+import { SAME_RUN_SECONDS } from './realtime-view.ts';
 import { expectedTimes, visitsTo } from './track.ts';
 import type { Tables } from './views.ts';
-
-// Predictions are for a trip's run today. A run pinned further from now than this is another
-// day's, which keeps to its schedule.
-const SAME_RUN_SECONDS = 6 * 3600;
 
 // A trip the rider pinned, as its vehicles run now. From and the destination come from the
 // search, so changing the destination moves the end of the trip.

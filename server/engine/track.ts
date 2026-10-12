@@ -258,12 +258,18 @@ type Estimate =
   | { next: number; from: number; point: Point & { bearing: number | null }; source: 'predicted' | 'scheduled'; missing?: undefined }
   | { missing?: 'canceled' | 'not-started' | 'ended'; next?: undefined; from?: undefined; point?: undefined; source?: undefined };
 
-// When the trip is due at each stop: the feed's predicted time where it lists the stop, or else
-// the schedule plus the latest delay before it, as GTFS-realtime says delays carry forward. A
-// prediction with only a time carries the delay it implies. Without the trip in the feed, the
-// schedule alone. `near` picks the day's run the schedule means, the one running nearest it.
+// When the trip is due at each stop (see predictedTimes). `near` picks the day's run the schedule
+// means, the one running nearest it.
 export function expectedTimes(schedule: Schedule, tripRow: number, stops: StopRow[], rt: RtTrip | undefined, now: number, near = now) {
-  const scheduled = stops.map((_, index) => schedule.scheduledTimeAt(tripRow, index, near));
+  return predictedTimes(stops.map((_, index) => schedule.scheduledTimeAt(tripRow, index, near)), stops, rt, now);
+}
+
+// When the trip is due at each stop, from its scheduled arrivals: the feed's predicted time where
+// it lists the stop, or else the schedule plus the latest delay before it, as GTFS-realtime says
+// delays carry forward. A prediction with only a time carries the delay it implies. Without the
+// trip in the feed, the schedule alone. `ahead` is the first stop the feed lists: the trip has
+// left every stop before it.
+export function predictedTimes(scheduled: (number | null)[], stops: { stopId: string }[], rt: RtTrip | undefined, now: number) {
   // The feed's stops matched to positions in order. The feed drops visits already made, so a stop
   // a loop makes twice is told apart by the update's stop sequence, or else by which visit is
   // scheduled nearest its predicted time. The schedule keeps positions rather than GTFS
@@ -283,7 +289,7 @@ export function expectedTimes(schedule: Schedule, tripRow: number, stops: StopRo
   // The feed's own delay at each stop it lists, which on BART can differ by a minute or so from its
   // time less the schedule here. The results show this one.
   const reported = scheduled.map((_, index) => listed.get(index)?.delay ?? null);
-  if (listed.size === 0) return { times: scheduled, scheduled, reported, predicted: false };
+  if (listed.size === 0) return { times: scheduled, scheduled, reported, predicted: false, ahead: 0 };
   const delayAt = (index: number, update: RtStopTime) => update.delay ?? (update.time !== null && scheduled[index] !== null ? update.time - scheduled[index]! : null);
   const first = Math.min(...listed.keys());
   let delay = delayAt(first, listed.get(first)!) ?? 0;
@@ -297,7 +303,7 @@ export function expectedTimes(schedule: Schedule, tripRow: number, stops: StopRo
     if (update?.time !== null && update?.time !== undefined) return update.time;
     return time === null ? null : time + delay;
   });
-  return { times, scheduled, reported, predicted: true };
+  return { times, scheduled, reported, predicted: true, ahead: first };
 }
 
 // The point a share of the way along the line from one shape point to another, and the way the

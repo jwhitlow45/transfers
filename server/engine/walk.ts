@@ -27,6 +27,10 @@ export const NAMED_STOP_MAX_WALK_METERS = 800;
 // The default maximum is the minimum plus this, matching the 3 to 12 window J uses.
 export const DEFAULT_WINDOW_MINUTES = 9;
 
+// The rider's own settings, from their device: the longest walk they will take to change
+// vehicles, in meters, and how fast they walk, in meters a second.
+export type WalkSettings = { walk?: number; speed?: number };
+
 export function transferSeconds(options: { exit: Access; entry: Access; meters: number; speed?: number }) {
   const walk = walkSeconds(options.meters, options.speed);
   const crossing = options.meters > CROSSING_METERS ? CROSSING_SECONDS : 0;

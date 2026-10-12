@@ -15,6 +15,10 @@ export type RealtimeView = {
   access?: Outage[] | null;
 };
 
+// Predictions are for a trip's run today. Trip ids repeat every day, so a run scheduled further
+// from now than this is another day's, which keeps to its schedule.
+export const SAME_RUN_SECONDS = 6 * 3600;
+
 // What an answer says about live service where the rider is going: the alerts on its stops,
 // routes and agencies, and how fresh each agency's feed is. Alerts name platforms, so their stops
 // join the tables for the page to name them.

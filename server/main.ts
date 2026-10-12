@@ -14,7 +14,10 @@ import { trackTarget, trackVehicle } from './engine/track.ts';
 import { routeView, stopView } from './engine/views.ts';
 import type { RealtimeView } from './engine/realtime-view.ts';
 import { type TripRequest, destinations, planTrip, wayBack } from './engine/trip.ts';
+import type { WalkSettings } from './engine/walk.ts';
 import { RequestError } from './http.ts';
+import { planJourneys, readEnds } from './journeys/plan.ts';
+import { PlaceStore } from './places/store.ts';
 import { KeyPool } from './realtime/keys.ts';
 import { Realtime } from './realtime/manager.ts';
 import { sendJson } from './json.ts';
@@ -24,6 +27,7 @@ import { nowSeconds } from './time.ts';
 const pool = new KeyPool(requireApiKeys(), join(config.dataDir, 'key-usage.json'));
 const realtime = new Realtime(pool);
 const store = new ScheduleStore(config.dataDir, pool);
+const placeStore = new PlaceStore(config.dataDir);
 
 const server = createServer((request, response) => {
   handle(request, response).catch((error: unknown) => {
@@ -46,7 +50,12 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
   switch (url.pathname) {
     case '/api/search': {
       const near = point(url.searchParams);
-      return sendJson(request, response, search(schedule, url.searchParams.get('q') ?? '', { routes: url.searchParams.get('kind') !== 'stop', ...(near ? { near } : {}) }));
+      const places = placeStore.places;
+      return sendJson(request, response, search(schedule, url.searchParams.get('q') ?? '', { routes: url.searchParams.get('kind') !== 'stop', ...(near ? { near } : {}), ...(places ? { places } : {}) }));
+    }
+    case '/api/journeys': {
+      const { from, to } = readEnds(schedule, url.searchParams, (id) => placeStore.places?.get(id) ?? null);
+      return sendJson(request, response, planJourneys(schedule, await realtimeView(), from, to, nowSeconds(), walkSettings(url.searchParams)));
     }
     case '/api/trip': {
       const trip = tripRequest(url.searchParams);
@@ -129,17 +138,13 @@ async function realtimeView(): Promise<RealtimeView> {
 
 function tripRequest(params: URLSearchParams, from = params.get('from'), to = params.get('to')): TripRequest {
   if (!from || !to) throw new RequestError(400, 'Send from and to');
-  const request: TripRequest = { from, to };
+  const request: TripRequest = { from, to, ...walkSettings(params) };
   const min = numberParam(params, 'min');
   const max = numberParam(params, 'max');
   const hide = numberParam(params, 'hide');
-  const walk = numberParam(params, 'walk');
-  const speed = numberParam(params, 'speed');
   if (min !== undefined) request.min = clampMinutes(min);
   if (max !== undefined) request.max = clampMinutes(max);
   if (hide !== undefined) request.hide = clampMinutes(hide);
-  if (walk !== undefined) request.walk = clamp(walk, 50, 1500);
-  if (speed !== undefined) request.speed = clamp(speed, 0.3, 3);
   const dest = params.get('dest');
   if (dest) request.dest = dest;
   const first = params.get('r1');
@@ -158,6 +163,14 @@ function tripRequest(params: URLSearchParams, from = params.get('from'), to = pa
   const pin = readPin(params, (name) => numberParam(params, name));
   if (pin) request.pin = pin;
   return request;
+}
+
+// The rider's longest walk to change vehicles, in meters, and walking speed, in meters a second,
+// as their device settings send them.
+function walkSettings(params: URLSearchParams): WalkSettings {
+  const walk = numberParam(params, 'walk');
+  const speed = numberParam(params, 'speed');
+  return { ...(walk !== undefined ? { walk: clamp(walk, 50, 1500) } : {}), ...(speed !== undefined ? { speed: clamp(speed, 0.3, 3) } : {}) };
 }
 
 // A map's pinned stretch of a trip, as `from` and `to` stop positions, under an optional prefix.
@@ -218,12 +231,13 @@ function allowRequest(request: IncomingMessage) {
 }
 
 server.listen(config.port, () => console.log(`Listening on ${config.port}, fetching trip updates every ${realtime.tripSeconds} s while in use`));
-void store.start();
+void store.start().then(() => placeStore.start(() => store.schedule));
 
 for (const signal of ['SIGTERM', 'SIGINT'] as const) {
   process.on(signal, () => {
     server.close();
     store.schedule?.close();
+    placeStore.places?.close();
     process.exit(0);
   });
 }

@@ -3,8 +3,8 @@
 Transfers runs on `ssh server` like screamr.ai: three containers from `docker-compose.yml`, reached only through the shared cloudflared tunnel.
 
 - **web** (`transfers_web`): Caddy on port 8080. Serves the built frontend and proxies `/api`, `/t` (trip pages with their first results) and `/s` (short trip links) to the API. Its only networks are `transfers-edge` (joined by cloudflared) and `transfers-app`.
-- **api**: Node. Keeps the schedule database and 511 key usage in the `transfers-data` volume. It has no route off the machine except the egress proxy.
-- **egress**: Squid, allowing HTTPS to `api.511.org`, `api.bart.gov`, and `www.bart.gov` (its elevator and escalator status tables) only.
+- **api**: Node. Keeps the schedule database, the place list, and 511 key usage in the `transfers-data` volume. It has no route off the machine except the egress proxy.
+- **egress**: Squid, allowing HTTPS to `api.511.org`, `api.bart.gov`, `www.bart.gov` (its elevator and escalator status tables), and `overpass-api.de` and `overpass.private.coffee` (OpenStreetMap's Overpass API, for the place list) only. After changing the list in `docker/squid.conf`, restart the proxy with `docker compose restart egress`, since it reads the file only when it starts.
 
 The internal networks use Docker's `isolated` gateway mode, which needs Docker 28 or later (the server runs 29.7). Docker Desktop 27 on a Mac rejects it, so local runs need an override that drops that option.
 
@@ -64,7 +64,7 @@ The internal networks use Docker's `isolated` gateway mode, which needs Docker 2
 cd ~/docker_compose/transfers && git pull && docker compose up -d --build
 ```
 
-The schedule database and key usage survive in the volume. The schedule rebuilds itself daily around 3:30 AM Pacific.
+The schedule database, place list and key usage survive in the volume. The schedule rebuilds itself daily around 3:30 AM Pacific. The place list, from OpenStreetMap, builds itself 10 minutes after the first start, taking about a quarter of an hour, and then again weekly around 4 AM Pacific (the next night when a server was too busy to send part of it). Search shows no places until the first build finishes.
 
 After a change to `docker/squid.conf`, restart the proxy too, since it reads the file only when it starts:
 
@@ -74,5 +74,5 @@ cd ~/docker_compose/transfers && docker compose restart egress
 
 ## Checking on it
 
-- `docker compose logs -f api` shows feed failures and schedule rebuilds.
+- `docker compose logs -f api` shows feed failures and schedule and place rebuilds.
 - `docker compose exec api node -e "fetch('http://127.0.0.1:3000/api/health').then(r => r.text()).then(console.log)"` prints when the schedule was built and when trip updates last arrived (unix seconds). `realtime` stays null until someone opens a trip, since the server fetches only while the site is in use.

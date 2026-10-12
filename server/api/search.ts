@@ -3,17 +3,21 @@ import { bartSiblings, headingOf, rankedHeadings } from '../engine/links.ts';
 import { Tables, routeView, stopView } from '../engine/views.ts';
 import { distanceMeters, type Point } from '../geo.ts';
 import { searchQuery, searchText } from '../gtfs/search-text.ts';
+import type { Places } from '../places/store.ts';
 import { type PatternRow, type RouteRow, type Schedule, type StopRow, routeKeyOf } from '../schedule.ts';
 import { all } from '../db.ts';
 
 const LIMIT = 12;
+// Places come below the stops, a handful, so they do not push the stops off a phone's screen.
+const PLACE_LIMIT = 5;
 
 // The stops riders search for: BART stations rather than their platforms, and boarding stops
 // everywhere else (see buildSearchIndex).
 const isSearchable = (stop: StopRow) =>
   (stop.kind === 'station' && stop.access === 'bart') || stop.kind === 'stop' || (stop.kind === 'platform' && stop.access !== 'bart');
 
-export function search(schedule: Schedule, text: string, options: { routes: boolean; near?: Point }): SearchResponse {
+// `places` is the place list once it is built, searched alongside the stops so the page asks once.
+export function search(schedule: Schedule, text: string, options: { routes: boolean; near?: Point; places?: Places }): SearchResponse {
   const query = text.trim();
   const tables = new Tables(schedule);
   const response: SearchResponse = { results: [], routes: tables.routes };
@@ -29,8 +33,11 @@ export function search(schedule: Schedule, text: string, options: { routes: bool
       .sort((a, b) => (a.code?.length ?? 0) - (b.code?.length ?? 0) || (a.code ?? '').localeCompare(b.code ?? ''));
   } else {
     // One or two letters ("N") match stop names and codes only, or every stop a route by that
-    // letter serves would match through its route list.
+    // letter serves would match through its route list. They would match a place for every word
+    // that starts with them, so places wait for a third.
     const match = searchQuery(query, query.trim().length <= 2 ? ['name', 'code'] : undefined);
+    const places = query.length > 2 ? (options.places?.search(query, options.near, PLACE_LIMIT) ?? []) : [];
+    if (places.length > 0) response.places = places;
     // Stations and subway and ferry stops are looked up on their own, ahead of the rest, so the
     // ranking below sees them. By text rank alone, "mont" puts Montgomery Station 73rd of 74
     // matches, behind every street stop on Montgomery St and Monterey Blvd. The limit leaves room
