@@ -1,3 +1,5 @@
+import type { PlaceResult } from './journeys.ts';
+
 // The most minutes any time setting allows: the transfer window's ends and hiding departures.
 export const MAX_MINUTES = 30;
 // Whole minutes within what the window allows, as a link or stored setting may hold any number.
@@ -62,6 +64,9 @@ export type SearchResponse = {
   results: (StopSearchResult | RouteSearchResult)[];
   routes: Record<string, Route>;
   along?: RouteStops[];
+  // Places matching the words, nearest first when the request says where the rider is, once the
+  // place list is built (see shared/journeys.ts).
+  places?: PlaceResult[];
 };
 
 // Why a connection the rider asked to see was filtered out.
