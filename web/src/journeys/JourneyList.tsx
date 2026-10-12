@@ -52,6 +52,8 @@ const firstRide = (journey: Journey) => journey.legs.find((leg): leg is RideLeg 
 // times move.
 const signature = (journey: Journey) => journey.legs.map((leg) => (leg.kind === 'ride' ? `${leg.trip}@${leg.from}` : 'walk')).join('|');
 const minutesOf = (seconds: number) => Math.max(1, Math.round(seconds / 60));
+// A walk this short, such as across the street, the card's summary leaves out, as its steps say it.
+const STEP_SECONDS = 90;
 
 function JourneyCard({ journey, data, now, fromLabel, toLabel, open, onToggle }: {
   journey: Journey;
@@ -86,10 +88,9 @@ function JourneyCard({ journey, data, now, fromLabel, toLabel, open, onToggle }:
           <div class="tf-row__main">
             <div class="tf-row__line">
               {clock(journey.leaves)} – {clock(journey.arrives)}
-              <span class="tf-journey__length">{length}&nbsp;min</span>
             </div>
             <div class="tf-journey__legs">
-              {journey.legs.map((leg, index) => (
+              {journey.legs.filter((leg) => leg.kind === 'ride' || leg.seconds >= STEP_SECONDS || rides.length === 0).map((leg, index) => (
                 <span key={index} class="tf-journey__leg">
                   {index > 0 && <span class="tf-journey__sep">›</span>}
                   {leg.kind === 'walk' ? (
@@ -106,7 +107,7 @@ function JourneyCard({ journey, data, now, fromLabel, toLabel, open, onToggle }:
               ))}
             </div>
             <div class="tf-row__off">
-              {kind}
+              {length}&nbsp;min · {kind}
               {canceled && <span class="tf-tight tf-journey__canceled">Canceled</span>}
             </div>
           </div>
@@ -157,7 +158,7 @@ function Step({ leg, data, lastRide, fromLabel, toLabel }: { leg: JourneyLeg; da
           <TimeLink trip={leg.trip} stop={data.stops[leg.from]} title={vehicleAt(route, leg.departs)} marks={[{ stop: leg.from, kind: 'yours' }, { stop: leg.to, kind: lastRide ? 'destination' : 'transfer' }]}>
             {clock(leg.departs)}
           </TimeLink>
-          <span>from {name(leg.from, fromLabel)}</span>
+          <span class="tf-journey__from">from {name(leg.from, fromLabel)}</span>
         </span>
         <span class="tf-journey__ride-sub">
           Toward {leg.toward} · {leg.canceled ? <span class="tf-status-text tf-status-text--late">Canceled</span> : <StatusTag status={statusOf(leg.departDelay, leg.live)} plain />}

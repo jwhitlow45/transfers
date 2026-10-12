@@ -10,6 +10,7 @@
     "dev:web": "vite --config web/vite.config.ts",
     "build": "vite build --config web/vite.config.ts",
     "ingest": "node server/gtfs/ingest-cli.ts",
+    "places": "node server/places/ingest-cli.ts",
     "test": "node --test 'server/**/*.test.ts' 'web/src/**/*.test.ts'",
     "typecheck": "tsc -p server && tsc -p web"
   },

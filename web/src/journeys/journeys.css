@@ -7,7 +7,6 @@
 .tf-journey__row { border-top: 0; pointer-events: none; }
 .tf-journey__toggle[aria-expanded="true"] ~ .tf-journey__row .tf-chev { transform: rotate(180deg); }
 @media (hover: hover) { .tf-journey__band:has(> .tf-journey__toggle:hover) { background-color: color-mix(in srgb, var(--text) 4%, transparent); } }
-.tf-journey__length { margin-left: var(--space-1); font-size: var(--text-base); font-weight: var(--weight-label); color: var(--muted); }
 .tf-journey__legs { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); margin: 6px 0 2px; }
 .tf-journey__leg { display: inline-flex; align-items: center; gap: var(--space-1); }
 .tf-journey__sep { color: var(--muted); }
@@ -24,4 +23,5 @@
 .tf-journey__step--end .tf-journey__dot { background: var(--text); }
 .tf-journey__ride { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .tf-journey__ride-line { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) 6px; font-weight: var(--weight-bold); }
+.tf-journey__from { font-weight: var(--weight-regular); }
 .tf-journey__ride-sub { font-size: var(--text-sm); color: var(--muted); }

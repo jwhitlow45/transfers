@@ -492,7 +492,7 @@ export function SearchScreen() {
             </div>
           </div>
         )}
-        {query && response && <StopResults query={query} response={response} onPick={pick} onPickPlace={pickPlace} includesRoutes={focus === 'to'} />}
+        {query && response && <StopResults query={query} response={response} onPick={pick} onPickPlace={pickPlace} includesRoutes={focus === 'to'} near={near} />}
         {/* Hidden rather than unmounted under the suggestions, so the saved cards keep their times
             and the status line above the fields stays put while the rider types. */}
         <div class="tf-home-rest" hidden={showingResults}>

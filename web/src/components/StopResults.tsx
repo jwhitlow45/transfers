@@ -1,6 +1,8 @@
 import { useState } from 'preact/hooks';
 import type { RouteSearchResult, RouteStops, SearchResponse, StopSearchResult } from '../../../shared/api.ts';
 import type { PlaceResult } from '../../../shared/journeys.ts';
+import { metersFrom } from '../../../shared/projection.ts';
+import type { Position } from '../lib/location.ts';
 import { agencyName, spokenRoute } from '../view.ts';
 import { Segmented } from './DirectionSwitcher.tsx';
 import { RouteChip } from './RouteChip.tsx';
@@ -35,12 +37,14 @@ function hitDirection(hit: StopSearchResult) {
 
 // A plain list of buttons under a polite live count. It is not a listbox, since there is no
 // arrow-key model to go with one.
-export function StopResults({ query, response, onPick, onPickPlace, includesRoutes }: {
+export function StopResults({ query, response, onPick, onPickPlace, includesRoutes, near }: {
   query: string;
   response: SearchResponse;
   onPick: (hit: SearchHit) => void;
   onPickPlace: (place: PlaceResult) => void;
   includesRoutes: boolean;
+  // Where the phone says the rider is, when location is already allowed, for how far each place is.
+  near: Position | null;
 }) {
   const hits = response.results;
   const along = response.along ?? [];
@@ -55,7 +59,7 @@ export function StopResults({ query, response, onPick, onPickPlace, includesRout
       ))}
       {/* Enter takes the first match, except under a route's own stop list (see SearchScreen). */}
       {(hits.length > 0 || along.length === 0) && (places.length === 0 || hits.length > 0) && <HitList label={label} hits={hits} response={response} onPick={onPick} enterTakesFirst={along.length === 0} />}
-      {places.length > 0 && <PlaceList places={places} onPick={onPickPlace} enterTakesFirst={hits.length === 0 && along.length === 0} />}
+      {places.length > 0 && <PlaceList places={places} near={near} onPick={onPickPlace} enterTakesFirst={hits.length === 0 && along.length === 0} />}
     </>
   );
 }
@@ -151,8 +155,9 @@ function HitList({ label, hits, response, onPick, enterTakesFirst }: {
 }
 
 // Places found by name, from OpenStreetMap, which its credit names under the list, as its license
-// asks wherever its data shows. A place is somewhere to walk to or from, so it has no routes.
-function PlaceList({ places, onPick, enterTakesFirst }: { places: PlaceResult[]; onPick: (place: PlaceResult) => void; enterTakesFirst: boolean }) {
+// asks wherever its data shows. A place is somewhere to walk to or from, so it has no routes. How far
+// away each is tells apart a chain's branches, as OpenStreetMap often has no street for them.
+function PlaceList({ places, near, onPick, enterTakesFirst }: { places: PlaceResult[]; near: Position | null; onPick: (place: PlaceResult) => void; enterTakesFirst: boolean }) {
   return (
     <div class="tf-results" role="region" aria-label="Places">
       <div class="tf-results__label">Places</div>
@@ -167,7 +172,7 @@ function PlaceList({ places, onPick, enterTakesFirst }: { places: PlaceResult[];
                 </span>
                 <span class="tf-result__code">{place.kind}</span>
               </span>
-              {place.street && <span class="tf-result__dir">{place.street}</span>}
+              {(place.street || near) && <span class="tf-result__dir">{[near && distanceText(near, place), place.street].filter(Boolean).join(' · ')}</span>}
             </button>
           </div>
         ))}
@@ -181,4 +186,10 @@ function PlaceList({ places, onPick, enterTakesFirst }: { places: PlaceResult[];
       </div>
     </div>
   );
+}
+
+// "450 m away", or "2.3 km away" past a kilometer.
+function distanceText(near: Position, place: Position) {
+  const meters = Math.hypot(...metersFrom(near, place));
+  return meters < 1000 ? `${Math.max(10, Math.round(meters / 10) * 10)} m away` : `${(meters / 1000).toFixed(1)} km away`;
 }

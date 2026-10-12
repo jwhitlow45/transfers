@@ -3,7 +3,8 @@ name: transfers
 # Three containers, each on only the networks it needs:
 #   web     Caddy. Serves the frontend and proxies the API. Reached only by cloudflared.
 #   api     Node. No route off the machine except through egress.
-#   egress  Squid. Allows HTTPS to api.511.org, api.bart.gov, and www.bart.gov, nothing else.
+#   egress  Squid. Allows HTTPS to api.511.org, api.bart.gov, www.bart.gov, and OpenStreetMap's
+#           Overpass servers for the place list (see docker/squid.conf), nothing else.
 # Same shape as screamr.ai on this server. See docs/deploy.md for the steps outside this file.
 
 services:
