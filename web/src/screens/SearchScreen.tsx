@@ -54,8 +54,11 @@ import { topUnderHeader } from '../lib/scroll.ts';
 import { tripPath } from '../../../shared/paths.ts';
 import { Flag } from '../components/StatusTag.tsx';
 import { rowKey } from '../components/RouteCard.tsx';
+import { endKind, HERE, HERE_LABEL } from '../lib/ends.ts';
+import { placeEnd, type PlaceResult } from '../../../shared/journeys.ts';
 
-// A picked stop or route. `short` is what headers and lists call it.
+// A picked stop, route, place, or the rider's location (see lib/ends.ts). `short` is what headers
+// and lists call it.
 export type Picked = { key: string; label: string; meta: string; short: string };
 type FieldState = { query: string; picked?: Picked };
 
@@ -66,6 +69,15 @@ function pickedFrom(hit: SearchHit, response: SearchResponse): Picked {
   }
   return { key: hit.key, label: hit.name, meta: hitMeta(hit, response), short: stopLabel(hit) };
 }
+
+function pickedPlace(place: PlaceResult): Picked {
+  return { key: placeEnd(place.id), label: place.name, meta: [place.kind, place.street].filter(Boolean).join(' · '), short: place.name };
+}
+
+// Where the phone says the rider is, looked up when the results open (see useJourneys).
+const HERE_PICKED: Picked = { key: HERE, label: HERE_LABEL, meta: 'Where your phone says you are', short: HERE_LABEL };
+
+const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 const dismissedIds = () => new Set(loadDismissed().map(({ id }) => id));
 
@@ -242,7 +254,10 @@ export function SearchScreen() {
 
   const pick = (hit: SearchHit) => {
     if (!response) return;
-    const picked = pickedFrom(hit, response);
+    take(pickedFrom(hit, response));
+  };
+  const pickPlace = (place: PlaceResult) => take(pickedPlace(place));
+  const take = (picked: Picked) => {
     rememberPicked(picked);
     const field = focus;
     (field === 'from' ? setFrom : setTo)({ query: picked.label, picked });
@@ -258,10 +273,14 @@ export function SearchScreen() {
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     requestAnimationFrame(() => requestAnimationFrame(() => navigate(path)));
   };
-  const open = (fromPicked: Picked, toPicked: Picked) => leave(tripPath({ from: fromPicked.key, to: toPicked.key, fromLabel: fromPicked.short, toLabel: toPicked.short }));
+  // Transfers to a route, trips from or to a place or the rider, or both for two stops (see
+  // searchPath).
+  const open = (fromPicked: Picked, toPicked: Picked) => leave(searchPath({ from: fromPicked.key, to: toPicked.key, fromLabel: fromPicked.short, toLabel: toPicked.short }));
   const showArrivals = () => from.picked && leave(stopPath({ from: from.picked.key, fromLabel: from.picked.short }));
+  // Catching a route takes a stop to start from, which a place or the rider's location is not.
+  const routeFromNoStop = Boolean(to.picked && endKind(to.picked.key) === 'route' && from.picked && endKind(from.picked.key) !== 'stop');
   const go = () => {
-    if (from.picked && to.picked) open(from.picked, to.picked);
+    if (from.picked && to.picked && !routeFromNoStop) open(from.picked, to.picked);
   };
 
   // Enter takes the first match for what was typed, once its answer is in, then moves on: to the
@@ -273,15 +292,17 @@ export function SearchScreen() {
   const advance = (field: 'from' | 'to', picked: Picked) => {
     const fromPicked = field === 'from' ? picked : from.picked;
     const toPicked = field === 'to' ? picked : to.picked;
-    if (field === 'from' || !fromPicked || !toPicked) return document.querySelector<HTMLElement>(`.tf-layer #${field === 'from' ? 'field-to' : 'field-from'}`)?.focus();
+    if (field === 'from' || !fromPicked || !toPicked || (endKind(toPicked.key) === 'route' && endKind(fromPicked.key) !== 'stop'))
+      return document.querySelector<HTMLElement>(`.tf-layer #${field === 'from' ? 'field-to' : 'field-from'}`)?.focus();
     // Saved now, as Home closes before its own saving would run, and the rider comes back to them.
     saveFields({ from: { query: fromPicked.label, picked: fromPicked }, to: { query: toPicked.label, picked: toPicked } });
     open(fromPicked, toPicked);
   };
   const takeFirst = (field: 'from' | 'to') => {
     const hit = response?.along?.length ? undefined : response?.results[0];
-    if (!response || !hit) return;
-    const picked = pickedFrom(hit, response);
+    const place = response?.along?.length ? undefined : response?.places?.[0];
+    if (!response || (!hit && !place)) return;
+    const picked = hit ? pickedFrom(hit, response) : pickedPlace(place!);
     rememberPicked(picked);
     (field === 'from' ? setFrom : setTo)({ query: picked.label, picked });
     setFocus(null);
@@ -344,14 +365,17 @@ export function SearchScreen() {
     return [...loadRecent(), ...saved].flatMap((search) => {
       const key = field === 'from' ? search.from : search.to;
       const label = field === 'from' ? search.fromLabel : search.toLabel;
-      // A stop's arrivals have no To.
-      if (!key || seen.has(key)) return [];
+      // A stop's arrivals have no To, and the rider's location has a row of its own.
+      if (!key || key === HERE || seen.has(key)) return [];
       seen.add(key);
-      return [known[key] ?? { key, label, meta: key.startsWith('route:') ? 'Route from a recent search' : 'Stop from a recent search', short: label }];
+      return [known[key] ?? { key, label, meta: `${capitalize(endKind(key))} from a recent search`, short: label }];
     }).slice(0, 5);
   };
-  const usualShown = typing && focus && !(focus === 'from' ? from : to).query.trim() ? usual(focus) : [];
-  const showingResults = Boolean(query && response) || usualShown.length > 0;
+  const emptyField = Boolean(typing && focus && !(focus === 'from' ? from : to).query.trim());
+  const usualShown = emptyField && focus ? usual(focus) : [];
+  // An empty From offers where the rider is, for trips from there (J, 2026-10-12).
+  const offerHere = emptyField && focus === 'from';
+  const showingResults = Boolean(query && response) || usualShown.length > 0 || offerHere;
 
   return (
     <div class="tf-scroll">
@@ -419,19 +443,25 @@ export function SearchScreen() {
         {/* A From stop alone opens its arrivals, with no transfer (J, 2026-10-09). */}
         {(from.query || to.query) && !showingResults && (
           <div class="tf-find-row">
-            <button type="button" class="tf-btn-outline tf-btn-secondary" disabled={!from.picked} onClick={showArrivals} aria-describedby={from.picked ? undefined : 'find-hint'}>
+            <button type="button" class="tf-btn-outline tf-btn-secondary" disabled={!from.picked || endKind(from.picked.key) !== 'stop'} onClick={showArrivals} aria-describedby={from.picked ? undefined : 'find-hint'}>
               <span class="tf-find-row__long">Show arrivals</span>
               <span class="tf-find-row__short">Arrivals</span>
             </button>
-            <button type="button" class="tf-btn-primary" disabled={!(from.picked && to.picked)} onClick={go} aria-describedby="find-hint">
-              Find transfers
+            <button type="button" class="tf-btn-primary" disabled={!(from.picked && to.picked) || routeFromNoStop} onClick={go} aria-describedby="find-hint">
+              {to.picked && endKind(to.picked.key) === 'route' ? 'Find transfers' : 'Find trips'}
             </button>
           </div>
         )}
         {/* What the dimmed button is waiting for, as typing alone does not pick a stop. */}
-        {(from.query || to.query) && !showingResults && !(from.picked && to.picked) && (
+        {(from.query || to.query) && !showingResults && (!(from.picked && to.picked) || routeFromNoStop) && (
           <p class="tf-find-hint" id="find-hint">
-            {!from.picked && !to.picked ? 'Pick From and To from the lists' : !from.picked ? 'Pick a From stop from the list' : 'Pick a To stop or route from the list'}
+            {routeFromNoStop
+              ? 'To catch a route, start from a stop'
+              : !from.picked && !to.picked
+                ? 'Pick From and To from the lists'
+                : !from.picked
+                  ? 'Pick where you start from the list'
+                  : 'Pick a stop, route or place to go to from the list'}
           </p>
         )}
         {searchFailed && query && (
@@ -439,6 +469,17 @@ export function SearchScreen() {
             <span>Can’t reach search. Check your connection.</span>
             <button type="button" class="tf-btn-outline tf-btn-secondary" onClick={() => setRetries((count) => count + 1)}>
               Retry
+            </button>
+          </div>
+        )}
+        {offerHere && (
+          <div class="tf-results" role="region" aria-label="Your location">
+            <button type="button" class="tf-result tf-result--here" onClick={() => choose('from', HERE_PICKED)}>
+              <span class="tf-result__name">
+                <IconLocation />
+                {HERE_LABEL}
+              </span>
+              <span class="tf-result__dir">Trips from where your phone says you are</span>
             </button>
           </div>
         )}
@@ -451,7 +492,7 @@ export function SearchScreen() {
             </div>
           </div>
         )}
-        {query && response && <StopResults query={query} response={response} onPick={pick} includesRoutes={focus === 'to'} />}
+        {query && response && <StopResults query={query} response={response} onPick={pick} onPickPlace={pickPlace} includesRoutes={focus === 'to'} />}
         {/* Hidden rather than unmounted under the suggestions, so the saved cards keep their times
             and the status line above the fields stays put while the rider types. */}
         <div class="tf-home-rest" hidden={showingResults}>
@@ -546,9 +587,10 @@ function HowItWorks({ open: openAtFirst }: { open: boolean }) {
       </button>
       <Collapse open={open} id="how-it-works">
         <p>
-          Pick where you start and the stop or route you are transferring to. Transfers shows the next few departures you can catch, and under each one every vehicle from
-          your stop that makes it within your transfer window, with live times from 511 and how long each transfer is.
+          Pick a stop and the route you want to catch, or the stop where you will catch it. Transfers shows the next few departures you can catch, and under each one every
+          vehicle from your stop that makes it within your transfer window, with live times from 511 and how long each transfer is.
         </p>
+        <p>To get somewhere, pick where you start, a stop, a place, or your location, and where you are going. Trips shows the next few ways there, with any changes.</p>
         <p>
           It helps most going from frequent service to infrequent, such as BART to a bus that comes every 20 minutes, where the train you catch decides whether you make
           the bus.

@@ -108,4 +108,8 @@ export const apiUrl = {
   // Stops, and routes too for To, by name or number, nearest first when the rider shared where they are.
   search: (query: string, routes: boolean, near: Position | null) =>
     `/api/search?${new URLSearchParams({ q: query, kind: routes ? 'any' : 'stop', ...(near ? { lat: near.lat.toFixed(4), lon: near.lon.toFixed(4) } : {}) })}`,
+  // Trips between two ends as the API names them (see shared/journeys.ts), the points by the names
+  // the rider saw, walking at the rider's own speed.
+  journeys: (from: string, to: string, fromLabel: string, toLabel: string, settings: Pick<DeviceSettings, 'walkSpeed'>) =>
+    `/api/journeys?${new URLSearchParams({ from, to, fl: fromLabel, tl: toLabel, ...(settings.walkSpeed !== DEFAULT_SETTINGS.walkSpeed ? { speed: String(settings.walkSpeed) } : {}) })}`,
 };

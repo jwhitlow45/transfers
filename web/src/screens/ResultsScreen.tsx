@@ -25,7 +25,7 @@ import { liveClock } from '../lib/freshness.ts';
 import { IconFilter, IconFlag, IconHidden } from '../icons/ui.tsx';
 import { type CardContext, chooseDirection, directionChoices, hintKey, orderGroups, pageColors, pointId, scaleFor, timeScale, visibleDepartures } from '../lib/results.ts';
 import { summarize } from '../lib/summary.ts';
-import { cameBackTo, goBack, navigate } from '../router.ts';
+import { type ResultsView, cameBackTo, goBack, navigate, resultsPath } from '../router.ts';
 import { matchesServerDefaults, useSettings } from '../settings.tsx';
 import { type Pin, type Search, clearPinHint, rememberRecent, takePinHint, updateSaved } from '../storage.ts';
 import { shortStopName, spokenRoute } from '../view.ts';
@@ -33,6 +33,10 @@ import { AppLink } from '../components/AppLink.tsx';
 import { EmptyState } from '../components/EmptyState.tsx';
 import { failureOf } from '../lib/failure.ts';
 import { tripPath } from '../../../shared/paths.ts';
+import { isStopToStop } from '../lib/ends.ts';
+import { useJourneys } from '../journeys/useJourneys.ts';
+import { LazyJourneyResults } from '../journeys/LazyJourneyResults.tsx';
+import { Tabs } from '../components/Tabs.tsx';
 
 // The server puts the first trip's results in the page. They seed only the first visit, as of
 // when the page arrived: shown again on a later visit, even to the same trip, they would pass
@@ -44,7 +48,10 @@ const navigation = performance.getEntriesByType?.('navigation')[0] as Performanc
 const initialAt = navigation?.responseEnd ? performance.timeOrigin + navigation.responseEnd : Date.now();
 const tripTo = (to: TripResponse['to']) => ('route' in to ? `route:${to.route}` : to.stop);
 
-export function ResultsScreen({ search }: { search: Search }) {
+// Both ends stops, the page offers the trips there as well as the transfers at To, on two tabs (J,
+// 2026-10-12). Unless the rider chose one (`view`), it opens on trips when nothing reaches To with
+// one ride and a change there, and on transfers otherwise.
+export function ResultsScreen({ search, view }: { search: Search; view?: ResultsView }) {
   const { settings, update: updateSettings } = useSettings();
   const deviceNow = useNow();
   const { showHidden } = settings;
@@ -111,7 +118,7 @@ export function ResultsScreen({ search }: { search: Search }) {
   const update: SearchUpdate = (change) => {
     const next = change(search);
     if (saved) updateSaved(next);
-    navigate(tripPath(next), { replace: true });
+    navigate(view ? resultsPath(next, view) : tripPath(next), { replace: true });
   };
   const toggleSaved = () => records.toggleSaved(`${summary.from} to ${summary.to}`, summary.lineColor);
 
@@ -133,6 +140,10 @@ export function ResultsScreen({ search }: { search: Search }) {
   const filtering = Boolean(search.firstRoutes?.length || search.secondRoutes?.length);
   const filteredOut = filtering && groups.length > 0 && groups.every((group) => !group.widen && visibleDepartures(group, now, showHidden).every(({ canceled }) => canceled));
   const routeNames = (keys: string[] | undefined) => keys?.map((key) => (data?.routes[key] ? spokenRoute(data.routes[key]!) : null)).filter(Boolean).join(' or ');
+  const tabs = isStopToStop(search);
+  const shown: ResultsView = view ?? (tabs && data && (groups.length === 0 || filteredOut) ? 'trips' : 'transfers');
+  const journeys = useJourneys(search, tabs && shown === 'trips');
+  const tripsClock = liveClock({ data: journeys.data, fetchedAt: journeys.fetchedAt, settled: journeys.settled }, deviceNow);
   const firstNames = routeNames(search.firstRoutes);
   const secondNames = routeNames(search.secondRoutes);
   const filterText =
@@ -179,10 +190,9 @@ export function ResultsScreen({ search }: { search: Search }) {
       <div class="tf-scroll">
         <ScreenHeader
           title={<TripChain from={summary.from} via={summary.via} to={toChip} />}
-          feed={feed}
-          secondsSinceUpdate={secondsSinceUpdate}
-          stale={showStale}
-          failed={failure}
+          {...(shown === 'trips'
+            ? { feed: journeys.feed, secondsSinceUpdate: tripsClock.secondsSinceUpdate, stale: tripsClock.showStale, failed: failureOf(journeys.error, 'Trips') }
+            : { feed, secondsSinceUpdate, stale: showStale, failed: failure })}
           // What changes the results that the page shows nowhere else. The bottom bar has the transfer
           // window, and hidden connections shown are plain in the rows (J, 2026-10-08).
           items={[
@@ -195,11 +205,22 @@ export function ResultsScreen({ search }: { search: Search }) {
             ...(search.dest
               ? [{ key: 'dest', icon: <IconFlag />, short: shortStopName(data?.stops[search.dest], search.destLabel?.replace(/ \(\w+\)$/, '') ?? search.dest), full: `Showing when each departure gets you to ${search.destLabel ?? search.dest}. Trip settings changes it` }]
               : []),
-          ]}
+          ].filter(() => shown === 'transfers')}
           accent={saved?.color}
-          onRefresh={refresh}
+          onRefresh={shown === 'trips' ? journeys.refresh : refresh}
         />
         <main class="tf-page" id="main">
+          {tabs && <Tabs label="Show" options={RESULTS_TABS} selected={shown} onChoose={(next) => navigate(resultsPath(search, next), { replace: true })} />}
+          {shown === 'trips' ? (
+            <>
+              <LiveBanners feed={journeys.feed} fresh={tripsClock.fresh} showStale={tripsClock.showStale} secondsSinceUpdate={tripsClock.secondsSinceUpdate} />
+              {pin && data && !expired && (
+                <PinnedCard pin={pin} pinned={pinned} data={data} destination={search.dest} colorOf={context.colorOf} pct={context.pct} now={now} unpinAt={unpinAt} onPin={pinFromResults} />
+              )}
+              <LazyJourneyResults journeys={journeys} search={search} now={tripsClock.now} dismissedIds={dismissedIds} onDismiss={dismiss} />
+            </>
+          ) : (
+          <>
           <LiveBanners feed={feed} fresh={fresh} showStale={showStale} secondsSinceUpdate={secondsSinceUpdate} />
           {data && <FeedOutages feeds={data.feeds} routeKeys={groups.flatMap(({ routes }) => routes)} routes={data.routes} />}
           {failure && (
@@ -267,6 +288,8 @@ export function ResultsScreen({ search }: { search: Search }) {
                 ))}
               </div>
             )
+          )}
+          </>
           )}
           <DataCredit />
         </main>
@@ -357,3 +380,8 @@ function EmptyTrip({ data, search, summary, walk, update }: { data: TripResponse
 }
 
 const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
+const RESULTS_TABS: { key: ResultsView; text: string }[] = [
+  { key: 'trips', text: 'Trips' },
+  { key: 'transfers', text: 'Transfers' },
+];

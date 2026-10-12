@@ -1,5 +1,6 @@
 import { useState } from 'preact/hooks';
 import type { RouteSearchResult, RouteStops, SearchResponse, StopSearchResult } from '../../../shared/api.ts';
+import type { PlaceResult } from '../../../shared/journeys.ts';
 import { agencyName, spokenRoute } from '../view.ts';
 import { Segmented } from './DirectionSwitcher.tsx';
 import { RouteChip } from './RouteChip.tsx';
@@ -34,9 +35,16 @@ function hitDirection(hit: StopSearchResult) {
 
 // A plain list of buttons under a polite live count. It is not a listbox, since there is no
 // arrow-key model to go with one.
-export function StopResults({ query, response, onPick, includesRoutes }: { query: string; response: SearchResponse; onPick: (hit: SearchHit) => void; includesRoutes: boolean }) {
+export function StopResults({ query, response, onPick, onPickPlace, includesRoutes }: {
+  query: string;
+  response: SearchResponse;
+  onPick: (hit: SearchHit) => void;
+  onPickPlace: (place: PlaceResult) => void;
+  includesRoutes: boolean;
+}) {
   const hits = response.results;
   const along = response.along ?? [];
+  const places = response.places ?? [];
   const noun = includesRoutes ? 'stop or route' : 'stop';
   const label =
     hits.length === 0 ? `Nothing matches “${query}”` : hits.length === 1 ? `1 ${noun} matches “${query}”` : `${hits.length} ${includesRoutes ? 'stops and routes' : 'stops'} match “${query}”`;
@@ -46,7 +54,8 @@ export function StopResults({ query, response, onPick, includesRoutes }: { query
         <RouteStopList key={route.route} along={route} response={response} onPick={onPick} />
       ))}
       {/* Enter takes the first match, except under a route's own stop list (see SearchScreen). */}
-      {(hits.length > 0 || along.length === 0) && <HitList label={label} hits={hits} response={response} onPick={onPick} enterTakesFirst={along.length === 0} />}
+      {(hits.length > 0 || along.length === 0) && (places.length === 0 || hits.length > 0) && <HitList label={label} hits={hits} response={response} onPick={onPick} enterTakesFirst={along.length === 0} />}
+      {places.length > 0 && <PlaceList places={places} onPick={onPickPlace} enterTakesFirst={hits.length === 0 && along.length === 0} />}
     </>
   );
 }
@@ -136,6 +145,39 @@ function HitList({ label, hits, response, onPick, enterTakesFirst }: {
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// Places found by name, from OpenStreetMap, which its credit names under the list, as its license
+// asks wherever its data shows. A place is somewhere to walk to or from, so it has no routes.
+function PlaceList({ places, onPick, enterTakesFirst }: { places: PlaceResult[]; onPick: (place: PlaceResult) => void; enterTakesFirst: boolean }) {
+  return (
+    <div class="tf-results" role="region" aria-label="Places">
+      <div class="tf-results__label">Places</div>
+      <div role="list">
+        {places.map((place, index) => (
+          <div role="listitem" key={place.id}>
+            <button type="button" class={`tf-result${enterTakesFirst && index === 0 ? ' tf-result--enter' : ''}`} onClick={() => onPick(place)}>
+              <span class="tf-result__top">
+                <span class="tf-result__name">
+                  {place.name}
+                  {enterTakesFirst && index === 0 && <span class="tf-sr"> (Enter picks this)</span>}
+                </span>
+                <span class="tf-result__code">{place.kind}</span>
+              </span>
+              {place.street && <span class="tf-result__dir">{place.street}</span>}
+            </button>
+          </div>
+        ))}
+      </div>
+      <div class="tf-results__credit">
+        ©{' '}
+        <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">
+          OpenStreetMap
+        </a>{' '}
+        contributors
       </div>
     </div>
   );
