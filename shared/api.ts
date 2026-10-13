@@ -36,6 +36,10 @@ export type Stop = {
   serves?: AgencyId[];
   // A BART station's own code ("mont"), for its page on bart.gov.
   bart?: string;
+  // A corner without its street types, "26th & De Haro", for a line the full name would wrap.
+  // Sent only for the stops results name that way (To and the destination), and only when no
+  // other stop would read the same.
+  shortName?: string;
 };
 
 export type StopSearchResult = Stop & {

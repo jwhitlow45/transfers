@@ -277,10 +277,11 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
   }
   const filtered = groups.length === 0 && links.length > 0 && !notice ? ({ kind: 'filtered' } as const) : undefined;
   tables.stop(from);
-  if (toStop) tables.stop(toStop);
+  // Each card names where it arrives, by the stop in To or the destination.
+  if (toStop) tables.namedStop(toStop);
   if (toRoute) tables.route(toRoute);
   if (destination) {
-    tables.stop(destination);
+    tables.namedStop(destination);
     tripStops.add(stopKeyOf(destination));
   }
   const { alerts, feeds } = serviceStatus(schedule, realtime, tables, { stops: tripStops, routes: tripRoutes, agencies });

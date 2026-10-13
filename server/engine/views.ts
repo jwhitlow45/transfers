@@ -1,6 +1,7 @@
 import type { AgencyId, Mode, Route, Stop } from '../../shared/api.ts';
 import { bartStationCode } from '../bart-stations.ts';
 import { compassLabel } from '../geo.ts';
+import { shortCornerName } from './corner-names.ts';
 import { type RouteRow, type Schedule, type StopRow, routeKeyOf, stopKeyOf } from '../schedule.ts';
 
 // The route as riders know it: BART's feed calls its lines "Yellow-N" and "Yellow-S", and
@@ -25,6 +26,9 @@ function routeName(route: RouteRow) {
   return route.shortName.replace(/^(\w+?)(OWL|BUS)$/, (_, line: string, kind: string) => `${line} ${kind === 'OWL' ? 'Owl' : 'Bus'}`);
 }
 
+// Some feeds write an apostrophe as a backtick.
+const shownName = (name: string) => name.replace(/`/g, '’');
+
 export function stopView(schedule: Schedule, stop: StopRow): Stop {
   return {
     key: stopKeyOf(stop),
@@ -32,7 +36,7 @@ export function stopView(schedule: Schedule, stop: StopRow): Stop {
     // BART's codes are 511's internal ids, printed nowhere. Golden Gate's stations use
     // abbreviations, also not on any sign.
     code: stop.agency === 'BA' || !/^\d+$/.test(stop.code ?? '') ? null : stop.code,
-    name: stop.name.replace(/`/g, '’'),
+    name: shownName(stop.name),
     direction: stop.kind === 'station' || stop.bearing === null ? null : compassLabel(stop.bearing),
     mode: stopMode(schedule, stop),
     ...(schedule.sharedMembers.has(stop.id) ? { serves: ['BA', 'SF'] as const satisfies AgencyId[] } : {}),
@@ -78,6 +82,14 @@ export class Tables {
   stop(stop: StopRow) {
     const key = stopKeyOf(stop);
     this.stops[key] ??= stopView(this.schedule, stop);
+    return key;
+  }
+
+  // A stop results name in a line that may wrap, with its short name when it has one.
+  namedStop(stop: StopRow) {
+    const key = this.stop(stop);
+    const short = shortCornerName(this.schedule, stop);
+    if (short) this.stops[key]!.shortName = shownName(short);
     return key;
   }
 }

@@ -129,7 +129,7 @@ button:disabled { opacity: .45; cursor: default; }
 /* Every fold's chevron points down closed and turns up open. A card's band has its toggle beside
    the chevron rather than around it. */
 .tf-chev { flex: none; transition: transform var(--motion-fast) ease; }
-[aria-expanded="true"] .tf-chev, .tf-band__toggle[aria-expanded="true"] ~ .tf-band__right .tf-chev { transform: rotate(180deg); }
+[aria-expanded="true"] .tf-chev, .tf-band__toggle[aria-expanded="true"] ~ .tf-band__main .tf-chev { transform: rotate(180deg); }
 /* A fold's button (see Fold): the chevron, then what it holds, in small muted type. */
 .tf-fold { display: flex; align-items: center; gap: var(--space-2); width: 100%; color: var(--muted); font-size: var(--text-sm); font-weight: var(--weight-label); text-align: left; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -449,7 +449,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-band__time, .tf-band__in { font-size: var(--text-2xl); font-weight: var(--weight-heavy); }
 .tf-band__sub, .tf-band__inlabel { font-size: var(--text-base); color: var(--on-field-muted); margin-top: var(--space-1); }
 .tf-band__inlabel { font-size: var(--text-sm); margin-top: 0; }
-.tf-band__right { text-align: right; flex: none; }
+.tf-band__right { text-align: right; }
 .tf-band .tf-status { font-weight: var(--weight-heavy); }
 
 .tf-ticks { position: relative; height: 18px; margin: var(--space-2) var(--space-4) 0 calc(var(--space-4) + var(--countdown-col) + var(--space-3)); font-size: var(--text-xs); color: var(--muted); }
@@ -705,8 +705,9 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-band__toggle { position: absolute; inset: 0; width: 100%; -webkit-tap-highlight-color: transparent; }
 .tf-band__main, .tf-band__right { position: relative; pointer-events: none; }
 .tf-band a, .tf-band .tf-time-link { pointer-events: auto; }
-.tf-band__main, .tf-band__sub, .tf-band__in, .tf-band__inlabel { display: block; }
-.tf-band__right { display: flex; flex-direction: column; align-items: flex-end; }
+.tf-band__sub, .tf-band__in, .tf-band__inlabel { display: block; }
+.tf-band__main { display: flow-root; }
+.tf-band__right { display: flex; flex-direction: column; align-items: flex-end; float: right; margin-left: var(--space-3); }
 .tf-band__dest { display: block; margin-top: 2px; font-size: var(--text-md); font-weight: var(--weight-label); color: var(--on-field); }
 .tf-band__chev { display: block; margin-top: var(--space-1); color: var(--on-field-muted); }
 .tf-card__summary { padding: 10px var(--space-4); font-size: 15px; font-weight: var(--weight-semibold); }

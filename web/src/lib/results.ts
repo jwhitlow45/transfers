@@ -22,6 +22,9 @@ export type CardContext = {
   destinationName: string | null;
   // The To stop's name, for walk groups that ride straight to it.
   toName: string | null;
+  // Each one's short name, for when the card's arrival line would wrap (see Stop.shortName).
+  destinationShort: string | null;
+  toShort: string | null;
   // The trips tab of a stop in To, which takes it as where the rider is going.
   going: boolean;
   showHidden: boolean;

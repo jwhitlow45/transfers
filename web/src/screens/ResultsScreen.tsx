@@ -185,6 +185,8 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
     pct: timeScale(now, scaleMinutes),
     destinationName: destination ? shortStopName(data?.stops[destination], destinationLabel ?? '') : null,
     toName: data && 'stop' in data.to ? shortStopName(data.stops[data.to.stop]) : null,
+    destinationShort: (destination && data?.stops[destination]?.shortName) || null,
+    toShort: (data && 'stop' in data.to && data.stops[data.to.stop]?.shortName) || null,
     showHidden,
     colorOf: data ? pageColors(groups, data) : () => '#55575a',
     destination,

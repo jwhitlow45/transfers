@@ -1,4 +1,4 @@
-import { useId } from 'preact/hooks';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import type { Departure, Group } from '../../../shared/api.ts';
 import { IconFold, IconPin } from '../icons/ui.tsx';
 import { clock, minutesSince, minutesUntil, untilText } from '../format.ts';
@@ -63,6 +63,7 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
   const setWalkPinned = (on: boolean) => context.onPin(on ? pinOf(departure, group.board) : null);
   const walkPinLabel = pinLabel([route, departure.at]);
   const destinationName = context.destinationName ?? (walk ? context.toName : null);
+  const destinationShort = context.destinationName ? context.destinationShort : walk ? context.toShort : null;
   const destination = destinationName && departure.destination ? `${destinationName} ${clock(departure.destination)}` : null;
   // With it, how long the trip takes, from setting off, as the rider may weigh a later one that
   // is quicker (J, 2026-10-12).
@@ -84,6 +85,25 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
   const band = (
     <>
       <span class="tf-band__main">
+        {/* Floated, so the lines under it take the band's whole width once it ends, which the
+            arrival line usually needs on a phone. */}
+        <span class="tf-band__right" aria-hidden="true">
+          {/* Read top to bottom: "12 min away", "Now arriving", "Just left", "3 min ago". */}
+          <span class="tf-band__in">{left ? (ago < 1 ? 'Just' : `${ago}\u00a0min`) : untilText(minutes)}</span>
+          {walkPinned ? (
+            <span class="tf-band__inlabel tf-band__inlabel--pinned">
+              <IconPin filled size={13} />
+              Pinned
+            </span>
+          ) : (
+            <span class="tf-band__inlabel">{left ? (ago < 1 ? 'left' : 'ago') : minutes < 1 ? 'arriving' : 'away'}</span>
+          )}
+          {!walk && (
+            <span class="tf-band__chev">
+              <IconFold />
+            </span>
+          )}
+        </span>
         <span class="tf-band__line">
           <RouteChip route={route} size="band" color={color} hidden />
           <span class="tf-band__time">
@@ -107,26 +127,10 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
           {[toward, walk ? null : `Arrives at ${boardName}`].filter(Boolean).join(' · ')}
         </span>
         {destination && (
-          <span class="tf-band__dest" aria-hidden="true">
-            {tripMinutes !== null ? `${destination} · ${tripMinutes}\u00a0min` : destination}
-          </span>
-        )}
-      </span>
-      <span class="tf-band__right" aria-hidden="true">
-        {/* Read top to bottom: "12 min away", "Now arriving", "Just left", "3 min ago". */}
-        <span class="tf-band__in">{left ? (ago < 1 ? 'Just' : `${ago}\u00a0min`) : untilText(minutes)}</span>
-        {walkPinned ? (
-          <span class="tf-band__inlabel tf-band__inlabel--pinned">
-            <IconPin filled size={13} />
-            Pinned
-          </span>
-        ) : (
-          <span class="tf-band__inlabel">{left ? (ago < 1 ? 'left' : 'ago') : minutes < 1 ? 'arriving' : 'away'}</span>
-        )}
-        {!walk && (
-          <span class="tf-band__chev">
-            <IconFold />
-          </span>
+          <ArrivalLine
+            full={arrivalText(destination, tripMinutes)}
+            short={destinationShort && departure.destination ? arrivalText(`${destinationShort} ${clock(departure.destination)}`, tripMinutes) : null}
+          />
         )}
       </span>
     </>
@@ -204,4 +208,43 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
       </Collapse>
     </article>
   );
+}
+
+const arrivalText = (destination: string, tripMinutes: number | null) => (tripMinutes !== null ? `${destination} · ${tripMinutes}\u00a0min` : destination);
+
+// When a departure arrives, and how long the trip takes. Where the line would wrap, a corner's
+// short name stands in for its full one (J, 2026-10-13). Laid out full and measured before paint,
+// and again when the card's width changes.
+function ArrivalLine({ full, short }: { full: string; short: string | null }) {
+  const line = useRef<HTMLSpanElement>(null);
+  const [wraps, setWraps] = useState(false);
+  const [width, setWidth] = useState(0);
+  useLayoutEffect(() => setWraps(false), [full, short, width]);
+  useLayoutEffect(() => {
+    if (!wraps && short && line.current && lineCount(line.current) > 1) setWraps(true);
+  }, [wraps, full, short, width]);
+  useEffect(() => {
+    const element = line.current;
+    if (!short || !element || typeof ResizeObserver === 'undefined') return;
+    let last = element.getBoundingClientRect().width;
+    const observer = new ResizeObserver(([entry]) => {
+      if (Math.abs(entry!.contentRect.width - last) < 1) return;
+      last = entry!.contentRect.width;
+      setWidth(last);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [short !== null]);
+  return (
+    <span class="tf-band__dest" aria-hidden="true" ref={line}>
+      {wraps && short ? short : full}
+    </span>
+  );
+}
+
+// How many lines a block's text takes.
+function lineCount(element: HTMLElement) {
+  const range = document.createRange();
+  range.selectNodeContents(element);
+  return new Set([...range.getClientRects()].map(({ top }) => Math.round(top))).size;
 }

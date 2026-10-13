@@ -213,6 +213,12 @@ test('finds the 48 at 24th St Mission from Montgomery', () => {
   strictEqual(response.routes['BA:Yellow-S']?.name, 'Yellow');
 });
 
+test('sends the short name of the stop in To, and of no other', () => {
+  const response = planTrip(schedule, realtime(), { from: 'SF:13486', to: 'SF:13500', view: 'trips' }, NOW);
+  strictEqual(response.stops['SF:13500']?.shortName, '24th & Potrero');
+  strictEqual(response.stops['SF:13486']?.shortName, undefined);
+});
+
 test('pairs live and scheduled trips and shows the canceled bus in place', () => {
   const response = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477' }, NOW);
   const departures = response.groups[0]!.departures.map((departure) => ({
