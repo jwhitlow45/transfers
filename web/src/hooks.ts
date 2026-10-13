@@ -152,7 +152,10 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
     };
     const fetchNow = async () => {
       missed.current = false;
+      // A newer request, such as a pull to refresh, supersedes one still on its way. Its answer is
+      // dropped, and so is the bar a refresh just finished leaves up, so the bar stays for this one.
       controller?.abort();
+      clearTimeout(settle);
       controller = new AbortController();
       // The next refresh is set before this one is sent, so one that never answers still leaves
       // the next on its way.
@@ -171,7 +174,6 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
         // New data shows at once. Only the refresh bar lingers.
         setState({ data, error: null, fetchedAt: Date.now(), feed: 'refreshing' });
         answer();
-        clearTimeout(settle);
         settle = setTimeout(() => setState((current) => ({ ...current, feed: 'live' })), Math.max(0, MIN_REFRESH_MS - (Date.now() - started)));
       } catch (error) {
         // Aborted for a newer request or for leaving the page: that one takes over.
@@ -182,7 +184,8 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
         answer();
       } finally {
         clearTimeout(giveUp);
-        setSettled(true);
+        // One given up for a newer request leaves settling to that one.
+        if (!request.signal.aborted || timedOut) setSettled(true);
       }
     };
     tick.current = () => void fetchNow();
