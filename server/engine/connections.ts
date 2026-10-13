@@ -6,6 +6,8 @@ export type FirstLeg = {
   route: string;
   // The stop key where this vehicle lets the rider off. Pooled groups get off at different stops.
   alight?: string;
+  // The stop key where it picks the rider up: From, or going to a stop, one on From's corner.
+  board?: string;
   departs: number;
   departDelay: number | null;
   arrives: number;
@@ -66,6 +68,7 @@ export function pairConnections(firstLegs: FirstLeg[], secondLegs: SecondLeg[], 
       arriveDelay: vehicle.arriveDelay,
       live: vehicle.live,
       ...(vehicle.alight ? { alight: vehicle.alight } : {}),
+      ...(vehicle.board ? { board: vehicle.board } : {}),
     };
     const connect = (departure: SecondLeg, reason?: HiddenReason) => {
       const connection: Connection = { ...base, transfer: minutesBetween(vehicle.arrives, departure.at) };

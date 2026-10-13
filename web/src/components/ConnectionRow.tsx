@@ -46,17 +46,26 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
   // A pooled group's vehicles can let the rider off at different stops. The group names its
   // usual one, and a row says its own when it differs.
   const offAt = connection.alight ? shortStopName(context.data.stops[connection.alight], '') : null;
+  // Going to a stop, a vehicle that picks the rider up on From's corner says where: by name, or
+  // where that is From's own too, as across the street, by its stop number and direction.
+  const boardStop = connection.board ? context.data.stops[connection.board] : undefined;
+  const fromStop = context.data.stops[context.data.from];
+  const boardAt = !boardStop
+    ? null
+    : boardStop.name === fromStop?.name && boardStop.code
+      ? `Board at stop ${boardStop.code}${boardStop.direction ? `, ${boardStop.direction.toLowerCase()}` : ''}`
+      : `Board at ${shortStopName(boardStop, '')}`;
   // The walk to the second vehicle, said where the rider gets off (J, 2026-10-08). None at its stop.
   const walk = walkText(connection.walkMeters ?? walkMeters, useSettings().settings.walkSpeed);
   const spoken =
     `${route ? spokenRoute(route) : 'Vehicle'}, ${left ? (ago < 1 ? 'just left' : `left ${ago} minute${ago === 1 ? '' : 's'} ago`) : now ? 'arriving now' : `arrives in ${minutes} minute${minutes === 1 ? '' : 's'}`}, ${clock(connection.departs)}, ${status.label}. ` +
-    `Off at ${offAt ?? alightName} ${clock(connection.arrives)}.${walk ? ` ${walk}.` : ''} ${connection.transfer} minute transfer${tight ? ', tight' : ''}${hidden ? `, hidden because it is ${hidden.spoken}` : ''}.`;
+    `${boardAt ? `${boardAt}. ` : ''}Off at ${offAt ?? alightName} ${clock(connection.arrives)}.${walk ? ` ${walk}.` : ''} ${connection.transfer} minute transfer${tight ? ', tight' : ''}${hidden ? `, hidden because it is ${hidden.spoken}` : ''}.`;
   const secondEnd = departure.destination ?? departure.at + 8 * 60;
   // The vehicle's time opens its map with where the rider gets on and where they get off to
   // transfer marked.
   const offStop = connection.alight ?? alight;
   const marks = [
-    { stop: context.data.from, kind: 'yours' as const },
+    { stop: connection.board ?? context.data.from, kind: 'yours' as const },
     { stop: offStop, kind: 'transfer' as const },
   ];
   // The second vehicle this one connects to, drawn on the same map, on to the destination.
@@ -100,7 +109,7 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
           <RouteChip route={route} hidden />
           <TimeLink
             trip={connection.trip}
-            stop={context.data.stops[context.data.from]}
+            stop={boardStop ?? fromStop}
             title={vehicleAt(route, connection.departs)}
             marks={marks}
             transfer={transfer}
@@ -110,6 +119,11 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
           </TimeLink>
         </div>
         <StatusTag status={status} plain hidden />
+        {boardAt && (
+          <div class="tf-row__off">
+            <StopLink stop={boardStop}>{boardAt}</StopLink>
+          </div>
+        )}
         <div class="tf-row__off">
           {/* Plain, to keep the row simple: the time above opens the same vehicle's map. */}
           <span class="tf-row__keep" aria-hidden="true">

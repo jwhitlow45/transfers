@@ -7,11 +7,14 @@ import type { Tables } from './views.ts';
 
 // A trip the rider pinned, as its vehicles run now. From and the destination come from the
 // search, so changing the destination moves the end of the trip.
-export function pinnedTrip(schedule: Schedule, snapshot: TripSnapshot | null, pin: PinRequest, from: string, dest: string[], tables: Tables, now: number): PinnedTrip {
+// `from` is where the first vehicle may pick the rider up: From, and going to a stop, the stops on
+// its corner too, the first of which the vehicle makes.
+export function pinnedTrip(schedule: Schedule, snapshot: TripSnapshot | null, pin: PinRequest, from: string[], dest: string[], tables: Tables, now: number): PinnedTrip {
   const second = pinnedLeg(schedule, snapshot, pin.second.trip, pin.second.board, dest, { on: pin.at }, tables, now);
   if (!pin.first) return { second };
   // A pin from before the first vehicle's own time was kept names it by the second's, just after.
-  return { first: pinnedLeg(schedule, snapshot, pin.first.trip, from, [pin.first.alight], { off: pin.first.at ?? pin.at }, tables, now), second };
+  const legs = from.map((on) => pinnedLeg(schedule, snapshot, pin.first!.trip, on, [pin.first!.alight], { off: pin.first!.at ?? pin.at }, tables, now));
+  return { first: legs.find((leg) => leg?.on) ?? legs[0] ?? null, second };
 }
 
 // Which of a trip's visits to the rider's stops the pin means, on a trip that makes one twice, as

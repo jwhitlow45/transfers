@@ -1,4 +1,4 @@
-import { deepStrictEqual, strictEqual } from 'node:assert/strict';
+import { deepStrictEqual, ok, strictEqual } from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Agency } from '../config.ts';
 import type { Schedule } from '../schedule.ts';
@@ -281,5 +281,39 @@ test('going to a stop, each place a first vehicle meets a route is its own way t
   deepStrictEqual(points(findLinks(schedule, from, { destination: schedule.stopsByKey.get('SF:to')! })), ['F to T at b1', 'G to T at b2']);
   // Catching T, the busier first vehicle's point is the one.
   deepStrictEqual(points(findLinks(schedule, from, { route: schedule.routesByKey.get('SF:T')! })), ['F to T at b1']);
+  schedule.close();
+});
+
+test('going to a stop, the first vehicle may pick the rider up across the street, and the row says where', () => {
+  // From's own stop serves only W, heading away. E leaves from across the street and meets D,
+  // which goes on to To.
+  const schedule = build(
+    [
+      ['from', 0, true],
+      ['west', -1500, true],
+      ['across', 0, false],
+      ['mid', 1200, false],
+      ['far1', 5000, true],
+      ['far2', 4000, true],
+      ['change', 1200, true],
+      ['to', 2400, true],
+    ],
+    [
+      { id: 'w', route: 'W', direction: 1, headsign: 'West', sequence: ['from', 'west'], count: 1 },
+      { id: 'e', route: 'E', direction: 0, headsign: 'East', sequence: ['across', 'mid'], count: 1 },
+      { id: 'd', route: 'D', direction: 0, headsign: 'To', sequence: ['far1', 'far2', 'change', 'to'], count: 1 },
+    ],
+  );
+  const from = schedule.stopsByKey.get('SF:from')!;
+  const to = schedule.stopsByKey.get('SF:to')!;
+  const links = findLinks(schedule, from, { destination: to });
+  deepStrictEqual(links.map((link) => `${link.kind} ${link.routes.map(({ shortName }) => shortName).join()} from ${link.firstLegs.map(({ pattern, origin }) => schedule.stop(pattern.stops[origin]!).stopId).join()}`), ['ride D from across']);
+  // Catching D, From's own stop is where the first vehicle leaves, so there is none.
+  deepStrictEqual(findLinks(schedule, from, { route: schedule.routesByKey.get('SF:D')! }), []);
+  const day = serviceDayStart(20261005);
+  const view = { trips: null, alerts: [], status: () => 'schedule' as const, updatedAt: null };
+  const response = planTrip(schedule, view, { from: 'SF:from', to: 'SF:to', view: 'trips' }, day + 7.9 * 3600);
+  deepStrictEqual(response.groups.flatMap(({ departures }) => departures.flatMap(({ connections }) => connections.map(({ trip, board }) => `${trip} ${board}`))), ['SF:e0 SF:across']);
+  ok(response.stops['SF:across']);
   schedule.close();
 });

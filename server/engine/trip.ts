@@ -110,11 +110,22 @@ export function destinations(schedule: Schedule, request: TripRequest): Destinat
 // rider there, or it is a walk, as they are likely going there to catch something, and otherwise
 // the trips there (J, 2026-10-12). Every pattern counts, so the choice holds all day.
 function defaultView(schedule: Schedule, from: StopRow, toStop: StopRow, request: TripRequest): ResultsView {
+  let cache = viewCache.get(schedule);
+  if (!cache) viewCache.set(schedule, (cache = new Map()));
   const maxWalk = request.walk ?? DEFAULT_MAX_WALK_METERS;
-  if (walkTo(schedule, from, toStop, maxWalk) !== null) return 'transfers';
-  const settings = { maxWalkMeters: maxWalk, walksOnly: true, ...(request.fromAgencies?.length ? { fromAgencies: new Set(request.fromAgencies) } : {}) };
-  return findLinks(schedule, from, { destination: toStop }, settings).length > 0 ? 'transfers' : 'trips';
+  const key = `${from.id}|${toStop.id}|${maxWalk}|${request.fromAgencies?.join() ?? ''}`;
+  let view = cache.get(key);
+  if (!view) {
+    const settings = { maxWalkMeters: maxWalk, walksOnly: true, ...(request.fromAgencies?.length ? { fromAgencies: new Set(request.fromAgencies) } : {}) };
+    view = walkTo(schedule, from, toStop, maxWalk) !== null || findLinks(schedule, from, { destination: toStop }, settings).length > 0 ? 'transfers' : 'trips';
+    if (cache.size > 500) cache.delete(cache.keys().next().value!);
+    cache.set(key, view);
+  }
+  return view;
 }
+
+// The tab each search opens on, which holds for its schedule.
+const viewCache = new WeakMap<Schedule, Map<string, ResultsView>>();
 
 // Where a pinned trip may end: the stop a trip goes to, or the destination, or riding a route
 // already at From straight to a named To stop, To or a stop on its corner, as the results count a
@@ -196,11 +207,16 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
     // A trip going somewhere other than the group's usual destination says where. A vehicle
     // letting the rider off somewhere other than the group's stop (or its station) says where.
     const groupStation = schedule.stationOf(link.alight).id;
+    // Going to a stop, a vehicle that picks the rider up on From's corner says where.
+    const fromStops = new Set([from, ...schedule.boardingStops(from)].map(stopKeyOf));
     for (const departure of departures) {
       // Going to a stop, the group's header names no direction (see TransferPointGroup), so each
       // departure keeps its own.
       if (!going && departure.toward === link.headsign) delete departure.toward;
       for (const connection of departure.connections) {
+        const boards = connection.board ? schedule.stopsByKey.get(connection.board) : undefined;
+        if (!boards || fromStops.has(connection.board!)) delete connection.board;
+        else connection.board = tables.stop(schedule.stationOf(boards));
         const stop = connection.alight ? schedule.stopsByKey.get(connection.alight) : undefined;
         if (!stop || schedule.stationOf(stop).id === groupStation) delete connection.alight;
         else {
@@ -261,7 +277,7 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
     to: toStop ? { stop: stopKeyOf(toStop) } : { route: routeKeyOf(toRoute!) },
     groups,
     ...(request.pin
-      ? { pinned: pinnedTrip(schedule, realtime.trips, request.pin, stopKeyOf(from), pinnedDestination(schedule, request.pin, to, destination, toStop), tables, now), pin: request.pin }
+      ? { pinned: pinnedTrip(schedule, realtime.trips, request.pin, going ? [from, ...destinationStops(schedule, from)].map(stopKeyOf) : [stopKeyOf(from)], pinnedDestination(schedule, request.pin, to, destination, toStop), tables, now), pin: request.pin }
       : {}),
     routes: tables.routes,
     stops: tables.stops,

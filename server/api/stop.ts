@@ -47,6 +47,6 @@ export function stopArrivals(schedule: Schedule, realtime: RealtimeView, key: st
     alerts,
     feeds,
     // As a trip's pinned vehicle is found, so a canceled one, or one delayed past the list, says so.
-    ...(pin ? { pinned: pinnedTrip(schedule, realtime.trips, { second: pin.second, at: pin.at }, key, [], tables, now), pin } : {}),
+    ...(pin ? { pinned: pinnedTrip(schedule, realtime.trips, { second: pin.second, at: pin.at }, [key], [], tables, now), pin } : {}),
   };
 }

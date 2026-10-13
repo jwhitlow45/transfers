@@ -90,6 +90,9 @@ export type Connection = {
   alight?: string;
   // The walk from there to the boarding stop, in meters, when it is not the group's.
   walkMeters?: number;
+  // Where this vehicle picks the rider up, when it is not From: going to a stop, one on From's
+  // corner, such as across the street.
+  board?: string;
   hidden?: HiddenReason;
 };
 

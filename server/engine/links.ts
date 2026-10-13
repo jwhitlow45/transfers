@@ -136,6 +136,12 @@ export function findLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow
     everyPoint: 'destination' in to,
   };
   const origins = schedule.boardingStops(from, settings.fromAgencies ?? null);
+  // Going to a stop, a first vehicle may also pick the rider up on From's corner, such as across
+  // the street, as Muni stops serve one direction and the way back from somewhere starts on the
+  // other side. Not where the rider chose BART or Muni Metro at a shared station.
+  if ('destination' in to && !settings.fromAgencies?.size) {
+    for (const stop of destinationStops(schedule, from)) if (!origins.includes(stop)) origins.push(stop);
+  }
   // A stop a walk from From is no place to ride to.
   if ('destination' in to && walkTo(schedule, from, to.destination, context.maxWalk) !== null) return [];
   const runningTargets = (targets: Target[]) =>
