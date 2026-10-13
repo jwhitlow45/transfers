@@ -5,14 +5,15 @@ import { type Access, type Network, type Path, raptor } from './raptor.ts';
 import { type PatternTrips, patternTrips } from './timetable.ts';
 
 // A network over numbered stops: lines of trips given as their time at each stop, arriving and
-// leaving at once, and walks between stops as [from, to, seconds].
-function network(lines: { stops: number[]; trips: number[][] }[], walks: [number, number, number][] = []): Network {
+// leaving at once, walks between stops as [from, to, seconds], and stops the feed says a trip
+// skips, as "<line>:<trip>@<position>", counting each line's trips as given.
+function network(lines: { stops: number[]; trips: number[][] }[], walks: [number, number, number][] = [], skips: string[] = []): Network {
   const patterns = lines.map(({ stops, trips }, id) => {
     const pattern: PatternRow = { id, route: id, direction: null, headsign: '', shape: null, stops, trips: trips.length };
     return { pattern, trips: patternTrips(pattern, trips.map((times, n) => ({ key: `${id}:${n}`, times: times.flatMap((at) => [at, at]) }))) };
   });
   const tripsOf = new Map(patterns.map(({ pattern, trips }) => [pattern, trips]));
-  const time = (trips: PatternTrips, trip: number, position: number) => trips.times[(trip * trips.pattern.stops.length + position) * 2]!;
+  const time = (trips: PatternTrips, trip: number, position: number) => (skips.includes(`${trips.keys[trip]}@${position}`) ? null : trips.times[(trip * trips.pattern.stops.length + position) * 2]!);
   return {
     stopCount: Math.max(...lines.flatMap(({ stops }) => stops)) + 1,
     patternsAt: (stop) => patterns.flatMap(({ pattern }) => pattern.stops.flatMap((at, position) => (at === stop ? [{ pattern, position }] : []))),
@@ -37,4 +38,12 @@ test('a vehicle that leaves after another and overtakes it is boarded when only 
     { stops: [2, 3], trips: [[500, 600]] },
   ];
   deepStrictEqual(rides(raptor(network(lines), at(0), at(3), 0, 4)), ['100-200 300-400 500-600']);
+});
+
+test('a vehicle the rider is on that skips a stop carries them on, rather than a later one boarded there', () => {
+  // The 100 from 0 skips 1 today, where the rider could also start, and reaches 2 at 300. The
+  // next one gets there too late.
+  const lines = [{ stops: [0, 1, 2], trips: [[100, 200, 300], [150, 250, 900]] }];
+  const starts = [...at(0), ...at(1, 240)];
+  deepStrictEqual(rides(raptor(network(lines, [], ['0:0@1']), starts, at(2), 0, 4, 800)), ['100-300']);
 });

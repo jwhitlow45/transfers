@@ -89,6 +89,7 @@ export function raptor(network: Network, starts: Access[], ends: Access[], leave
         let ride: { trips: PatternTrips; trip: number; board: number; from: number } | null = null;
         for (let position = from; position < stops.length; position++) {
           const stop = stops[position]!;
+          let now = Infinity;
           if (ride) {
             const arrives = network.arrival(trips, ride.trip, position);
             if (arrives !== null && arrives < Math.min(best[stop]!, bound)) {
@@ -98,12 +99,16 @@ export function raptor(network: Network, starts: Access[], ends: Access[], leave
               if (!marked.has(stop)) rode.push(stop);
               marked.add(stop);
             }
+            // A trip that skips the stop keeps the rider aboard: with no time there, it cannot be
+            // weighed against one boarded there.
+            const departs = network.departure(trips, ride.trip, position);
+            if (departs === null) continue;
+            now = departs;
           }
           if (position === stops.length - 1 || previous[stop] === Infinity) continue;
           // Changing at the stop the last vehicle let the rider off at takes a moment. A walk
           // there already counts the time.
           const ready = previous[stop]! + (previousLabel.get(stop)?.kind === 'ride' ? network.changeSeconds : 0);
-          const now = ride ? (network.departure(trips, ride.trip, position) ?? Infinity) : Infinity;
           if (ready > now) continue;
           const earlier = earliest(network, trips, position, ready, now);
           if (earlier !== null) ride = { trips, trip: earlier, board: position, from: stop };
