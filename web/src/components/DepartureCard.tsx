@@ -214,25 +214,39 @@ const arrivalText = (destination: string, tripMinutes: number | null) => (tripMi
 
 // When a departure arrives, and how long the trip takes. Where the line would wrap, a corner's
 // short name stands in for its full one (J, 2026-10-13). Laid out full and measured before paint,
-// and again when the card's width changes.
+// and again whenever its room may have changed.
 function ArrivalLine({ full, short }: { full: string; short: string | null }) {
   const line = useRef<HTMLSpanElement>(null);
   const [wraps, setWraps] = useState(false);
-  const [width, setWidth] = useState(0);
-  useLayoutEffect(() => setWraps(false), [full, short, width]);
+  // Counts changes to the line's room: its width, and the size of what comes before it in the
+  // band. A status tag that stops wrapping, or a countdown that grows, moves the line beside or
+  // below the floated countdown with the same width and text. None of these depend on the line,
+  // so its own changes never come back here.
+  const [room, setRoom] = useState(0);
+  useLayoutEffect(() => setWraps(false), [full, short, room]);
   useLayoutEffect(() => {
     if (!wraps && short && line.current && lineCount(line.current) > 1) setWraps(true);
-  }, [wraps, full, short, width]);
+  }, [wraps, full, short, room]);
   useEffect(() => {
     const element = line.current;
-    if (!short || !element || typeof ResizeObserver === 'undefined') return;
-    let last = element.getBoundingClientRect().width;
-    const observer = new ResizeObserver(([entry]) => {
-      if (Math.abs(entry!.contentRect.width - last) < 1) return;
-      last = entry!.contentRect.width;
-      setWidth(last);
+    if (!short || !element?.parentElement || typeof ResizeObserver === 'undefined') return;
+    const before = [...element.parentElement.children].filter((child) => child !== element);
+    // The line's own height changes as it wraps, so only its width counts.
+    const size = (target: Element) => {
+      const { width, height } = target.getBoundingClientRect();
+      return target === element ? `${Math.round(width)}` : `${Math.round(width)}x${Math.round(height)}`;
+    };
+    const sizes = new Map([element, ...before].map((target) => [target, size(target)]));
+    const observer = new ResizeObserver((entries) => {
+      let changed = false;
+      for (const { target } of entries) {
+        const now = size(target);
+        if (now !== sizes.get(target)) changed = true;
+        sizes.set(target, now);
+      }
+      if (changed) setRoom((count) => count + 1);
     });
-    observer.observe(element);
+    for (const target of sizes.keys()) observer.observe(target);
     return () => observer.disconnect();
   }, [short !== null]);
   return (

@@ -31,20 +31,27 @@ const SAME_CORNER_METERS = 200;
 type Street = { name: string; type: string | null };
 
 // A street's name, and its type when a short name drops it: "De Haro St" is De Haro, a St.
-// "B St" stays whole, as a lone letter reads as no street at all.
+// "B St" and "East Rd" stay whole, as a lone letter reads as no street at all and a lone compass
+// point as a direction.
 function splitStreet(street: string): Street {
   const words = street.split(' ');
   const type = DROPPED_TYPES[words.at(-1)!];
   const name = words.slice(0, -1).join(' ');
-  return type && name.replace(/^[NSEW] /, '').length > 1 ? { name, type } : { name: street, type: null };
+  const bare = name.replace(/^[NSEW] /, '');
+  return type && bare.length > 1 && !/^(North|South|East|West)$/.test(bare) ? { name, type } : { name: street, type: null };
 }
+
+// Names that say more than two streets: a landmark after a hyphen ("Edison St-Hillsdale Shopping
+// Ctr"), a stop between two corners ("Fremont St btwn Folsom St & Howard St"), or where at the
+// corner a stop is ("University Ave Farside", "Pacific Manor School Rear Entrance").
+const MORE_THAN_STREETS = /[/()-]|\b(btwn|between|farside|nearside|entrance|school|ramp|onramp|gate|hub|station|platform)\b/i;
 
 // The two streets a corner stop is named for, "26th St & De Haro St" or SamTrans's "Broadway at
 // Maple St". Null for any other name: stations, addresses, and corners with more said, such as
-// "Grant Ave/Chinatown" or "Transit Center- Bay 2".
+// "Grant Ave/Chinatown".
 function cornerOf(name: string): { streets: [Street, Street]; joint: string } | null {
   const match = name.match(/^(.+?) (&|at) (.+)$/);
-  if (!match || /[/()]| -|- /.test(name) || match[3]!.includes(' & ')) return null;
+  if (!match || MORE_THAN_STREETS.test(name) || match[3]!.includes(' & ')) return null;
   return { streets: [splitStreet(match[1]!), splitStreet(match[3]!)], joint: match[2]! };
 }
 

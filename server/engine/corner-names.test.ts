@@ -35,8 +35,8 @@ test('keeps types that are part of the name or tell a small street from a big on
   ]);
 });
 
-test('keeps a lone letter whole', () => {
-  deepStrictEqual(shorten('B St & 3rd Ave', 'N B St & 1st Ave'), ['B St & 3rd', 'N B St & 1st']);
+test('keeps a lone letter or compass point whole', () => {
+  deepStrictEqual(shorten('B St & 3rd Ave', 'N B St & 1st Ave', 'Alexander Ave & East Rd', 'West Portal Ave & 14th Ave'), ['B St & 3rd', 'N B St & 1st', 'Alexander & East Rd', 'West Portal & 14th']);
 });
 
 test("keeps SamTrans's at", () => {
@@ -53,6 +53,17 @@ test('leaves stations, addresses, and corners with more said alone', () => {
     null,
     null,
   ]);
+  deepStrictEqual(
+    shorten(
+      'Ave Alhambra & Coronado St-San Luis Ave',
+      'Fremont St btwn Folsom St & Howard St',
+      'Market St Between 4th & 3rd St',
+      'Bay Rd & University Ave Farside',
+      'Oceana Blvd & Pacific Manor School Rear Entrance',
+      'Bellam Blvd & I-580',
+    ),
+    [null, null, null, null, null, null],
+  );
 });
 
 test('leaves two different corners that would read alike as they are', () => {
