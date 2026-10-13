@@ -83,9 +83,10 @@ export function planJourneys(schedule: Schedule, realtime: RealtimeView, from: E
     journeys = keepBest([...journeys, ...paths.map((path) => journeyOf(schedule, network, latestBoarding(network, path)))]);
     leaveAt = leavesAt(fastest) + 60;
   }
-  // Walking all the way is one of the ways between ends close enough. Vehicles it beats drop out.
+  // Walking all the way is one of the ways between ends close enough, shown beside the vehicles
+  // however little they save over it, for a rider who would rather ride (J, 2026-10-12).
   const walk = walkOnly(from, to, now, options.speed);
-  if (walk.meters <= WALK_ONLY_METERS) journeys = keepBest([...journeys, walk.journey]);
+  if (walk.meters <= WALK_ONLY_METERS) journeys = [...journeys, walk.journey];
   journeys.sort((a, b) => a.leaves - b.leaves || a.arrives - b.arrives);
   const shown = journeys.slice(0, count);
   // With no way at all, a point no stop is near is why.

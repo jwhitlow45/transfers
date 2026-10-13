@@ -152,6 +152,16 @@ test('walking all the way is offered only between ends 2 km or less apart, as a 
   }
 });
 
+test('walking all the way is shown beside the vehicles, however little they save over it', () => {
+  // 24th & Mission to 24th & Potrero is about a kilometre, which a brisk walker covers in about as
+  // long as the 48 takes, and the next one leaves in two minutes.
+  const { journeys } = planJourneys(schedule, realtime(), stop('SF:13477'), stop('SF:13500'), NOW, { speed: 1.6 });
+  const walk = journeys.find(({ rides }) => rides === 0)!;
+  const [bus] = journeys.filter(({ rides }) => rides > 0);
+  deepStrictEqual([journeys[0] === walk, rides(bus!.legs)], [true, ['SF:48 8:02:00']]);
+  ok(walk.arrives - bus!.arrives < 5 * 60);
+});
+
 test('a trip from or to somewhere no stop is near says so', () => {
   const nowhere = point(37.9, -122.6, 'Point Reyes');
   deepStrictEqual(planJourneys(schedule, realtime(), nowhere, stop('SF:13700'), NOW).notice, { kind: 'far', end: 'from' });
