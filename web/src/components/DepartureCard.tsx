@@ -3,7 +3,7 @@ import type { Departure, Group } from '../../../shared/api.ts';
 import { IconFold, IconPin } from '../icons/ui.tsx';
 import { clock, minutesSince, minutesUntil, untilText } from '../format.ts';
 import { pinOf, sameRun } from '../lib/pinned.ts';
-import { type CardContext, hintKey } from '../lib/results.ts';
+import { type CardContext, hintKey, listedConnections } from '../lib/results.ts';
 import { TimeLink } from '../track.tsx';
 import { chipLabel, pinLabel, shortStopName, spokenRoute, statusOf, vehicleAt } from '../view.ts';
 import { Collapse } from './Collapse.tsx';
@@ -64,6 +64,7 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
   const destination = destinationName && departure.destination ? `${destinationName} ${clock(departure.destination)}` : null;
   const toward = departure.toward ? `To ${departure.toward}` : null;
   const count = departure.connections.length;
+  const listed = listedConnections(departure, context.going);
   const countdowns = departure.connections.filter(({ departs }) => departs * 1000 >= context.now).map(({ departs }) => Math.max(0, minutesUntil(departs, context.now)));
   const gone = count - countdowns.length;
   const summary = [`${count} ${noun[count === 1 ? 0 : 1]}`, gone > 0 && `${gone} departed`, countdowns.length > 0 && `in ${countdowns.join(', ')}\u00a0min`].filter(Boolean).join(' · ');
@@ -176,16 +177,16 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
           <>
             <Departed count={gone} place={shortStopName(context.data.stops[context.data.from], context.data.from)}>
               <div role="list" aria-label={`Departed ${noun[gone === 1 ? 0 : 1]}`}>
-                {departure.connections.filter(({ departs }) => departs * 1000 < context.now).map(row)}
+                {listed.filter(({ departs }) => departs * 1000 < context.now).map(row)}
               </div>
             </Departed>
             <div role="list" aria-label={`Connecting ${noun[1]}`}>
-              {departure.connections.filter(({ departs }) => departs * 1000 >= context.now).map(row)}
+              {listed.filter(({ departs }) => departs * 1000 >= context.now).map(row)}
             </div>
           </>
         ) : (
           <div role="list" aria-label={`Connecting ${noun[1]}`}>
-            {departure.connections.map(row)}
+            {listed.map(row)}
           </div>
         )}
       </Collapse>

@@ -94,20 +94,20 @@ export const ridesStraightTo = (group: Group, destination: string | undefined) =
   group.kind === 'walk' && !destination && group.departures.some((departure) => departure.destination !== undefined);
 
 // Groups by their soonest departure, with rides straight to To after the transfers there, which a
-// rider may have named To to catch (J, 2026-10-08). Going to a stop, by the fastest trip there of
-// those the rider can still make, from setting off to getting there, and then by the soonest there
-// (J, 2026-10-12). A group with nothing that gets there goes last.
+// rider may have named To to catch (J, 2026-10-08). Going to a stop, by the soonest there of the
+// trips the rider can still make (J, 2026-10-12). A group with nothing that gets there goes last.
 export function orderGroups(groups: Group[], now: number, showHidden: boolean, destination: string | undefined, going: boolean) {
   const catchable = (group: Group) => visibleDepartures(group, now, showHidden).filter(({ canceled }) => !canceled);
   const firstAt = (group: Group) => catchable(group)[0]?.at ?? Infinity;
   if (!going) return [...groups].sort((a, b) => Number(ridesStraightTo(a, destination)) - Number(ridesStraightTo(b, destination)) || firstAt(a) - firstAt(b));
-  // A row sets off when its first vehicle leaves From, or with none, when its own does.
-  const trips = (group: Group) =>
-    catchable(group).flatMap(({ at, connections, destination: there }) => (there === undefined ? [] : group.kind === 'walk' ? [{ takes: there - at, there }] : connections.map(({ departs }) => ({ takes: there - departs, there }))));
-  const fastest = (group: Group) => Math.min(Infinity, ...trips(group).map(({ takes }) => takes));
-  const soonest = (group: Group) => Math.min(Infinity, ...trips(group).map(({ there }) => there));
-  return [...groups].sort((a, b) => fastest(a) - fastest(b) || soonest(a) - soonest(b) || firstAt(a) - firstAt(b));
+  const soonest = (group: Group) => Math.min(Infinity, ...catchable(group).map(({ destination: there }) => there ?? Infinity));
+  return [...groups].sort((a, b) => soonest(a) - soonest(b) || firstAt(a) - firstAt(b));
 }
+
+// The vehicles that make a departure, in the order its card lists them: by when they leave, or
+// going to a stop, by least travel time, which for one vehicle getting there is the latest to
+// leave (J, 2026-10-12).
+export const listedConnections = (departure: Departure, going: boolean) => (going ? [...departure.connections].sort((a, b) => b.departs - a.departs || a.arrives - b.arrives) : departure.connections);
 
 export const isTight = (connection: Connection, min: number) => !connection.hidden && connection.transfer <= min + 1;
 

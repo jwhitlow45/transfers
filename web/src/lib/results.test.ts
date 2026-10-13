@@ -1,7 +1,7 @@
 import { deepStrictEqual } from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Connection, Departure, Group } from '../../../shared/api.ts';
-import { cardLeft, orderGroups, visibleDepartures } from './results.ts';
+import { cardLeft, listedConnections, orderGroups, visibleDepartures } from './results.ts';
 
 const at = (hour: number, minute: number) => (hour * 60 + minute) * 60;
 const connection = (trip: string, departs: number): Connection => ({ trip, route: 'BA:Yellow', departs, departDelay: 0, arrives: departs + 480, arriveDelay: 0, live: true, transfer: 4 });
@@ -55,11 +55,13 @@ test('a ride straight to To comes after the transfers there, however soon it lea
   deepStrictEqual(kinds(orderGroups([group, straight], now, false, 'SF:13500', false)), ['walk', 'ride']);
 });
 
-test('going to a stop, the fastest trip there comes first, whenever it sets off', () => {
-  // The 8:12 bus is made by the 8:01 train and gets there at 8:22: 21 minutes from setting off.
-  // The 8:32 bus is made by the 8:21 train and gets there at 8:35: 14 minutes, though later.
-  const sooner = { ...group, board: 'SF:1', departures: [departure('m3', at(8, 12), [connection('b2', at(8, 1))], at(8, 22))] } as unknown as Group;
-  const faster = { ...group, board: 'SF:2', departures: [departure('m5', at(8, 32), [connection('b4', at(8, 21))], at(8, 35))] } as unknown as Group;
+test('going to a stop, the soonest there comes first, and each bus lists the trains that make it by least travel time', () => {
+  // The 8:12 bus gets there at 8:22. The 8:02 bus leaves sooner but gets there at 8:30.
+  const sooner = { ...group, board: 'SF:1', departures: [departure('m3', at(8, 12), [connection('b2', at(8, 1)), connection('b3', at(8, 3))], at(8, 22))] } as unknown as Group;
+  const later = { ...group, board: 'SF:2', departures: [departure('m2', at(8, 2), [connection('b1', at(7, 55))], at(8, 30))] } as unknown as Group;
   const boards = (groups: Group[]) => groups.map(({ board }) => board);
-  deepStrictEqual(boards(orderGroups([sooner, faster], now, false, undefined, true)), ['SF:2', 'SF:1']);
+  deepStrictEqual(boards(orderGroups([later, sooner], now, false, undefined, true)), ['SF:1', 'SF:2']);
+  // Both trains make the 8:12 bus, and the one leaving at 8:03 takes less time to get there.
+  const bus = sooner.departures[0]!;
+  deepStrictEqual([listedConnections(bus, true), listedConnections(bus, false)].map((list) => list.map(({ trip }) => trip)), [['b3', 'b2'], ['b2', 'b3']]);
 });
