@@ -108,7 +108,9 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
       clearPinHint();
       setHint(false);
     }
-    records.pinWithUndo(next, data?.routes, next !== null && ringsBell(next, data));
+    // A stop's tab goes with the pin, so Home follows the trip on the tab it was pinned on.
+    const tagged = next && toStop && shown ? { ...next, view: shown } : next;
+    records.pinWithUndo(tagged, data?.routes, tagged !== null && ringsBell(tagged, data));
   };
   // Notices the rider dismissed stay hidden here and on every other search, until the Notices
   // page puts them back.

@@ -2,7 +2,7 @@ import { deepStrictEqual, strictEqual } from 'node:assert/strict';
 import { test } from 'node:test';
 import { clock } from '../format.ts';
 import type { Connection, Departure, PinnedTrip, TripResponse } from '../../../shared/api.ts';
-import { pinOf, pinToastText, pinnedEnd, pinnedFor, pinnedNow, pinnedPhase, pinnedTransfer, samePin, steadyPinned } from './pinned.ts';
+import { pinOf, pinToastText, pinnedDestination, pinnedEnd, pinnedFor, pinnedNow, pinnedPhase, pinnedTransfer, samePin, steadyPinned } from './pinned.ts';
 
 // BART from Montgomery at 8:00, off at 24th St at 8:08, then the 48 there at 8:17 to Potrero at 8:27.
 const trip: PinnedTrip = {
@@ -145,4 +145,10 @@ test('pinning says so, and in place of what was pinned before, a trip by its fir
   // Without the routes, it says what kind of pin it was.
   strictEqual(pinToastText(arrival, pinnedTrip, undefined), 'Pinned in place of the arrival pinned before');
   strictEqual(pinToastText(pinnedTrip, arrival, undefined), 'Pinned in place of the trip pinned before');
+});
+
+test("a trip pinned on a stop's trips tab ends at the stop, whatever destination was sent along", () => {
+  const pin = { second: { trip: 'SF:m3', board: 'SF:13477' }, first: { trip: 'BA:b2', alight: 'BA:901609', at: 100 }, at: 200, ends: 300 };
+  const answer = (view: 'trips' | 'transfers') => ({ view, to: { stop: 'SF:13500' } }) as unknown as TripResponse;
+  deepStrictEqual([pinnedDestination(pin, answer('trips'), 'BA:902109'), pinnedDestination(pin, answer('transfers'), 'BA:902109'), pinnedDestination(pin, answer('transfers'), undefined)], ['SF:13500', 'BA:902109', undefined]);
 });

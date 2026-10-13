@@ -24,7 +24,7 @@ import { tapForGerbils } from '../gerbils.ts';
 import { unsave } from '../records.ts';
 import { motionOff } from '../gestures.ts';
 import { useScreenActive, useShownAgain } from '../layers.ts';
-import { navigate, searchPath, stopPath } from '../router.ts';
+import { navigate, resultsPath, searchPath, stopPath } from '../router.ts';
 import { StopPinCard } from '../components/StopPinCard.tsx';
 import { RouteChip } from '../components/RouteChip.tsx';
 import { useSettings } from '../settings.tsx';
@@ -659,14 +659,15 @@ function PinnedHome({ pin, name, now, pulls, onPin, onUpdate, onReport }: {
 }) {
   const { settings } = useSettings();
   const { search } = pin;
-  const polled = usePoll<TripResponse>(apiUrl.trip(search, settings, false, pin), 30_000, null, apiUrl.trip(search, settings, false));
+  // On the tab it was pinned on (see ResultsScreen).
+  const polled = usePoll<TripResponse>(apiUrl.trip(search, settings, false, pin, pin.view), 30_000, null, apiUrl.trip(search, settings, false, null, pin.view));
   const { data, feed, answered } = polled;
   const live = useHomeLive(polled, `pin:${searchId(search)}`, pulls, onReport, now);
   const serverNow = live.now;
   const { pinned, unpinAt, expired } = usePinnedTrip(pin, data, answered, search, settings, serverNow, onUpdate);
   const status = live.note;
   // A saved trip goes by the name the rider gave it, as its saved card does.
-  const trip = { label: name ?? `${search.fromLabel} to ${search.toLabel}`, href: tripPath(search) };
+  const trip = { label: name ?? `${search.fromLabel} to ${search.toLabel}`, href: pin.view ? resultsPath(search, pin.view) : tripPath(search) };
   if (expired) return null;
   if (!data) {
     return (

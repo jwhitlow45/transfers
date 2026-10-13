@@ -49,7 +49,9 @@ export const samePin = (a: Pin, b: Pin) =>
 
 // Where a pinned trip ends, as the results count a departure's arrival: the destination, or for a
 // route already at From ridden straight to a named To stop, that stop.
-export const pinnedDestination = (pin: Pin, data: TripResponse, dest: string | undefined) => dest ?? (!pin.first && 'stop' in data.to ? data.to.stop : undefined);
+// On a stop's trips tab, the stop is where the rider is going, whatever destination was sent along.
+export const pinnedDestination = (pin: Pin, data: TripResponse, dest: string | undefined) =>
+  data.view === 'trips' && 'stop' in data.to ? data.to.stop : (dest ?? (!pin.first && 'stop' in data.to ? data.to.stop : undefined));
 
 // Whole minutes from the first vehicle reaching the stop the rider leaves it at to the second
 // reaching where they board it, as the results count a transfer. Negative when the second leaves

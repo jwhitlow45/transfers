@@ -125,7 +125,8 @@ export const isStopSearch = (search: Pick<Search, 'to'>) => search.to === '';
 // results. Pins saved before it was kept lack it. `last` is the trip's times as last seen.
 // An arrival pinned at a stop, with no transfer, has no first vehicle, and `arrival` keeps what its
 // card says while the stop's times are away: the route and where it is going.
-export type Pin = PinRequest & { ends: number; search?: Search; last?: PinnedTrip; arrival?: { route: string; headsign: string } };
+// `view` is the tab of a stop's results it was pinned on, which the results follow it by.
+export type Pin = PinRequest & { ends: number; search?: Search; last?: PinnedTrip; arrival?: { route: string; headsign: string }; view?: 'trips' | 'transfers' };
 
 export function loadPin(search: Search): Pin | null {
   return readStored<Record<string, Pin>>('pins', {})[searchId(search)] ?? null;
