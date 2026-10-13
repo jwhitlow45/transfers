@@ -599,7 +599,8 @@ function HowItWorks({ open: openAtFirst }: { open: boolean }) {
         </p>
         <p>
           Catching a route, Transfers shows its next few departures you can make, and under each one every vehicle from your stop that gets you there in time, with how long
-          each transfer is. Going to a stop, it shows every way there with one transfer or none, soonest there first, and trips with more changes when nothing simpler works.
+          each transfer is. Going to a stop, it shows the routes that go straight there, or when none does, every way there with one transfer, soonest there first, and trips
+          with more changes when nothing simpler works.
         </p>
         <p>
           You set the transfer window: the shortest and longest transfer you will accept. Trip planners pad transfers for lateness they cannot see, so they leave out tight

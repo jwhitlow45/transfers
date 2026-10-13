@@ -3,7 +3,7 @@
 Live transfer times between Bay Area transit stops: Muni, BART, SamTrans, and Golden Gate Transit. Pick the stop where you start, then the route you want to catch or the stop you are going to.
 
 - **A route in To:** the next departures of that route you can make, every vehicle from your stop that makes each one, how long each transfer is, and how late each vehicle is running.
-- **A stop in To:** every way there with one transfer or none, soonest arrival first. When nothing that simple gets there, trips with more changes follow.
+- **A stop in To:** the routes that go straight there, from your stop or a short walk from it. When none does, every way there with one transfer, soonest arrival first, and when nothing that simple gets there, trips with more changes.
 - **From** is always a stop. With nothing typed, it lists the stops nearest you.
 
 ## Why it exists

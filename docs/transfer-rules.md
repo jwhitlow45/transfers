@@ -38,6 +38,7 @@ Reworked on 2026-10-03 after six reviewers walked through live trips and found p
 
 When To is a stop (J, 2026-10-12):
 
+- **Straight there, or else one change.** A route that takes the rider there, from From or a short walk from it, leaves out the ways with a change (J, 2026-10-12: 13516 to 24th & Mission shows the 48 alone, not the 48 to the 67).
 - **One group per place to board.** Routes boarded at one stop, or at one station's platforms, that all get there are one group, whichever the rider catches: the next train toward it at a BART platform, or the next of two buses at a pole. Each departure still names its own route.
 - **Soonest there first.** Groups are ordered by the soonest any of their departures the rider can still make gets there. The page shows the first four, and the rest on a tap.
 - **More changes when nothing simpler works.** With no way there taking one transfer or none, the page shows trips with up to three changes from the trip planner (`server/journeys/`), which starts at From's platforms and ends at To or a stop on its corner, as rides there do above. Between ends 2 km apart or less, those trips include walking all the way, and walking never hides a trip by vehicle (J, 2026-10-12).

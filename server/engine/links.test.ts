@@ -215,3 +215,25 @@ test('going to a stop, routes boarded at one place that both get there are one c
   deepStrictEqual(links.map((link) => `${link.kind} ${link.routes.map(({ shortName }) => shortName).join('+')} at ${link.board.stopId}`), ['walk A+B at from']);
   schedule.close();
 });
+
+test('going to a stop a route already reaches from near From, the ways with a change are left out', () => {
+  // A goes straight from From to To. F and then D get there too, changing at the middle of the street.
+  const stops: [string, number, boolean][] = [
+    ['from', 0, false],
+    ['mid', 1200, false],
+    ['change', 1200, true],
+    ['to', 2400, false],
+  ];
+  const runs = [
+    { id: 'f', route: 'F', direction: 0, headsign: 'Mid', sequence: ['from', 'mid'], count: 10 },
+    { id: 'd', route: 'D', direction: 0, headsign: 'East', sequence: ['change', 'to'], count: 10 },
+  ];
+  const links = (schedule: Schedule) =>
+    findLinks(schedule, schedule.stopsByKey.get('SF:from')!, { stop: schedule.stopsByKey.get('SF:to')! }).map((link) => `${link.kind} ${link.routes.map(({ shortName }) => shortName).join('+')}`);
+  const changing = build(stops, runs);
+  deepStrictEqual(links(changing), ['ride D']);
+  changing.close();
+  const straight = build(stops, [...runs, { id: 'a', route: 'A', direction: 0, headsign: 'East', sequence: ['from', 'to'], count: 10 }]);
+  deepStrictEqual(links(straight), ['walk A']);
+  straight.close();
+});

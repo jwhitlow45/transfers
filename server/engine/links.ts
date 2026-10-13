@@ -93,8 +93,9 @@ type Context = {
   hasDestination: boolean;
 };
 
-// A stop in To is where the rider is going (J, 2026-10-12): every route that gets there, ridden
-// from near From or after one change, as for a route in To with the stop as its destination.
+// A stop in To is where the rider is going (J, 2026-10-12): the routes that get there from near
+// From, or else every way there with one change, as for a route in To with the stop as its
+// destination.
 export function findLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow } | { route: RouteRow }, settings: LinkSettings = {}): Link[] {
   const running = settings.running ?? null;
   const runs = (pattern: PatternRow) => !running || running.has(pattern.id);
@@ -141,7 +142,12 @@ export function findLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow
     if (walk === 'pointless') continue;
     links.push(...(walk ? [walk] : rideLinks(context, feeders, target)));
   }
-  if (arrivals) links = pooledByBoard(schedule, links);
+  if (arrivals) {
+    links = pooledByBoard(schedule, links);
+    // A route that already takes the rider there, from From or a short walk from it, is the way
+    // to go, and the ways with a change are left out (J, 2026-10-12).
+    if (links.some(({ kind }) => kind === 'walk')) links = links.filter(({ kind }) => kind === 'walk');
+  }
   return links.sort(
     (a, b) =>
       Number(a.kind === 'ride') - Number(b.kind === 'ride') ||
