@@ -69,12 +69,10 @@ function JourneyCard({ journey, data, now, fromLabel, toLabel, open, onToggle }:
   const changes = Math.max(0, rides.length - 1);
   const length = Math.round((journey.arrives - journey.leaves) / 60);
   const kind = rides.length === 0 ? 'Walk all the way' : changes === 0 ? 'No changes' : `${changes} change${changes === 1 ? '' : 's'}`;
-  const canceled = rides.some(({ canceled }) => canceled);
   const leaveIn = minutesUntil(journey.leaves, now);
   const spoken =
     `${leaveIn < 1 ? 'Leave now' : `Leave in ${leaveIn} minute${leaveIn === 1 ? '' : 's'}`}, at ${clock(journey.leaves)}, arrive ${clock(journey.arrives)}, ${length} minutes, ${kind.toLowerCase()}` +
     (rides.length > 0 ? `, by ${rides.map((ride) => (data.routes[ride.route] ? spokenRoute(data.routes[ride.route]!) : 'vehicle')).join(', then ')}` : '') +
-    (canceled ? '. A vehicle on it is canceled' : '') +
     '.';
   return (
     <li class="tf-journey">
@@ -108,7 +106,6 @@ function JourneyCard({ journey, data, now, fromLabel, toLabel, open, onToggle }:
             </div>
             <div class="tf-row__off">
               {length}&nbsp;min · {kind}
-              {canceled && <span class="tf-tight tf-journey__canceled">Canceled</span>}
             </div>
           </div>
           <IconFold />
@@ -161,7 +158,7 @@ function Step({ leg, data, lastRide, fromLabel, toLabel }: { leg: JourneyLeg; da
           <span class="tf-journey__from">from {name(leg.from, fromLabel)}</span>
         </span>
         <span class="tf-journey__ride-sub">
-          Toward {leg.toward} · {leg.canceled ? <span class="tf-status-text tf-status-text--late">Canceled</span> : <StatusTag status={statusOf(leg.departDelay, leg.live)} plain />}
+          Toward {leg.toward} · <StatusTag status={statusOf(leg.departDelay, leg.live)} plain />
         </span>
         <span class="tf-journey__ride-sub">
           {leg.stops} stop{leg.stops === 1 ? '' : 's'} · off at {name(leg.to, toLabel)} {clock(leg.arrives)}

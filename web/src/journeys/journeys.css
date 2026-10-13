@@ -1,4 +1,4 @@
-/* Trips with any number of changes, loaded with their list (see LazyJourneyList). */
+/* Trips with any number of changes, loaded with their list (see LazyJourneyResults). */
 .tf-journeys { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-4); }
 .tf-journey { border: var(--border-strong) solid var(--line); }
 /* The band opens the steps: a button stretched under it, as a departure card's band is. */
@@ -11,7 +11,6 @@
 .tf-journey__leg { display: inline-flex; align-items: center; gap: var(--space-1); }
 .tf-journey__sep { color: var(--muted); }
 .tf-journey__walk { font-size: var(--text-sm); font-weight: var(--weight-label); color: var(--muted); white-space: nowrap; }
-.tf-journey__canceled { margin-left: var(--space-2); }
 /* The steps, on a line from where the rider sets off to where they arrive. */
 .tf-journey__steps { list-style: none; margin: 0; padding: var(--space-1) var(--space-4) var(--space-3); border-top: var(--border-hair) solid var(--divider); }
 .tf-journey__step { position: relative; display: flex; gap: var(--space-3); padding: var(--space-2) 0; }

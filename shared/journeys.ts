@@ -1,4 +1,4 @@
-import type { Alert, FeedStatus, Route, Stop } from './api.ts';
+import type { AccessOutage, Alert, FeedStatus, Route, Stop } from './api.ts';
 
 // Trips with any number of vehicles, between any two of a stop, a place found by name, or where the
 // rider is (J, 2026-10-12), from /api/journeys. Times are unix seconds, as in api.ts.
@@ -18,7 +18,7 @@ export type WalkLeg = { kind: 'walk'; from: string | null; to: string | null; se
 
 // A ride: the trip, where it is boarded and left, and when, live where the feed predicts it.
 // `stops` counts the stops it makes on the way, not counting where the rider boards. `toward` is
-// where it heads, as every page names a direction.
+// where it heads, as every page names a direction. A canceled trip is never planned on.
 export type RideLeg = {
   kind: 'ride';
   trip: string;
@@ -31,7 +31,6 @@ export type RideLeg = {
   departDelay: number | null;
   arriveDelay: number | null;
   live: boolean;
-  canceled?: boolean;
   stops: number;
 };
 
@@ -41,8 +40,14 @@ export type JourneyLeg = WalkLeg | RideLeg;
 // counts the vehicles, so a trip on foot has none.
 export type Journey = { leaves: number; arrives: number; rides: number; legs: JourneyLeg[] };
 
+// Why there are no ways at all, when it is not that nothing runs: no stop is within walking range
+// of where the trip starts or ends.
+export type JourneysNotice = { kind: 'far'; end: 'from' | 'to' };
+
 // The next few ways from `from` to `to`, soonest first, with the routes, stops, alerts and feeds
-// they use, as the transfer results give theirs.
+// they use, as the transfer results give theirs. `access` is present when the request asks for
+// step-free travel or escalator outages, as the transfer results' is: the outages at the stations
+// the ways use.
 export type JourneysResponse = {
   generatedAt: number;
   dataAt: number | null;
@@ -52,6 +57,8 @@ export type JourneysResponse = {
   routes: Record<string, Route>;
   stops: Record<string, Stop>;
   alerts: Alert[];
+  access?: AccessOutage[];
+  notice?: JourneysNotice;
   feeds: FeedStatus[];
 };
 
