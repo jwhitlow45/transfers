@@ -199,6 +199,7 @@ function liveNetwork(schedule: Schedule, realtime: RealtimeView, now: number, op
       // scheduled wait.
       return position < live.ahead || arrives === null || arrives === undefined ? null : arrives + (trips.times[at + 1]! - trips.times[at]!);
     },
+    live: (trips, trip) => prediction(trips, trip) !== null,
     footpaths: (stop) => {
       let list = walks.get(stop);
       if (!list) {
