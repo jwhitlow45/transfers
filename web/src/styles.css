@@ -437,6 +437,12 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-outage-tag { position: relative; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 6px 0 var(--space-2); background: var(--late-tint); color: var(--late); font-size: var(--text-sm); font-weight: var(--weight-label); text-align: left; }
 .tf-outage-tag::after { content: ''; position: absolute; inset: -6px 0; }
 .tf-outages { list-style: none; margin: var(--space-3) 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
+/* Spaced as the outages above them (J, 2026-10-13). A tap target's height would add space that
+   varies with how a link wraps, so each reaches halfway into the space around it instead. */
+.tf-outage-links { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-3); }
+.tf-outage-links .tf-link-button { position: relative; min-height: 0; }
+.tf-outage-links .tf-link-button::after { content: ''; position: absolute; inset: calc(var(--space-3) / -2) 0; }
+.tf-outage-links + .tf-sheet__done { margin-top: var(--space-3); }
 .tf-outage { padding: var(--space-3) var(--space-4); border: 1px solid var(--late); background: var(--late-tint); }
 .tf-outage__kicker { display: flex; align-items: center; gap: 6px; color: var(--late); }
 .tf-outage .tf-kicker { color: var(--late); }
@@ -515,8 +521,6 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-sheet__head h2 { flex: 1; margin: 0; font-size: var(--text-xl); }
 .tf-sheet__saved { text-align: center; font-size: var(--text-base); color: var(--muted); margin-top: var(--space-4); }
 .tf-setting { padding: var(--space-3) 0; border-bottom: var(--border-hair) solid var(--divider); }
-/* Opened from an outage sheet, the toggles show below the sticky header with their section's title. */
-.tf-setting--anchor { scroll-margin-top: 104px; }
 .tf-setting__label { font-weight: var(--weight-label); }
 .tf-setting__help { font-size: var(--text-base); color: var(--muted); }
 .tf-select { width: 100%; min-height: var(--tap); font: inherit; color: var(--text); background: var(--bg); border: var(--border-strong) solid var(--line); }
@@ -533,6 +537,8 @@ button:disabled { opacity: .45; cursor: default; }
    Not in the handoff: screens and states it did not cover, built from its tokens. */
 /* No padding, so a button reads in line with the text around it as a link does. */
 .tf-link-button { display: inline-flex; align-items: center; min-height: var(--tap); padding: 0; color: var(--accent-ink); font-weight: var(--weight-label); text-decoration: underline; text-underline-offset: 3px; }
+/* A link beside the one a sheet is for, such as where to hide what it shows. */
+.tf-link-button--secondary { color: var(--muted); }
 .tf-btn-secondary { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); padding: 0 var(--space-4); color: var(--text); text-decoration: none; font-weight: var(--weight-label); }
 .tf-btn-with-icon { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); }
 .tf-fields__stack { min-width: 0; }

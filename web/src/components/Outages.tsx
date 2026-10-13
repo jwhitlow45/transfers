@@ -43,14 +43,16 @@ export function OutageSheet({ outages, data, onClose }: { outages: StationOutage
           );
         })}
       </ul>
-      {stop?.bart && (
-        <a class="tf-link-button" href={`https://www.bart.gov/stations/${stop.bart}/accessible`} target="_blank" rel="noopener">
-          Accessibility at {name} on bart.gov
-        </a>
-      )}
-      <AppLink class="tf-link-button" href="/settings#outages">
-        Hide {outages.kinds.join(' and ')} outages in Settings
-      </AppLink>
+      <div class="tf-outage-links">
+        {stop?.bart && (
+          <a class="tf-link-button" href={`https://www.bart.gov/stations/${stop.bart}/accessible`} target="_blank" rel="noopener">
+            Accessibility at {name} on bart.gov
+          </a>
+        )}
+        <AppLink class="tf-link-button tf-link-button--secondary" href="/settings#accessibility">
+          Hide {outages.kinds.join(' and ')} outages in Settings
+        </AppLink>
+      </div>
     </Sheet>
   );
 }

@@ -37,10 +37,14 @@ export function SettingsScreen() {
   const { settings, update } = useSettings();
   useSwipeBack(() => goBack());
   const automatic = settings.min === null && settings.max === null;
-  // An outage sheet's link opens Settings at the outage toggles.
-  const outages = useRef<HTMLDivElement>(null);
+  // An outage sheet's link opens Settings at Accessibility, its heading just under the sticky header.
+  const accessibility = useRef<HTMLElement>(null);
   useLayoutEffect(() => {
-    if (location.hash === '#outages') outages.current?.scrollIntoView({ block: 'start' });
+    const section = accessibility.current;
+    const scroller = section?.closest('.tf-scroll');
+    if (location.hash !== '#accessibility' || !section || !scroller) return;
+    const header = scroller.querySelector('.tf-header');
+    scroller.scrollTop += section.getBoundingClientRect().top - (header?.getBoundingClientRect().bottom ?? 0);
   }, []);
   return (
     <div class="tf-scroll">
@@ -156,7 +160,7 @@ export function SettingsScreen() {
           </div>
         </section>
 
-        <section class="tf-section tf-section--tight" aria-labelledby="access-heading">
+        <section class="tf-section tf-section--tight" aria-labelledby="access-heading" id="accessibility" ref={accessibility}>
           <h2 id="access-heading">Accessibility</h2>
           <div class="tf-setting">
             <div class="tf-setting__label">Animations</div>
@@ -164,7 +168,7 @@ export function SettingsScreen() {
             <Choices label="Animations" options={MOTIONS.map(({ value, label }) => ({ key: value, text: label }))} selected={settings.motion} onChoose={(motion) => update({ motion })} />
           </div>
           {/* Plain names for what each shows (J, 2026-10-13), the same words the outage sheets use. */}
-          <div class="tf-setting tf-setting--anchor" id="outages" ref={outages}>
+          <div class="tf-setting">
             <div class="tf-setting__label">Elevator outages</div>
             <div class="tf-setting__help">Marks elevators out of service at BART stations on your trip and at a station whose arrivals you open, each opening what BART says about it. Muni's outages come from its service alerts, with the other notices.</div>
             <div class="tf-filters">
