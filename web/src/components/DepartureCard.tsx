@@ -3,7 +3,9 @@ import type { Departure, Group } from '../../../shared/api.ts';
 import { IconFold, IconPin } from '../icons/ui.tsx';
 import { clock, minutesSince, minutesUntil, untilText } from '../format.ts';
 import { pinOf, sameRun } from '../lib/pinned.ts';
-import { type CardContext, hintKey, listedConnections } from '../lib/results.ts';
+import { type CardContext, hintKey, listedConnections, tripSeconds } from '../lib/results.ts';
+import { useSettings } from '../settings.tsx';
+import { walkSeconds } from '../../../shared/walk.ts';
 import { TimeLink } from '../track.tsx';
 import { chipLabel, pinLabel, shortStopName, spokenRoute, statusOf, vehicleAt } from '../view.ts';
 import { Collapse } from './Collapse.tsx';
@@ -62,6 +64,11 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
   const walkPinLabel = pinLabel([route, departure.at]);
   const destinationName = context.destinationName ?? (walk ? context.toName : null);
   const destination = destinationName && departure.destination ? `${destinationName} ${clock(departure.destination)}` : null;
+  // With it, how long the trip takes, from setting off, as the rider may weigh a later one that
+  // is quicker (J, 2026-10-12).
+  const { walkSpeed } = useSettings().settings;
+  const trip = destination ? tripSeconds(departure, walk, walk ? walkSeconds(group.walkMeters, walkSpeed) : 0, context.now) : null;
+  const tripMinutes = trip === null ? null : Math.max(1, Math.round(trip / 60));
   const toward = departure.toward ? `To ${departure.toward}` : null;
   const count = departure.connections.length;
   const listed = listedConnections(departure, context.going);
@@ -70,7 +77,7 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
   const summary = [`${count} ${noun[count === 1 ? 0 : 1]}`, gone > 0 && `${gone} departed`, countdowns.length > 0 && `in ${countdowns.join(', ')}\u00a0min`].filter(Boolean).join(' · ');
   const spoken =
     `${route ? spokenRoute(route) : 'Departure'} at ${clock(departure.at)}, ${status.label}, ` +
-    `${away ? away.toLowerCase() : `${minutes} minutes away`}${toward ? `, ${toward.toLowerCase()}` : ''}${destination ? `, reaches ${destination}` : ''}.` +
+    `${away ? away.toLowerCase() : `${minutes} minutes away`}${toward ? `, ${toward.toLowerCase()}` : ''}${destination ? `, reaches ${destination}` : ''}${tripMinutes !== null ? `, a ${tripMinutes} minute trip` : ''}.` +
     (walk ? '' : ` ${count} connecting ${noun[count === 1 ? 0 : 1]}${expanded ? '' : [gone > 0 && `, ${gone} already left`, countdowns.length > 0 && `, leaving in ${countdowns.join(', ')} minutes`].filter(Boolean).join('')}.`);
   // The spoken summary says everything shown, so screen readers skip the shown text and reach
   // only the links in it.
@@ -101,7 +108,7 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
         </span>
         {destination && (
           <span class="tf-band__dest" aria-hidden="true">
-            {destination}
+            {tripMinutes !== null ? `${destination} · ${tripMinutes}\u00a0min trip` : destination}
           </span>
         )}
       </span>

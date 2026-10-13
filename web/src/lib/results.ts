@@ -104,6 +104,17 @@ export function orderGroups(groups: Group[], now: number, showHidden: boolean, d
   return [...groups].sort((a, b) => soonest(a) - soonest(b) || firstAt(a) - firstAt(b));
 }
 
+// The shortest trip a departure allows to the destination, in seconds, from setting off: from the
+// last vehicle from From that still makes it, or with none, from walking `walkSeconds` to where
+// the rider boards it. Null without a time there.
+export function tripSeconds(departure: Departure, walk: boolean, walkSeconds: number, now: number) {
+  if (departure.destination === undefined) return null;
+  if (walk) return departure.destination - departure.at + walkSeconds;
+  const ahead = departure.connections.filter(({ departs }) => departs * 1000 >= now);
+  const latest = Math.max(...(ahead.length > 0 ? ahead : departure.connections).map(({ departs }) => departs));
+  return latest === -Infinity ? null : departure.destination - latest;
+}
+
 // The vehicles that make a departure, in the order its card lists them: by when they leave, or
 // going to a stop, by least travel time, which for one vehicle getting there is the latest to
 // leave (J, 2026-10-12).

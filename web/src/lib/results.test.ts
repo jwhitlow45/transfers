@@ -1,7 +1,7 @@
 import { deepStrictEqual } from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Connection, Departure, Group } from '../../../shared/api.ts';
-import { cardLeft, listedConnections, orderGroups, visibleDepartures } from './results.ts';
+import { cardLeft, listedConnections, orderGroups, tripSeconds, visibleDepartures } from './results.ts';
 
 const at = (hour: number, minute: number) => (hour * 60 + minute) * 60;
 const connection = (trip: string, departs: number): Connection => ({ trip, route: 'BA:Yellow', departs, departDelay: 0, arrives: departs + 480, arriveDelay: 0, live: true, transfer: 4 });
@@ -64,4 +64,15 @@ test('going to a stop, the soonest there comes first, and each bus lists the tra
   // Both trains make the 8:12 bus, and the one leaving at 8:03 takes less time to get there.
   const bus = sooner.departures[0]!;
   deepStrictEqual([listedConnections(bus, true), listedConnections(bus, false)].map((list) => list.map(({ trip }) => trip)), [['b3', 'b2'], ['b2', 'b3']]);
+});
+
+test('a trip takes from the last vehicle that still makes it, or with none, from the walk to where it boards, to getting there', () => {
+  // Trains at 8:01 and 8:03 make the 8:12 bus, which gets there at 8:22.
+  const bus = departure('m3', at(8, 12), [connection('b2', at(8, 1)), connection('b3', at(8, 3))], at(8, 22));
+  deepStrictEqual(tripSeconds(bus, false, 0, now), 19 * 60);
+  // At 8:02 only the 8:03 train is left to catch, and at 8:04 the rider may be on either.
+  deepStrictEqual([tripSeconds(bus, false, 0, at(8, 2) * 1000), tripSeconds(bus, false, 0, at(8, 4) * 1000)], [19 * 60, 19 * 60]);
+  // A bus straight there, leaving at 8:05 and there at 8:20, after a 2 minute walk to it.
+  deepStrictEqual(tripSeconds(departure('w1', at(8, 5), [], at(8, 20)), true, 120, now), 17 * 60);
+  deepStrictEqual(tripSeconds(departure('w2', at(8, 5), []), true, 120, now), null);
 });
