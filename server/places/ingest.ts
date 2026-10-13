@@ -128,7 +128,11 @@ async function fetchTile(fetcher: typeof fetch, query: string, pause: number) {
           body: `data=${encodeURIComponent(query)}`,
           signal: AbortSignal.timeout(ANSWER_MS),
         });
-        if (response.ok) return ((await response.json()) as { elements: OsmElement[] }).elements;
+        if (!response.ok) continue;
+        const answer = (await response.json()) as { elements: OsmElement[]; remark?: string };
+        // A query that ran out of time or memory still answers, with what it found so far and a
+        // remark that says so.
+        if (!answer.remark?.includes('runtime error')) return answer.elements;
       } catch {
         // A server down, a dropped connection, or no answer in time: the next one may answer.
       }

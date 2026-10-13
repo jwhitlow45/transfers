@@ -121,3 +121,15 @@ test('a busy server hands the tile to the next, fetched tiles are kept for a rer
   deepStrictEqual((await buildPlaces(twoTiles, path, { fetcher, pause: 0 })).missing, []);
   strictEqual(existsSync(`${path}.tiles`), false);
 });
+
+test('an answer a server cut short, out of time or memory, is no answer, and the next server is asked', async () => {
+  const cacheDir = () => join(mkdtempSync(join(tmpdir(), 'places-')), 'places.db.tiles');
+  const cutShort = { remark: 'runtime error: Query timed out in "query" at line 1 after 181 seconds.', elements: [elements[0]] };
+  let whole = true;
+  const fetcher = (async (url: string) => (url.includes('overpass-api.de') || !whole ? Response.json(cutShort) : Response.json({ elements: elements.slice(0, 2) }))) as unknown as typeof fetch;
+  const found = await fetchPlaces([stops[0]!], { cacheDir: cacheDir(), fetcher, pause: 0 });
+  deepStrictEqual([found.elements.length, found.missing], [2, []]);
+  whole = false;
+  const none = await fetchPlaces([stops[0]!], { cacheDir: cacheDir(), fetcher, pause: 0 });
+  deepStrictEqual([none.elements.length, none.missing.length], [0, 1]);
+});
