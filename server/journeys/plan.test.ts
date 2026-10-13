@@ -12,7 +12,7 @@ import type { Schedule } from '../schedule.ts';
 import { CALENDAR, buildSchedule, clock, files } from '../test-gtfs.ts';
 import { serviceDayStart } from '../time.ts';
 import { footpathsFor, walksFor } from './footpaths.ts';
-import { type Endpoint, type JourneyOptions, planJourneys, readEnds } from './plan.ts';
+import { type Endpoint, type JourneyOptions, planJourneys, prepareJourneys, readEnds } from './plan.ts';
 
 // BART from Montgomery to 24th St every 10 minutes from 7:30, the 48 from 24th & Mission to
 // Potrero every 15 minutes from 7:32, and the 22 from a stop a few steps up Potrero to Dogpatch
@@ -236,6 +236,14 @@ test('step-free travel allows more time to change at a station and lists the out
   const both = plan({ stepFree: true, escalators: true });
   deepStrictEqual(both.access?.map(({ kind, station }) => `${kind} ${station}`), ['escalator BA:901209', 'elevator BA:901609']);
   deepStrictEqual(plan({ escalators: true }).journeys[0]!.legs[1], plain.journeys[0]!.legs[1]);
+});
+
+test('the days a search will read are loaded ahead of it, the next one by evening', async () => {
+  deepStrictEqual(await prepareJourneys(() => schedule, DAY + 19 * 3600 + 45 * 60), [20261004, 20261005]);
+  // From 8 PM, a search reaches past midnight.
+  deepStrictEqual(await prepareJourneys(() => schedule, DAY + 19 * 3600 + 55 * 60), [20261004, 20261005, 20261006]);
+  // With no schedule yet, there is nothing to load.
+  deepStrictEqual(await prepareJourneys(() => null, NOW), []);
 });
 
 test('ends are read as a stop, a place by id or a point, and a bad one is turned away plainly', () => {

@@ -25,6 +25,9 @@ const MAX_RIDES = 4;
 const JOURNEYS = 5;
 // How far ahead of now a journey may arrive: enough for a long ride on routes that run hourly.
 const HORIZON_SECONDS = 4 * 3600;
+// How far ahead of the searches to come prepareJourneys loads timetables, longer than the server
+// waits between calls to it.
+const PREPARE_AHEAD_SECONDS = 10 * 60;
 // How far a rider walks between a point and a stop, and further when nothing is that close.
 const ACCESS_METERS = 800;
 const FAR_ACCESS_METERS = 1600;
@@ -110,6 +113,29 @@ export function planJourneys(schedule: Schedule, realtime: RealtimeView, from: E
   };
 }
 
+// The service dates a search from `now` reads: trips after midnight belong to the day before,
+// and a journey late at night reaches the next.
+function searchDates(now: number) {
+  const today = serviceDate(now);
+  return [addDays(today, -1), today, ...(serviceDayStart(addDays(today, 1)) < now + HORIZON_SECONDS ? [addDays(today, 1)] : [])];
+}
+
+// Loads what searches from now to a while ahead will read, so no rider waits on it: each day's
+// timetable and the walks between stops, about a second each. One at a time, with requests let
+// through between, and `schedule` read again for each, as a rebuild may swap it out meanwhile.
+// Returns the dates loaded, or none without a schedule.
+export async function prepareJourneys(schedule: () => Schedule | null, now: number) {
+  const dates = [...new Set([...searchDates(now), ...searchDates(now + PREPARE_AHEAD_SECONDS)])];
+  const steps = [...dates.map((date) => (current: Schedule) => timetableFor(current, date)), footpathsFor];
+  for (const step of steps) {
+    await new Promise((resolve) => setImmediate(resolve));
+    const current = schedule();
+    if (!current) return [];
+    step(current);
+  }
+  return dates;
+}
+
 type LiveNetwork = Network & { prediction: (trips: PatternTrips, trip: number) => Prediction | null };
 
 // A trip's run as the feed predicts it: when it reaches each stop (null where it skips the stop or
@@ -119,10 +145,7 @@ type Prediction = { times: (number | null)[]; reported: (number | null)[]; ahead
 // The timetable for the days a journey from now can use, with the feed's predictions over it.
 // Canceled trips have no times, so no journey relies on one.
 function liveNetwork(schedule: Schedule, realtime: RealtimeView, now: number, options: JourneyOptions): LiveNetwork {
-  const today = serviceDate(now);
-  // Trips after midnight belong to the day before, and a journey late at night reaches the next.
-  const dates = [addDays(today, -1), today, ...(serviceDayStart(addDays(today, 1)) < now + HORIZON_SECONDS ? [addDays(today, 1)] : [])];
-  const tables = dates.map((date) => timetableFor(schedule, date));
+  const tables = searchDates(now).map((date) => timetableFor(schedule, date));
   const footpaths = footpathsFor(schedule);
   // Each stop's walks for the rider's settings, worked out the first time the search walks on.
   const walks = new Map<number, Access[]>();

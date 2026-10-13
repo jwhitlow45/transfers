@@ -16,7 +16,7 @@ import type { AccessNeeds, RealtimeView } from './engine/realtime-view.ts';
 import { type TripRequest, destinations, planTrip, wayBack } from './engine/trip.ts';
 import { LONGEST_WALK_METERS, type WalkSettings } from './engine/walk.ts';
 import { RequestError } from './http.ts';
-import { planJourneys, readEnds } from './journeys/plan.ts';
+import { planJourneys, prepareJourneys, readEnds } from './journeys/plan.ts';
 import { PlaceStore } from './places/store.ts';
 import { KeyPool } from './realtime/keys.ts';
 import { Realtime } from './realtime/manager.ts';
@@ -232,7 +232,22 @@ function allowRequest(request: IncomingMessage) {
 }
 
 server.listen(config.port, () => console.log(`Listening on ${config.port}, fetching trip updates every ${realtime.tripSeconds} s while in use`));
-void store.start().then(() => placeStore.start(() => store.schedule));
+void store.start().then(() => {
+  placeStore.start(() => store.schedule);
+  prepareSearches();
+});
+
+// Trip searches find what they read loaded already: once the schedule opens, within a minute of a
+// rebuild, and ahead of each evening, when searches start reaching into the next day.
+let preparing = false;
+function prepareSearches() {
+  if (preparing) return;
+  preparing = true;
+  prepareJourneys(() => store.schedule, nowSeconds())
+    .catch((error: unknown) => console.error('Could not load ahead for trip searches:', error))
+    .finally(() => (preparing = false));
+}
+setInterval(prepareSearches, 60 * 1000).unref();
 
 for (const signal of ['SIGTERM', 'SIGINT'] as const) {
   process.on(signal, () => {
