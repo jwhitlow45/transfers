@@ -30,10 +30,17 @@ export type RideLeg = { kind: 'ride'; trips: PatternTrips; trip: number; board: 
 export type WalkLeg = { kind: 'walk'; from: number; to: number; seconds: number };
 export type Path = { rides: number; start: Access; end: Access; legs: (RideLeg | WalkLeg)[]; arrives: number };
 
-type Label =
-  | { kind: 'start'; access: Access }
-  | { kind: 'walk'; from: number; seconds: number }
-  | { kind: 'ride'; trips: PatternTrips; trip: number; board: number; alight: number; from: number };
+// How the rider reached a stop in a round: by starting there, or off a vehicle.
+type Arrival = { kind: 'start'; access: Access } | { kind: 'ride'; trips: PatternTrips; trip: number; board: number; alight: number; from: number };
+// How the rider came to be ready to board at a stop in a round: by staying where they arrived,
+// or walking there from where they did.
+type Readiness = { kind: 'stay' } | { kind: 'walk'; from: number; seconds: number };
+
+// What a round found: when the rider can arrive at each stop, which is what the end and the walks
+// on from it count from, and when they can be ready to board there, which the next round counts
+// from. Off a vehicle, the two differ by the moment a change takes, so a walk that arrives later
+// can still have the rider ready sooner.
+type Round = { arrived: Float64Array; arrivals: Map<number, Arrival>; ready: Float64Array; readiness: Map<number, Readiness> };
 
 // Trips run late more often than early: a trip due this long before the rider is ready may still
 // be catchable, and one due this long after the best found cannot beat it.
@@ -43,43 +50,41 @@ const EARLY_SECONDS = 600;
 // The fastest way to the end for each number of vehicles up to `maxRides` that arrives sooner than
 // any with fewer, fewest first, setting off at `leaveAt` and arriving before `latest`.
 export function raptor(network: Network, starts: Access[], ends: Access[], leaveAt: number, maxRides: number, latest = Infinity): Path[] {
-  const best = new Float64Array(network.stopCount).fill(Infinity);
-  const rounds: Float64Array[] = [];
-  const labels: Map<number, Label>[] = [];
+  // The soonest the rider has arrived at each stop, and been ready to board there, in any round
+  // so far, which a later round, with a vehicle more, has to beat. A vehicle that gets somewhere
+  // after a walk did is no use, as walking on from where that walk set off serves as well.
+  const bestArrived = new Float64Array(network.stopCount).fill(Infinity);
+  const bestReady = new Float64Array(network.stopCount).fill(Infinity);
+  const rounds: Round[] = [];
   const endAt = new Map<number, number>();
   for (const end of ends) endAt.set(end.stop, Math.min(endAt.get(end.stop) ?? Infinity, end.seconds));
   let bound = latest;
   const paths: Path[] = [];
 
   // Round 0: walking to the first stops.
-  let current = new Float64Array(network.stopCount).fill(Infinity);
-  let label = new Map<number, Label>();
-  let marked = new Set<number>();
+  let round = newRound();
+  const started: number[] = [];
   for (const access of starts) {
     const at = leaveAt + access.seconds;
-    if (at >= current[access.stop]!) continue;
-    current[access.stop] = at;
-    best[access.stop] = at;
-    label.set(access.stop, { kind: 'start', access });
-    marked.add(access.stop);
+    if (at >= round.arrived[access.stop]!) continue;
+    if (round.arrived[access.stop] === Infinity) started.push(access.stop);
+    round.arrived[access.stop] = at;
+    bestArrived[access.stop] = at;
+    round.arrivals.set(access.stop, { kind: 'start', access });
   }
-  walk(network, current, best, label, marked, [...marked], bound);
-  rounds.push(current);
-  labels.push(label);
+  let marked = getReady(round, started);
+  rounds.push(round);
   bound = Math.min(bound, record(0));
 
   for (let k = 1; k <= maxRides && marked.size > 0; k++) {
-    const previous = current;
-    const previousLabel = label;
-    current = new Float64Array(network.stopCount).fill(Infinity);
-    label = new Map();
+    const previous = round;
+    round = newRound();
     // Each pattern from the first of its stops the last round reached.
     const queue = new Map<PatternRow, number>();
     for (const stop of marked) {
       for (const { pattern, position } of network.patternsAt(stop)) queue.set(pattern, Math.min(queue.get(pattern) ?? Infinity, position));
     }
     const rode: number[] = [];
-    marked = new Set();
     // Each list of a pattern's trips on its own, as the first of one to leave a stop may reach the
     // next after a trip of another. Live times can still put a trip behind the next in its own
     // list, which the router does not look for.
@@ -92,12 +97,11 @@ export function raptor(network: Network, starts: Access[], ends: Access[], leave
           let now = Infinity;
           if (ride) {
             const arrives = network.arrival(trips, ride.trip, position);
-            if (arrives !== null && arrives < Math.min(best[stop]!, bound)) {
-              current[stop] = arrives;
-              best[stop] = arrives;
-              label.set(stop, { kind: 'ride', ...ride, alight: position });
-              if (!marked.has(stop)) rode.push(stop);
-              marked.add(stop);
+            if (arrives !== null && arrives < Math.min(bestArrived[stop]!, bound)) {
+              if (round.arrived[stop] === Infinity) rode.push(stop);
+              round.arrived[stop] = arrives;
+              bestArrived[stop] = arrives;
+              round.arrivals.set(stop, { kind: 'ride', ...ride, alight: position });
             }
             // A trip that skips the stop keeps the rider aboard: with no time there, it cannot be
             // weighed against one boarded there.
@@ -105,29 +109,56 @@ export function raptor(network: Network, starts: Access[], ends: Access[], leave
             if (departs === null) continue;
             now = departs;
           }
-          if (position === stops.length - 1 || previous[stop] === Infinity) continue;
-          // Changing at the stop the last vehicle let the rider off at takes a moment. A walk
-          // there already counts the time.
-          const ready = previous[stop]! + (previousLabel.get(stop)?.kind === 'ride' ? network.changeSeconds : 0);
-          if (ready > now) continue;
+          const ready = previous.ready[stop]!;
+          if (position === stops.length - 1 || ready === Infinity || ready > now) continue;
           const earlier = earliest(network, trips, position, ready, now);
           if (earlier !== null) ride = { trips, trip: earlier, board: position, from: stop };
         }
       }
     }
-    walk(network, current, best, label, marked, rode, bound);
-    rounds.push(current);
-    labels.push(label);
+    marked = getReady(round, rode);
+    rounds.push(round);
     bound = Math.min(bound, record(k));
   }
   return paths;
 
+  function newRound(): Round {
+    const empty = () => new Float64Array(network.stopCount).fill(Infinity);
+    return { arrived: empty(), arrivals: new Map(), ready: empty(), readiness: new Map() };
+  }
+
+  // When the rider can board at the stops the round reached, and those a short walk on: changing
+  // where a vehicle let them off takes a moment, while a walk counts its own time. Returns the
+  // stops where that is sooner than before, for the next round to board at.
+  function getReady({ arrived, arrivals, ready, readiness }: Round, reached: number[]) {
+    const marked = new Set<number>();
+    const offer = (stop: number, at: number, how: Readiness) => {
+      if (at >= Math.min(bestReady[stop]!, bound)) return;
+      ready[stop] = at;
+      bestReady[stop] = at;
+      readiness.set(stop, how);
+      marked.add(stop);
+    };
+    for (const stop of reached) {
+      offer(stop, arrived[stop]! + (arrivals.get(stop)!.kind === 'ride' ? network.changeSeconds : 0), { kind: 'stay' });
+      for (const path of network.footpaths(stop)) {
+        const at = arrived[stop]! + path.seconds;
+        offer(path.stop, at, { kind: 'walk', from: stop, seconds: path.seconds });
+        bestArrived[path.stop] = Math.min(bestArrived[path.stop]!, at);
+      }
+    }
+    return marked;
+  }
+
   // The journey this round makes, when it reaches the end sooner than any before. Returns when.
   function record(k: number) {
+    const { arrived, ready } = rounds[k]!;
     let arrives = Infinity;
     let end: Access | null = null;
     for (const [stop, seconds] of endAt) {
-      const at = rounds[k]![stop]! + seconds;
+      // Staying where a vehicle let the rider off never has them ready before they arrive, so the
+      // sooner of the two is a ride or a walk there.
+      const at = Math.min(arrived[stop]!, ready[stop]!) + seconds;
       if (at < arrives) {
         arrives = at;
         end = { stop, seconds };
@@ -138,18 +169,21 @@ export function raptor(network: Network, starts: Access[], ends: Access[], leave
     return arrives;
   }
 
+  // Back from the end: how the rider arrived at each stop in a round, and before that, how they
+  // got ready to board where the round's vehicle picked them up.
   function trace(k: number, end: Access, arrives: number): Path {
     const legs: (RideLeg | WalkLeg)[] = [];
-    let stop = end.stop;
-    let round = k;
-    for (;;) {
-      const step = labels[round]!.get(stop)!;
+    // Where the rider got ready at `stop` in a round from: there, or where a walk set off.
+    const readyFrom = (round: number, stop: number) => {
+      const how = rounds[round]!.readiness.get(stop)!;
+      if (how.kind === 'stay') return stop;
+      legs.unshift({ kind: 'walk', from: how.from, to: stop, seconds: how.seconds });
+      return how.from;
+    };
+    let stop = rounds[k]!.ready[end.stop]! < rounds[k]!.arrived[end.stop]! ? readyFrom(k, end.stop) : end.stop;
+    for (let round = k; ; round--) {
+      const step = rounds[round]!.arrivals.get(stop)!;
       if (step.kind === 'start') return { rides: k, start: step.access, end, legs, arrives };
-      if (step.kind === 'walk') {
-        legs.unshift({ kind: 'walk', from: step.from, to: stop, seconds: step.seconds });
-        stop = step.from;
-        continue;
-      }
       legs.unshift({
         kind: 'ride',
         trips: step.trips,
@@ -161,22 +195,7 @@ export function raptor(network: Network, starts: Access[], ends: Access[], leave
         departs: network.departure(step.trips, step.trip, step.board)!,
         arrives: network.arrival(step.trips, step.trip, step.alight)!,
       });
-      stop = step.from;
-      round--;
-    }
-  }
-}
-
-// Walks on from the stops just reached to those nearby, where that gets there sooner.
-function walk(network: Network, current: Float64Array, best: Float64Array, label: Map<number, Label>, marked: Set<number>, from: number[], bound: number) {
-  for (const stop of from) {
-    for (const path of network.footpaths(stop)) {
-      const at = current[stop]! + path.seconds;
-      if (at >= Math.min(best[path.stop]!, bound)) continue;
-      current[path.stop] = at;
-      best[path.stop] = at;
-      label.set(path.stop, { kind: 'walk', from: stop, seconds: path.seconds });
-      marked.add(path.stop);
+      stop = readyFrom(round - 1, step.from);
     }
   }
 }

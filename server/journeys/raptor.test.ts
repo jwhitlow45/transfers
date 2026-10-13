@@ -47,3 +47,26 @@ test('a vehicle the rider is on that skips a stop carries them on, rather than a
   const starts = [...at(0), ...at(1, 240)];
   deepStrictEqual(rides(raptor(network(lines, [], ['0:0@1']), starts, at(2), 0, 4, 800)), ['100-300']);
 });
+
+test('a walk that makes a vehicle counts over a ride that gets there sooner but has to change', () => {
+  // From 0, one vehicle reaches 1 at 200, and another reaches 4 at 150, a minute's walk from 1.
+  // Walking there, the rider makes the 250 from 1, which changing off the first vehicle misses.
+  const lines = [
+    { stops: [0, 1], trips: [[100, 200]] },
+    { stops: [0, 4], trips: [[100, 150]] },
+    { stops: [1, 3], trips: [[250, 300]] },
+  ];
+  const [path] = raptor(network(lines, [[4, 1, 60]]), at(0), at(3), 0, 4);
+  deepStrictEqual(path?.legs.map((leg) => (leg.kind === 'ride' ? `${leg.departs}-${leg.arrives}` : `walk ${leg.from}>${leg.to}`)), ['100-150', 'walk 4>1', '250-300']);
+  deepStrictEqual(path.arrives, 300);
+});
+
+test('a ride to the end arrives when it gets there, with no change to make', () => {
+  // The vehicle reaching 1 at 200 arrives then, though a walk would have the rider ready to
+  // board there sooner than changing off it.
+  const lines = [
+    { stops: [0, 1], trips: [[100, 200]] },
+    { stops: [0, 4], trips: [[100, 150]] },
+  ];
+  deepStrictEqual(raptor(network(lines, [[4, 1, 60]]), at(0), at(1), 0, 4).map(({ arrives }) => arrives), [200]);
+});
