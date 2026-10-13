@@ -1,5 +1,5 @@
 import { deepStrictEqual, strictEqual } from 'node:assert/strict';
-import { existsSync, mkdtempSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, rmSync, utimesSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, test } from 'node:test';
@@ -90,7 +90,7 @@ test('search results list places too, the nearer first among matches as good', (
   strictEqual(search(schedule, 'ph', { routes: true, places }).places, undefined);
 });
 
-test('a busy server hands the tile to the next, fetched tiles are kept for a rerun, and a tile none answer is named', async () => {
+test('a busy server hands the tile to the next, fetched tiles are kept for a rerun, and a tile none ever answer is left out', async () => {
   const path = join(mkdtempSync(join(tmpdir(), 'places-')), 'places.db');
   // Stops in two tiles: the Mission, and downtown San Jose.
   const twoTiles = [stops[0]!, { lat: 37.33, lon: -121.89 }];
@@ -104,9 +104,9 @@ test('a busy server hands the tile to the next, fetched tiles are kept for a rer
     return Response.json({ elements: [elements[0]] });
   }) as unknown as typeof fetch;
   const first = await buildPlaces(twoTiles, path, { fetcher, pause: 0 });
-  deepStrictEqual([first.count, first.missing], [1, ['37.25,-122,37.5,-121.75']]);
+  deepStrictEqual([first.count, first.missing, first.kept], [1, ['37.25,-122,37.5,-121.75'], false]);
   strictEqual(asked.slice(0, 2).join(), 'overpass-api.de,overpass.private.coffee');
-  // What it found is searchable, and the tiles wait for the next build.
+  // With no list before it, what it found is searchable, and the tiles wait for the next build.
   const built = new Places(path);
   strictEqual(built.get('n1')?.name, 'Philz Coffee');
   built.close();
@@ -116,10 +116,41 @@ test('a busy server hands the tile to the next, fetched tiles are kept for a rer
   asked.length = 0;
   const again = await fetchPlaces(twoTiles, { cacheDir: `${path}.tiles`, fetcher, pause: 0 });
   deepStrictEqual([again.elements.length, asked.length], [1, 6]);
-  // Once every tile is in, the cache goes.
+  // Once every tile is in, the tiles stay, each the last answer for its tile.
   busy = false;
   deepStrictEqual((await buildPlaces(twoTiles, path, { fetcher, pause: 0 })).missing, []);
-  strictEqual(existsSync(`${path}.tiles`), false);
+  strictEqual(readdirSync(`${path}.tiles`).length, 2);
+});
+
+test("a rebuild no server answers keeps every place, from each tile's last answer, and the list there when even those are gone", async () => {
+  const path = join(mkdtempSync(join(tmpdir(), 'places-')), 'places.db');
+  const twoTiles = [stops[0]!, { lat: 37.33, lon: -121.89 }];
+  const sanJose = (body: string) => decodeURIComponent(body).includes('37.25,-122,');
+  const arena: OsmElement = { type: 'node', id: 9, lat: 37.3328, lon: -121.901, tags: { name: 'SAP Center', leisure: 'stadium' } };
+  let answering = true;
+  const fetcher = (async (_url: string, init: { body: string }) => {
+    if (!answering) return new Response('busy', { status: 504 });
+    return Response.json({ elements: [sanJose(init.body) ? arena : elements[0]] });
+  }) as unknown as typeof fetch;
+  const found = () => {
+    const built = new Places(path);
+    const names = ['n1', 'n9'].map((id) => built.get(id)?.name);
+    built.close();
+    return names;
+  };
+  deepStrictEqual(await buildPlaces(twoTiles, path, { fetcher, pause: 0 }), { count: 2, missing: [], stale: [], kept: false });
+  // A week on, every server is down, and each tile's last answer stands in for it.
+  const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000);
+  for (const file of readdirSync(`${path}.tiles`)) utimesSync(join(`${path}.tiles`, file), weekAgo, weekAgo);
+  answering = false;
+  const stale = await buildPlaces(twoTiles, path, { fetcher, pause: 0 });
+  deepStrictEqual([stale.count, stale.missing, stale.stale.length, stale.kept], [2, [], 2, false]);
+  deepStrictEqual(found(), ['Philz Coffee', 'SAP Center']);
+  // With the answers lost as well, the list there stays as it was.
+  rmSync(`${path}.tiles`, { recursive: true });
+  const lost = await buildPlaces(twoTiles, path, { fetcher, pause: 0 });
+  deepStrictEqual([lost.missing.length, lost.kept], [2, true]);
+  deepStrictEqual(found(), ['Philz Coffee', 'SAP Center']);
 });
 
 test('an answer a server cut short, out of time or memory, is no answer, and the next server is asked', async () => {

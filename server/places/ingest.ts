@@ -1,6 +1,7 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import { get, openDatabase } from '../db.ts';
 import { distanceMeters, type Point, pointGrid } from '../geo.ts';
 import { searchText } from '../gtfs/search-text.ts';
 
@@ -17,6 +18,9 @@ const USER_AGENT = 'Transfers (transfers.gerbil-porgy.cc)';
 // answers would otherwise hold the build forever.
 const QUERY_SECONDS = 180;
 const ANSWER_MS = (QUERY_SECONDS + 30) * 1000;
+// A tile fetched this recently is as good as new, so a build that tries again the next night asks
+// only for the tiles the last one could not get, while the weekly build asks for every one.
+const FRESH_TILE_MS = 3 * 24 * 3600 * 1000;
 const TILE_DEGREES = 0.25;
 // Places this far from every stop are no use to a transit rider.
 const NEAR_STOP_METERS = 1500;
@@ -71,42 +75,71 @@ export type PlaceRow = { id: string; name: string; otherNames: string; kind: str
 type FetchOptions = { fetcher?: typeof fetch; log?: (line: string) => void; pause?: number };
 
 // Builds the places database at `path` from the tiles around the stops, swapping it in whole so a
-// reader never sees one half built. Each tile is kept beside it once fetched, until a build has
-// every tile, so a build that stops partway, as when every server is busy, picks up where it left
-// off. A tile no server answers for is left out and named in `missing`.
+// reader never sees one half built. Each tile's last answer is kept beside it for good, so a tile
+// no server answers for has last week's places (`stale`), and a build that stops partway, as when
+// every server is busy, picks up where it left off. A tile with no answer ever is left out
+// (`missing`), and a build that leaves out a tile the database there has keeps that one (`kept`).
 export async function buildPlaces(stops: Point[], path: string, options: FetchOptions = {}) {
-  const cacheDir = `${path}.tiles`;
-  const { elements, missing } = await fetchPlaces(stops, { ...options, cacheDir });
+  const { elements, missing, stale } = await fetchPlaces(stops, { ...options, cacheDir: `${path}.tiles` });
   const places = placesFrom(elements, stops);
-  const temporary = `${path}.new`;
-  buildPlacesDatabase(places, temporary, missing.length);
-  renameSync(temporary, path);
-  if (missing.length === 0) rmSync(cacheDir, { recursive: true, force: true });
-  return { count: places.length, missing };
+  const leftOut = leftOutOf(path);
+  const kept = leftOut !== null && missing.some((box) => !leftOut.includes(box));
+  if (!kept) {
+    const temporary = `${path}.new`;
+    buildPlacesDatabase(places, temporary, { missing, stale: stale.length });
+    renameSync(temporary, path);
+  }
+  return { count: places.length, missing, stale, kept };
 }
 
-// Every named place in the tiles around the stops, fetched one tile at a time, or read from
-// `cacheDir` where an earlier build fetched it.
+// The tiles the places database at `path` was built without, or null when there is none to keep.
+function leftOutOf(path: string): string[] | null {
+  if (!existsSync(path)) return null;
+  try {
+    const db = openDatabase(path, { readOnly: true });
+    try {
+      // One built before the tiles it left out were named has them all.
+      return JSON.parse(get<{ value: string }>(db, "SELECT value FROM meta WHERE key = 'left_out'")?.value ?? '[]') as string[];
+    } finally {
+      db.close();
+    }
+  } catch {
+    return null;
+  }
+}
+
+// Every named place in the tiles around the stops, fetched one tile at a time, as kept in
+// `cacheDir`. A tile fetched in the last few days is not asked for again, and one no server
+// answers for has its last answer, if any.
 export async function fetchPlaces(stops: Point[], options: FetchOptions & { cacheDir: string }) {
   const { cacheDir, fetcher = fetch, log = () => {}, pause = 5000 } = options;
   mkdirSync(cacheDir, { recursive: true });
   const tiles = [...new Set(stops.map(({ lat, lon }) => `${Math.floor(lat / TILE_DEGREES)}_${Math.floor(lon / TILE_DEGREES)}`))];
   const elements: OsmElement[] = [];
   const missing: string[] = [];
+  const stale: string[] = [];
   for (const [index, tile] of tiles.entries()) {
     const [row, column] = tile.split('_').map(Number) as [number, number];
     const box = `${row * TILE_DEGREES},${column * TILE_DEGREES},${(row + 1) * TILE_DEGREES},${(column + 1) * TILE_DEGREES}`;
-    const cached = join(cacheDir, `${tile}.json`);
-    if (existsSync(cached)) {
-      elements.push(...(JSON.parse(readFileSync(cached, 'utf8')) as OsmElement[]));
+    const copy = join(cacheDir, `${tile}.json`);
+    const copiedAt = existsSync(copy) ? statSync(copy).mtimeMs : null;
+    const readCopy = () => JSON.parse(readFileSync(copy, 'utf8')) as OsmElement[];
+    if (copiedAt !== null && Date.now() - copiedAt < FRESH_TILE_MS) {
+      elements.push(...readCopy());
       continue;
     }
     const query = `[out:json][timeout:${QUERY_SECONDS}];(${KEYS.map((key) => `nwr["name"]["${key}"](${box});`).join('')});out center tags;`;
     const fetched = await fetchTile(fetcher, query, pause);
     if (fetched) {
-      writeFileSync(cached, JSON.stringify(fetched));
+      // Written whole and then swapped in, so the last answer survives a write cut short.
+      writeFileSync(`${copy}.new`, JSON.stringify(fetched));
+      renameSync(`${copy}.new`, copy);
       elements.push(...fetched);
       log(`Tile ${index + 1} of ${tiles.length}: ${fetched.length} places`);
+    } else if (copiedAt !== null) {
+      stale.push(box);
+      elements.push(...readCopy());
+      log(`Tile ${index + 1} of ${tiles.length}: no server answered, so its last answer stands`);
     } else {
       missing.push(box);
       log(`Tile ${index + 1} of ${tiles.length}: no server answered`);
@@ -114,7 +147,7 @@ export async function fetchPlaces(stops: Point[], options: FetchOptions & { cach
     // One tile at a time, with a pause, as Overpass asks of bulk use.
     await new Promise((resolve) => setTimeout(resolve, pause));
   }
-  return { elements, missing };
+  return { elements, missing, stale };
 }
 
 // One tile from the first server that answers, giving each a few tries when busy.
@@ -178,8 +211,9 @@ function fameOf(key: (typeof KEYS)[number], tags: Record<string, string>) {
 
 // The search index holds names as stop names are held (see searchText), so "Café" answers to
 // "cafe". It leaves out streets: a rider typing "24th st" wants the stops there, not every shop.
-// `missing` counts the tiles no server answered for, so the store tries again soon.
-export function buildPlacesDatabase(places: PlaceRow[], path: string, missing = 0) {
+// `missing` names the tiles no server ever answered for, and `stale` counts those from an older
+// answer, so the store tries again soon.
+export function buildPlacesDatabase(places: PlaceRow[], path: string, tiles: { missing: string[]; stale: number } = { missing: [], stale: 0 }) {
   rmSync(path, { force: true });
   const db = new DatabaseSync(path);
   try {
@@ -199,7 +233,8 @@ export function buildPlacesDatabase(places: PlaceRow[], path: string, missing = 
       index.run(lastInsertRowid, searchText(name), searchText(otherNames), searchText(kind));
     }
     db.prepare('INSERT INTO meta (key, value) VALUES (?, ?)').run('built_at', String(Math.floor(Date.now() / 1000)));
-    db.prepare('INSERT INTO meta (key, value) VALUES (?, ?)').run('missing', String(missing));
+    db.prepare('INSERT INTO meta (key, value) VALUES (?, ?)').run('missing', String(tiles.missing.length + tiles.stale));
+    db.prepare('INSERT INTO meta (key, value) VALUES (?, ?)').run('left_out', JSON.stringify(tiles.missing));
     db.exec('COMMIT');
   } finally {
     db.close();

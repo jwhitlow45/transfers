@@ -64,7 +64,7 @@ The internal networks use Docker's `isolated` gateway mode, which needs Docker 2
 cd ~/docker_compose/transfers && git pull && docker compose up -d --build
 ```
 
-The schedule database, place list and key usage survive in the volume. The schedule rebuilds itself daily around 3:30 AM Pacific. The place list, from OpenStreetMap, builds itself 10 minutes after the first start, taking about a quarter of an hour, and then again weekly around 4 AM Pacific (the next night when a server was too busy to send part of it). Search shows no places until the first build finishes.
+The schedule database, place list and key usage survive in the volume. The schedule rebuilds itself daily around 3:30 AM Pacific. The place list, from OpenStreetMap, builds itself 10 minutes after the first start, taking about a quarter of an hour, and then again weekly around 4 AM Pacific (the next night when a server was too busy to send part of it). Each part's last answer is kept in `places.db.tiles` in the volume, so a part no server sends keeps last week's places, and a rebuild never swaps in a list that has lost any. Search shows no places until the first build finishes.
 
 After a change to `docker/squid.conf`, restart the proxy too, since it reads the file only when it starts:
 

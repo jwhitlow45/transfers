@@ -25,7 +25,7 @@ type Candidate = PlaceResult & { fame: number; score: number };
 // Places by name, from their own database, apart from the schedule's.
 export class Places {
   readonly builtAt: number;
-  // Tiles the build had no answer for.
+  // Tiles the build had no fresh answer for, which the store asks for again soon.
   readonly missing: number;
   private readonly db: DatabaseSync;
 
@@ -77,6 +77,9 @@ export class Places {
 export class PlaceStore {
   private current: Places | null = null;
   private building: Promise<void> | null = null;
+  // When a rebuild last started, so one that could not swap in tries again the next night rather
+  // than every ten minutes of this one.
+  private triedAt = 0;
   private readonly path: string;
 
   constructor(dataDir: string) {
@@ -96,7 +99,7 @@ export class PlaceStore {
         console.error('Could not open the places database, rebuilding:', error);
       }
     }
-    const due = (places: Places) => nowSeconds() - places.builtAt > (places.missing > 0 ? INCOMPLETE_AGE_SECONDS : MAX_AGE_SECONDS);
+    const due = (places: Places) => nowSeconds() - places.builtAt > (places.missing > 0 ? INCOMPLETE_AGE_SECONDS : MAX_AGE_SECONDS) && nowSeconds() - this.triedAt > INCOMPLETE_AGE_SECONDS;
     // Not at once: a server restarted again and again, as in development, never asks Overpass.
     const timer = setInterval(() => {
       const current = schedule();
@@ -110,14 +113,20 @@ export class PlaceStore {
 
   private async build(schedule: Schedule) {
     const started = performance.now();
+    this.triedAt = nowSeconds();
     try {
       const stops = [...schedule.patternsByStop.keys()].map((id) => schedule.stop(id));
-      const { count, missing } = await buildPlaces(stops, this.path);
+      const { count, missing, stale, kept } = await buildPlaces(stops, this.path);
+      const seconds = ((performance.now() - started) / 1000).toFixed(0);
+      if (kept) {
+        console.log(`Places rebuild kept the previous ones after ${seconds} s: no server answered for ${missing.length} tiles they have`);
+        return;
+      }
       const previous = this.current;
       this.current = new Places(this.path);
       // The old file is already unlinked, and closing it frees the space.
       previous?.close();
-      console.log(`Places rebuilt in ${((performance.now() - started) / 1000).toFixed(0)} s: ${count} places${missing.length ? `, ${missing.length} tiles missing` : ''}`);
+      console.log(`Places rebuilt in ${seconds} s: ${count} places${missing.length ? `, ${missing.length} tiles missing` : ''}${stale.length ? `, ${stale.length} tiles from their last answer` : ''}`);
     } catch (error) {
       console.error('Places rebuild failed, keeping the previous ones:', error);
     }
