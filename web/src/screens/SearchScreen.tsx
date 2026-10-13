@@ -595,14 +595,27 @@ function HowItWorks({ open: openAtFirst }: { open: boolean }) {
       </button>
       <Collapse open={open} id="how-it-works">
         <p>
-          Pick where you start and the stop or route you are transferring to. Transfers shows the next few departures you can catch, and under each one every vehicle from
-          your stop that makes it within your transfer window, with live times from 511 and how long each transfer is.
+          Pick the stop where you start, then the route you want to catch or the stop you are going to. With nothing typed, From lists the stops near you.
+        </p>
+        <p>
+          Catching a route, Transfers shows its next few departures you can make, and under each one every vehicle from your stop that gets you there in time, with how long
+          each transfer is. Going to a stop, it shows every way there with one transfer or none, soonest there first, and trips with more changes when nothing simpler works.
+        </p>
+        <p>
+          You set the transfer window: the shortest and longest transfer you will accept. Trip planners pad transfers for lateness they cannot see, so they leave out tight
+          connections you can make. Transfers compares live times from 511 on both vehicles instead, so it shows those connections, and how late each vehicle is running.
         </p>
         <p>
           It helps most going from frequent service to infrequent, such as BART to a bus that comes every 20 minutes, where the train you catch decides whether you make
           the bus.
         </p>
-        <p>You set the transfer window, the shortest and longest transfer you will accept, so it shows tight connections a trip planner would leave out.</p>
+        <p>
+          It is built for one bar of signal, such as underground. Each request asks only for what the page shows, so answers stay small and arrive when bigger ones would
+          not. The last results show at once while new ones load, and extras like the live map load only when you open them.
+        </p>
+        <p>
+          Settings has your walking speed and longest walk, and step-free travel, which allows more time to change at stations and lists elevator outages on your way.
+        </p>
         <p>Tap a connection to pin it to the top of its results, where it stays and updates live until you unpin it.</p>
       </Collapse>
     </div>

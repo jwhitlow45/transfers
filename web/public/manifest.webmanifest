@@ -1,7 +1,7 @@
 {
   "name": "Transfers",
   "short_name": "Transfers",
-  "description": "Live transfer times between Bay Area transit stops",
+  "description": "Live Bay Area transit transfers with your own transfer window",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#111315",

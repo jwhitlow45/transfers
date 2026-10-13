@@ -1,8 +1,18 @@
 # Transfers
 
-Live transfer times between any two Bay Area transit stops: Muni, BART, SamTrans, and Golden Gate Transit. Pick where you board and the stop or route you want to transfer to, and it lists the next departures you can make, every vehicle that makes each one, and how late each is running.
+Live transfer times between Bay Area transit stops: Muni, BART, SamTrans, and Golden Gate Transit. Pick the stop where you start, then the route you want to catch or the stop you are going to.
 
-It also plans trips with any number of changes from a stop, or from where you are, to a stop. Between two stops, the results show trips and transfers as two tabs.
+- **A route in To:** the next departures of that route you can make, every vehicle from your stop that makes each one, how long each transfer is, and how late each vehicle is running.
+- **A stop in To:** every way there with one transfer or none, soonest arrival first. When nothing that simple gets there, trips with more changes follow.
+- **From** is always a stop. With nothing typed, it lists the stops nearest you.
+
+## Why it exists
+
+- **You set the transfer window.** The shortest and longest transfer you will accept is yours, per search or for every search. Trip planners working from schedules pad each transfer for lateness they cannot see, so they leave out tight connections a rider can make. Transfers shows them, and those the window hides are a tap away, each with its reason.
+- **Live times on both vehicles, and no hidden padding.** Both legs use 511's live predictions where it has them. Each transfer's minimum is the physical time to change, rounded up to whole minutes, with a few timed by hand. See [docs/transfer-rules.md](docs/transfer-rules.md).
+- **Built for one bar of signal.** Riders use it walking to a station, on a platform, or on a train underground. Each request asks only for what one page shows, and each answer carries only the fields the page reads, so answers stay small and get through when bigger ones would not. The last results show at once while new ones load, and extras like the live vehicle map load only when opened.
+- **Accessible.** It works with a screen reader and a keyboard. Step-free travel allows more time to change at stations and lists elevator outages on the way, and escalator outages can be listed too.
+- **It helps most going from frequent service to infrequent,** such as BART to a bus every 20 minutes, where the train you catch decides whether you make the bus.
 
 Data provided by [511.org](https://511.org) and BART.
 
@@ -26,7 +36,7 @@ Checks: `pnpm typecheck` (TypeScript 7) and `pnpm test` (Node's test runner).
   - `gtfs/`: loads 511's static schedules into SQLite.
   - `realtime/`: decodes GTFS-realtime feeds and spreads requests across 511 keys.
   - `engine/`: finds transfer points and pairs connections. The rules are in [docs/transfer-rules.md](docs/transfer-rules.md).
-  - `journeys/`: plans trips with any number of changes (RAPTOR), from timetables kept in memory.
+  - `journeys/`: plans trips with any number of changes (RAPTOR), from timetables kept in memory, for a stop no way with one transfer reaches.
   - `api/`, `main.ts`: the HTTP API.
 - `web/`: Preact frontend built with Vite.
 - `shared/api.ts` and `shared/journeys.ts`: the JSON the API sends.
