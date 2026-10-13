@@ -3,8 +3,10 @@ import type { PatternTrips } from './timetable.ts';
 
 // RAPTOR (Delling, Pajor and Werneck, "Round-Based Public Transit Routing", 2012): round k finds
 // the earliest the rider can reach each stop with k vehicles, by riding every pattern from the
-// stops the last round reached, then walking on to stops nearby. Each round that reaches the end
-// sooner than the rounds before gives one journey: the fastest for that many vehicles.
+// stops the last round reached, then walking on to stops nearby. Each round from the first that
+// reaches the end sooner than the rounds before gives one journey: the fastest for that many
+// vehicles. Walking all the way is the planner's to offer, timed straight there rather than by
+// way of stops, so round 0 gives no journey, and leaves out none that is slower than walking.
 
 // A stop with the seconds it takes to walk between it and where the rider starts or ends.
 export type Access = { stop: number; seconds: number };
@@ -47,8 +49,8 @@ type Round = { arrived: Float64Array; arrivals: Map<number, Arrival>; ready: Flo
 const LATE_SECONDS = 3600;
 const EARLY_SECONDS = 600;
 
-// The fastest way to the end for each number of vehicles up to `maxRides` that arrives sooner than
-// any with fewer, fewest first, setting off at `leaveAt` and arriving before `latest`.
+// The fastest way to the end for each number of vehicles from one up to `maxRides` that arrives
+// sooner than any with fewer, fewest first, setting off at `leaveAt` and arriving before `latest`.
 export function raptor(network: Network, starts: Access[], ends: Access[], leaveAt: number, maxRides: number, latest = Infinity): Path[] {
   // The soonest the rider has arrived at each stop, and been ready to board there, in any round
   // so far, which a later round, with a vehicle more, has to beat. A vehicle that gets somewhere
@@ -74,7 +76,6 @@ export function raptor(network: Network, starts: Access[], ends: Access[], leave
   }
   let marked = getReady(round, started);
   rounds.push(round);
-  bound = Math.min(bound, record(0));
 
   for (let k = 1; k <= maxRides && marked.size > 0; k++) {
     const previous = round;

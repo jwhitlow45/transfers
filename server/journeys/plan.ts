@@ -28,7 +28,7 @@ const HORIZON_SECONDS = 4 * 3600;
 // How far a rider walks between a point and a stop, and further when nothing is that close.
 const ACCESS_METERS = 800;
 const FAR_ACCESS_METERS = 1600;
-// Ends closer than this get a walk among their journeys.
+// Ends closer than this get a walk among their journeys, as do any it gets between soonest.
 const WALK_ONLY_METERS = 2000;
 // Changing vehicles without leaving the stop.
 const CHANGE_SECONDS = 60;
@@ -80,16 +80,19 @@ export function planJourneys(schedule: Schedule, realtime: RealtimeView, from: E
   for (let search = 0; search < count * MAX_SEARCHES_PER_JOURNEY && starts.length > 0 && ends.length > 0 && journeys.length <= count; search++) {
     const paths = raptor(network, starts, ends, leaveAt, maxRides, now + HORIZON_SECONDS);
     const fastest = paths.at(-1);
-    // Walking there beats every vehicle, and later still would.
-    if (!fastest || fastest.rides === 0) break;
-    const found = paths.filter(({ rides }) => rides > 0).map((path) => journeyOf(schedule, network, latestBoarding(network, path)));
-    journeys = keepBest([...journeys, ...found]);
+    if (!fastest) break;
+    journeys = keepBest([...journeys, ...paths.map((path) => journeyOf(schedule, network, latestBoarding(network, path)))]);
     leaveAt = leavesAt(fastest) + 60;
   }
-  const walk = walkOnly(schedule, from, to, now, options.speed);
-  if (walk) journeys.push(walk);
+  // Walking all the way is one of the ways between ends close enough, and between any, when it
+  // gets there first in the hours a search looks ahead. Vehicles it beats drop out.
+  const walk = walkOnly(from, to, now, options.speed);
+  const soonest = Math.min(now + HORIZON_SECONDS, ...journeys.map(({ arrives }) => arrives));
+  if (walk.meters <= WALK_ONLY_METERS || walk.journey.arrives <= soonest) journeys = keepBest([...journeys, walk.journey]);
   journeys.sort((a, b) => a.leaves - b.leaves || a.arrives - b.arrives);
   const shown = journeys.slice(0, count);
+  // With no way at all, a point no stop is near is why.
+  const far = shown.length > 0 ? null : from.kind === 'point' && starts.length === 0 ? 'from' : to.kind === 'point' && ends.length === 0 ? 'to' : null;
   const tables = new Tables(schedule);
   const { alerts, feeds } = serviceStatus(schedule, realtime, tables, tabulate(schedule, tables, shown, [from, to]));
   return {
@@ -101,6 +104,7 @@ export function planJourneys(schedule: Schedule, realtime: RealtimeView, from: E
     routes: tables.routes,
     stops: tables.stops,
     alerts,
+    ...(far ? { notice: { kind: 'far' as const, end: far } } : {}),
     feeds,
   };
 }
@@ -289,14 +293,13 @@ function keepBest(journeys: Journey[]) {
   return unique.filter((journey) => !unique.some((other) => other !== journey && beats(other, journey)));
 }
 
-// Between ends close enough, walking all the way is one of the ways.
-function walkOnly(schedule: Schedule, from: Endpoint, to: Endpoint, now: number, speed?: number): Journey | null {
+// Walking all the way, setting off now, and how far that is.
+function walkOnly(from: Endpoint, to: Endpoint, now: number, speed?: number): { meters: number; journey: Journey } {
   const at = (end: Endpoint) => (end.kind === 'stop' ? end.stop : end.at);
   const meters = distanceMeters(at(from), at(to));
-  if (meters > WALK_ONLY_METERS) return null;
   const seconds = Math.ceil(walkSeconds(meters, speed));
   const key = (end: Endpoint) => (end.kind === 'stop' ? stopKeyOf(end.stop) : null);
-  return { leaves: now, arrives: now + seconds, rides: 0, legs: [{ kind: 'walk', from: key(from), to: key(to), seconds }] };
+  return { meters, journey: { leaves: now, arrives: now + seconds, rides: 0, legs: [{ kind: 'walk', from: key(from), to: key(to), seconds }] } };
 }
 
 // Puts the stops and routes the journeys name in the tables, and gives the stops, routes and

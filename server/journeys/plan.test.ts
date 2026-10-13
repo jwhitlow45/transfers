@@ -139,6 +139,24 @@ test('a journey to a place walks from the nearest stops, and one to a place with
   deepStrictEqual(short.journeys[0], { leaves: NOW, arrives: short.journeys[0]!.arrives, rides: 0, legs: [{ kind: 'walk', from: 'SF:13500', to: null, seconds: short.journeys[0]!.arrives - NOW }] });
 });
 
+test('walking all the way is offered however far when nothing gets there sooner', () => {
+  // Over 2 km apart, a long walk each side of the one stop near both, and walking straight there
+  // is quicker than by way of it. At 10 nothing runs at all.
+  const [north, south] = [point(37.7685, -122.3887, 'North'), point(37.7469, -122.3887, 'South')];
+  for (const now of [NOW, DAY + 10 * 3600]) {
+    const { journeys } = planJourneys(schedule, realtime([], now), north, south, now);
+    deepStrictEqual(journeys.map(({ rides, legs }) => `${rides} ${legs.map(({ kind }) => kind)}`), ['0 walk']);
+    ok(journeys[0]!.arrives - now > 2000 / 1.4);
+  }
+});
+
+test('a trip from or to somewhere no stop is near says so', () => {
+  const nowhere = point(37.9, -122.6, 'Point Reyes');
+  deepStrictEqual(planJourneys(schedule, realtime(), nowhere, stop('SF:13700'), NOW).notice, { kind: 'far', end: 'from' });
+  deepStrictEqual(planJourneys(schedule, realtime(), stop('SF:13700'), nowhere, NOW).notice, { kind: 'far', end: 'to' });
+  strictEqual(planJourneys(schedule, realtime(), stop('BA:901209'), stop('SF:13700'), NOW).notice, undefined);
+});
+
 test("the feed's predictions time a journey where it has them", () => {
   // The 8:17 48 runs 2 minutes late, and still makes the 8:35 22.
   const first = planJourneys(schedule, realtime([fortyEight(3, 120)]), stop('BA:901209'), stop('SF:13700'), NOW).journeys[0]!;
@@ -148,8 +166,10 @@ test("the feed's predictions time a journey where it has them", () => {
   const train = rideLegs(first.legs)[0]!;
   deepStrictEqual([train.live, train.departDelay], [false, null]);
   // 16 minutes late, it comes after the 8:32, so the rider takes that one and the train before it.
-  const late = planJourneys(schedule, realtime([fortyEight(3, 960)]), stop('BA:901209'), stop('SF:13700'), NOW).journeys[0]!;
-  deepStrictEqual(rides(late.legs), ['BA:Yellow-S 8:20:00', 'SF:48 8:32:00', 'SF:22 8:45:00']);
+  // Setting off now, walking there gets in a moment sooner.
+  const late = planJourneys(schedule, realtime([fortyEight(3, 960)]), stop('BA:901209'), stop('SF:13700'), NOW).journeys;
+  deepStrictEqual(late.slice(0, 2).map(({ legs }) => rides(legs)), [[], ['BA:Yellow-S 8:20:00', 'SF:48 8:32:00', 'SF:22 8:45:00']]);
+  ok(late[0]!.arrives < late[1]!.arrives);
 });
 
 test('a journey never relies on a canceled trip, or one that has left the stop', () => {
@@ -157,7 +177,7 @@ test('a journey never relies on a canceled trip, or one that has left the stop',
   const journeys = planJourneys(schedule, canceled, stop('BA:901209'), stop('SF:13700'), NOW).journeys;
   ok(journeys.length > 0);
   ok(journeys.every(({ legs }) => rideLegs(legs).every(({ trip }) => trip !== 'SF:m3')));
-  deepStrictEqual(rides(journeys[0]!.legs), ['BA:Yellow-S 8:20:00', 'SF:48 8:32:00', 'SF:22 8:45:00']);
+  deepStrictEqual(rides(journeys.find(({ rides }) => rides > 0)!.legs), ['BA:Yellow-S 8:20:00', 'SF:48 8:32:00', 'SF:22 8:45:00']);
   // At 8:16 the feed lists the 8:17 48 only at Potrero, so it has left 24th & Mission early,
   // though its delay there would put it a minute away.
   const now = DAY + 8 * 3600 + 16 * 60;
