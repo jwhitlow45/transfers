@@ -176,8 +176,9 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
         answer();
         settle = setTimeout(() => setState((current) => ({ ...current, feed: 'live' })), Math.max(0, MIN_REFRESH_MS - (Date.now() - started)));
       } catch (error) {
-        // Aborted for a newer request or for leaving the page: that one takes over.
-        if ((error as Error).name === 'AbortError' && !timedOut) return;
+        // Aborted for a newer request or for leaving the page: that one takes over. Checked on the
+        // signal, as an abort while reading an error answer's body comes out as that error.
+        if (request.signal.aborted && !timedOut) return;
         // A timeout or a network failure both mean the server could not be reached.
         const unreachable = timedOut || !navigator.onLine || error instanceof TypeError;
         setState((current) => ({ ...current, error: unreachable ? null : (error as Error).message, feed: unreachable ? 'offline' : 'live' }));
