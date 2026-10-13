@@ -1,6 +1,6 @@
 import type { AgencyId, PinRequest, StopResponse } from '../../shared/api.ts';
 import { pinnedTrip } from '../engine/pinned.ts';
-import { type RealtimeView, serviceStatus } from '../engine/realtime-view.ts';
+import { type AccessNeeds, type RealtimeView, serviceStatus, stationOutages } from '../engine/realtime-view.ts';
 import { Tables } from '../engine/views.ts';
 import { RequestError } from '../http.ts';
 import { routeKeyOf, type Schedule, stopKeyOf } from '../schedule.ts';
@@ -12,8 +12,9 @@ export const STOP_ARRIVALS = 6;
 
 // What comes to one stop, for riders who want a stop's arrivals rather than a transfer (J,
 // 2026-10-09). A BART platform stands for its station, so both directions show, and a shared
-// downtown station shows Muni Metro's platforms too.
-export function stopArrivals(schedule: Schedule, realtime: RealtimeView, key: string, now: number, pin?: PinRequest): StopResponse {
+// downtown station shows Muni Metro's platforms too. With `needs`, the station's elevator and
+// escalator outages the rider asked about come too.
+export function stopArrivals(schedule: Schedule, realtime: RealtimeView, key: string, now: number, pin?: PinRequest, needs: AccessNeeds = {}): StopResponse {
   const asked = schedule.stopsByKey.get(key);
   if (!asked) throw new RequestError(404, `No stop ${key}`);
   const stop = schedule.stationOf(asked);
@@ -30,6 +31,9 @@ export function stopArrivals(schedule: Schedule, realtime: RealtimeView, key: st
   const agencies = new Set<AgencyId>([...routeIds].map((id) => schedule.route(id).agency));
   const stopKeys = new Set([stop, ...schedule.boardingStops(stop)].map(stopKeyOf));
   const { alerts, feeds } = serviceStatus(schedule, realtime, tables, { stops: stopKeys, routes: new Set([...routeIds].map((id) => routeKeyOf(schedule.route(id)))), agencies });
+  const rowStops = shown.map(({ row }) => ({ key: stopKeyOf(schedule.stationOf(row.stop)), bart: row.routes.some((id) => schedule.route(id).agency === 'BA') }));
+  // As on results, a shared station's BART platform outages count only where BART boards.
+  const bartAt = new Set(rowStops.filter(({ bart }) => bart).map(({ key: rowStop }) => rowStop));
   return {
     generatedAt: now,
     dataAt: realtime.updatedAt,
@@ -45,6 +49,7 @@ export function stopArrivals(schedule: Schedule, realtime: RealtimeView, key: st
     routes: tables.routes,
     stops: tables.stops,
     alerts,
+    ...(needs.stepFree || needs.escalators ? { access: stationOutages(schedule, tables, realtime.access ?? [], needs, bartAt, [stopKeyOf(stop), ...rowStops.map(({ key: rowStop }) => rowStop)]) } : {}),
     feeds,
     // As a trip's pinned vehicle is found, so a canceled one, or one delayed past the list, says so.
     ...(pin ? { pinned: pinnedTrip(schedule, realtime.trips, { second: pin.second, at: pin.at }, [key], [], tables, now), pin } : {}),

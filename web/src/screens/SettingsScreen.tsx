@@ -168,7 +168,7 @@ export function SettingsScreen() {
           </div>
           <div class="tf-setting tf-setting--last">
             <div class="tf-setting__label">Escalator outages</div>
-            <div class="tf-setting__help">Marks escalators out of service at BART stations on your trip, from bart.gov's status pages.</div>
+            <div class="tf-setting__help">Marks escalators out of service at BART stations on your trip and at a station whose arrivals you open, from bart.gov's status pages.</div>
             <div class="tf-filters">
               <Toggle pressed={settings.escalatorOutages} onToggle={() => update({ escalatorOutages: !settings.escalatorOutages })}>
                 Show escalator outages

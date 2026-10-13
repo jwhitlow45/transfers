@@ -84,7 +84,8 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
     case '/api/stop': {
       const stop = url.searchParams.get('stop');
       if (!stop) throw new RequestError(400, 'Send stop');
-      return sendJson(request, response, stopArrivals(schedule, await realtimeView(), stop, nowSeconds(), readPin(url.searchParams, (name) => numberParam(url.searchParams, name))));
+      const needs = accessNeeds(url.searchParams);
+      return sendJson(request, response, stopArrivals(schedule, await realtimeView(needs), stop, nowSeconds(), readPin(url.searchParams, (name) => numberParam(url.searchParams, name)), needs));
     }
     case '/api/nearby': {
       const center = point(url.searchParams);

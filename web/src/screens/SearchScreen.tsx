@@ -638,7 +638,7 @@ function StopPinHome({ pin, name, now, pulls, onPin, onUpdate, onReport }: {
 }) {
   const { settings } = useSettings();
   const { search } = pin;
-  const polled = usePoll<StopResponse>(apiUrl.stop(search.from, pin), 30_000, null, apiUrl.stop(search.from));
+  const polled = usePoll<StopResponse>(apiUrl.stop(search.from, settings, pin), 30_000, null, apiUrl.stop(search.from, settings));
   const { data, feed, answered } = polled;
   const live = useHomeLive(polled, `pin:${searchId(search)}`, pulls, onReport, now);
   const { expired } = useStopPin(pin, data, answered, search, settings, live.now, onUpdate);
@@ -774,7 +774,8 @@ function SavedStop({ search, now, pulls, onMove, canMoveUp, canMoveDown, onRepor
   onRemove: () => void;
 }) {
   const slot = useRef<HTMLDivElement>(null);
-  const polled = usePoll<StopResponse>(apiUrl.stop(search.from), useOnScreen(slot) ? 30_000 : OFF_SCREEN_POLL_MS);
+  const { settings } = useSettings();
+  const polled = usePoll<StopResponse>(apiUrl.stop(search.from, settings), useOnScreen(slot) ? 30_000 : OFF_SCREEN_POLL_MS);
   const { data, feed } = polled;
   const live = useHomeLive(polled, `saved:${search.id}`, pulls, onReport, now);
   const serverNow = live.now;

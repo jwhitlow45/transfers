@@ -1,4 +1,4 @@
-import { useEffect } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import type { NearbyArrival, StopResponse } from '../../../shared/api.ts';
 import { AlertList } from '../components/AlertList.tsx';
 import { BottomBar } from '../components/BottomBar.tsx';
@@ -27,6 +27,8 @@ import { Fold } from '../components/Fold.tsx';
 import { ArrivalItem, RouteCard, routesOf, rowKey, upcoming } from '../components/RouteCard.tsx';
 import { EmptyState } from '../components/EmptyState.tsx';
 import { failureOf } from '../lib/failure.ts';
+import { type StationOutages, outagesByStation } from '../lib/outages.ts';
+import { OutageSheet, OutageTag } from '../components/Outages.tsx';
 import { AppLink } from '../components/AppLink.tsx';
 import { apiUrl } from '../api.ts';
 
@@ -45,7 +47,7 @@ export function StopScreen({ search }: { search: Search }) {
   const records = useSearchRecords(search, showToast);
   const { saved, pin, changePin, dismissedIds, dismiss } = records;
   // Asked with the pin, its answer stored as the stop's, which Home's cards share, as results do.
-  const { data, error, fetchedAt, feed, settled, answered, refresh } = usePoll<StopResponse>(apiUrl.stop(search.from, pin), 30_000, null, apiUrl.stop(search.from));
+  const { data, error, fetchedAt, feed, settled, answered, refresh } = usePoll<StopResponse>(apiUrl.stop(search.from, settings, pin), 30_000, null, apiUrl.stop(search.from, settings));
   const { now, fresh, showStale, secondsSinceUpdate } = liveClock({ data, fetchedAt, settled }, useNow());
   useSwipeBack(() => goBack());
   useEffect(() => {
@@ -58,6 +60,9 @@ export function StopScreen({ search }: { search: Search }) {
   const pinFromStop = (next: Pin | null) => records.pinWithUndo(next, data?.routes);
   const allAlerts = data ? viewAlerts(data, new Set([data.stop, ...data.rows.map(({ stop }) => stop)]), { elevators: settings.stepFree, escalators: settings.escalatorOutages }) : [];
   const alerts = allAlerts.filter(({ id }) => !dismissedIds.has(id));
+  // An elevator or escalator out at the stop's BART station, for riders who asked, as on results.
+  const outages = outagesByStation(data?.access ?? []);
+  const [outagesOpen, setOutagesOpen] = useState<StationOutages | null>(null);
   // Saved by the stop's own name, in the color of its busiest route.
   const toggleSaved = () => {
     const busiest = data?.rows[0] && data.routes[data.rows[0].routes[0]!];
@@ -81,6 +86,13 @@ export function StopScreen({ search }: { search: Search }) {
             </EmptyState>
           )}
           {pin && <StopPinCard pin={pin} data={data} now={now} offline={feed === 'offline'} stale={null} onPin={pinFromStop} />}
+          {data && outages.length > 0 && (
+            <div class="tf-outage-tags tf-outage-tags--lead">
+              {outages.map((station) => (
+                <OutageTag key={station.station} outages={station} data={data} onOpen={() => setOutagesOpen(station)} />
+              ))}
+            </div>
+          )}
           {data && <AlertList key={data.stop} alerts={alerts} dismissed={allAlerts.length - alerts.length} onDismiss={dismiss} />}
           {!data && feed === 'loading' && <SkeletonResults />}
           {data && rows.length === 0 && <EmptyState title="No routes stop here" />}
@@ -134,6 +146,7 @@ export function StopScreen({ search }: { search: Search }) {
       <BottomBar windowText={null} saved={saved !== null} failed={failure !== null && !data} onBack={() => goBack()} onToggleSaved={toggleSaved}>
         <Toast message={toast} onDone={clearToast} />
       </BottomBar>
+      {outagesOpen && data && <OutageSheet outages={outagesOpen} data={data} onClose={() => setOutagesOpen(null)} />}
     </>
   );
 }

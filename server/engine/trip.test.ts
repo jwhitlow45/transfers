@@ -716,6 +716,24 @@ test("a stop's arrivals list each route and direction there, soonest first, and 
   throws(() => stopArrivals(schedule, realtime(), 'SF:0', NOW), /No stop/);
 });
 
+test("a stop's arrivals list its station's elevator and escalator outages for riders who asked", () => {
+  const outages = [
+    { station: 'mont', kind: 'elevator' as const, location: 'Platform', reason: 'Repair', returns: '10/23/2026' },
+    { station: 'mont', kind: 'escalator' as const, location: 'Street to Concourse', reason: null, returns: null },
+    // Another station's.
+    { station: '24th', kind: 'elevator' as const, location: 'Street to Concourse', reason: null, returns: null },
+  ];
+  const at = (stop: string, needs: { stepFree?: boolean; escalators?: boolean }) => stopArrivals(schedule, { ...realtime(), access: outages }, stop, NOW, undefined, needs).access;
+  strictEqual(at('BA:901201', {}), undefined);
+  deepStrictEqual(at('BA:901201', { stepFree: true }), [{ station: 'BA:901209', stops: ['BA:901209'], kind: 'elevator', location: 'Platform', reason: 'Repair', returns: '10/23/2026' }]);
+  deepStrictEqual(
+    at('BA:901201', { stepFree: true, escalators: true })?.map(({ kind, location }) => `${kind} ${location}`),
+    ['elevator Platform', 'escalator Street to Concourse'],
+  );
+  // A street stop is at no BART station.
+  deepStrictEqual(at('SF:13477', { stepFree: true, escalators: true }), []);
+});
+
 test('every page names a direction as results do: a ferry by its last stop, a backtick as ’, and no "via"', () => {
   const headsignOf = (rows: { routes: string[]; headsign: string }[], route: string) => rows.find(({ routes }) => routes.includes(route))?.headsign;
   const near = nearby(named, realtime(), { lat: 37.752178, lon: -122.41855 }, 400, NOW).nearby;

@@ -95,9 +95,12 @@ export const apiUrl = {
   // changing what results show asks nothing again.
   destinations: (tripUrl: string) => `/api/destinations?${only(tripUrl, ['from', 'to', 'walk', 'speed', 'fm', 'tm'])}`,
   // A stop's arrivals, which its page, its saved card, and a pinned arrival all ask for, the pin's
-  // vehicle with them when one is pinned there.
-  stop(stop: string, pin: PinRequest | null = null) {
+  // vehicle with them when one is pinned there. Each asks with the rider's access settings, so all
+  // three share one stored answer, with the station's outages for the page.
+  stop(stop: string, settings: DeviceSettings, pin: PinRequest | null = null) {
     const params = new URLSearchParams({ stop });
+    if (settings.stepFree) params.set('stepfree', '1');
+    if (settings.escalatorOutages) params.set('escalators', '1');
     if (pin) writePin(params, pin);
     return `/api/stop?${params}`;
   },
