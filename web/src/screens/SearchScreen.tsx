@@ -7,7 +7,7 @@ import { RecentList } from '../components/RecentList.tsx';
 import { PinnedCard, PinnedFrame, waitingNote } from '../components/PinnedCard.tsx';
 import { SavedSearchCard, SavedTripBody } from '../components/SavedSearchCard.tsx';
 import { SearchFields } from '../components/SearchFields.tsx';
-import { type SearchHit, StopResults, hitMeta, hitName } from '../components/StopResults.tsx';
+import { hitMeta, hitName, searchCount, type SearchHit, StopResults } from '../components/StopResults.tsx';
 import { Toast, useToast } from '../components/Toast.tsx';
 import { ScreenHeader } from '../components/ResultsHeader.tsx';
 import { clock, minutesUntil } from '../format.ts';
@@ -493,6 +493,11 @@ export function SearchScreen() {
           </div>
         )}
         {query && response && <StopResults query={query} response={response} onPick={pick} onPickPlace={pickPlace} includesRoutes={focus === 'to'} near={near} />}
+        {/* What a screen reader hears of each answer, mounted from the start, as a live region only
+            speaks what changes in it. */}
+        <div class="tf-sr" aria-live="polite">
+          {query && response ? searchCount(query, response, focus === 'to') : ''}
+        </div>
         {/* Hidden rather than unmounted under the suggestions, so the saved cards keep their times
             and the status line above the fields stays put while the rider types. */}
         <div class="tf-home-rest" hidden={showingResults}>

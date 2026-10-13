@@ -35,8 +35,19 @@ function hitDirection(hit: StopSearchResult) {
   return [hit.direction, hit.toward.length > 0 && `toward ${hit.toward.join(', ')}`].filter(Boolean).join(', ');
 }
 
-// A plain list of buttons under a polite live count. It is not a listbox, since there is no
-// arrow-key model to go with one.
+const hitsCount = (query: string, count: number, includesRoutes: boolean) =>
+  count === 0 ? `Nothing matches “${query}”` : count === 1 ? `1 ${includesRoutes ? 'stop or route' : 'stop'} matches “${query}”` : `${count} ${includesRoutes ? 'stops and routes' : 'stops'} match “${query}”`;
+
+// What a screen reader hears of an answer, its stops and places together (see SearchScreen).
+export function searchCount(query: string, response: SearchResponse, includesRoutes: boolean) {
+  const [hits, places] = [response.results.length, response.places?.length ?? 0];
+  const placeCount = places === 1 ? '1 place' : `${places} places`;
+  if (places === 0) return hitsCount(query, hits, includesRoutes);
+  return hits === 0 ? `${placeCount} ${places === 1 ? 'matches' : 'match'} “${query}”` : `${hitsCount(query, hits, includesRoutes)}, and ${placeCount}`;
+}
+
+// A plain list of buttons, counted for screen readers by Home's live region (see searchCount). It
+// is not a listbox, since there is no arrow-key model to go with one.
 export function StopResults({ query, response, onPick, onPickPlace, includesRoutes, near }: {
   query: string;
   response: SearchResponse;
@@ -49,9 +60,7 @@ export function StopResults({ query, response, onPick, onPickPlace, includesRout
   const hits = response.results;
   const along = response.along ?? [];
   const places = response.places ?? [];
-  const noun = includesRoutes ? 'stop or route' : 'stop';
-  const label =
-    hits.length === 0 ? `Nothing matches “${query}”` : hits.length === 1 ? `1 ${noun} matches “${query}”` : `${hits.length} ${includesRoutes ? 'stops and routes' : 'stops'} match “${query}”`;
+  const label = hitsCount(query, hits.length, includesRoutes);
   return (
     <>
       {along.map((route) => (
@@ -59,7 +68,8 @@ export function StopResults({ query, response, onPick, onPickPlace, includesRout
       ))}
       {/* Enter takes the first match, except under a route's own stop list (see SearchScreen). */}
       {(hits.length > 0 || along.length === 0) && (places.length === 0 || hits.length > 0) && <HitList label={label} hits={hits} response={response} onPick={onPick} enterTakesFirst={along.length === 0} />}
-      {places.length > 0 && <PlaceList query={query} places={places} near={near} onPick={onPickPlace} enterTakesFirst={hits.length === 0 && along.length === 0} announce={hits.length === 0} />}
+      {places.length > 0 && <PlaceList places={places} near={near} onPick={onPickPlace} enterTakesFirst={hits.length === 0 && along.length === 0} />}
+
     </>
   );
 }
@@ -115,9 +125,7 @@ function HitList({ label, hits, response, onPick, enterTakesFirst }: {
 }) {
   return (
     <div class="tf-results" role="region" aria-label={label}>
-      <div class="tf-results__label" aria-live="polite">
-        {label}
-      </div>
+      <div class="tf-results__label">{label}</div>
       <div role="list">
         {hits.map((hit, index) => {
           const isRoute = hit.type === 'route';
@@ -157,21 +165,10 @@ function HitList({ label, hits, response, onPick, enterTakesFirst }: {
 // Places found by name, from OpenStreetMap, which its credit names under the list, as its license
 // asks wherever its data shows. A place is somewhere to walk to or from, so it has no routes. How far
 // away each is tells apart a chain's branches, as OpenStreetMap often has no street for them.
-// With no stop matching, its count is what a screen reader hears (`announce`), as the stops' is.
-function PlaceList({ query, places, near, onPick, enterTakesFirst, announce }: {
-  query: string;
-  places: PlaceResult[];
-  near: Position | null;
-  onPick: (place: PlaceResult) => void;
-  enterTakesFirst: boolean;
-  announce: boolean;
-}) {
-  const count = places.length === 1 ? `1 place matches “${query}”` : `${places.length} places match “${query}”`;
+function PlaceList({ places, near, onPick, enterTakesFirst }: { places: PlaceResult[]; near: Position | null; onPick: (place: PlaceResult) => void; enterTakesFirst: boolean }) {
   return (
     <div class="tf-results" role="region" aria-label="Places">
-      <div class="tf-results__label" aria-live={announce ? 'polite' : undefined}>
-        {announce ? count : 'Places'}
-      </div>
+      <div class="tf-results__label">Places</div>
       <div role="list">
         {places.map((place, index) => (
           <div role="listitem" key={place.id}>

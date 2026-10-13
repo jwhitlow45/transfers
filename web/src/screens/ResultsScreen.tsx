@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useId, useMemo, useState } from 'preact/hooks';
 import type { TripResponse } from '../../../shared/api.ts';
 import { apiUrl, takeInitialData } from '../api.ts';
 import { AlertList } from '../components/AlertList.tsx';
@@ -141,6 +141,8 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
   const filteredOut = filtering && groups.length > 0 && groups.every((group) => !group.widen && visibleDepartures(group, now, showHidden).every(({ canceled }) => canceled));
   const routeNames = (keys: string[] | undefined) => keys?.map((key) => (data?.routes[key] ? spokenRoute(data.routes[key]!) : null)).filter(Boolean).join(' or ');
   const tabs = isStopToStop(search);
+  // Its own, as a page kept under another can have tabs too.
+  const panel = useId();
   // Decided once, from the first results the page has, so the page never moves the rider from one
   // tab to the other as times change or as they turn points off.
   const [opening, setOpening] = useState<ResultsView | null>(null);
@@ -216,8 +218,8 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
           onRefresh={shown === 'trips' ? journeys.refresh : refresh}
         />
         <main class="tf-page" id="main">
-          {tabs && <Tabs label="Show" options={RESULTS_TABS} selected={shown} panel={RESULTS_PANEL} onChoose={(next) => navigate(resultsPath(search, next), { replace: true })} />}
-          <div {...(tabs ? tabPanel(RESULTS_PANEL, shown) : { class: 'tf-tabpanel' })}>
+          {tabs && <Tabs label="Show" options={RESULTS_TABS} selected={shown} panel={panel} onChoose={(next) => navigate(resultsPath(search, next), { replace: true })} />}
+          <div {...(tabs ? tabPanel(panel, shown) : { class: 'tf-tabpanel' })}>
           {shown === 'trips' ? (
             <>
               <LiveBanners feed={journeys.feed} fresh={tripsClock.fresh} showStale={tripsClock.showStale} secondsSinceUpdate={tripsClock.secondsSinceUpdate} />
@@ -389,7 +391,6 @@ function EmptyTrip({ data, search, summary, walk, update }: { data: TripResponse
 
 const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
-const RESULTS_PANEL = 'results-view';
 const RESULTS_TABS: { key: ResultsView; text: string }[] = [
   { key: 'trips', text: 'Trips' },
   { key: 'transfers', text: 'Transfers' },
