@@ -13,7 +13,7 @@ import { config, requireApiKeys } from './config.ts';
 import { trackTarget, trackVehicle } from './engine/track.ts';
 import { routeView, stopView } from './engine/views.ts';
 import type { AccessNeeds, RealtimeView } from './engine/realtime-view.ts';
-import { type TripRequest, destinations, planTrip, wayBack } from './engine/trip.ts';
+import { type TripRequest, destinations, planTrip } from './engine/trip.ts';
 import { LONGEST_WALK_METERS, type WalkSettings } from './engine/walk.ts';
 import { RequestError } from './http.ts';
 import { planJourneys, prepareJourneys, readEnds } from './journeys/plan.ts';
@@ -81,12 +81,6 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
     }
     case '/api/destinations':
       return sendJson(request, response, destinations(schedule, tripRequest(url.searchParams)));
-    case '/api/way-back': {
-      // The transfer point the page pinned or lists first: where its rider gets off, and boards.
-      const alight = url.searchParams.get('wa');
-      const board = url.searchParams.get('wb');
-      return sendJson(request, response, wayBack(schedule, tripRequest(url.searchParams), alight && board ? { alight, board } : undefined));
-    }
     case '/api/stop': {
       const stop = url.searchParams.get('stop');
       if (!stop) throw new RequestError(400, 'Send stop');
@@ -151,9 +145,7 @@ function tripRequest(params: URLSearchParams, from = params.get('from'), to = pa
   // BART or Muni Metro at a shared station: "BA", "SF", or both.
   const agencies = (name: string) => (params.get(name) ?? '').split(',').filter((agency): agency is 'BA' | 'SF' => agency === 'BA' || agency === 'SF');
   const fromAgencies = agencies('fm');
-  const toAgencies = agencies('tm');
   if (fromAgencies.length) request.fromAgencies = fromAgencies;
-  if (toAgencies.length) request.toAgencies = toAgencies;
   const pin = readPin(params, (name) => numberParam(params, name));
   if (pin) request.pin = pin;
   return request;

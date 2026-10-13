@@ -2,14 +2,7 @@ import { walkSeconds } from '../../shared/walk.ts';
 import type { Agency } from '../config.ts';
 import { distanceMeters } from '../geo.ts';
 import { type PatternRow, type RouteRow, type Schedule, type StopRow, stopKeyOf } from '../schedule.ts';
-import {
-  DEFAULT_MAX_WALK_METERS,
-  NAMED_STOP_MAX_WALK_METERS,
-  STATION_WALK_FACTOR,
-  minimumMinutes,
-  paceFreeSeconds,
-  transferSeconds,
-} from './walk.ts';
+import { DEFAULT_MAX_WALK_METERS, STATION_WALK_FACTOR, minimumMinutes, paceFreeSeconds, transferSeconds } from './walk.ts';
 
 // Transfers J has timed, keyed "<alight stop>><board stop>", in minutes. They win over the estimate.
 const CALIBRATED_MINUTES: Record<string, number> = {
@@ -22,9 +15,12 @@ const CALIBRATED_MINUTES: Record<string, number> = {
 const SHARED_STATION_SECONDS = 150;
 // A walk board nearer From wins over a busier one if it has at least this share of its trips.
 const BUSY_SHARE = 0.75;
-// A street stop this close to the named stop is the same place, such as the stop across the
-// street for the other direction. Half of SF's same-named stop pairs are 26 m apart, 80% within 50.
+// A stop this close to the one the rider is going to is the same place, such as the stop across
+// the street for the other direction. Half of SF's same-named stop pairs are 26 m apart, 80% within
+// 50. A station counts from its entrances.
 const SAME_CORNER_METERS = 50;
+// Further than any station's entrances are from its middle, for finding stops on its corners.
+const STATION_REACH_METERS = 500;
 
 export type BoardPattern = { pattern: PatternRow; position: number; stop: StopRow };
 export type FirstLegPattern = { pattern: PatternRow; origin: number; alight: number };
@@ -36,6 +32,7 @@ export type FirstLegPattern = { pattern: PatternRow; origin: number; alight: num
 //     own stop when it differs.
 //   walk: the route already stops at or near From, so the rider walks to `board` with no first
 //     vehicle at all.
+// Going to a stop, a link pools every route boarded at one place that gets there.
 export type Link = {
   key: string;
   kind: 'ride' | 'walk';
@@ -54,8 +51,6 @@ export type Link = {
   defaultMinutes: number;
   // Fewest stops ridden on the first leg, for ordering.
   stopsRidden: number;
-  // A walk longer than the usual range, kept only because nothing closer reaches the named stop.
-  long?: boolean;
 };
 
 export type LinkSettings = {
@@ -63,7 +58,6 @@ export type LinkSettings = {
   walkSpeed?: number;
   // At a shared station: ride from or catch BART's platforms, Muni Metro's, or both when empty.
   fromAgencies?: ReadonlySet<Agency>;
-  toAgencies?: ReadonlySet<Agency>;
   // Patterns running around now (Schedule.runningPatterns). Without it, every pattern counts.
   running?: ReadonlySet<number>;
   // Stop ids the rider wants to reach after boarding. Only target patterns that go on to one
@@ -73,8 +67,7 @@ export type LinkSettings = {
 
 type BoardStop = { stop: StopRow; patterns: { pattern: PatternRow; position: number }[] };
 
-// What the rider wants to board: a route in one direction, or every line leaving one rail
-// platform, since riders transferring to BART care which way the train goes, not its color.
+// What the rider wants to board: a route in one direction.
 type Target = { routes: RouteRow[]; direction: number | null; headsign: string; stops: BoardStop[] };
 
 type Feeder = { pattern: PatternRow; position: number; originStop: StopRow };
@@ -93,7 +86,6 @@ type Context = {
   schedule: Schedule;
   maxWalk: number;
   speed: number | undefined;
-  namedStop: boolean;
   splitSystems: boolean;
   // Where a vehicle boarded at `position` reaches the rider's destination: the position, or -1
   // when it never does. With no destination, where the pattern ends.
@@ -101,10 +93,13 @@ type Context = {
   hasDestination: boolean;
 };
 
+// A stop in To is where the rider is going (J, 2026-10-12): every route that gets there, ridden
+// from near From or after one change, as for a route in To with the stop as its destination.
 export function findLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow } | { route: RouteRow }, settings: LinkSettings = {}): Link[] {
   const running = settings.running ?? null;
   const runs = (pattern: PatternRow) => !running || running.has(pattern.id);
-  const reaches = settings.reaches ?? null;
+  const arrivals = 'stop' in to ? arrivalStops(schedule, to.stop) : null;
+  const reaches = arrivals ? new Set(arrivals.map(({ id }) => id)) : (settings.reaches ?? null);
   const ridesTo = (pattern: PatternRow, position: number) => {
     if (!reaches) return pattern.stops.length - 1;
     for (let at = position + 1; at < pattern.stops.length; at++) if (reaches.has(pattern.stops[at]!)) return at;
@@ -115,13 +110,14 @@ export function findLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow
     schedule,
     maxWalk: settings.maxWalkMeters ?? DEFAULT_MAX_WALK_METERS,
     speed: settings.walkSpeed,
-    namedStop: 'stop' in to,
     // Riders choose BART or Muni Metro only where both leave from one station.
     splitSystems: schedule.sharedMembers.has(from.id),
     ridesTo,
     hasDestination: reaches !== null,
   };
   const origins = schedule.boardingStops(from, settings.fromAgencies ?? null);
+  // A stop a walk from From is no place to ride to.
+  if ('stop' in to && walkTo(schedule, from, to.stop, context.maxWalk) !== null) return [];
   const runningTargets = (targets: Target[]) =>
     targets
       .map((target) => ({
@@ -131,7 +127,7 @@ export function findLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow
           .filter(({ patterns }) => patterns.length > 0),
       }))
       .filter(({ stops }) => stops.length > 0);
-  const targets = runningTargets('stop' in to ? stopTargets(schedule, to.stop, settings.toAgencies ?? null) : routeTargets(schedule, to.route));
+  const targets = runningTargets('stop' in to ? destinationTargets(schedule, arrivals!) : routeTargets(schedule, to.route));
   const feeders: Feeder[] = origins.flatMap((originStop) =>
     schedule
       .boardingPatterns(originStop.id)
@@ -140,56 +136,12 @@ export function findLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow
   );
 
   let links: Link[] = [];
-  const walks = new Map<number, Link>();
-  // Riding straight to a named stop, every route boarding at the same stop is one choice.
-  const addWalk = (walk: Link) => {
-    const same = context.namedStop ? walks.get(walk.board.id) : undefined;
-    if (same) {
-      same.routes = [...new Set([...same.routes, ...walk.routes])];
-      same.boardPatterns = [...same.boardPatterns, ...walk.boardPatterns];
-      same.direction = same.direction === walk.direction ? same.direction : null;
-      same.headsign = 'stop' in to ? to.stop.name : same.headsign;
-    } else {
-      walks.set(walk.board.id, walk);
-      links.push(walk);
-    }
-  };
   for (const target of targets) {
     const walk = walkLink(context, origins, target);
     if (walk === 'pointless') continue;
-    if (!walk) {
-      links.push(...rideLinks(context, feeders, target));
-      continue;
-    }
-    addWalk(walk);
+    links.push(...(walk ? [walk] : rideLinks(context, feeders, target)));
   }
-
-  // A named stop allows a long walk so that a stop with no close transfer still finds one. When
-  // some transfer point is within the usual range, the long walks only crowd it out.
-  if (context.namedStop) {
-    const usual = (link: Link) => link.kind === 'walk' || link.walkMeters <= (isStation(link.alight) || isStation(link.board) ? context.maxWalk * STATION_WALK_FACTOR : context.maxWalk);
-    if (links.some(usual)) links = links.filter(usual);
-    else for (const link of links) link.long = true;
-  }
-  // A named stop's routes can also take the rider there where the targets above leave them out:
-  // to its corner, or to where they end. These are rides only, never transfers, and boarding
-  // where the ride ends would be walking there. They come after the long walks are weighed, as a
-  // rider catching something at the stop still needs a way to it. With the stop itself a walk
-  // from From, such a ride is a stop or two of noise.
-  const arrivals = 'stop' in to ? arrivalStops(schedule, to.stop, settings.toAgencies ?? null) : [];
-  const walkable = arrivals.some((stop) =>
-    origins.some((origin) => {
-      const walk = walkBetween(schedule, origin, stop);
-      return walk.meters <= (walk.involvesStation ? context.maxWalk * STATION_WALK_FACTOR : context.maxWalk);
-    }),
-  );
-  if ('stop' in to && !walkable) {
-    const exclude = new Set(arrivals.map(({ id }) => id));
-    for (const target of runningTargets(cornerTargets(schedule, to.stop, settings.toAgencies ?? null))) {
-      const walk = walkLink(context, origins, target, exclude);
-      if (walk && walk !== 'pointless') addWalk(walk);
-    }
-  }
+  if (arrivals) links = pooledByBoard(schedule, links);
   return links.sort(
     (a, b) =>
       Number(a.kind === 'ride') - Number(b.kind === 'ride') ||
@@ -199,10 +151,59 @@ export function findLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow
   );
 }
 
+// How far From is from the stop the rider is going to, when it is a walk: within the usual range,
+// or the longer one when either end is a station.
+export function walkTo(schedule: Schedule, from: StopRow, to: StopRow, maxWalk: number) {
+  let meters: number | null = null;
+  for (const origin of schedule.boardingStops(from)) {
+    for (const stop of arrivalStops(schedule, to)) {
+      const walk = walkBetween(schedule, origin, stop);
+      if (walk.meters <= (walk.involvesStation ? maxWalk * STATION_WALK_FACTOR : maxWalk)) meters = Math.min(meters ?? Infinity, walk.meters);
+    }
+  }
+  return meters;
+}
+
+// Going to a stop, routes boarded at one place that all get there are one choice, whichever the
+// rider catches: the next train toward it at a BART platform, or the next of two buses at a pole.
+// Each departure still says its own route.
+function pooledByBoard(schedule: Schedule, links: Link[]): Link[] {
+  const pooled = new Map<string, Link>();
+  const trips = (link: Link) => link.firstLegs.reduce((sum, { pattern }) => sum + pattern.trips, 0);
+  for (const link of links) {
+    const key = `${link.kind}|${schedule.stationOf(link.board).id}`;
+    const current = pooled.get(key);
+    if (!current) {
+      pooled.set(key, link);
+      continue;
+    }
+    const firstLegs = new Map([...current.firstLegs, ...link.firstLegs].map((leg) => [`${leg.pattern.id}|${leg.origin}|${leg.alight}`, leg]));
+    const boardPatterns = [...current.boardPatterns, ...link.boardPatterns];
+    const routes = [...new Set([...current.routes, ...link.routes])];
+    pooled.set(key, {
+      ...current,
+      key: `${current.key}+${link.routes.map(({ id }) => id).join(',')}`,
+      alight: trips(link) > trips(current) ? link.alight : current.alight,
+      alights: [...new Set([...current.alights, ...link.alights])],
+      boards: [...new Set([...current.boards, ...link.boards])],
+      routes,
+      direction: current.direction === link.direction ? current.direction : null,
+      headsign: rankedHeading(schedule, boardPatterns.map(({ pattern }) => pattern), routes),
+      boardPatterns,
+      firstLegs: [...firstLegs.values()],
+      walkMeters: Math.min(current.walkMeters, link.walkMeters),
+      longestWalkMeters: Math.max(current.longestWalkMeters, link.longestWalkMeters),
+      defaultMinutes: Math.max(current.defaultMinutes, link.defaultMinutes),
+      stopsRidden: Math.min(current.stopsRidden, link.stopsRidden),
+    });
+  }
+  return [...pooled.values()];
+}
+
 const isStation = (stop: StopRow) => stop.access === 'bart' || stop.access === 'subway' || stop.kind === 'station';
 
-// The route already stops at or near From. For a named stop, that means any stop the route
-// makes on the way to it, since the rider can board there and ride straight through. Of the
+// The route already stops at or near From, before any destination, since the rider can board there
+// and ride straight through. Of the
 // stops in range, the nearest wins unless it carries under BUSY_SHARE of the busiest one's
 // trips, so a quiet branch at the nearest pole does not hide the main service one pole over,
 // and a busier stop a block away does not pull the rider off a stop nearly every vehicle
@@ -211,22 +212,19 @@ const isStation = (stop: StopRow) => stop.access === 'bart' || stop.access === '
 // there, and where it ends within a walk of From. When every stop in range is one of those,
 // the route goes nowhere useful from From in this direction, and riding to it elsewhere would
 // make no more sense, so the answer is 'pointless' rather than no walk.
-function walkLink(context: Context, origins: StopRow[], target: Target, exclude: ReadonlySet<number> | null = null): Link | 'pointless' | null {
+function walkLink(context: Context, origins: StopRow[], target: Target): Link | 'pointless' | null {
   const { schedule, maxWalk } = context;
-  // Each boarding with where the rider gets off: the destination, or else the named stop or the
-  // end of the line. A destination past a named stop is where the ride really ends.
+  // Each boarding with where the rider gets off: the destination, or else the end of the line.
   const candidates = new Map<number, Map<string, { board: BoardPattern; getsOff: number }>>();
   for (const board of target.stops) {
-    for (const { pattern, position } of board.patterns) {
-      const last = context.namedStop ? position : pattern.stops.length - 2;
-      for (let at = 0; at <= last; at++) {
+    for (const { pattern } of board.patterns) {
+      for (let at = 0; at <= pattern.stops.length - 2; at++) {
         const ridesTo = context.ridesTo(pattern, at);
         // A stop past the destination is no place to board for it.
         if (ridesTo === -1) continue;
-        if (exclude?.has(pattern.stops[at]!)) continue;
         const stop = schedule.stop(pattern.stops[at]!);
         const list = candidates.get(stop.id) ?? new Map<string, { board: BoardPattern; getsOff: number }>();
-        list.set(`${pattern.id}|${at}`, { board: { pattern, position: at, stop }, getsOff: context.namedStop && !context.hasDestination ? position : ridesTo });
+        list.set(`${pattern.id}|${at}`, { board: { pattern, position: at, stop }, getsOff: ridesTo });
         candidates.set(stop.id, list);
       }
     }
@@ -305,19 +303,14 @@ function rideLinks(context: Context, feeders: Feeder[], target: Target): Link[] 
 
   const links: Link[] = [];
   for (const pooled of byBoard.values()) {
-    // A named stop's long walks count only when nothing reaches it within the usual range.
-    const usual = pooled.filter(({ meters, alight, board }) => meters <= usualRange(context, alight, board.stop));
-    const candidates = context.namedStop && usual.length > 0 ? usual : pooled;
     // One window has to fit everyone, so a pick needing much longer than the quickest is left
     // out rather than widening the window for the rest.
-    const quickest = Math.min(...candidates.map(({ minutes }) => minutes));
-    const kept = candidates.filter(({ minutes }) => minutes <= quickest + 2);
+    const quickest = Math.min(...pooled.map(({ minutes }) => minutes));
+    const kept = pooled.filter(({ minutes }) => minutes <= quickest + 2);
     if (kept.length > 0) links.push(addPicks(schedule, kept, target));
   }
   return links;
 }
-
-const usualRange = (context: Context, alight: StopRow, board: StopRow) => (isStation(alight) || isStation(board) ? context.maxWalk * STATION_WALK_FACTOR : context.maxWalk);
 
 // The systems a rider might start on at a shared station: BART, an agency's rail, or its buses.
 function systemOf(route: RouteRow) {
@@ -363,7 +356,7 @@ function addPicks(schedule: Schedule, picks: Pick[], target: Target): Link {
 // A board stop only counts where the target still has somewhere to go, and does not double
 // back over stops the rider just rode past, where they could have caught it instead.
 function firstContact(context: Context, feeder: Feeder, target: Target, onlyBoard: number | null): Pick | null {
-  const { schedule, maxWalk, namedStop, speed } = context;
+  const { schedule, maxWalk, speed } = context;
   const pattern = feeder.pattern;
   const boards = onlyBoard === null ? target.stops : target.stops.filter(({ stop }) => stop.id === onlyBoard);
   // Riding only makes sense if it brings the rider closer than they started.
@@ -375,7 +368,7 @@ function firstContact(context: Context, feeder: Feeder, target: Target, onlyBoar
     let best: Pick | null = null;
     for (const board of boards) {
       const walk = walkBetween(schedule, alight, board.stop);
-      const limit = namedStop ? NAMED_STOP_MAX_WALK_METERS : walk.involvesStation ? maxWalk * STATION_WALK_FACTOR : maxWalk;
+      const limit = walk.involvesStation ? maxWalk * STATION_WALK_FACTOR : maxWalk;
       if (walk.meters > limit || walk.meters >= (startingDistance.get(board.stop.id) ?? Infinity)) continue;
       const seconds = changeSeconds(walk, alight, board.stop, speed);
       if (best && seconds >= best.seconds) continue;
@@ -482,69 +475,35 @@ export function changeParts(walk: ReturnType<typeof walkBetween>, alight: StopRo
 // The minutes J timed for this change, when he has.
 export const calibratedMinutes = (alight: StopRow, board: StopRow): number | undefined => CALIBRATED_MINUTES[`${stopKeyOf(alight)}>${stopKeyOf(board)}`];
 
-// Every route and direction that boards at a stop. At a rail platform (BART or Muni Metro
-// underground), one target per platform: the next train that way, whatever its line.
-function stopTargets(schedule: Schedule, stop: StopRow, agencies: ReadonlySet<Agency> | null): Target[] {
-  const targets = new Map<string, Target>();
-  for (const board of schedule.boardingStops(stop, agencies)) {
-    for (const { pattern, position } of schedule.patternsByStop.get(board.id) ?? []) {
-      if (position >= pattern.stops.length - 1) continue;
-      const route = schedule.route(pattern.route);
-      const byPlatform = route.agency === 'BA' || board.access === 'subway';
-      const key = byPlatform ? `platform|${board.id}` : `${route.id}|${pattern.direction}|${board.id}`;
-      let target = targets.get(key);
-      if (!target) {
-        target = { routes: [], direction: pattern.direction, headsign: '', stops: [{ stop: board, patterns: [] }] };
-        targets.set(key, target);
-      }
-      if (!target.routes.includes(route)) target.routes.push(route);
-      target.stops[0]!.patterns.push({ pattern, position });
-    }
-  }
-  for (const target of targets.values()) target.headsign = headsignFor(schedule, target);
-  return [...targets.values()];
-}
-
-// Where a ride to a named stop can end: at the stop (any of a station's platforms), or at a
-// street stop on its corner.
-export function arrivalStops(schedule: Schedule, stop: StopRow, agencies: ReadonlySet<Agency> | null = null) {
-  const own = schedule.boardingStops(stop, agencies);
-  if (stop.access !== 'street' || stop.kind === 'station') return own;
+// Where a ride to the stop the rider is going to can end: at the stop (any of a station's
+// platforms), or at another on its corner, such as the stop across the street, or 24th St Mission
+// BART for the 48's stop beside its entrance.
+export function arrivalStops(schedule: Schedule, stop: StopRow) {
+  const own = schedule.boardingStops(stop);
+  const ids = new Set(own.map(({ id }) => id));
   const corner = [...schedule.stops.values()].filter(
-    (other) => other.id !== stop.id && other.access === 'street' && other.kind !== 'station' && schedule.patternsByStop.has(other.id) && distanceMeters(stop, other) <= SAME_CORNER_METERS,
+    (other) =>
+      !ids.has(other.id) &&
+      schedule.patternsByStop.has(other.id) &&
+      distanceMeters(stop, other) <= STATION_REACH_METERS &&
+      walkBetween(schedule, stop, other).meters <= SAME_CORNER_METERS,
   );
   return [...own, ...corner];
 }
 
-// Each direction of a named stop's routes, as far as a stop on its corner, or as far as the stop
-// itself where the route ends there, which stopTargets leaves out as no place to board. Such as
-// the 48 at 26th St & De Haro St, which stops there westbound, and eastbound across the street.
-// Only the stop's own routes count, so another route passing its corner does not stand in for the
-// one the rider named the stop for. At a rail platform, every line arriving there is one target,
-// as in stopTargets.
-function cornerTargets(schedule: Schedule, stop: StopRow, agencies: ReadonlySet<Agency> | null): Target[] {
-  const own = new Set(schedule.boardingStops(stop, agencies).map(({ id }) => id));
-  const arrivals = new Set(arrivalStops(schedule, stop, agencies).map(({ id }) => id));
-  const routes = new Set([...own].flatMap((id) => (schedule.patternsByStop.get(id) ?? []).map(({ pattern }) => pattern.route)));
-  const targets = new Map<string, Target>();
-  for (const routeId of routes) {
-    for (const pattern of schedule.patternsByRoute.get(routeId) ?? []) {
-      for (const [position, id] of pattern.stops.entries()) {
-        if (!arrivals.has(id) || (own.has(id) && position < pattern.stops.length - 1)) continue;
-        const route = schedule.route(routeId);
-        const byPlatform = route.agency === 'BA' || schedule.stop(id).access === 'subway';
-        const key = byPlatform ? `platform|${id}` : `${routeId}|${pattern.direction}`;
-        let target = targets.get(key);
-        if (!target) targets.set(key, (target = { routes: [], direction: pattern.direction, headsign: '', stops: [] }));
-        if (!target.routes.includes(route)) target.routes.push(route);
-        let board = target.stops.find((entry) => entry.stop.id === id);
-        if (!board) target.stops.push((board = { stop: schedule.stop(id), patterns: [] }));
-        board.patterns.push({ pattern, position });
-      }
+// Each direction of every route that stops at one of `arrivals`, boarded anywhere before it but
+// there, as boarding where the ride ends would be walking.
+function destinationTargets(schedule: Schedule, arrivals: StopRow[]): Target[] {
+  const at = new Set(arrivals.map(({ id }) => id));
+  const routes = new Map<number, RouteRow>();
+  for (const id of at) {
+    for (const { pattern } of schedule.patternsByStop.get(id) ?? []) {
+      const route = schedule.route(pattern.route);
+      // BART runs each line as a route per direction, and routeTargets takes both for either.
+      routes.set(route.agency === 'BA' ? bartSiblings(schedule, route)[0]!.id : route.id, route);
     }
   }
-  for (const target of targets.values()) target.headsign = headsignFor(schedule, target);
-  return [...targets.values()];
+  return [...routes.values()].flatMap((route) => routeTargets(schedule, route)).map((target) => ({ ...target, stops: target.stops.filter(({ stop }) => !at.has(stop.id)) }));
 }
 
 // Each direction of a route, with every stop it boards at. BART runs each line as two routes,

@@ -9,7 +9,6 @@ import { SkeletonResults } from '../components/SkeletonResults.tsx';
 import type { ViewAlert } from '../lib/alerts.ts';
 import { viewAlerts } from '../lib/alerts.ts';
 import { failureOf } from '../lib/failure.ts';
-import { locationProblemText } from '../lib/location.ts';
 import { type StationOutages, outagesByStation } from '../lib/outages.ts';
 import { useSettings } from '../settings.tsx';
 import type { Search } from '../storage.ts';
@@ -24,14 +23,11 @@ export type JourneyResultsProps = {
   onDismiss: (alert: ViewAlert) => void;
 };
 
-// What a page says of the trips between its search's ends, on their own page or a results tab:
-// why there are none, where the phone could not say where the rider is, the feeds, alerts and
-// station outages behind them, and the trips themselves. Trips from where the rider was are no
-// use once the phone cannot say where they are now.
+// The trips with more changes the transfer results fall back on: the feeds, alerts and station
+// outages behind them, and the trips themselves.
 export function JourneyResults({ journeys, search, now, dismissedIds, onDismiss }: JourneyResultsProps) {
   const { settings } = useSettings();
-  const { error, feed, locating, problem } = journeys;
-  const data = problem ? null : journeys.data;
+  const { data, error, feed } = journeys;
   const [outagesOpen, setOutagesOpen] = useState<StationOutages | null>(null);
   const outages = outagesByStation(data?.access ?? []);
   const failure = failureOf(error, 'Trips');
@@ -39,7 +35,6 @@ export function JourneyResults({ journeys, search, now, dismissedIds, onDismiss 
   const alerts = allAlerts.filter(({ id }) => !dismissedIds.has(id));
   return (
     <>
-      {problem && <EmptyState alert title={locationProblemText(problem)} />}
       {failure && (
         <EmptyState alert title={failure.text}>
           <AppLink class="tf-link-button" href="/" back>
@@ -56,14 +51,8 @@ export function JourneyResults({ journeys, search, now, dismissedIds, onDismiss 
         </div>
       )}
       {data && <AlertList key={`${search.from}>${search.to}`} alerts={alerts} dismissed={allAlerts.length - alerts.length} onDismiss={onDismiss} />}
-      {!data && !problem && !failure && (feed === 'loading' || locating) && <SkeletonResults />}
-      {data?.notice ? (
-        <EmptyState title={`No stop within walking distance of ${data.notice.end === 'from' ? search.fromLabel : search.toLabel}`}>
-          <div class="tf-muted">Trips start and end within about a mile of a stop.</div>
-        </EmptyState>
-      ) : (
-        data && <JourneyList data={data} now={now} fromLabel={search.fromLabel} toLabel={search.toLabel} />
-      )}
+      {!data && !failure && feed === 'loading' && <SkeletonResults />}
+      {data && <JourneyList data={data} now={now} toLabel={search.toLabel} />}
       {outagesOpen && data && <OutageSheet outages={outagesOpen} data={data} onClose={() => setOutagesOpen(null)} />}
     </>
   );

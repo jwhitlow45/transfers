@@ -43,6 +43,8 @@ export type StopSearchResult = Stop & {
   routes: string[];
   // Headsigns of the vehicles that board here, such as "22nd St + Iowa St".
   toward: string[];
+  // How far it is from the rider, rounded to 10 m, in a search for the stops near them.
+  meters?: number;
 };
 
 export type RouteSearchResult = {
@@ -255,12 +257,6 @@ export type StopResponse = {
 export type Schematic = {
   stops: { stop: string; x: number; y: number }[];
   lines: { route: string; points: [number, number][] }[];
-};
-
-// The return trip from a trip's destination stop (see wayBack in server/engine/trip.ts), as a search
-// the app opens, with its stops named as the app's own links name them. Null when there is none.
-export type WayBackResponse = {
-  back: { from: string; fromLabel: string; to: string; toLabel: string; dest: string; destLabel: string } | null;
 };
 
 // Stops after each transfer point, where the rider might ride the second vehicle to.

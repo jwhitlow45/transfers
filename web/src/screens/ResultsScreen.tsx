@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useState } from 'preact/hooks';
 import type { TripResponse } from '../../../shared/api.ts';
 import { apiUrl, takeInitialData } from '../api.ts';
 import { AlertList } from '../components/AlertList.tsx';
@@ -25,7 +25,7 @@ import { liveClock } from '../lib/freshness.ts';
 import { IconFilter, IconFlag, IconHidden } from '../icons/ui.tsx';
 import { type CardContext, chooseDirection, directionChoices, hintKey, orderGroups, pageColors, pointId, scaleFor, timeScale, visibleDepartures } from '../lib/results.ts';
 import { summarize } from '../lib/summary.ts';
-import { type ResultsView, cameBackTo, goBack, navigate, resultsPath } from '../router.ts';
+import { cameBackTo, goBack, navigate } from '../router.ts';
 import { matchesServerDefaults, useSettings } from '../settings.tsx';
 import { type Pin, type Search, clearPinHint, rememberRecent, takePinHint, updateSaved } from '../storage.ts';
 import { shortStopName, spokenRoute } from '../view.ts';
@@ -33,10 +33,8 @@ import { AppLink } from '../components/AppLink.tsx';
 import { EmptyState } from '../components/EmptyState.tsx';
 import { failureOf } from '../lib/failure.ts';
 import { tripPath } from '../../../shared/paths.ts';
-import { isStopToStop } from '../lib/ends.ts';
 import { useJourneys } from '../journeys/useJourneys.ts';
 import { LazyJourneyResults } from '../journeys/LazyJourneyResults.tsx';
-import { Tabs, tabPanel } from '../components/Tabs.tsx';
 
 // The server puts the first trip's results in the page. They seed only the first visit, as of
 // when the page arrived: shown again on a later visit, even to the same trip, they would pass
@@ -47,11 +45,13 @@ let initialData = takeInitialData<TripResponse>();
 const navigation = performance.getEntriesByType?.('navigation')[0] as PerformanceNavigationTiming | undefined;
 const initialAt = navigation?.responseEnd ? performance.timeOrigin + navigation.responseEnd : Date.now();
 const tripTo = (to: TripResponse['to']) => ('route' in to ? `route:${to.route}` : to.stop);
+// Going to a stop, the ways there that arrive soonest, and the rest a tap away.
+const GROUPS_SHOWN = 4;
 
-// Both ends stops, the page offers the trips there as well as the transfers at To, on two tabs (J,
-// 2026-10-12). Unless the rider chose one (`view`), it opens on trips when nothing reaches To with
-// one ride and a change there, and on transfers otherwise.
-export function ResultsScreen({ search, view }: { search: Search; view?: ResultsView }) {
+// The ways from a stop to a stop or route. A stop in To is where the rider is going: every way
+// there with one change or none, soonest there first, and when there is none, trips with more
+// changes (J, 2026-10-12). A route in To is one to catch, perhaps on to a destination of its own.
+export function ResultsScreen({ search }: { search: Search }) {
   const { settings, update: updateSettings } = useSettings();
   const deviceNow = useNow();
   const { showHidden } = settings;
@@ -118,14 +118,19 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
   const update: SearchUpdate = (change) => {
     const next = change(search);
     if (saved) updateSaved(next);
-    navigate(view ? resultsPath(next, view) : tripPath(next), { replace: true });
+    navigate(tripPath(next), { replace: true });
   };
   const toggleSaved = () => records.toggleSaved(`${summary.from} to ${summary.to}`, summary.lineColor);
 
   const groups = summary.groups;
   const scaleMinutes = scaleFor(groups, now);
-  // Groups with something to catch first, then by the soonest departure.
-  const ordered = orderGroups(groups, now, showHidden, search.dest);
+  const toStop = !search.to.startsWith('route:');
+  // A stop in To is itself where the rider is going, and a destination sent along with it is none.
+  const destination = toStop ? search.to : search.dest;
+  const destinationLabel = toStop ? search.toLabel : search.destLabel;
+  const ordered = orderGroups(groups, now, showHidden, toStop);
+  const [showAll, setShowAll] = useState(false);
+  const shownGroups = toStop && !showAll ? ordered.slice(0, GROUPS_SHOWN) : ordered;
   // Elevator and escalator outages: each transfer point tags those where it gets off or changes,
   // and the rest, such as where the rider starts or is going, lead the results. Each opens what
   // BART says about it.
@@ -140,18 +145,10 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
   const filtering = Boolean(search.firstRoutes?.length || search.secondRoutes?.length);
   const filteredOut = filtering && groups.length > 0 && groups.every((group) => !group.widen && visibleDepartures(group, now, showHidden).every(({ canceled }) => canceled));
   const routeNames = (keys: string[] | undefined) => keys?.map((key) => (data?.routes[key] ? spokenRoute(data.routes[key]!) : null)).filter(Boolean).join(' or ');
-  const tabs = isStopToStop(search);
-  // Its own, as a page kept under another can have tabs too.
-  const panel = useId();
-  // Decided once, from the first results the page has, so the page never moves the rider from one
-  // tab to the other as times change or as they turn points off.
-  const [opening, setOpening] = useState<ResultsView | null>(null);
-  useEffect(() => {
-    if (tabs && !view && !opening && data) setOpening(groups.length === 0 || filteredOut ? 'trips' : 'transfers');
-  }, [Boolean(data)]);
-  const shown: ResultsView = tabs ? (view ?? opening ?? 'transfers') : 'transfers';
-  const journeys = useJourneys(search, tabs && shown === 'trips');
-  const tripsClock = liveClock({ data: journeys.data, fetchedAt: journeys.fetchedAt, settled: journeys.settled }, deviceNow);
+  // No way to the stop with one change or none, at this hour or any, so the trip planner's ways
+  // with more follow (J, 2026-10-12).
+  const fallback = toStop && data !== null && groups.length === 0 && (data.notice?.kind === 'unreachable' || data.notice?.kind === 'idle');
+  const journeys = useJourneys(search, fallback);
   const firstNames = routeNames(search.firstRoutes);
   const secondNames = routeNames(search.secondRoutes);
   const filterText =
@@ -167,12 +164,11 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
     now,
     scaleMinutes,
     pct: timeScale(now, scaleMinutes),
-    destinationName: search.dest ? shortStopName(data?.stops[search.dest], search.destLabel ?? '') : null,
-    // Riding straight to a named stop, the arrival there is what the rider is after.
+    destinationName: destination ? shortStopName(data?.stops[destination], destinationLabel ?? '') : null,
     toName: data && 'stop' in data.to ? shortStopName(data.stops[data.to.stop]) : null,
     showHidden,
     colorOf: data ? pageColors(groups, data) : () => '#55575a',
-    destination: search.dest,
+    destination,
     pin,
     onPin: pinFromResults,
     pinHint: hintGroup ? hintKey(hintGroup, visibleDepartures(hintGroup, now, showHidden)[0]?.trip) : null,
@@ -187,20 +183,17 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
   // The header chip takes the same color its group gives it, which may have stepped away from a clash.
   const toColor = summary.toRoute && data ? context.colorOf(summary.toRoute.key) : undefined;
   const toChip = summary.toRoute ? <RouteChip route={summary.toRoute} {...(toColor ? { color: toColor } : {})} /> : <span>{summary.to}</span>;
-  // The return trip heads back by the transfer point the rider pinned, or else the first ride the
-  // page lists, past the points and routes they turned off.
-  const backPoint = pin?.first ? { alight: pin.first.alight, board: pin.second.board } : ordered.find((group) => group.kind !== 'walk');
-  const wayBackUrl = apiUrl.wayBack(url, backPoint && { alight: backPoint.alight, board: backPoint.board });
-  const destinationsUrl = apiUrl.destinations(url);
+  const destinationsUrl = toStop ? null : apiUrl.destinations(url);
 
   return (
     <>
       <div class="tf-scroll">
         <ScreenHeader
           title={<TripChain from={summary.from} via={summary.via} to={toChip} />}
-          {...(shown === 'trips'
-            ? { feed: journeys.feed, secondsSinceUpdate: tripsClock.secondsSinceUpdate, stale: tripsClock.showStale, failed: failureOf(journeys.error, 'Trips') }
-            : { feed, secondsSinceUpdate, stale: showStale, failed: failure })}
+          feed={feed}
+          secondsSinceUpdate={secondsSinceUpdate}
+          stale={showStale}
+          failed={failure}
           // What changes the results that the page shows nowhere else. The bottom bar has the transfer
           // window, and hidden connections shown are plain in the rows (J, 2026-10-08).
           items={[
@@ -210,26 +203,18 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
               : []),
             // At the end of the line, where its name has the rest of it, cut short where that is too
             // little (J, 2026-10-08).
-            ...(search.dest
+            // A stop in To says itself where the rider is going.
+            ...(!toStop && search.dest
               ? [{ key: 'dest', icon: <IconFlag />, short: shortStopName(data?.stops[search.dest], search.destLabel?.replace(/ \(\w+\)$/, '') ?? search.dest), full: `Showing when each departure gets you to ${search.destLabel ?? search.dest}. Trip settings changes it` }]
               : []),
-          ].filter(() => shown === 'transfers')}
+          ]}
           accent={saved?.color}
-          onRefresh={shown === 'trips' ? journeys.refresh : refresh}
+          onRefresh={() => {
+            refresh();
+            if (fallback) journeys.refresh();
+          }}
         />
         <main class="tf-page" id="main">
-          {tabs && <Tabs label="Show" options={RESULTS_TABS} selected={shown} panel={panel} onChoose={(next) => navigate(resultsPath(search, next), { replace: true })} />}
-          <div {...(tabs ? tabPanel(panel, shown) : { class: 'tf-tabpanel' })}>
-          {shown === 'trips' ? (
-            <>
-              <LiveBanners feed={journeys.feed} fresh={tripsClock.fresh} showStale={tripsClock.showStale} secondsSinceUpdate={tripsClock.secondsSinceUpdate} />
-              {pin && data && !expired && (
-                <PinnedCard pin={pin} pinned={pinned} data={data} destination={search.dest} colorOf={context.colorOf} pct={context.pct} now={now} unpinAt={unpinAt} onPin={pinFromResults} />
-              )}
-              <LazyJourneyResults journeys={journeys} search={search} now={tripsClock.now} dismissedIds={dismissedIds} onDismiss={dismiss} />
-            </>
-          ) : (
-          <>
           <LiveBanners feed={feed} fresh={fresh} showStale={showStale} secondsSinceUpdate={secondsSinceUpdate} />
           {data && <FeedOutages feeds={data.feeds} routeKeys={groups.flatMap(({ routes }) => routes)} routes={data.routes} />}
           {failure && (
@@ -240,28 +225,22 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
             </EmptyState>
           )}
           {pin && data && !expired && (
-            <PinnedCard pin={pin} pinned={pinned} data={data} destination={search.dest} colorOf={context.colorOf} pct={context.pct} now={now} unpinAt={unpinAt} onPin={pinFromResults} />
+            <PinnedCard pin={pin} pinned={pinned} data={data} destination={destination} colorOf={context.colorOf} pct={context.pct} now={now} unpinAt={unpinAt} onPin={pinFromResults} />
           )}
-          {data && untagged.length > 0 && (
+          {/* The trips with more changes say their own, at the stops and on the routes they use. */}
+          {data && !fallback && untagged.length > 0 && (
             <div class="tf-outage-tags tf-outage-tags--lead">
               {untagged.map((station) => (
                 <OutageTag key={station.station} outages={station} data={data} onOpen={() => setOutagesOpen(station)} />
               ))}
             </div>
           )}
-          {data && <AlertList key={data.from} alerts={alerts} dismissed={dismissedHere} onDismiss={dismiss} />}
+          {data && !fallback && <AlertList key={data.from} alerts={alerts} dismissed={dismissedHere} onDismiss={dismiss} />}
           {data && ((data.systems?.from?.length ?? 0) > 1 || search.fromSystem) && (
             <SystemSwitcher
               label={`From ${shortStopName(data.stops[data.from])}, ride`}
               selected={search.fromSystem}
               onChoose={(system) => update(({ fromSystem: _system, ...rest }) => (system ? { ...rest, fromSystem: system } : rest))}
-            />
-          )}
-          {data && 'stop' in data.to && ((data.systems?.to?.length ?? 0) > 1 || search.toSystem) && (
-            <SystemSwitcher
-              label={`At ${shortStopName(data.stops[data.to.stop])}, catch`}
-              selected={search.toSystem}
-              onChoose={(system) => update(({ toSystem: _system, ...rest }) => (system ? { ...rest, toSystem: system } : rest))}
             />
           )}
           {data &&
@@ -279,11 +258,19 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
           {!data && feed === 'loading' ? (
             <SkeletonResults />
           ) : data && (groups.length === 0 || filteredOut) ? (
-            <EmptyTrip data={data} search={search} summary={summary} walk={settings} update={update} />
+            <>
+              <EmptyTrip data={data} search={search} summary={summary} walk={settings} update={update} />
+              {fallback && (
+                <section class="tf-section" aria-labelledby="more-changes">
+                  <h2 id="more-changes">With more changes</h2>
+                  <LazyJourneyResults journeys={journeys} search={search} now={now} dismissedIds={dismissedIds} onDismiss={dismiss} />
+                </section>
+              )}
+            </>
           ) : (
             data && (
               <div class="tf-groups">
-                {ordered.map((group) => (
+                {shownGroups.map((group) => (
                   <TransferPointGroup
                     key={pointId(group)}
                     group={group}
@@ -295,12 +282,14 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
                     onShowHidden={() => setShowHidden(true)}
                   />
                 ))}
+                {shownGroups.length < ordered.length && (
+                  <button type="button" class="tf-btn-outline tf-btn-secondary" onClick={() => setShowAll(true)}>
+                    Show {ordered.length - shownGroups.length} more {ordered.length - shownGroups.length === 1 ? 'way' : 'ways'} there
+                  </button>
+                )}
               </div>
             )
           )}
-          </>
-          )}
-          </div>
           <DataCredit />
         </main>
       </div>
@@ -316,7 +305,6 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
           savedName={saved?.name ?? null}
           chain={summary.chain}
           destinationsUrl={destinationsUrl}
-          wayBackUrl={wayBackUrl}
           deviceHide={settings.hide}
           showHidden={showHidden}
           update={update}
@@ -339,7 +327,7 @@ function EmptyTrip({ data, search, summary, walk, update }: { data: TripResponse
   const again = (next: number | null, place: string) => (next ? `${place} starts again ${weekdayClock(next)}.` : `${place} does not run in the next few days.`);
   if (notice?.kind === 'idle' && notice.side === 'to') {
     return (
-      <EmptyState title={route ? `${capitalize(toName)} isn't running now` : `Nothing boards at ${summary.to} right now`}>
+      <EmptyState title={route ? `${capitalize(toName)} isn't running now` : `Nothing that goes to ${summary.to} is running now`}>
         <div class="tf-muted">{again(notice.next, route ? 'Service' : 'Service there')}</div>
       </EmptyState>
     );
@@ -382,6 +370,8 @@ function EmptyTrip({ data, search, summary, walk, update }: { data: TripResponse
       </EmptyState>
     );
   }
+  // Going to a stop, the trips with more changes follow.
+  if (!route) return <EmptyState title={`No way to ${summary.to} with one transfer or none`} />;
   return (
     <EmptyState title={`Nothing from ${summary.from} gets within a short walk of ${toName}`}>
       <div class="tf-muted">{walk.maxWalk < 650 ? 'A longer walk between stops, in Settings, may find one.' : 'Try a stop or route closer to where you start.'}</div>
@@ -390,8 +380,3 @@ function EmptyTrip({ data, search, summary, walk, update }: { data: TripResponse
 }
 
 const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
-
-const RESULTS_TABS: { key: ResultsView; text: string }[] = [
-  { key: 'trips', text: 'Trips' },
-  { key: 'transfers', text: 'Transfers' },
-];

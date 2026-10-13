@@ -15,7 +15,7 @@ export type CardContext = {
   scaleMinutes: number;
   // Unix seconds to a position on the shared time scale, 0 to 100.
   pct: (unixSeconds: number) => number;
-  // The search's destination stop key and name, when it has one.
+  // The search's destination stop key and name, when it has one: a stop in To, or a route's.
   destination: string | undefined;
   destinationName: string | null;
   // The To stop's name, for walk groups that ride straight to it.
@@ -85,16 +85,16 @@ export function visibleDepartures(group: Group, now: number, showHidden: boolean
 }
 
 // Within a minute of the minimum is tight, as the design specifies.
-// A ride straight to the named To stop: a walk group whose departures say when they get there.
-// With a destination set, those times are the destination's instead.
-export const ridesStraightTo = (group: Group, destination: string | undefined) =>
-  group.kind === 'walk' && !destination && group.departures.some((departure) => departure.destination !== undefined);
+// A ride with no change to the stop in To: a walk group whose departures say when they get there.
+export const ridesStraightTo = (group: Group) => group.kind === 'walk' && group.departures.some((departure) => departure.destination !== undefined);
 
-// Groups by their soonest departure, with rides straight to To after the transfers there, which a
-// rider may have named To to catch (J, 2026-10-08).
-export function orderGroups(groups: Group[], now: number, showHidden: boolean, destination: string | undefined) {
-  const firstAt = (group: Group) => visibleDepartures(group, now, showHidden).find(({ canceled }) => !canceled)?.at ?? Infinity;
-  return [...groups].sort((a, b) => Number(ridesStraightTo(a, destination)) - Number(ridesStraightTo(b, destination)) || firstAt(a) - firstAt(b));
+// Going to a stop, the ways that get the rider there soonest come first (J, 2026-10-12). Catching
+// a route, the soonest to leave. A group with nothing that gets there goes last.
+export function orderGroups(groups: Group[], now: number, showHidden: boolean, toStop: boolean) {
+  const catchable = (group: Group) => visibleDepartures(group, now, showHidden).filter(({ canceled }) => !canceled);
+  const firstAt = (group: Group) => catchable(group)[0]?.at ?? Infinity;
+  const arrives = (group: Group) => Math.min(Infinity, ...catchable(group).map(({ destination }) => destination ?? Infinity));
+  return [...groups].sort((a, b) => (toStop ? arrives(a) - arrives(b) : 0) || firstAt(a) - firstAt(b));
 }
 
 export const isTight = (connection: Connection, min: number) => !connection.hidden && connection.transfer <= min + 1;

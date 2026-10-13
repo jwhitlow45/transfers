@@ -1,4 +1,4 @@
-import type { DestinationsResponse, TripResponse, WayBackResponse } from '../../../shared/api.ts';
+import type { DestinationsResponse, TripResponse } from '../../../shared/api.ts';
 import { IconChevron, IconReturn, IconShare } from '../icons/ui.tsx';
 import { routeColor } from '../lib/color.ts';
 import { pointId } from '../lib/results.ts';
@@ -68,18 +68,16 @@ function ShareButton({ search, onCopied }: { search: Search; onCopied: () => voi
   );
 }
 
-// Sharing the trip, and its return trip: from the destination stop to where the first vehicle let
-// the rider off, to catch it back to where they started (see wayBack in server/engine/trip.ts),
-// side by side, each with an icon (J, 2026-10-08). The return trip is worked out once the sheet
-// opens, and needs a destination to start from. The return trip takes this page's place, rising
-// over it and the sheet, rather than opening a page deeper, and its own return trip comes back here.
-function TripActions({ search, wayBackUrl, onCopied }: { search: Search; wayBackUrl: string; onCopied: () => void }) {
-  // Undefined until the answer comes, and null with no return trip or none found.
-  const wayBack = useFetch<WayBackResponse>(search.dest ? wayBackUrl : null);
-  const back = !wayBack.current ? undefined : wayBack.failed ? null : wayBack.data!.back;
-  const path = back ? tripPath({ from: back.from, to: back.to, fromLabel: back.fromLabel, toLabel: back.toLabel, dest: back.dest, destLabel: back.destLabel }) : null;
+// Sharing the trip, and its return trip, side by side, each with an icon (J, 2026-10-08). The return
+// trip goes from where the rider is going back to where they started, found as any way to a stop
+// is, so it needs a stop to go back from: the stop in To, or a route's destination. It takes this
+// page's place, rising over it and the sheet, rather than opening a page deeper, and its own
+// return trip comes back here.
+function TripActions({ search, onCopied }: { search: Search; onCopied: () => void }) {
+  const goingTo = !search.to.startsWith('route:') ? { stop: search.to, label: search.toLabel } : search.dest ? { stop: search.dest, label: search.destLabel ?? search.dest } : null;
+  const path = goingTo ? tripPath({ from: goingTo.stop, to: search.from, fromLabel: goingTo.label, toLabel: search.fromLabel }) : null;
   const leaveOpen = useLeaveOpen();
-  const note = !search.dest ? 'Set a destination stop below for the return trip.' : back === null ? `No return trip found from ${search.destLabel ?? 'the destination'}.` : null;
+  const note = path ? null : 'Set a destination stop below for the return trip.';
   return (
     <div class="tf-setting">
       <div class="tf-trip-actions">
@@ -99,7 +97,7 @@ function TripActions({ search, wayBackUrl, onCopied }: { search: Search; wayBack
 }
 
 // Every setting for this search, opened from the bottom bar, then those for every trip.
-export function TripSettingsSheet({ search, data, window, savedName, chain, destinationsUrl, wayBackUrl, deviceHide, showHidden, update, onSave, onShowHidden, onCopied, onClose }: {
+export function TripSettingsSheet({ search, data, window, savedName, chain, destinationsUrl, deviceHide, showHidden, update, onSave, onShowHidden, onCopied, onClose }: {
   search: Search;
   // The device's own default, which this search uses until it sets its own.
   deviceHide: number;
@@ -108,8 +106,8 @@ export function TripSettingsSheet({ search, data, window, savedName, chain, dest
   // The saved search's name, which keeps these settings, or null when it is not saved.
   savedName: string | null;
   chain: string;
-  destinationsUrl: string;
-  wayBackUrl: string;
+  // Null when To is a stop, which is itself the destination.
+  destinationsUrl: string | null;
   showHidden: boolean;
   update: SearchUpdate;
   onSave: () => void;
@@ -149,7 +147,7 @@ export function TripSettingsSheet({ search, data, window, savedName, chain, dest
 
   return (
     <Sheet title={TRIP_SETTINGS} subtitle={chain} onClose={onClose}>
-      <TripActions search={search} wayBackUrl={wayBackUrl} onCopied={onCopied} />
+      <TripActions search={search} onCopied={onCopied} />
       <WindowSetting window={window} update={update} />
       <ResetWindow search={search} update={update} />
       <MinutesSlider
@@ -158,38 +156,40 @@ export function TripSettingsSheet({ search, data, window, savedName, chain, dest
         value={search.hide ?? deviceHide}
         onChange={(value) => update((current) => ({ ...current, hide: value }))}
       />
-      <label class="tf-setting tf-setting--block">
-        <span class="tf-setting__label">Destination stop</span>
-        <span class="tf-setting__help">Shows when each departure gets you there</span>
-        <span class="tf-select-wrap">
-          <select
-            class="tf-select"
-            value={search.dest ?? ''}
-            onChange={(event) => {
-              const dest = event.currentTarget.value;
-              update(({ dest: _dest, destLabel: _label, ...rest }) => (dest ? { ...rest, dest, destLabel: destinationLabel(dest) } : rest));
-            }}
-          >
-            <option value="">None</option>
-            {search.dest && !destinations && <option value={search.dest}>{search.destLabel ?? search.dest}</option>}
-            {!destinations && <option disabled>Loading stops…</option>}
-            {destinations?.groups.map((group, index) => {
-              const routes = group.routes.map((key) => destinations.routes[key]).filter((route) => route !== undefined);
-              const label = `${routes[0]?.agency === 'BA' ? 'BART' : routes.map(chipLabel).join(', ')} toward ${group.headsign}`;
-              return (
-                <optgroup key={`${group.board}|${index}`} label={label}>
-                  {group.stops.map((key) => (
-                    <option key={key} value={key}>
-                      {destinationLabel(key)}
-                    </option>
-                  ))}
-                </optgroup>
-              );
-            })}
-          </select>
-          <IconChevron />
-        </span>
-      </label>
+      {destinationsUrl && (
+        <label class="tf-setting tf-setting--block">
+          <span class="tf-setting__label">Destination stop</span>
+          <span class="tf-setting__help">Shows when each departure gets you there</span>
+          <span class="tf-select-wrap">
+            <select
+              class="tf-select"
+              value={search.dest ?? ''}
+              onChange={(event) => {
+                const dest = event.currentTarget.value;
+                update(({ dest: _dest, destLabel: _label, ...rest }) => (dest ? { ...rest, dest, destLabel: destinationLabel(dest) } : rest));
+              }}
+            >
+              <option value="">None</option>
+              {search.dest && !destinations && <option value={search.dest}>{search.destLabel ?? search.dest}</option>}
+              {!destinations && <option disabled>Loading stops…</option>}
+              {destinations?.groups.map((group, index) => {
+                const routes = group.routes.map((key) => destinations.routes[key]).filter((route) => route !== undefined);
+                const label = `${routes[0]?.agency === 'BA' ? 'BART' : routes.map(chipLabel).join(', ')} toward ${group.headsign}`;
+                return (
+                  <optgroup key={`${group.board}|${index}`} label={label}>
+                    {group.stops.map((key) => (
+                      <option key={key} value={key}>
+                        {destinationLabel(key)}
+                      </option>
+                    ))}
+                  </optgroup>
+                );
+              })}
+            </select>
+            <IconChevron />
+          </span>
+        </label>
+      )}
       {firstRoutes.length > 1 && (
         <div class="tf-setting">
           <div class="tf-setting__label">Routes on the first leg</div>

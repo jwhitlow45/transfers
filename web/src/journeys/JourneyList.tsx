@@ -11,12 +11,12 @@ import { TimeLink } from '../track.tsx';
 import { shortStopName, spokenRoute, statusOf, vehicleAt } from '../view.ts';
 import './journeys.css';
 
-export type JourneyListProps = { data: JourneysResponse; now: number; fromLabel: string; toLabel: string };
+export type JourneyListProps = { data: JourneysResponse; now: number; toLabel: string };
 
 // The ways there, soonest first, each with when to set off, how long it takes and its vehicles,
 // and opened, every step, each vehicle's time opening its live map. A way drops off once its first
 // vehicle has left. A way on foot leaves whenever the rider does, so it stays.
-export function JourneyList({ data, now, fromLabel, toLabel }: JourneyListProps) {
+export function JourneyList({ data, now, toLabel }: JourneyListProps) {
   const ahead = data.journeys.filter((journey) => {
     const first = firstRide(journey);
     return !first || first.departs * 1000 >= now - 30_000;
@@ -39,7 +39,6 @@ export function JourneyList({ data, now, fromLabel, toLabel }: JourneyListProps)
             journey={journey}
             data={data}
             now={now}
-            fromLabel={fromLabel}
             toLabel={toLabel}
             open={opened[key] ?? index === 0}
             onToggle={() => setOpened({ ...opened, [key]: !(opened[key] ?? index === 0) })}
@@ -58,11 +57,10 @@ const minutesOf = (seconds: number) => Math.max(1, Math.round(seconds / 60));
 // A walk this short, such as across the street, the card's summary leaves out, as its steps say it.
 const STEP_SECONDS = 90;
 
-function JourneyCard({ journey, data, now, fromLabel, toLabel, open, onToggle }: {
+function JourneyCard({ journey, data, now, toLabel, open, onToggle }: {
   journey: Journey;
   data: JourneysResponse;
   now: number;
-  fromLabel: string;
   toLabel: string;
   open: boolean;
   onToggle: () => void;
@@ -117,7 +115,7 @@ function JourneyCard({ journey, data, now, fromLabel, toLabel, open, onToggle }:
       <Collapse open={open} id={panel}>
         <ol class="tf-journey__steps">
           {journey.legs.map((leg, index) => (
-            <Step key={index} leg={leg} data={data} lastRide={leg === rides.at(-1)} fromLabel={fromLabel} toLabel={toLabel} />
+            <Step key={index} leg={leg} data={data} lastRide={leg === rides.at(-1)} />
           ))}
           <li class="tf-journey__step tf-journey__step--end">
             <span class="tf-journey__dot" aria-hidden="true" />
@@ -133,8 +131,8 @@ function JourneyCard({ journey, data, now, fromLabel, toLabel, open, onToggle }:
 
 // A step of a way: a walk, between stops or from or to where the trip starts or ends, or a ride,
 // whose time opens its live map with where the rider boards and gets off marked.
-function Step({ leg, data, lastRide, fromLabel, toLabel }: { leg: JourneyLeg; data: JourneysResponse; lastRide: boolean; fromLabel: string; toLabel: string }) {
-  const name = (key: string | null, fallback: string) => (key === null ? fallback : shortStopName(data.stops[key], key));
+function Step({ leg, data, lastRide }: { leg: JourneyLeg; data: JourneysResponse; lastRide: boolean }) {
+  const name = (key: string) => shortStopName(data.stops[key], key);
   if (leg.kind === 'walk') {
     return (
       <li class="tf-journey__step tf-journey__step--walk">
@@ -143,7 +141,7 @@ function Step({ leg, data, lastRide, fromLabel, toLabel }: { leg: JourneyLeg; da
           <span class="tf-walk-gerbil" aria-hidden="true">
             <IconGerbil />
           </span>
-          Walk {minutesOf(leg.seconds)}&nbsp;min {leg.from === null ? `from ${fromLabel} ` : ''}to {name(leg.to, toLabel)}
+          Walk {minutesOf(leg.seconds)}&nbsp;min to {name(leg.to)}
         </span>
       </li>
     );
@@ -158,13 +156,13 @@ function Step({ leg, data, lastRide, fromLabel, toLabel }: { leg: JourneyLeg; da
           <TimeLink trip={leg.trip} stop={data.stops[leg.from]} title={vehicleAt(route, leg.departs)} marks={[{ stop: leg.from, kind: 'yours' }, { stop: leg.to, kind: lastRide ? 'destination' : 'transfer' }]}>
             {clock(leg.departs)}
           </TimeLink>
-          <span class="tf-journey__from">from {name(leg.from, fromLabel)}</span>
+          <span class="tf-journey__from">from {name(leg.from)}</span>
         </span>
         <span class="tf-journey__ride-sub">
           Toward {leg.toward} · <StatusTag status={statusOf(leg.departDelay, leg.live)} plain />
         </span>
         <span class="tf-journey__ride-sub">
-          {leg.stops} stop{leg.stops === 1 ? '' : 's'} · off at {name(leg.to, toLabel)} {clock(leg.arrives)}
+          {leg.stops} stop{leg.stops === 1 ? '' : 's'} · off at {name(leg.to)} {clock(leg.arrives)}
         </span>
       </span>
     </li>

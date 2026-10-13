@@ -1,22 +1,18 @@
 import type { AgencyId } from '../../shared/api.ts';
-import type { Journey, JourneyEnd, JourneyLeg, JourneysResponse } from '../../shared/journeys.ts';
+import type { Journey, JourneyLeg, JourneysResponse } from '../../shared/journeys.ts';
 import { walkSeconds } from '../../shared/walk.ts';
-import { arrivalStops, headingOf, walkPoints } from '../engine/links.ts';
+import { arrivalStops, headingOf } from '../engine/links.ts';
 import { type AccessNeeds, type RealtimeView, SAME_RUN_SECONDS, serviceStatus, stationOutages } from '../engine/realtime-view.ts';
 import { predictedTimes } from '../engine/track.ts';
 import { Tables } from '../engine/views.ts';
-import { STEP_FREE_MINUTES, type WalkSettings, atRailStation, transferSeconds } from '../engine/walk.ts';
-import { distanceMeters, type Point } from '../geo.ts';
+import { STEP_FREE_MINUTES, type WalkSettings, atRailStation } from '../engine/walk.ts';
+import { distanceMeters } from '../geo.ts';
 import { RequestError } from '../http.ts';
 import { type Schedule, type StopRow, routeKeyOf, stopKeyOf } from '../schedule.ts';
 import { addDays, serviceDate, serviceDayStart } from '../time.ts';
 import { footpathsFor, walksFor } from './footpaths.ts';
 import { type Access, type Network, type Path, type RideLeg, raptor } from './raptor.ts';
 import { type PatternTrips, timetableFor } from './timetable.ts';
-
-// Where a journey starts or ends, as the planner takes it: a stop, or a point the rider walks from
-// or to, such as where they are.
-export type Endpoint = { kind: 'stop'; stop: StopRow } | { kind: 'point'; name: string; at: Point };
 
 export type JourneyOptions = WalkSettings & AccessNeeds & { maxRides?: number; count?: number };
 
@@ -28,9 +24,6 @@ const HORIZON_SECONDS = 4 * 3600;
 // How far ahead of the searches to come prepareJourneys loads timetables, longer than the server
 // waits between calls to it.
 const PREPARE_AHEAD_SECONDS = 10 * 60;
-// How far a rider walks between a point and a stop, and further when nothing is that close.
-const ACCESS_METERS = 800;
-const FAR_ACCESS_METERS = 1600;
 // Ends closer than this get a walk among their journeys. Further, a straight line can cross water
 // or a freeway, as from the Ferry Building to Jack London Square, so walking is left out until the
 // planner knows the streets.
@@ -42,34 +35,27 @@ const CHANGE_WORTH_SECONDS = 5 * 60;
 // At most this many searches for each journey asked for, as many a search finds only journeys
 // another beats.
 const MAX_SEARCHES_PER_JOURNEY = 3;
-// Enough for "Your location". A label comes back in the answer, so it is capped.
-const MAX_LABEL_LENGTH = 100;
-
-// Both ends as a request names them (see pointEnd in shared/journeys.ts), each point with the label
-// the page shows for it.
+// Both stops, as a request names them by key.
 export function readEnds(schedule: Schedule, params: URLSearchParams) {
   const [from, to] = [params.get('from'), params.get('to')];
   if (!from || !to) throw new RequestError(400, 'Send from and to');
-  if (from === to) throw new RequestError(400, 'From and To are the same place');
-  return { from: readEnd(schedule, from, params.get('fl')), to: readEnd(schedule, to, params.get('tl')) };
+  if (from === to) throw new RequestError(400, 'From and To are the same stop');
+  return { from: readStop(schedule, from), to: readStop(schedule, to) };
 }
 
-function readEnd(schedule: Schedule, value: string, label: string | null): Endpoint {
-  if (value.startsWith('@')) {
-    const [, lat, lon] = (value.match(/^@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/) ?? []).map(Number);
-    if (lat === undefined || lon === undefined || Math.abs(lat) > 90 || Math.abs(lon) > 180) throw new RequestError(400, 'That is not a place on the map');
-    return { kind: 'point', name: label?.trim().slice(0, MAX_LABEL_LENGTH) || 'Your location', at: { lat, lon } };
-  }
-  const stop = schedule.stopsByKey.get(value);
-  if (!stop) throw new RequestError(404, `No stop ${value}`);
-  return { kind: 'stop', stop };
+function readStop(schedule: Schedule, key: string) {
+  const stop = schedule.stopsByKey.get(key);
+  if (!stop) throw new RequestError(404, `No stop ${key}`);
+  return stop;
 }
 
-// The next few ways from one end to the other, with any number of vehicles, soonest first.
-export function planJourneys(schedule: Schedule, realtime: RealtimeView, from: Endpoint, to: Endpoint, now: number, options: JourneyOptions = {}): JourneysResponse {
+// The next few ways from one stop to another, with any number of vehicles, soonest first. They
+// start at From's own platforms and end at To's or one on its corner, as the transfer results'
+// rides there do.
+export function planJourneys(schedule: Schedule, realtime: RealtimeView, from: StopRow, to: StopRow, now: number, options: JourneyOptions = {}): JourneysResponse {
   const network = liveNetwork(schedule, realtime, now, options);
-  const starts = accessTo(schedule, from, 'start', options.speed);
-  const ends = accessTo(schedule, to, 'end', options.speed);
+  const starts = schedule.boardingStops(from).map((stop) => ({ stop: stop.id, seconds: 0 }));
+  const ends = arrivalStops(schedule, to).map((stop) => ({ stop: stop.id, seconds: 0 }));
   const maxRides = options.maxRides ?? MAX_RIDES;
   const count = options.count ?? JOURNEYS;
   let journeys: Journey[] = [];
@@ -89,21 +75,18 @@ export function planJourneys(schedule: Schedule, realtime: RealtimeView, from: E
   if (walk.meters <= WALK_ONLY_METERS) journeys = [...journeys, walk.journey];
   journeys.sort((a, b) => a.leaves - b.leaves || a.arrives - b.arrives);
   const shown = journeys.slice(0, count);
-  // With no way at all, a point no stop is near is why.
-  const far = shown.length > 0 ? null : from.kind === 'point' && starts.length === 0 ? 'from' : to.kind === 'point' && ends.length === 0 ? 'to' : null;
   const tables = new Tables(schedule);
   const { alerts, feeds } = serviceStatus(schedule, realtime, tables, tabulate(schedule, tables, shown, [from, to]));
   return {
     generatedAt: now,
     dataAt: realtime.updatedAt,
-    from: endView(tables, from),
-    to: endView(tables, to),
+    from: tables.stop(from),
+    to: tables.stop(to),
     journeys: shown,
     routes: tables.routes,
     stops: tables.stops,
     alerts,
     ...(options.stepFree || options.escalators ? { access: accessOutages(schedule, tables, realtime, options, shown) } : {}),
-    ...(far ? { notice: { kind: 'far' as const, end: far } } : {}),
     feeds,
   };
 }
@@ -230,22 +213,6 @@ function liveNetwork(schedule: Schedule, realtime: RealtimeView, now: number, op
   };
 }
 
-// The stops a journey can start or end at, with the walk to or from each: a stop's own platforms,
-// and at the end a stop on its corner too, as a ride to a named stop ends in the transfer results,
-// or else the stops around a point, timed as a transfer's walk is, from a station's entrances.
-function accessTo(schedule: Schedule, end: Endpoint, side: 'start' | 'end', speed?: number): Access[] {
-  if (end.kind === 'stop') return (side === 'start' ? schedule.boardingStops(end.stop) : arrivalStops(schedule, end.stop)).map((stop) => ({ stop: stop.id, seconds: 0 }));
-  const around = [...schedule.patternsByStop.keys()].map((id) => {
-    const stop = schedule.stop(id);
-    return { stop, meters: Math.min(...walkPoints(schedule, stop).map((point) => distanceMeters(end.at, point))) };
-  });
-  const near = around.filter(({ meters }) => meters <= ACCESS_METERS);
-  return (near.length > 0 ? near : around.filter(({ meters }) => meters <= FAR_ACCESS_METERS)).map(({ stop, meters }) => {
-    const [exit, entry] = side === 'start' ? (['street', stop.access] as const) : ([stop.access, 'street'] as const);
-    return { stop: stop.id, seconds: Math.ceil(transferSeconds({ exit, entry, meters, ...(speed ? { speed } : {}) })) };
-  });
-}
-
 // The router finds the soonest arrival by boarding each vehicle as soon as it can, which can mean
 // an early first train and a long wait to change. A rider would rather wait where they start, so
 // each vehicle, from the last back, becomes the latest of its own that still makes the next.
@@ -291,7 +258,7 @@ const stopKey = (schedule: Schedule, stop: number) => stopKeyOf(schedule.station
 
 function journeyOf(schedule: Schedule, network: LiveNetwork, path: Path): Journey {
   const legs: JourneyLeg[] = [];
-  const walk = (from: string | null, to: string | null, seconds: number) => {
+  const walk = (from: string, to: string, seconds: number) => {
     if (seconds <= 0) return;
     const last = legs.at(-1);
     // A walk on from where a walk ended is one walk.
@@ -300,7 +267,6 @@ function journeyOf(schedule: Schedule, network: LiveNetwork, path: Path): Journe
       last.seconds += seconds;
     } else legs.push({ kind: 'walk', from, to, seconds });
   };
-  walk(null, stopKey(schedule, path.start.stop), path.start.seconds);
   for (const leg of path.legs) {
     if (leg.kind === 'walk') {
       walk(stopKey(schedule, leg.from), stopKey(schedule, leg.to), leg.seconds);
@@ -326,7 +292,6 @@ function journeyOf(schedule: Schedule, network: LiveNetwork, path: Path): Journe
       stops: leg.alight - leg.board,
     });
   }
-  walk(stopKey(schedule, path.end.stop), null, path.end.seconds);
   return { leaves: leavesAt(path), arrives: path.arrives, rides: path.rides, legs };
 }
 
@@ -348,18 +313,16 @@ function keepBest(journeys: Journey[]) {
 }
 
 // Walking all the way, setting off now, and how far that is.
-function walkOnly(from: Endpoint, to: Endpoint, now: number, speed?: number): { meters: number; journey: Journey } {
-  const at = (end: Endpoint) => (end.kind === 'stop' ? end.stop : end.at);
-  const meters = distanceMeters(at(from), at(to));
+function walkOnly(from: StopRow, to: StopRow, now: number, speed?: number): { meters: number; journey: Journey } {
+  const meters = distanceMeters(from, to);
   const seconds = Math.ceil(walkSeconds(meters, speed));
-  const key = (end: Endpoint) => (end.kind === 'stop' ? stopKeyOf(end.stop) : null);
-  return { meters, journey: { leaves: now, arrives: now + seconds, rides: 0, legs: [{ kind: 'walk', from: key(from), to: key(to), seconds }] } };
+  return { meters, journey: { leaves: now, arrives: now + seconds, rides: 0, legs: [{ kind: 'walk', from: stopKeyOf(from), to: stopKeyOf(to), seconds }] } };
 }
 
 // Puts the stops and routes the journeys name in the tables, and gives the stops, routes and
 // agencies they use, with the stops they start and end at, for the alerts and feeds that bear on
 // them. Alerts may name a BART stop by platform or station.
-function tabulate(schedule: Schedule, tables: Tables, journeys: Journey[], ends: Endpoint[]) {
+function tabulate(schedule: Schedule, tables: Tables, journeys: Journey[], ends: StopRow[]) {
   const stops = new Set<string>();
   const routes = new Set<string>();
   const agencies = new Set<AgencyId>();
@@ -368,15 +331,14 @@ function tabulate(schedule: Schedule, tables: Tables, journeys: Journey[], ends:
     for (const each of [stop, schedule.stationOf(stop), ...schedule.boardingStops(stop)]) stops.add(stopKeyOf(each));
   };
   for (const end of ends) {
-    if (end.kind !== 'stop') continue;
-    addStop(end.stop);
+    addStop(end);
     // A shared station belongs to both systems, so its own agency says nothing about the trip.
-    if (!schedule.sharedMembers.has(end.stop.id)) agencies.add(end.stop.agency);
+    if (!schedule.sharedMembers.has(end.id)) agencies.add(end.agency);
   }
   for (const { legs } of journeys) {
     for (const leg of legs) {
       for (const key of [leg.from, leg.to]) {
-        const stop = key === null ? undefined : schedule.stopsByKey.get(key);
+        const stop = schedule.stopsByKey.get(key);
         if (stop) addStop(stop);
       }
       if (leg.kind !== 'ride') continue;
@@ -395,11 +357,8 @@ function tabulate(schedule: Schedule, tables: Tables, journeys: Journey[], ends:
 // none of its way.
 function accessOutages(schedule: Schedule, tables: Tables, realtime: RealtimeView, needs: AccessNeeds, journeys: Journey[]) {
   const legs = journeys.flatMap(({ legs }) => legs);
-  const keys = legs.flatMap(({ from, to }) => [from, to]).filter((key) => key !== null);
+  const keys = legs.flatMap(({ from, to }) => [from, to]);
   const bartAt = new Set(legs.flatMap((leg) => (leg.kind === 'ride' && schedule.routesByKey.get(leg.route)?.agency === 'BA' ? [leg.from, leg.to] : [])));
   return stationOutages(schedule, tables, realtime.access ?? [], needs, bartAt, keys);
 }
 
-function endView(tables: Tables, end: Endpoint): JourneyEnd {
-  return end.kind === 'stop' ? { kind: 'stop', stop: tables.stop(end.stop) } : { kind: 'point', name: end.name, lat: end.at.lat, lon: end.at.lon };
-}

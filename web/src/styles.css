@@ -246,7 +246,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-swap { border-left: var(--border-hair) solid var(--divider); display: grid; place-items: center; }
 .tf-results { border: var(--border-strong) solid var(--line); margin-top: calc(-1 * var(--space-2)); }
 .tf-results__label { padding: var(--space-2) var(--space-4); font-size: var(--text-sm); color: var(--muted); border-bottom: var(--border-hair) solid var(--divider); }
-.tf-result--here .tf-result__name { display: inline-flex; align-items: center; gap: var(--space-2); }
+.tf-result--near .tf-result__name { display: inline-flex; align-items: center; gap: var(--space-2); }
 .tf-result { display: flex; flex-direction: column; gap: var(--space-1); width: 100%; text-align: left; padding: var(--space-3) var(--space-4); min-height: 64px; border-bottom: var(--border-hair) solid var(--divider); }
 @media (hover: hover) { .tf-result:hover { background: color-mix(in srgb, var(--text) 5%, transparent); } }
 /* The match Enter would take, marked so the rider knows before pressing it. */
@@ -718,12 +718,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-seg__option { min-height: var(--tap); padding: 6px var(--space-3); text-align: left; font-size: 15px; font-weight: var(--weight-label); line-height: 1.25; color: var(--muted); }
 .tf-seg__option + .tf-seg__option { border-left: var(--border-hair) solid var(--divider); }
 @media (hover: hover) { .tf-seg__option:hover { background: color-mix(in srgb, var(--text) 7%, transparent); } }
-.tf-seg__option[aria-pressed="true"], .tf-seg__option[aria-selected="true"] { background: var(--field); color: var(--on-field); }
-/* A page's views, full width over what they show. */
-.tf-tabs { max-width: var(--form-max); }
-.tf-tabs .tf-seg__option { text-align: center; }
-/* What the tabs show, spaced as the page's own parts are. */
-.tf-tabpanel { display: flex; flex-direction: column; gap: var(--space-4); }
+.tf-seg__option[aria-pressed="true"] { background: var(--field); color: var(--on-field); }
 
 /* Saved search colors: a stripe down the card, and across the top of its results. */
 .tf-saved { border-left: 8px solid var(--saved-color, var(--line)); }

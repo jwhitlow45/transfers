@@ -1,15 +1,11 @@
 import { useEffect, useState } from 'preact/hooks';
 import { clampMinutes } from '../../shared/api.ts';
 import { TRIP_PATH, tripPath } from '../../shared/paths.ts';
-import { isJourneySearch } from './lib/ends.ts';
 import { type Search, isStopSearch, readStored, stopSearch, writeStored } from './storage.ts';
 
 export type Page =
   | { name: 'home' }
-  // `view` is the tab the rider last chose, when both ends are stops (see isStopToStop).
-  | { name: 'trip'; search: Search; view?: ResultsView }
-  // Trips with any number of changes, from wherever the rider is.
-  | { name: 'journeys'; search: Search }
+  | { name: 'trip'; search: Search }
   // A stop's arrivals, its search with no To (see stopSearch).
   | { name: 'stop'; search: Search }
   | { name: 'nearby' }
@@ -21,18 +17,8 @@ export type Page =
 // A stop's arrivals: /stop/SF:13477?fl=24th+St+%26+Mission+St+(13477)
 export const stopPath = (search: Pick<Search, 'from' | 'fromLabel'>) => `/stop/${encodeURIComponent(search.from)}?${new URLSearchParams({ fl: search.fromLabel })}`;
 
-export type ResultsView = 'trips' | 'transfers';
-
-// Trips from the rider's location: /j/@here/SF:13517?fl=…&tl=…
-export const journeysPath = (search: Pick<Search, 'from' | 'to' | 'fromLabel' | 'toLabel'>) =>
-  `/j/${encodeURIComponent(search.from)}/${encodeURIComponent(search.to)}?${new URLSearchParams({ fl: search.fromLabel, tl: search.toLabel })}`;
-
-// A stop-to-stop search's results, on the tab the rider chose.
-export const resultsPath = (search: Search, view: ResultsView) => `${tripPath(search)}&view=${view}`;
-
-// A search's own address: a stop's arrivals with no To, trips from the rider, or the transfer
-// results.
-export const searchPath = (search: Search) => (isStopSearch(search) ? stopPath(search) : isJourneySearch(search) ? journeysPath(search) : tripPath(search));
+// A trip's own address, or a stop's for a search with no To.
+export const searchPath = (search: Search) => (isStopSearch(search) ? stopPath(search) : tripPath(search));
 
 export function parsePage(location: Location): Page {
   const trip = location.pathname.match(TRIP_PATH);
@@ -48,8 +34,6 @@ export function parsePage(location: Location): Page {
       fromLabel: params.get('fl') ?? decodeURIComponent(trip[1]!),
       toLabel: params.get('tl') ?? decodeURIComponent(trip[2]!),
     };
-    // The rider's location under /t/, as from a link made by hand, is the trip planner's.
-    if (isJourneySearch(search)) return { name: 'journeys', search };
     const min = number('min');
     const max = number('max');
     const hide = number('hide');
@@ -69,17 +53,8 @@ export function parsePage(location: Location): Page {
     if (off) search.off = off.split(',');
     const system = (value: string | null) => (value === 'BA' || value === 'SF' ? value : undefined);
     const fromSystem = system(params.get('fm'));
-    const toSystem = system(params.get('tm'));
     if (fromSystem) search.fromSystem = fromSystem;
-    if (toSystem) search.toSystem = toSystem;
-    const view = params.get('view');
-    return { name: 'trip', search, ...(view === 'trips' || view === 'transfers' ? { view } : {}) };
-  }
-  const journeys = location.pathname.match(/^\/j\/([^/]+)\/([^/]+)$/);
-  if (journeys) {
-    const params = new URLSearchParams(location.search);
-    const [from, to] = [decodeURIComponent(journeys[1]!), decodeURIComponent(journeys[2]!)];
-    return { name: 'journeys', search: { from, to, fromLabel: params.get('fl') ?? from, toLabel: params.get('tl') ?? to } };
+    return { name: 'trip', search };
   }
   const stop = location.pathname.match(/^\/stop\/([^/]+)$/);
   if (stop) {

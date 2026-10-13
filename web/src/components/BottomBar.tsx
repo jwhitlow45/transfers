@@ -17,9 +17,7 @@ export function BottomBar({ windowText, saved, failed = false, onBack, onOpen, o
   failed?: boolean;
   onBack: () => void;
   onOpen?: () => void;
-  // Without it there is nothing to save, as for trips from the rider's location, which Home's saved
-  // cards cannot follow.
-  onToggleSaved?: () => void;
+  onToggleSaved: () => void;
   children?: ComponentChildren;
 }) {
   return (
@@ -49,11 +47,9 @@ export function BottomBar({ windowText, saved, failed = false, onBack, onOpen, o
             <IconSliders />
           </span>
         </button>}
-        {onToggleSaved && (
-          <button type="button" class="tf-btn-outline tf-bottombar__icon" disabled={failed && !saved} aria-pressed={saved} aria-label={saved ? 'Saved. Remove from saved searches' : 'Save this search'} onClick={onToggleSaved}>
-            <IconBookmark filled={saved} />
-          </button>
-        )}
+        <button type="button" class="tf-btn-outline tf-bottombar__icon" disabled={failed && !saved} aria-pressed={saved} aria-label={saved ? 'Saved. Remove from saved searches' : 'Save this search'} onClick={onToggleSaved}>
+          <IconBookmark filled={saved} />
+        </button>
       </div>
     </nav>
   );

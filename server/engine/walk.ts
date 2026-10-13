@@ -24,9 +24,6 @@ export const DEFAULT_MAX_WALK_METERS = 300;
 // Metro, the platform point, so the limit stretches by half: 450 m catches 98.7% of the
 // connections BART lists on its station maps.
 export const STATION_WALK_FACTOR = 1.5;
-// A rider who names the exact stop to transfer to has chosen the walk, so the limit only
-// stops absurd pairings.
-export const NAMED_STOP_MAX_WALK_METERS = 800;
 // The default maximum is the minimum plus this, matching the 3 to 12 window J uses.
 export const DEFAULT_WINDOW_MINUTES = 9;
 // Changing at a station step-free means waiting for and riding elevators, which takes this much

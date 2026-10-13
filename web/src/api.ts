@@ -84,24 +84,13 @@ export const apiUrl = {
     if (search.firstRoutes?.length) params.set('r1', search.firstRoutes.join(','));
     if (search.secondRoutes?.length) params.set('r2', search.secondRoutes.join(','));
     if (search.fromSystem) params.set('fm', search.fromSystem);
-    if (search.toSystem) params.set('tm', search.toSystem);
     if (showHidden) params.set('hidden', '1');
     if (pin) writePin(params, pin);
     return `/api/trip?${params}`;
   },
   // The destinations a trip can have, which depend only on its ends and the rider's walk, so
   // changing what results show asks nothing again.
-  destinations: (tripUrl: string) => `/api/destinations?${only(tripUrl, ['from', 'to', 'walk', 'speed', 'fm', 'tm'])}`,
-  // The way back by the transfer point `point`, asked with only what decides it, so moving a
-  // slider in the sheet asks nothing again.
-  wayBack(tripUrl: string, point: { alight: string; board: string } | undefined) {
-    const params = only(tripUrl, ['from', 'to', 'dest', 'walk', 'speed', 'fm', 'tm', 'r1', 'r2']);
-    if (point) {
-      params.set('wa', point.alight);
-      params.set('wb', point.board);
-    }
-    return `/api/way-back?${params}`;
-  },
+  destinations: (tripUrl: string) => `/api/destinations?${only(tripUrl, ['from', 'to', 'walk', 'speed', 'fm'])}`,
   // A stop's arrivals, which its page, its saved card, and a pinned arrival all ask for, the pin's
   // vehicle with them when one is pinned there.
   stop(stop: string, pin: PinRequest | null = null) {
@@ -114,10 +103,10 @@ export const apiUrl = {
   // Stops, and routes too for To, by name or number, nearest first when the rider shared where they are.
   search: (query: string, routes: boolean, near: Position | null) =>
     `/api/search?${new URLSearchParams({ q: query, kind: routes ? 'any' : 'stop', ...(near ? { lat: near.lat.toFixed(4), lon: near.lon.toFixed(4) } : {}) })}`,
-  // Trips between two ends as the API names them (see shared/journeys.ts), the points by the names
-  // the rider saw, walking at the rider's own speed.
-  journeys(from: string, to: string, fromLabel: string, toLabel: string, settings: DeviceSettings) {
-    const params = new URLSearchParams({ from, to, fl: fromLabel, tl: toLabel });
+  // Trips with any number of changes between two stops, for when no way there takes one or none
+  // (see shared/journeys.ts), walking at the rider's own speed.
+  journeys(from: string, to: string, settings: DeviceSettings) {
+    const params = new URLSearchParams({ from, to });
     writeRider(params, settings);
     return `/api/journeys?${params}`;
   },

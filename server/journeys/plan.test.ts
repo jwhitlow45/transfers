@@ -12,7 +12,7 @@ import type { Schedule } from '../schedule.ts';
 import { CALENDAR, buildSchedule, clock, files } from '../test-gtfs.ts';
 import { serviceDayStart } from '../time.ts';
 import { footpathsFor, walksFor } from './footpaths.ts';
-import { type Endpoint, type JourneyOptions, planJourneys, prepareJourneys, readEnds } from './plan.ts';
+import { type JourneyOptions, planJourneys, prepareJourneys, readEnds } from './plan.ts';
 
 // BART from Montgomery to 24th St every 10 minutes from 7:30, the 48 from 24th & Mission to
 // Potrero every 15 minutes from 7:32, and the 22 from a stop a few steps up Potrero to Dogpatch
@@ -76,8 +76,7 @@ before(() => {
 });
 after(() => schedule.close());
 
-const stop = (key: string): Endpoint => ({ kind: 'stop', stop: schedule.stopsByKey.get(key)! });
-const point = (lat: number, lon: number, name = 'Your location'): Endpoint => ({ kind: 'point', name, at: { lat, lon } });
+const stop = (key: string) => schedule.stopsByKey.get(key)!;
 const rideLegs = (legs: { kind: string }[]) => legs.filter((leg): leg is RideLeg => leg.kind === 'ride');
 const rides = (legs: { kind: string }[]) => rideLegs(legs).map(({ route, departs }) => `${route} ${clock(departs - DAY)}`);
 // The feed's word on one 48, by its trip number: `delay` seconds late at 24th & Mission and Potrero.
@@ -118,36 +117,17 @@ test('a journey takes as many vehicles as it needs, walking between stops, and b
   ok(['BA:Yellow-S', 'SF:48', 'SF:22'].every((route) => response.routes[route]));
 });
 
-test('a journey from where the rider is walks to the nearest stops first', () => {
-  // A few steps from 24th & Mission, closer to the bus than to the train.
-  const response = planJourneys(schedule, realtime(), point(37.7521, -122.4191), stop('SF:13700'), NOW);
-  const [first] = response.journeys;
-  const walk = first!.legs[0]!;
-  deepStrictEqual([walk.kind, walk.kind === 'walk' && walk.from, walk.kind === 'walk' && walk.to], ['walk', null, 'SF:13477']);
-  deepStrictEqual(rides(first!.legs), ['SF:48 8:02:00', 'SF:22 8:15:00']);
-  // The rider sets off with just the time the walk takes.
-  strictEqual(first!.leaves, DAY + 8 * 3600 + 120 - (walk.kind === 'walk' ? walk.seconds : 0));
-  deepStrictEqual(response.from, { kind: 'point', name: 'Your location', lat: 37.7521, lon: -122.4191 });
-  // A slower walker takes longer to reach the stop.
-  const slow = planJourneys(schedule, realtime(), point(37.7521, -122.4191), stop('SF:13700'), NOW, { speed: 0.7 }).journeys[0]!.legs[0]!;
-  ok(slow.kind === 'walk' && walk.kind === 'walk' && slow.seconds > walk.seconds);
-});
-
-test('a journey to a point on the map walks from the nearest stops, and one to a point within a walk offers the walk', () => {
-  const toPoint = planJourneys(schedule, realtime(), stop('BA:901209'), point(37.7585, -122.3887, 'Dogpatch'), NOW);
-  const last = toPoint.journeys[0]!.legs.at(-1)!;
-  deepStrictEqual([last.kind, last.kind === 'walk' && last.from, last.kind === 'walk' && last.to], ['walk', 'SF:13700', null]);
-  deepStrictEqual(toPoint.to, { kind: 'point', name: 'Dogpatch', lat: 37.7585, lon: -122.3887 });
-  const short = planJourneys(schedule, realtime(), stop('SF:13500'), point(37.7535, -122.405, 'Corner'), NOW);
-  deepStrictEqual(short.journeys[0], { leaves: NOW, arrives: short.journeys[0]!.arrives, rides: 0, legs: [{ kind: 'walk', from: 'SF:13500', to: null, seconds: short.journeys[0]!.arrives - NOW }] });
+test('a journey ends at To or a stop on its corner, as the transfer results count a ride there', () => {
+  // 24th & Mission is 36 m from 24th St Mission's entrance, so BART alone gets there.
+  const { journeys, to } = planJourneys(schedule, realtime(), stop('BA:901209'), stop('SF:13477'), NOW);
+  deepStrictEqual(rides(journeys[0]!.legs), ['BA:Yellow-S 8:00:00']);
+  deepStrictEqual([rideLegs(journeys[0]!.legs)[0]!.to, to], ['BA:901609', 'SF:13477']);
 });
 
 test('walking all the way is offered only between ends 2 km or less apart, as a straight line further can cross water', () => {
-  // Over 2 km apart, with a long walk each side of the one stop near both, walking straight there
-  // would be quicker than by way of it, but is not offered. At 10 nothing runs at all.
-  const [north, south] = [point(37.7685, -122.3887, 'North'), point(37.7469, -122.3887, 'South')];
+  // Montgomery and 3rd & 22nd are over 4 km apart. At 10 nothing runs at all.
   for (const now of [NOW, DAY + 10 * 3600]) {
-    const { journeys } = planJourneys(schedule, realtime([], now), north, south, now);
+    const { journeys } = planJourneys(schedule, realtime([], now), stop('BA:901209'), stop('SF:13700'), now);
     deepStrictEqual(journeys.filter(({ rides }) => rides === 0), []);
   }
 });
@@ -160,13 +140,6 @@ test('walking all the way is shown beside the vehicles, however little they save
   const [bus] = journeys.filter(({ rides }) => rides > 0);
   deepStrictEqual([journeys[0] === walk, rides(bus!.legs)], [true, ['SF:48 8:02:00']]);
   ok(walk.arrives - bus!.arrives < 5 * 60);
-});
-
-test('a trip from or to somewhere no stop is near says so', () => {
-  const nowhere = point(37.9, -122.6, 'Point Reyes');
-  deepStrictEqual(planJourneys(schedule, realtime(), nowhere, stop('SF:13700'), NOW).notice, { kind: 'far', end: 'from' });
-  deepStrictEqual(planJourneys(schedule, realtime(), stop('SF:13700'), nowhere, NOW).notice, { kind: 'far', end: 'to' });
-  strictEqual(planJourneys(schedule, realtime(), stop('BA:901209'), stop('SF:13700'), NOW).notice, undefined);
 });
 
 test("the feed's predictions time a journey where it has them", () => {
@@ -253,16 +226,13 @@ test('the days a search will read are loaded ahead of it, the next one by evenin
   deepStrictEqual(await prepareJourneys(() => null, NOW), []);
 });
 
-test('ends are read as a stop or a point, and a bad one is turned away plainly', () => {
+test('ends are read as stops, and a bad one is turned away plainly', () => {
   const read = (params: Record<string, string>) => readEnds(schedule, new URLSearchParams(params));
-  deepStrictEqual(read({ from: '@37.7525,-122.4182', to: 'SF:13477' }), { from: point(37.7525, -122.4182), to: stop('SF:13477') });
-  deepStrictEqual(read({ from: '@37.7521,-122.4191', to: '@37.7585,-122.3887', tl: '  Dogpatch Saloon ' }), { from: point(37.7521, -122.4191), to: point(37.7585, -122.3887, 'Dogpatch Saloon') });
-  strictEqual((read({ from: '@37.7521,-122.4191', to: 'SF:13700', fl: 'x'.repeat(500) }).from as { name: string }).name.length, 100);
+  deepStrictEqual(read({ from: 'SF:13477', to: 'SF:13500' }), { from: stop('SF:13477'), to: stop('SF:13500') });
   const refused = (params: Record<string, string>, status: number, message: string) =>
     throws(() => read(params), (error) => error instanceof RequestError && error.status === status && error.message === message);
   refused({ from: 'SF:13477' }, 400, 'Send from and to');
-  refused({ from: 'SF:13477', to: 'SF:13477' }, 400, 'From and To are the same place');
+  refused({ from: 'SF:13477', to: 'SF:13477' }, 400, 'From and To are the same stop');
   refused({ from: 'SF:13477', to: 'SF:99999' }, 404, 'No stop SF:99999');
-  refused({ from: 'SF:13477', to: 'place:w2' }, 404, 'No stop place:w2');
-  for (const to of ['@91,0', '@37.75,-200', '@37.75', '@37.75,-122.4,1', '@north,west']) refused({ from: 'SF:13477', to }, 400, 'That is not a place on the map');
+  refused({ from: '@37.7525,-122.4182', to: 'SF:13477' }, 404, 'No stop @37.7525,-122.4182');
 });

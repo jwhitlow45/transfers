@@ -3,7 +3,7 @@ import { clock, clockOrDay, minutesUntil } from '../format.ts';
 import type { Pin, Search } from '../storage.ts';
 import { type Status, chipLabel, shortStopName, statusOf, windowText } from '../view.ts';
 import { pinOf } from './pinned.ts';
-import { pageColors, pointId, ridesStraightTo, visibleDepartures } from './results.ts';
+import { pageColors, pointId, visibleDepartures } from './results.ts';
 
 // One vehicle of the next connection, for a saved card to draw as the results page does.
 export type Leg = { route: Route | undefined; at: number; status: Status };
@@ -29,15 +29,13 @@ export function summarize(search: Search, data: TripResponse | null, now: number
   const groups = (data?.groups ?? []).filter((group) => !search.off?.includes(pointId(group)));
   const from = data ? shortStopName(data.stops[data.from], search.fromLabel) : search.fromLabel;
   const alights = [...new Set(groups.filter(({ kind }) => kind !== 'walk').map(({ alight }) => alight))];
-  // With several places to get off, each group says its own, and the header names none.
-  const via = alights.length === 1 ? shortStopName(data?.stops[alights[0]!], '') : null;
+  // With several places to get off, each group says its own, and the header names none. Going to a
+  // stop, a ride straight there is a way that changes nowhere.
+  const going = data !== null && 'stop' in data.to;
+  const via = alights.length === 1 && !(going && groups.some(({ kind }) => kind === 'walk')) ? shortStopName(data?.stops[alights[0]!], '') : null;
+  // A stop in To is where the rider is going, so it is named, not a route that gets there.
   const toRoute = data && 'route' in data.to ? data.routes[data.to.route] : undefined;
-  const routeSets = [...new Set(groups.map(({ routes }) => routes.join(',')))];
-  const onlyRoute = routeSets.length === 1 && groups[0]?.routes.length === 1 ? data?.routes[groups[0].routes[0]!] : undefined;
-  // A route straight to the named stop is the way there, not what the rider is going to catch.
-  const straight = groups.length > 0 && groups.every((group) => ridesStraightTo(group, search.dest));
-  const toRouteShown = toRoute ?? (straight ? undefined : onlyRoute);
-  const to = toRouteShown ? chipLabel(toRouteShown) : search.toLabel;
+  const to = toRoute ? chipLabel(toRoute) : search.toLabel;
   // The window the page talks about: the rider's own, or the first transfer point's that has
   // something to catch. The header, the bottom bar, and the sheet all show this one.
   const rides = groups.filter(({ kind }) => kind !== 'walk');
@@ -112,8 +110,8 @@ export function summarize(search: Search, data: TripResponse | null, now: number
   const severeAlerts = countStopAlerts(data?.alerts ?? [], standing, dismissed);
 
   // The route a saved search is about: the one transferred to, in the color the results give it.
-  const lineColor = data && (toRouteShown ?? (groups[0] ? data.routes[groups[0].routes[0]!] : undefined)) ? pageColors(groups, data)((toRouteShown ?? data.routes[groups[0]!.routes[0]!])!.key) : null;
+  const lineColor = data && (toRoute ?? (groups[0] ? data.routes[groups[0].routes[0]!] : undefined)) ? pageColors(groups, data)((toRoute ?? data.routes[groups[0]!.routes[0]!])!.key) : null;
 
   // Where to get off is left out of the chain when it is To's own stop, said once.
-  return { groups, from, via, to, toRoute: toRouteShown, lineColor, window, windowText: window ? windowText(window) : null, next, nextService, boarding, severeAlerts, chain: [from, via === to ? null : via, to].filter(Boolean).join(' → ') };
+  return { groups, from, via, to, toRoute, lineColor, window, windowText: window ? windowText(window) : null, next, nextService, boarding, severeAlerts, chain: [from, via === to ? null : via, to].filter(Boolean).join(' → ') };
 }

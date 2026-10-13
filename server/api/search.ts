@@ -1,5 +1,5 @@
 import type { RouteSearchResult, RouteStops, SearchResponse, StopSearchResult } from '../../shared/api.ts';
-import { bartSiblings, headingOf, rankedHeadings } from '../engine/links.ts';
+import { bartSiblings, headingOf, rankedHeadings, walkPoints } from '../engine/links.ts';
 import { Tables, routeView, stopView } from '../engine/views.ts';
 import { distanceMeters, type Point } from '../geo.ts';
 import { searchQuery, searchText } from '../gtfs/search-text.ts';
@@ -7,22 +7,43 @@ import { type PatternRow, type RouteRow, type Schedule, type StopRow, routeKeyOf
 import { all } from '../db.ts';
 
 const LIMIT = 12;
+// Stops near the rider, for From with nothing typed: a few, within a short walk (J, 2026-10-12).
+const NEAREST = 3;
+const NEAREST_METERS = 800;
 
 // The stops riders search for: BART stations rather than their platforms, and boarding stops
 // everywhere else (see buildSearchIndex).
 const isSearchable = (stop: StopRow) =>
   (stop.kind === 'station' && stop.access === 'bart') || stop.kind === 'stop' || (stop.kind === 'platform' && stop.access !== 'bart');
 
+// Stops and routes matching what was typed, or with nothing typed and `near` given, the stops
+// nearest the rider.
 export function search(schedule: Schedule, text: string, options: { routes: boolean; near?: Point }): SearchResponse {
   const query = text.trim();
   const tables = new Tables(schedule);
   const response: SearchResponse = { results: [], routes: tables.routes };
-  if (!query) return response;
+  if (!query && !options.near) return response;
 
   let stops: StopRow[];
+  // How far each stop is, for the stops nearest the rider.
+  const away = new Map<number, number>();
   // "stop 13477" and "#13477" are stop codes too.
   const code = query.replace(/^(stop\s*#?|#)\s*/i, '');
-  if (/^\d+$/.test(code)) {
+  if (!query) {
+    // From a station's nearest entrance, as walks to it are measured.
+    const near = options.near!;
+    for (const stop of schedule.stops.values()) {
+      if (!isSearchable(stop) || !schedule.stopRoutes.has(stop.id) || (stop.agency === 'SF' && schedule.sharedStation.has(stop.id))) continue;
+      const meters = Math.min(...walkPoints(schedule, stop).map((point) => distanceMeters(near, point)));
+      if (meters <= NEAREST_METERS) away.set(stop.id, meters);
+    }
+    const nearest = [...away.keys()].sort((a, b) => away.get(a)! - away.get(b)!).map((id) => schedule.stop(id));
+    stops = nearest.slice(0, NEAREST);
+    // A station steps further than the street stops around its entrances, and is often what the
+    // rider is there for, so the nearest comes too.
+    const station = nearest.find(({ access }) => access !== 'street');
+    if (station && !stops.includes(station)) stops.push(station);
+  } else if (/^\d+$/.test(code)) {
     // A stop code, matched from its start: "134" lists 13400 through 13499.
     stops = [...schedule.stops.values()]
       .filter((stop) => isSearchable(stop) && stop.agency !== 'BA' && stop.code?.startsWith(code) && schedule.stopRoutes.has(stop.id))
@@ -55,7 +76,7 @@ export function search(schedule: Schedule, text: string, options: { routes: bool
     const rank = (stop: StopRow) => (starts(stop) ? 0 : 2) + (stop.access === 'street' ? 1 : 0);
     stops = found.map((stop, index) => ({ stop, index, rank: rank(stop) })).sort((a, b) => a.rank - b.rank || a.index - b.index).map(({ stop }) => stop);
   }
-  if (options.near) {
+  if (options.near && query) {
     // Nearest first among stops of one name, such as a street's two sides, so where the rider is
     // picks the side without burying a better match for what they typed.
     const near = options.near;
@@ -67,7 +88,7 @@ export function search(schedule: Schedule, text: string, options: { routes: bool
     stops.sort((a, b) => place(a) - place(b) || distanceMeters(near, a) - distanceMeters(near, b));
   }
 
-  const routeMatches = options.routes ? routeResults(schedule, query) : { exact: [], byLongName: [] };
+  const routeMatches = options.routes && query ? routeResults(schedule, query) : { exact: [], byLongName: [] };
   const stopResults: StopSearchResult[] = [];
   for (const stop of stops.slice(0, LIMIT)) {
     const members = schedule.sharedMembers.get(stop.id) ?? [];
@@ -88,6 +109,7 @@ export function search(schedule: Schedule, text: string, options: { routes: bool
       routes: sortRoutes(routes).map(routeKeyOf),
       // BART's lines head everywhere, so its stations list lines, not headsigns.
       toward: stop.access === 'bart' ? [] : rankedHeadings(schedule, leaving).slice(0, 3),
+      ...(away.has(stop.id) ? { meters: Math.round(away.get(stop.id)! / 10) * 10 } : {}),
     });
   }
   // A route named exactly ("22") is almost surely what was meant. Place names also appear in
@@ -100,7 +122,7 @@ export function search(schedule: Schedule, text: string, options: { routes: bool
   }
   response.results = results;
   // From has to be a stop, so naming a route there lists the stops it makes.
-  if (!options.routes) {
+  if (!options.routes && query) {
     const along = namedRoutes(schedule, query).map((route) => routeStops(schedule, route));
     if (along.length > 0) response.along = along;
     for (const { route } of along) tables.route(route);

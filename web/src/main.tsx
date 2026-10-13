@@ -9,7 +9,6 @@ import { ResultsScreen } from './screens/ResultsScreen.tsx';
 import { SearchScreen } from './screens/SearchScreen.tsx';
 import { SettingsScreen } from './screens/SettingsScreen.tsx';
 import { StopScreen } from './screens/StopScreen.tsx';
-import { JourneysScreen } from './screens/JourneysScreen.tsx';
 import { SettingsProvider } from './settings.tsx';
 import { searchId } from './storage.ts';
 import { TrackProvider } from './track.tsx';
@@ -99,8 +98,7 @@ function useLayers(page: Page, peeking: boolean) {
 function screenFor(layer: Layer) {
   const { page } = layer;
   if (page.name === 'home') return <SearchScreen key={layer.homeKey} />;
-  if (page.name === 'trip') return <ResultsScreen key={searchId(page.search)} search={page.search} view={page.view} />;
-  if (page.name === 'journeys') return <JourneysScreen key={searchId(page.search)} search={page.search} />;
+  if (page.name === 'trip') return <ResultsScreen key={searchId(page.search)} search={page.search} />;
   if (page.name === 'stop') return <StopScreen key={page.search.from} search={page.search} />;
   if (page.name === 'nearby') return <NearbyScreen />;
   if (page.name === 'settings') return <SettingsScreen />;
@@ -124,7 +122,7 @@ function App() {
   // change reaches a screen reader without moving focus.
   useEffect(() => {
     document.title =
-      page.name === 'trip' || page.name === 'journeys'
+      page.name === 'trip'
         ? `${page.search.fromLabel} to ${page.search.toLabel} · Transfers`
         : page.name === 'stop'
           ? `${page.search.fromLabel} arrivals · Transfers`

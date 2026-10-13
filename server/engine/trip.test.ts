@@ -201,7 +201,7 @@ function realtime(extra: FeedObject['entity'] = []) {
 }
 
 test('finds the 48 at 24th St Mission from Montgomery', () => {
-  const response = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477' }, NOW);
+  const response = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'route:SF:48' }, NOW);
   strictEqual(response.groups.length, 1);
   const [group] = response.groups;
   // Getting off at a BART platform is getting off at its station.
@@ -214,7 +214,7 @@ test('finds the 48 at 24th St Mission from Montgomery', () => {
 });
 
 test('pairs live and scheduled trips and shows the canceled bus in place', () => {
-  const response = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477' }, NOW);
+  const response = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'route:SF:48' }, NOW);
   const departures = response.groups[0]!.departures.map((departure) => ({
     bus: departure.trip,
     live: departure.live,
@@ -238,7 +238,7 @@ test('pairs live and scheduled trips and shows the canceled bus in place', () =>
 test('a train that has left From stays with its live arrival, as the rider may be on it, however soon the rider hides', () => {
   // Train b2 left Montgomery at 7:50, a minute late. The feed now lists only 24th St, at 7:59.
   const left = realtime([{ id: 'b2', tripUpdate: { trip: { tripId: 'BA:b2', routeId: 'BA:Yellow-S' }, stopTimeUpdate: [{ stopId: '901601', arrival: { time: DAY + 7.5 * 3600 + 1200 + 540, delay: 60 } }] } }]);
-  const group = planTrip(schedule, left, { from: 'BA:901209', to: 'SF:13477', hide: 10 }, NOW).groups[0]!;
+  const group = planTrip(schedule, left, { from: 'BA:901209', to: 'route:SF:48', hide: 10 }, NOW).groups[0]!;
   const connection = group.departures.find(({ trip }) => trip === 'SF:m2')?.connections.find(({ trip }) => trip === 'BA:b2');
   deepStrictEqual(connection && [connection.departs, connection.arrives, connection.live, connection.hidden], [DAY + 7.5 * 3600 + 1260, DAY + 7.5 * 3600 + 1740, true, undefined]);
 });
@@ -247,7 +247,7 @@ test('a vehicle the feed says has passed counts as gone even when the delay late
   // Train b3 is due at Montgomery at 8:00, and the feed lists only 24th St, two minutes late.
   // Two minutes on Montgomery's time would be 8:02, yet the feed says it has gone.
   const b3 = { id: 'b3', tripUpdate: { trip: { tripId: 'BA:b3', routeId: 'BA:Yellow-S' }, stopTimeUpdate: [{ stopId: '901601', arrival: { time: DAY + 7.5 * 3600 + 1800 + 600, delay: 120 } }] } };
-  const group = planTrip(schedule, realtime([b3]), { from: 'BA:901209', to: 'SF:13477', hide: 10 }, NOW).groups[0]!;
+  const group = planTrip(schedule, realtime([b3]), { from: 'BA:901209', to: 'route:SF:48', hide: 10 }, NOW).groups[0]!;
   const connection = group.departures.flatMap(({ connections }) => connections).find(({ trip }) => trip === 'BA:b3');
   deepStrictEqual([connection !== undefined, connection?.hidden, (connection?.departs ?? Infinity) < NOW], [true, undefined, true]);
   // Bus m2, due at Valencia at 8:00, is listed only at Potrero, a minute late: the rider may be on it.
@@ -259,7 +259,7 @@ test('a vehicle the feed says has passed counts as gone even when the delay late
 test('a train that has left keeps the bus it really made, and goes once that bus has, rather than taking a later one', () => {
   // At 8:05, trains b1 (7:40) and b2 (7:50) made bus m2, which left 24th St at 8:02. Train b3, which
   // left at 8:00, makes m3 at 8:17. A wide window would let b1 and b2 reach m3 too.
-  const group = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477', max: 30 }, NOW + 300).groups[0]!;
+  const group = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'route:SF:48', max: 30 }, NOW + 300).groups[0]!;
   deepStrictEqual(group.departures.find(({ trip }) => trip === 'SF:m3')?.connections.filter(({ departs }) => departs < NOW + 300).map(({ trip }) => trip), ['BA:b3']);
   strictEqual(group.departures.some(({ trip }) => trip === 'SF:m2'), false);
 });
@@ -267,21 +267,21 @@ test('a train that has left keeps the bus it really made, and goes once that bus
 test('a bus that has left the transfer stop stays until it reaches the destination, and without one, goes', () => {
   // At 8:05, bus m2 left 24th St at 8:02 and reaches Potrero at 8:12.
   const at = NOW + 300;
-  const toPotrero = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477', dest: 'SF:13500' }, at).groups[0]!;
+  const toPotrero = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'route:SF:48', dest: 'SF:13500' }, at).groups[0]!;
   deepStrictEqual(toPotrero.departures.find(({ trip }) => trip === 'SF:m2')?.connections.map(({ trip }) => trip), ['BA:b2']);
-  const noDestination = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477' }, at).groups[0]!;
+  const noDestination = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'route:SF:48' }, at).groups[0]!;
   strictEqual(noDestination.departures.some(({ trip }) => trip === 'SF:m2'), false);
   // Past Potrero, its ride is over.
-  strictEqual(planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477', dest: 'SF:13500' }, NOW + 800).groups[0]!.departures.some(({ trip }) => trip === 'SF:m2'), false);
+  strictEqual(planTrip(schedule, realtime(), { from: 'BA:901209', to: 'route:SF:48', dest: 'SF:13500' }, NOW + 800).groups[0]!.departures.some(({ trip }) => trip === 'SF:m2'), false);
 });
 
 test('names the alert on the boarding stop', () => {
-  const response = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477' }, NOW);
+  const response = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'route:SF:48' }, NOW);
   deepStrictEqual(response.alerts.map(({ relevance, header }) => [relevance, header]), [['stop', '48 STOP TEMP. MOVED Board at 24th & Capp']]);
 });
 
 test('shows destination arrival and respects rider settings', () => {
-  const response = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477', dest: 'SF:13500', min: 5, max: 10, hide: 10 }, NOW);
+  const response = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'route:SF:48', dest: 'SF:13500', min: 5, max: 10, hide: 10 }, NOW);
   const group = response.groups[0]!;
   deepStrictEqual(group.window, { min: 5, max: 10 });
   strictEqual(group.departures.find(({ trip }) => trip === 'SF:m4')?.destination, DAY + 7.5 * 3600 + 120 + 4 * 900 + 720);
@@ -290,13 +290,31 @@ test('shows destination arrival and respects rider settings', () => {
 });
 
 test('a station a block away is a walk, not a one-stop bus ride', () => {
+  // 24th & Valencia is under 200 m from the station's entrance.
   const response = planTrip(schedule, realtime(), { from: 'SF:13486', to: 'BA:901609' }, NOW);
-  strictEqual(response.groups.length, 1);
-  const group = response.groups[0]!;
-  strictEqual(group.kind, 'walk');
-  deepStrictEqual(group.routes, ['BA:Yellow-S']);
-  strictEqual(group.board, 'BA:901601');
-  ok(group.departures.length > 0 && group.departures.every(({ connections }) => connections.length === 0));
+  deepStrictEqual([response.groups, response.notice], [[], { kind: 'walkable', stop: 'BA:901609', meters: 187 }]);
+  // Catching BART there, it is a walk to the train.
+  const group = planTrip(schedule, realtime(), { from: 'SF:13486', to: 'route:BA:Yellow-S' }, NOW).groups[0]!;
+  deepStrictEqual([group.kind, group.routes, group.board], ['walk', ['BA:Yellow-S'], 'BA:901601']);
+});
+
+test('going to a stop, BART goes straight there when it stops by its corner', () => {
+  // 24th & Mission is 36 m from 24th St Mission's entrance.
+  const response = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477' }, NOW);
+  deepStrictEqual(response.groups.map(({ kind, routes, board }) => ({ kind, routes, board })), [{ kind: 'walk', routes: ['BA:Yellow-S'], board: 'BA:901201' }]);
+  const departure = response.groups[0]!.departures.find(({ canceled }) => !canceled)!;
+  // Each train reaches 24th St 8 minutes after Montgomery.
+  strictEqual(departure.destination, departure.at + 480);
+});
+
+test('going to a stop past a transfer, each bus says when it gets there', () => {
+  const response = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13500' }, NOW);
+  deepStrictEqual(response.groups.map(({ kind, alight, board, routes }) => ({ kind, alight, board, routes })), [{ kind: undefined, alight: 'BA:901609', board: 'SF:13477', routes: ['SF:48'] }]);
+  const m4 = response.groups[0]!.departures.find(({ trip }) => trip === 'SF:m4')!;
+  // Two minutes late leaving 24th St, it reaches Potrero 10 minutes later.
+  strictEqual(m4.destination, m4.at + 600);
+  // A destination on a stop is To's, so one sent along with it changes nothing.
+  deepStrictEqual(planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13500', dest: 'BA:902109' }, NOW).groups, response.groups);
 });
 
 test('a route that already stops at From is a walk of no distance', () => {
@@ -318,26 +336,26 @@ test('suggests the smallest raise of the maximum when nothing connects', () => {
   // Trains reach 24th St on the 8s and scheduled buses come on the 2s and 7s, so transfers run
   // 4, 9, 14, ... minutes. The live bus 2 minutes late adds 6 and 16. A 7 to 8 minute window
   // finds none, and 7 to 9 finds the 9s.
-  const empty = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477', min: 7, max: 8 }, NOW).groups[0]!;
+  const empty = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'route:SF:48', min: 7, max: 8 }, NOW).groups[0]!;
   ok(empty.departures.every(({ connections }) => connections.length === 0));
   const widen = empty.widen!;
   ok(widen, 'expected a suggestion');
   // Only the maximum grows: the minimum is the time the walk takes.
   deepStrictEqual(widen, { min: 7, max: 9 });
-  const widened = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477', ...widen }, NOW).groups[0]!;
+  const widened = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'route:SF:48', ...widen }, NOW).groups[0]!;
   ok(widened.departures.some(({ connections }) => connections.length > 0));
   strictEqual(widened.widen, undefined);
 });
 
 test('lists first-leg routes and destinations for each transfer point', () => {
-  const response = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477' }, NOW);
+  const response = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'route:SF:48' }, NOW);
   deepStrictEqual(response.groups[0]?.firstRoutes, ['BA:Yellow-S']);
-  const { groups } = destinations(schedule, { from: 'BA:901209', to: 'SF:13477' });
+  const { groups } = destinations(schedule, { from: 'BA:901209', to: 'route:SF:48' });
   deepStrictEqual(groups.map(({ board, stops }) => [board, stops]), [['SF:13477', ['SF:13500']]]);
 });
 
 test('a BART station as destination matches its platform', () => {
-  const response = planTrip(schedule, realtime(), { from: 'SF:13486', to: 'BA:901609', dest: 'BA:902109' }, NOW);
+  const response = planTrip(schedule, realtime(), { from: 'SF:13486', to: 'BA:902109' }, NOW);
   const departure = response.groups[0]!.departures.find(({ canceled }) => !canceled)!;
   // Trains reach Glen Park 4 minutes after 24th St.
   strictEqual(departure.destination, departure.at + 240);
@@ -349,9 +367,9 @@ test('BART and Muni Metro share Montgomery, and the rider can pick either', () =
   deepStrictEqual(schedule.boardingStops(station, new Set(['SF'])).map(({ stopId }) => stopId), ['16994']);
   deepStrictEqual(schedule.boardingStops(station, new Set(['BA'])).map(({ stopId }) => stopId), ['901201']);
   // Only BART reaches 24th St & Mission.
-  strictEqual(planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477', fromAgencies: ['SF'] }, NOW).groups.length, 0);
-  strictEqual(planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477', fromAgencies: ['BA'] }, NOW).groups.length, 1);
-  const response = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477' }, NOW);
+  strictEqual(planTrip(schedule, realtime(), { from: 'BA:901209', to: 'route:SF:48', fromAgencies: ['SF'] }, NOW).groups.length, 0);
+  strictEqual(planTrip(schedule, realtime(), { from: 'BA:901209', to: 'route:SF:48', fromAgencies: ['BA'] }, NOW).groups.length, 1);
+  const response = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'route:SF:48' }, NOW);
   deepStrictEqual(response.stops['BA:901209']?.serves, ['BA', 'SF']);
 });
 
@@ -369,6 +387,14 @@ test('search finds a shared station once, by name', () => {
   deepStrictEqual(montgomery.map((result) => (result.type === 'stop' ? result.key : result.route)), ['BA:901209']);
   // Its Muni Metro platform still answers to its own code.
   deepStrictEqual(search(schedule, '16994', { routes: false }).results.map((result) => (result.type === 'stop' ? result.key : '')), ['SF:16994']);
+});
+
+test('with nothing typed, From lists the stops nearest the rider, and how far each is', () => {
+  // On 24th St, a few steps east of Mission.
+  const near = search(schedule, '', { routes: false, near: { lat: 37.752178, lon: -122.41845 } }).results.map((result) => (result.type === 'stop' ? `${result.key} ${result.meters}` : ''));
+  // 24th & Capp, a few meters off, has no routes, so it is no place to start.
+  deepStrictEqual(near, ['SF:13477 10', 'BA:901609 40', 'SF:13486 220']);
+  deepStrictEqual(search(schedule, '', { routes: false }).results, []);
 });
 
 test('naming a route exactly where only a stop will do lists the stops it makes, in order', () => {
@@ -411,16 +437,16 @@ test('a named stop a short walk from From is said to be a walk', () => {
   deepStrictEqual(planTrip(schedule, realtime(), { from: 'SF:13501', to: 'route:SF:48', dest: 'SF:13500' }, NOW).notice, { kind: 'walkable', stop: 'SF:13500', meters: 88 });
 });
 
-test('a named stop a short walk away whose route is not running says so, not that it is a walk', () => {
+test('a route a short walk away that is not running says so, not that it is a walk', () => {
   // At 3 AM no 48 runs. Walking to 24th & Mission would mean waiting there for hours.
-  const response = planTrip(schedule, realtime(), { from: 'SF:13478', to: 'SF:13477' }, DAY + 3 * 3600);
+  const response = planTrip(schedule, realtime(), { from: 'SF:13478', to: 'route:SF:48' }, DAY + 3 * 3600);
   deepStrictEqual(response.groups, []);
   strictEqual(response.notice?.kind, 'idle');
 });
 
 test('when the route to catch runs but nothing from From does, the notice says so', () => {
   const afternoon = DAY + 14 * 3600;
-  const response = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477' }, afternoon);
+  const response = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'route:SF:48' }, afternoon);
   deepStrictEqual(response.notice, { kind: 'idle', side: 'from', next: DAY + 86_400 + 7.5 * 3600 });
 });
 
@@ -444,7 +470,7 @@ test('a bus the feed says skips the stop does not come back as scheduled', () =>
   const decoded = decodeFeed(encodeFeed(feed));
   const agencies = new Set<Agency>(['SF', 'BA']);
   const view = { trips: buildTripSnapshot(decoded, NOW, agencies), alerts: [], status: () => 'live' as const, updatedAt: NOW };
-  const trips = planTrip(schedule, view, { from: 'BA:901209', to: 'SF:13477' }, NOW).groups[0]!.departures.map(({ trip }) => trip);
+  const trips = planTrip(schedule, view, { from: 'BA:901209', to: 'route:SF:48' }, NOW).groups[0]!.departures.map(({ trip }) => trip);
   ok(!trips.includes('SF:m4'), `got ${trips.join(', ')}`);
 });
 
@@ -461,18 +487,18 @@ test('step-free travel allows more time to change at a station and lists elevato
     // Glen Park is not on this trip.
     { station: 'glen', kind: 'elevator' as const, location: 'Station', reason: null, returns: null },
   ];
-  const plain = planTrip(schedule, { ...realtime(), access: outages }, { from: 'BA:901209', to: 'SF:13477' }, NOW);
+  const plain = planTrip(schedule, { ...realtime(), access: outages }, { from: 'BA:901209', to: 'route:SF:48' }, NOW);
   deepStrictEqual([plain.groups[0]?.window.min, plain.access], [3, undefined]);
   // Getting off BART at 24th St, three more minutes, and 24th St's elevator outage.
-  const stepFree = planTrip(schedule, { ...realtime(), access: outages }, { from: 'BA:901209', to: 'SF:13477', stepFree: true }, NOW);
+  const stepFree = planTrip(schedule, { ...realtime(), access: outages }, { from: 'BA:901209', to: 'route:SF:48', stepFree: true }, NOW);
   strictEqual(stepFree.groups[0]?.window.min, 6);
   deepStrictEqual(stepFree.access, [{ station: 'BA:901609', stops: ['BA:901609'], kind: 'elevator', location: 'Street to Concourse', reason: 'Repair', returns: '10/23/2026' }]);
   // A minimum the rider set is theirs: the page sends the window back as shown, and editing only
   // the maximum must not add the allowance again.
-  const own = planTrip(schedule, { ...realtime(), access: outages }, { from: 'BA:901209', to: 'SF:13477', stepFree: true, min: 6, max: 16 }, NOW);
+  const own = planTrip(schedule, { ...realtime(), access: outages }, { from: 'BA:901209', to: 'route:SF:48', stepFree: true, min: 6, max: 16 }, NOW);
   deepStrictEqual(own.groups[0]?.window, { min: 6, max: 16 });
   // Escalators too: Montgomery's, where the rider gets on, listed first, in the order of the trip.
-  const both = planTrip(schedule, { ...realtime(), access: outages }, { from: 'BA:901209', to: 'SF:13477', stepFree: true, escalators: true }, NOW);
+  const both = planTrip(schedule, { ...realtime(), access: outages }, { from: 'BA:901209', to: 'route:SF:48', stepFree: true, escalators: true }, NOW);
   deepStrictEqual(both.access?.map(({ station, kind, stops }) => `${kind} ${station} ${stops.join(',')}`), ['escalator BA:901209 BA:901209', 'elevator BA:901609 BA:901609']);
 });
 
@@ -482,7 +508,7 @@ test("a rider who chose Muni Metro at a shared station is not shown BART's platf
     { station: 'mont', kind: 'elevator' as const, location: 'Street to Concourse', reason: null, returns: null },
   ];
   const locations = (fromAgencies?: ('BA' | 'SF')[]) =>
-    planTrip(schedule, { ...realtime(), access: outages }, { from: 'BA:901209', to: 'SF:13477', stepFree: true, ...(fromAgencies ? { fromAgencies } : {}) }, NOW).access?.map(({ location }) => location);
+    planTrip(schedule, { ...realtime(), access: outages }, { from: 'BA:901209', to: 'route:SF:48', stepFree: true, ...(fromAgencies ? { fromAgencies } : {}) }, NOW).access?.map(({ location }) => location);
   deepStrictEqual(locations(), ['Platform', 'Street to Concourse']);
   deepStrictEqual(locations(['SF']), ['Street to Concourse']);
   // Riding the N from Montgomery's Muni Metro platform, which the shared station takes in.
@@ -525,12 +551,12 @@ test('nearby shows a route at its next nearest stop when nothing comes to the ne
 });
 
 test('a pinned trip follows its vehicles where the rider gets on and off, and the destination the search has now', () => {
-  const plain = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477' }, NOW);
+  const plain = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'route:SF:48' }, NOW);
   const group = plain.groups[0]!;
   const departure = group.departures.find(({ connections, canceled }) => !canceled && connections.some(({ live }) => live))!;
   const connection = departure.connections.find(({ live }) => live)!;
   const pin = { first: { trip: connection.trip, alight: group.alight }, second: { trip: departure.trip, board: group.board }, at: departure.at };
-  const pinned = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477', pin }, NOW).pinned!;
+  const pinned = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'route:SF:48', pin }, NOW).pinned!;
   deepStrictEqual(pinned.first, {
     trip: connection.trip,
     route: connection.route,
@@ -542,11 +568,11 @@ test('a pinned trip follows its vehicles where the rider gets on and off, and th
   strictEqual(pinned.second?.off, null);
   // A destination set later is where the second vehicle's part of the trip ends: the 48 reaches
   // Potrero 10 minutes after 24th St.
-  const toPotrero = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477', dest: 'SF:13500', pin }, NOW).pinned!;
+  const toPotrero = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'route:SF:48', dest: 'SF:13500', pin }, NOW).pinned!;
   strictEqual(toPotrero.second?.off?.at, departure.at + 600);
   strictEqual(toPotrero.second?.off?.stop, 'SF:13500');
   // The answer names the pin it is for, so a page can tell it from one for a pin since replaced.
-  deepStrictEqual(planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477', pin }, NOW).pin, pin);
+  deepStrictEqual(planTrip(schedule, realtime(), { from: 'BA:901209', to: 'route:SF:48', pin }, NOW).pin, pin);
 });
 
 test('a pinned trip counts a delay as its results do, by the delay the feed gives', () => {
@@ -556,7 +582,7 @@ test('a pinned trip counts a delay as its results do, by the delay the feed give
   const update = (stopId: string, time: number) => ({ stopId, arrival: { time, delay: 0 } });
   const late = realtime([{ id: 'b9', tripUpdate: { trip: { tripId: 'BA:b9', routeId: 'BA:Yellow-S' }, stopTimeUpdate: [update('901201', leaves + 60), update('901601', leaves + 540)] } }]);
   const pin = { first: { trip: 'BA:b9', alight: 'BA:901609', at: leaves + 480 }, second: { trip: 'SF:m6', board: 'SF:13477' }, at: DAY + 9 * 3600 + 17 * 60 };
-  const pinned = planTrip(schedule, late, { from: 'BA:901209', to: 'SF:13477', pin }, NOW).pinned!;
+  const pinned = planTrip(schedule, late, { from: 'BA:901209', to: 'route:SF:48', pin }, NOW).pinned!;
   deepStrictEqual([pinned.first?.on, pinned.first?.off], [
     { stop: 'BA:901209', at: leaves + 60, delay: 0 },
     { stop: 'BA:901609', at: leaves + 540, delay: 0 },
@@ -564,26 +590,26 @@ test('a pinned trip counts a delay as its results do, by the delay the feed give
 });
 
 test("a pinned trip from another day keeps to that day's schedule, and a canceled one says so", () => {
-  const plain = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477' }, NOW);
+  const plain = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'route:SF:48' }, NOW);
   const group = plain.groups[0]!;
   const departure = group.departures.find(({ canceled, live }) => !canceled && !live)!;
   const yesterday = { second: { trip: departure.trip, board: group.board }, at: departure.at - 86_400 };
-  const old = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477', pin: yesterday }, NOW).pinned!;
+  const old = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'route:SF:48', pin: yesterday }, NOW).pinned!;
   deepStrictEqual(old.second?.on, { stop: group.board, at: departure.at - 86_400, delay: null });
   strictEqual(old.second?.live, false);
   // Bus m5, due at 8:47, is canceled in the feed.
   const canceled = { second: { trip: 'SF:m5', board: group.board }, at: DAY + 8 * 3600 + 47 * 60 };
-  strictEqual(planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477', pin: canceled }, NOW).pinned?.second?.canceled, true);
+  strictEqual(planTrip(schedule, realtime(), { from: 'BA:901209', to: 'route:SF:48', pin: canceled }, NOW).pinned?.second?.canceled, true);
 });
 
-test('a pinned ride straight to a named To stop ends there, as its results do', () => {
-  // The 48 already stops at Valencia, From, and reaches 24th & Mission, To.
-  const plain = planTrip(schedule, realtime(), { from: 'SF:13486', to: 'SF:13477' }, NOW);
+test('a pinned ride straight to the To stop ends there, as its results do', () => {
+  // The 48 already stops at Valencia, From, and reaches Potrero, To.
+  const plain = planTrip(schedule, realtime(), { from: 'SF:13486', to: 'SF:13500' }, NOW);
   const group = plain.groups.find(({ kind }) => kind === 'walk')!;
   const departure = group.departures.find(({ canceled, destination }) => !canceled && destination !== undefined)!;
   const pin = { second: { trip: departure.trip, board: group.board }, at: departure.at };
-  const pinned = planTrip(schedule, realtime(), { from: 'SF:13486', to: 'SF:13477', pin }, NOW).pinned!;
-  deepStrictEqual(pinned.second?.off, { stop: 'SF:13477', at: departure.destination, delay: departure.delay });
+  const pinned = planTrip(schedule, realtime(), { from: 'SF:13486', to: 'SF:13500', pin }, NOW).pinned!;
+  deepStrictEqual(pinned.second?.off, { stop: 'SF:13500', at: departure.destination, delay: departure.delay });
 });
 
 test("a pinned loop keeps the visit it was pinned at once the vehicle has gone past it", () => {

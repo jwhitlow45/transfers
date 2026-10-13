@@ -1,68 +1,13 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
-import { pointEnd, type JourneysResponse } from '../../../shared/journeys.ts';
+import type { JourneysResponse } from '../../../shared/journeys.ts';
 import { apiUrl } from '../api.ts';
 import { usePoll } from '../hooks.ts';
-import { useScreenActive } from '../layers.ts';
-import { HERE } from '../lib/ends.ts';
-import { type LocationProblem, locate } from '../lib/location.ts';
 import { useSettings } from '../settings.tsx';
 import type { Search } from '../storage.ts';
 
-// How often the phone is asked again where the rider is, as they may be walking, with the poll.
-const LOOK_MS = 30_000;
-
-// The trips between a search's two ends, asked for while `active`. An end that is the rider's
-// location is looked up first, again with each refresh, and again as the trips refresh while they
-// show, so a rider on the move gets trips from where they are. Those answers are never stored: one
-// from where the rider was is no answer for where they are. Other searches' answers are stored
-// under their request, which names the rider's settings, as the transfer results' are.
-export function useJourneys(search: Pick<Search, 'from' | 'to' | 'fromLabel' | 'toLabel'>, active: boolean) {
+// The trips with any number of changes between a search's two stops, asked for only while
+// `active`, as the transfer results show them only when no way there takes one change or none.
+// Stored under their request, which names the rider's settings, as the transfer results' are.
+export function useJourneys(search: Pick<Search, 'from' | 'to'>, active: boolean) {
   const { settings } = useSettings();
-  const needsHere = search.from === HERE || search.to === HERE;
-  // Where the rider is, as the request names it, rounded so a little GPS drift asks nothing new.
-  const [here, setHere] = useState<string | null>(null);
-  const [problem, setProblem] = useState<LocationProblem | null>(null);
-  const latestHere = useRef(here);
-  latestHere.current = here;
-  const showing = useScreenActive();
-  const showingRef = useRef(showing);
-  showingRef.current = showing;
-  // Resolves once the phone answers, with whether the rider has moved enough to ask anew. Once the
-  // page knows where the rider is, a lookup that fails keeps that, as the phone loses its place now
-  // and then underground or indoors, and only the rider turning location off says so.
-  const look = (maximumAge?: number) =>
-    locate(maximumAge).then(
-      ({ lat, lon }) => {
-        const next = pointEnd(lat, lon);
-        setProblem(null);
-        setHere(next);
-        return next !== latestHere.current;
-      },
-      (reason: LocationProblem) => {
-        if (reason === 'denied' || latestHere.current === null) setProblem(reason);
-        return false;
-      },
-    );
-  useEffect(() => {
-    if (!active || !needsHere) return;
-    void look();
-    // Not while the page is out of sight or under another, which would spend the battery on nothing.
-    const timer = setInterval(() => document.visibilityState === 'visible' && showingRef.current && void look(LOOK_MS), LOOK_MS);
-    return () => clearInterval(timer);
-  }, [active, needsHere]);
-  const end = (key: string) => (key !== HERE ? key : here);
-  const [from, to] = [end(search.from), end(search.to)];
-  const url = active && from && to ? apiUrl.journeys(from, to, search.fromLabel, search.toLabel, settings) : null;
-  const polled = usePoll<JourneysResponse>(url, 30_000, null, !needsHere);
-  return {
-    ...polled,
-    // Waiting on the phone to say where the rider is, or why it cannot.
-    locating: needsHere && !here && problem === null,
-    problem,
-    // A new place asks by itself, through the new address. The same place asks again here.
-    refresh: () => {
-      if (!needsHere) return polled.refresh();
-      void look(0).then((moved) => moved || polled.refresh());
-    },
-  };
+  return usePoll<JourneysResponse>(active ? apiUrl.journeys(search.from, search.to, settings) : null, 30_000);
 }

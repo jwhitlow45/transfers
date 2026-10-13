@@ -56,10 +56,9 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
   const walkTime = longest > shortest ? `${shortest}–${longest}` : `${shortest}`;
   const routeNames = familyName(group.routes, data);
   const plural = group.routes.length > 1 && !/^(BART|Muni Metro)/.test(routeNames);
-  // A ride straight to the named To stop says so, as it may stop across the street from it. It
-  // does not say no transfer is needed: the rider may be going there to catch something, and
-  // transfers at To can sit beside it (J, 2026-10-08).
-  const straightTo = ridesStraightTo(group, context.destination) ? context.toName : null;
+  // A ride straight to the stop in To says so, as it may stop across the street from it, or at a
+  // station by its corner.
+  const straightTo = context.toName && ridesStraightTo(group) ? context.toName : null;
   const goes = straightTo && `${routeNames} ${plural ? 'go' : 'goes'} straight to ${straightTo}`;
   // Where to get off says it once here, so each row only needs the time. A walk group has no
   // first vehicle: the route is right here, or a short walk away.
