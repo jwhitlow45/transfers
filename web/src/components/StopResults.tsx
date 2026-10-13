@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import type { RouteSearchResult, RouteStops, SearchResponse, StopSearchResult } from '../../../shared/api.ts';
+import type { Route, RouteSearchResult, RouteStops, SearchResponse, StopSearchResult } from '../../../shared/api.ts';
 import type { PlaceResult } from '../../../shared/journeys.ts';
 import { metersFrom } from '../../../shared/projection.ts';
 import type { Position } from '../lib/location.ts';
@@ -38,12 +38,23 @@ function hitDirection(hit: StopSearchResult) {
 const hitsCount = (query: string, count: number, includesRoutes: boolean) =>
   count === 0 ? `Nothing matches “${query}”` : count === 1 ? `1 ${includesRoutes ? 'stop or route' : 'stop'} matches “${query}”` : `${count} ${includesRoutes ? 'stops and routes' : 'stops'} match “${query}”`;
 
-// What a screen reader hears of an answer, its stops and places together (see SearchScreen).
+const alongLabel = (route: Route) => `${route.agency === 'BA' ? 'Stations' : 'Stops'} on the ${spokenRoute(route)}`;
+
+// What a screen reader hears of an answer: each route's stops, then the stops and places that
+// match, as StopResults shows them (see SearchScreen).
 export function searchCount(query: string, response: SearchResponse, includesRoutes: boolean) {
   const [hits, places] = [response.results.length, response.places?.length ?? 0];
+  const routes = (response.along ?? []).flatMap(({ route }) => (response.routes[route] ? [alongLabel(response.routes[route])] : []));
   const placeCount = places === 1 ? '1 place' : `${places} places`;
-  if (places === 0) return hitsCount(query, hits, includesRoutes);
-  return hits === 0 ? `${placeCount} ${places === 1 ? 'matches' : 'match'} “${query}”` : `${hitsCount(query, hits, includesRoutes)}, and ${placeCount}`;
+  const matches =
+    places > 0
+      ? hits === 0
+        ? `${placeCount} ${places === 1 ? 'matches' : 'match'} “${query}”`
+        : `${hitsCount(query, hits, includesRoutes)}, and ${placeCount}`
+      : hits > 0 || routes.length === 0
+        ? hitsCount(query, hits, includesRoutes)
+        : null;
+  return [...routes, ...(matches ? [matches] : [])].join('. ');
 }
 
 // A plain list of buttons, counted for screen readers by Home's live region (see searchCount). It
@@ -82,9 +93,8 @@ function RouteStopList({ along, response, onPick }: { along: RouteStops; respons
   const direction = along.directions.find(({ id }) => String(id) === shown) ?? along.directions[0];
   if (!route || !direction) return null;
   const bart = route.agency === 'BA';
-  const label = `${bart ? 'Stations' : 'Stops'} on the ${spokenRoute(route)}`;
   return (
-    <div class="tf-results" role="region" aria-label={label}>
+    <div class="tf-results" role="region" aria-label={alongLabel(route)}>
       <div class="tf-results__label tf-along__head">
         <RouteChip route={route} size="sm" label={bart ? route.name : undefined} />
         {bart ? 'Stations' : 'Stops'} in riding order
