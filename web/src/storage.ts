@@ -50,10 +50,11 @@ export type DeviceSettings = {
   showHidden: boolean;
   // Whether a live map zooms in once the vehicle leaves the rider's stop.
   mapFitOnBoard: boolean;
-  // A rider who needs elevators: their outages at the trip's stations tagged on the results, and
-  // more time to change at stations.
+  // A rider who needs elevators: more time to change at stations.
   stepFree: boolean;
-  // A rider who relies on escalators: their outages at the trip's stations too.
+  // BART's elevator and escalator outages at the stations a page shows, each opening what BART
+  // says about it. Shown unless turned off (J, 2026-10-13).
+  elevatorOutages: boolean;
   escalatorOutages: boolean;
   // Whether a pinned trip unpins itself, and how many minutes after it ends.
   autoUnpin: boolean;
@@ -73,7 +74,8 @@ export const DEFAULT_SETTINGS: DeviceSettings = {
   showHidden: false,
   mapFitOnBoard: true,
   stepFree: false,
-  escalatorOutages: false,
+  elevatorOutages: true,
+  escalatorOutages: true,
   autoUnpin: true,
   unpinAfter: 30,
 };
@@ -92,7 +94,11 @@ function clampTimes<T extends { min?: number | null; max?: number | null; hide?:
 }
 
 export function loadSettings(): DeviceSettings {
-  return clampTimes({ ...DEFAULT_SETTINGS, ...readStored<Partial<DeviceSettings>>('settings', {}) });
+  const stored = readStored<Partial<DeviceSettings>>('settings', {});
+  // Settings saved before outages showed by default hold escalator outages off, which was then
+  // the default rather than a choice, so they show now too.
+  const outages = 'elevatorOutages' in stored ? {} : { escalatorOutages: true };
+  return clampTimes({ ...DEFAULT_SETTINGS, ...stored, ...outages });
 }
 
 export function saveSettings(settings: DeviceSettings) {

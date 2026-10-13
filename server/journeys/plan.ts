@@ -2,7 +2,7 @@ import type { AgencyId } from '../../shared/api.ts';
 import type { Journey, JourneyLeg, JourneysResponse } from '../../shared/journeys.ts';
 import { walkSeconds } from '../../shared/walk.ts';
 import { destinationStops, headingOf } from '../engine/links.ts';
-import { type AccessNeeds, type RealtimeView, SAME_RUN_SECONDS, serviceStatus, stationOutages } from '../engine/realtime-view.ts';
+import { type AccessNeeds, type RealtimeView, SAME_RUN_SECONDS, serviceStatus, stationOutages, wantsOutages } from '../engine/realtime-view.ts';
 import { predictedTimes } from '../engine/track.ts';
 import { Tables } from '../engine/views.ts';
 import { STEP_FREE_MINUTES, type WalkSettings, atRailStation } from '../engine/walk.ts';
@@ -86,7 +86,7 @@ export function planJourneys(schedule: Schedule, realtime: RealtimeView, from: S
     routes: tables.routes,
     stops: tables.stops,
     alerts,
-    ...(options.stepFree || options.escalators ? { access: accessOutages(schedule, tables, realtime, options, shown) } : {}),
+    ...(wantsOutages(options) ? { access: accessOutages(schedule, tables, realtime, options, shown) } : {}),
     feeds,
   };
 }

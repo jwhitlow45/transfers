@@ -204,16 +204,21 @@ test('step-free travel allows more time to change at a station and lists the out
   const plan = (options: JourneyOptions = {}) => planJourneys(schedule, { ...realtime(), access: outages }, stop('BA:901209'), stop('SF:13700'), NOW, options);
   const plain = plan();
   deepStrictEqual([plain.journeys[0]!.legs[1], plain.access], [{ kind: 'walk', from: 'BA:901609', to: 'SF:13477', seconds: 180 }, undefined]);
-  // Getting off BART at 24th St takes three minutes more, and its elevator is out. Changing between
-  // buses takes no longer.
+  // Step-free, getting off BART at 24th St takes three minutes more. Changing between buses takes
+  // no longer. The time alone lists no outages.
   const stepFree = plan({ stepFree: true });
   deepStrictEqual(stepFree.journeys[0]!.legs[1], { kind: 'walk', from: 'BA:901609', to: 'SF:13477', seconds: 360 });
   deepStrictEqual(stepFree.journeys[0]!.legs[3], plain.journeys[0]!.legs[3]);
-  deepStrictEqual(stepFree.access, [{ station: 'BA:901609', stops: ['BA:901609'], kind: 'elevator', location: 'Street to Concourse', reason: 'Repair', returns: '10/23/2026' }]);
-  ok(stepFree.stops['BA:901609']);
+  strictEqual(stepFree.access, undefined);
+  // 24th St's elevator is out, which listing elevator outages shows, leaving the time to change
+  // as it is.
+  const elevators = plan({ elevators: true });
+  deepStrictEqual(elevators.access, [{ station: 'BA:901609', stops: ['BA:901609'], kind: 'elevator', location: 'Street to Concourse', reason: 'Repair', returns: '10/23/2026' }]);
+  ok(elevators.stops['BA:901609']);
+  deepStrictEqual(elevators.journeys[0]!.legs[1], plain.journeys[0]!.legs[1]);
   // Riding BART from Montgomery, its platform escalators are on the way. Escalators alone leave
-  // the time to change as it is.
-  const both = plan({ stepFree: true, escalators: true });
+  // the time to change as it is too.
+  const both = plan({ elevators: true, escalators: true });
   deepStrictEqual(both.access?.map(({ kind, station }) => `${kind} ${station}`), ['escalator BA:901209', 'elevator BA:901609']);
   deepStrictEqual(plan({ escalators: true }).journeys[0]!.legs[1], plain.journeys[0]!.legs[1]);
 });

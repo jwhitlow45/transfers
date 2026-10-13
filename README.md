@@ -11,7 +11,7 @@ Live transfer times between Bay Area transit stops: Muni, BART, SamTrans, and Go
 - **You set the transfer window.** The shortest and longest transfer you will accept is yours, per search or for every search. Trip planners working from schedules pad each transfer for lateness they cannot see, so they leave out tight connections a rider can make. Transfers shows them, and those the window hides are a tap away, each with its reason.
 - **Live times on both vehicles, and no hidden padding.** Both legs use 511's live predictions where it has them. Each transfer's minimum is the physical time to change, rounded up to whole minutes, with a few timed by hand. See [docs/transfer-rules.md](docs/transfer-rules.md).
 - **Built for one bar of signal.** Riders use it walking to a station, on a platform, or on a train underground. Each request asks only for what one page shows, and each answer carries only the fields the page reads, so answers stay small and get through when bigger ones would not. The last results show at once while new ones load, and extras like the live vehicle map load only when opened.
-- **Accessible.** It works with a screen reader and a keyboard. Step-free travel allows more time to change at stations and lists elevator outages on the way, and escalator outages can be listed too.
+- **Accessible.** It works with a screen reader and a keyboard. BART's elevator and escalator outages show on the way and on a station's arrivals, unless turned off, and a rider who uses elevators can allow more time to change at stations.
 - **It helps most going from frequent service to infrequent,** such as BART to a bus every 20 minutes, where the train you catch decides whether you make the bus.
 
 Data provided by [511.org](https://511.org) and BART.

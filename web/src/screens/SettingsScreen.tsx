@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from 'preact/hooks';
 import { ScreenHeader } from '../components/ResultsHeader.tsx';
 import { Choices, Toggle } from '../components/Sheet.tsx';
 import { MinutesSlider, WindowSlider } from '../components/Slider.tsx';
@@ -36,6 +37,11 @@ export function SettingsScreen() {
   const { settings, update } = useSettings();
   useSwipeBack(() => goBack());
   const automatic = settings.min === null && settings.max === null;
+  // An outage sheet's link opens Settings at the outage toggles.
+  const outages = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (location.hash === '#outages') outages.current?.scrollIntoView({ block: 'start' });
+  }, []);
   return (
     <div class="tf-scroll">
       <ScreenHeader title="Settings" onBack={() => goBack()} />
@@ -157,21 +163,31 @@ export function SettingsScreen() {
             <div class="tf-setting__help">Sections opening and closing, sheets sliding, and the refresh bar. Match this device follows its reduce motion setting.</div>
             <Choices label="Animations" options={MOTIONS.map(({ value, label }) => ({ key: value, text: label }))} selected={settings.motion} onChoose={(motion) => update({ motion })} />
           </div>
-          <div class="tf-setting">
-            <div class="tf-setting__label">Step-free travel</div>
-            <div class="tf-setting__help">Marks elevator outages at your stations, each opening what BART says about it, and allows 3 more minutes to change at BART and Muni Metro stations, unless you set your own minimum. Muni's outages come from its service alerts, with the other notices.</div>
+          {/* Plain names for what each shows (J, 2026-10-13), the same words the outage sheets use. */}
+          <div class="tf-setting tf-setting--anchor" id="outages" ref={outages}>
+            <div class="tf-setting__label">Elevator outages</div>
+            <div class="tf-setting__help">Marks elevators out of service at BART stations on your trip and at a station whose arrivals you open, each opening what BART says about it. Muni's outages come from its service alerts, with the other notices.</div>
             <div class="tf-filters">
-              <Toggle pressed={settings.stepFree} onToggle={() => update({ stepFree: !settings.stepFree })}>
-                I use elevators
+              <Toggle pressed={settings.elevatorOutages} onToggle={() => update({ elevatorOutages: !settings.elevatorOutages })}>
+                Show elevator outages
+              </Toggle>
+            </div>
+          </div>
+          <div class="tf-setting">
+            <div class="tf-setting__label">Escalator outages</div>
+            <div class="tf-setting__help">Marks escalators out of service at BART stations on your trip and at a station whose arrivals you open, each opening what BART says about it.</div>
+            <div class="tf-filters">
+              <Toggle pressed={settings.escalatorOutages} onToggle={() => update({ escalatorOutages: !settings.escalatorOutages })}>
+                Show escalator outages
               </Toggle>
             </div>
           </div>
           <div class="tf-setting tf-setting--last">
-            <div class="tf-setting__label">Escalator outages</div>
-            <div class="tf-setting__help">Marks escalators out of service at BART stations on your trip and at a station whose arrivals you open, from bart.gov's status pages.</div>
+            <div class="tf-setting__label">Time for elevators</div>
+            <div class="tf-setting__help">Allows 3 more minutes to change at BART and Muni Metro stations, for waiting for and riding elevators, unless you set your own minimum.</div>
             <div class="tf-filters">
-              <Toggle pressed={settings.escalatorOutages} onToggle={() => update({ escalatorOutages: !settings.escalatorOutages })}>
-                Show escalator outages
+              <Toggle pressed={settings.stepFree} onToggle={() => update({ stepFree: !settings.stepFree })}>
+                Add 3 minutes at stations
               </Toggle>
             </div>
           </div>

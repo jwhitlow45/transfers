@@ -56,12 +56,18 @@ export function takeInitialData<T>(): T | null {
 }
 
 // What the rider set on this device that changes an answer, the same for transfers and trips: how
-// far and fast they walk, and whether they need step-free stations or want escalator outages.
+// far and fast they walk, and whether they need step-free stations or turned outages off.
 function writeRider(params: URLSearchParams, settings: DeviceSettings) {
   if (settings.maxWalk !== DEFAULT_SETTINGS.maxWalk) params.set('walk', String(settings.maxWalk));
   if (settings.walkSpeed !== DEFAULT_SETTINGS.walkSpeed) params.set('speed', String(settings.walkSpeed));
   if (settings.stepFree) params.set('stepfree', '1');
-  if (settings.escalatorOutages) params.set('escalators', '1');
+  writeOutages(params, settings);
+}
+
+// The server lists outages unless asked not to.
+function writeOutages(params: URLSearchParams, settings: DeviceSettings) {
+  if (!settings.elevatorOutages) params.set('elevators', '0');
+  if (!settings.escalatorOutages) params.set('escalators', '0');
 }
 
 // The params of `url` named in `names`, for asking another endpoint with only what decides it.
@@ -95,12 +101,11 @@ export const apiUrl = {
   // changing what results show asks nothing again.
   destinations: (tripUrl: string) => `/api/destinations?${only(tripUrl, ['from', 'to', 'walk', 'speed', 'fm', 'tm'])}`,
   // A stop's arrivals, which its page, its saved card, and a pinned arrival all ask for, the pin's
-  // vehicle with them when one is pinned there. Each asks with the rider's access settings, so all
+  // vehicle with them when one is pinned there. Each asks with the rider's outage settings, so all
   // three share one stored answer, with the station's outages for the page.
   stop(stop: string, settings: DeviceSettings, pin: PinRequest | null = null) {
     const params = new URLSearchParams({ stop });
-    if (settings.stepFree) params.set('stepfree', '1');
-    if (settings.escalatorOutages) params.set('escalators', '1');
+    writeOutages(params, settings);
     if (pin) writePin(params, pin);
     return `/api/stop?${params}`;
   },

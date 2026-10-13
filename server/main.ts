@@ -12,7 +12,7 @@ import { stopArrivals } from './api/stop.ts';
 import { config, requireApiKeys } from './config.ts';
 import { trackTarget, trackVehicle } from './engine/track.ts';
 import { routeView, stopView } from './engine/views.ts';
-import type { AccessNeeds, RealtimeView } from './engine/realtime-view.ts';
+import { type AccessNeeds, type RealtimeView, wantsOutages } from './engine/realtime-view.ts';
 import { type TripRequest, destinations, planTrip } from './engine/trip.ts';
 import { LONGEST_WALK_METERS, type WalkSettings } from './engine/walk.ts';
 import { RequestError } from './http.ts';
@@ -116,14 +116,19 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
   // A saved trip link gets the page shell with its results already inside, so the first
   // paint underground takes one request instead of two.
   const trip = url.pathname.match(TRIP_PATH);
-  if (trip) return sendShell(response, async () => planTrip(schedule, await realtimeView(), tripRequest(url.searchParams, decodeURIComponent(trip[1]!), decodeURIComponent(trip[2]!)), nowSeconds()));
+  if (trip) {
+    return sendShell(response, async () => {
+      const asked = tripRequest(url.searchParams, decodeURIComponent(trip[1]!), decodeURIComponent(trip[2]!));
+      return planTrip(schedule, await realtimeView(asked), asked, nowSeconds());
+    });
+  }
   throw new RequestError(404, 'Not found');
 }
 
 // Elevator and escalator outages are fetched only for riders who asked for them, alongside the
 // rest rather than after.
 async function realtimeView(needs: AccessNeeds = {}): Promise<RealtimeView> {
-  const [{ trips, alerts, status }, access] = await Promise.all([realtime.current(), needs.stepFree || needs.escalators ? realtime.accessOutages() : null]);
+  const [{ trips, alerts, status }, access] = await Promise.all([realtime.current(), wantsOutages(needs) ? realtime.accessOutages() : null]);
   return { trips, alerts, status, updatedAt: realtime.updatedAt(), access };
 }
 
@@ -164,8 +169,14 @@ function walkSettings(params: URLSearchParams): WalkSettings {
   return { ...(walk !== undefined ? { walk: clamp(walk, 50, LONGEST_WALK_METERS) } : {}), ...(speed !== undefined ? { speed: clamp(speed, 0.3, 3) } : {}) };
 }
 
+// Outages are listed unless the rider turned them off (J, 2026-10-13), so a page asking with no
+// settings, such as a saved trip link the server answers in the page, gets them too.
 function accessNeeds(params: URLSearchParams): AccessNeeds {
-  return { ...(params.get('stepfree') === '1' ? { stepFree: true } : {}), ...(params.get('escalators') === '1' ? { escalators: true } : {}) };
+  return {
+    ...(params.get('stepfree') === '1' ? { stepFree: true } : {}),
+    ...(params.get('elevators') !== '0' ? { elevators: true } : {}),
+    ...(params.get('escalators') !== '0' ? { escalators: true } : {}),
+  };
 }
 
 // A map's pinned stretch of a trip, as `from` and `to` stop positions, under an optional prefix.

@@ -31,7 +31,7 @@ export function JourneyResults({ journeys, search, now, dismissedIds, onDismiss 
   const [outagesOpen, setOutagesOpen] = useState<StationOutages | null>(null);
   const outages = outagesByStation(data?.access ?? []);
   const failure = failureOf(error, 'Trips');
-  const allAlerts = data ? viewAlerts(data, ridden(data), { elevators: settings.stepFree, escalators: settings.escalatorOutages }) : [];
+  const allAlerts = data ? viewAlerts(data, ridden(data), { elevators: settings.elevatorOutages, escalators: settings.escalatorOutages }) : [];
   const alerts = allAlerts.filter(({ id }) => !dismissedIds.has(id));
   return (
     <>

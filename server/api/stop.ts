@@ -1,6 +1,6 @@
 import type { AgencyId, PinRequest, StopResponse } from '../../shared/api.ts';
 import { pinnedTrip } from '../engine/pinned.ts';
-import { type AccessNeeds, type RealtimeView, serviceStatus, stationOutages } from '../engine/realtime-view.ts';
+import { type AccessNeeds, type RealtimeView, serviceStatus, stationOutages, wantsOutages } from '../engine/realtime-view.ts';
 import { Tables } from '../engine/views.ts';
 import { RequestError } from '../http.ts';
 import { routeKeyOf, type Schedule, stopKeyOf } from '../schedule.ts';
@@ -49,7 +49,7 @@ export function stopArrivals(schedule: Schedule, realtime: RealtimeView, key: st
     routes: tables.routes,
     stops: tables.stops,
     alerts,
-    ...(needs.stepFree || needs.escalators ? { access: stationOutages(schedule, tables, realtime.access ?? [], needs, bartAt, [stopKeyOf(stop), ...rowStops.map(({ key: rowStop }) => rowStop)]) } : {}),
+    ...(wantsOutages(needs) ? { access: stationOutages(schedule, tables, realtime.access ?? [], needs, bartAt, [stopKeyOf(stop), ...rowStops.map(({ key: rowStop }) => rowStop)]) } : {}),
     feeds,
     // As a trip's pinned vehicle is found, so a canceled one, or one delayed past the list, says so.
     ...(pin ? { pinned: pinnedTrip(schedule, realtime.trips, { second: pin.second, at: pin.at }, [key], [], tables, now), pin } : {}),

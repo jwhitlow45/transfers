@@ -525,7 +525,7 @@ test('a walk group leaves out departures sooner than the rider asked to hide', (
   ok(group.departures.length > 0 && group.departures.every(({ at }) => at >= NOW + 30 * 60));
 });
 
-test('step-free travel allows more time to change at a station and lists elevator outages on the trip', () => {
+test('step-free travel allows more time to change at a station, and elevator outages list on the trip', () => {
   const outages = [
     { station: '24th', kind: 'elevator' as const, location: 'Street to Concourse', reason: 'Repair', returns: '10/23/2026' },
     { station: 'mont', kind: 'escalator' as const, location: 'Platform', reason: 'Repair', returns: null },
@@ -534,16 +534,19 @@ test('step-free travel allows more time to change at a station and lists elevato
   ];
   const plain = planTrip(schedule, { ...realtime(), access: outages }, { from: 'BA:901209', to: 'SF:13477' }, NOW);
   deepStrictEqual([plain.groups[0]?.window.min, plain.access], [3, undefined]);
-  // Getting off BART at 24th St, three more minutes, and 24th St's elevator outage.
+  // Getting off BART at 24th St, three more minutes step-free, with no outages unless asked.
   const stepFree = planTrip(schedule, { ...realtime(), access: outages }, { from: 'BA:901209', to: 'SF:13477', stepFree: true }, NOW);
-  strictEqual(stepFree.groups[0]?.window.min, 6);
-  deepStrictEqual(stepFree.access, [{ station: 'BA:901609', stops: ['BA:901609'], kind: 'elevator', location: 'Street to Concourse', reason: 'Repair', returns: '10/23/2026' }]);
+  deepStrictEqual([stepFree.groups[0]?.window.min, stepFree.access], [6, undefined]);
+  // 24th St's elevator outage, with the time to change as it is.
+  const elevators = planTrip(schedule, { ...realtime(), access: outages }, { from: 'BA:901209', to: 'SF:13477', elevators: true }, NOW);
+  strictEqual(elevators.groups[0]?.window.min, 3);
+  deepStrictEqual(elevators.access, [{ station: 'BA:901609', stops: ['BA:901609'], kind: 'elevator', location: 'Street to Concourse', reason: 'Repair', returns: '10/23/2026' }]);
   // A minimum the rider set is theirs: the page sends the window back as shown, and editing only
   // the maximum must not add the allowance again.
   const own = planTrip(schedule, { ...realtime(), access: outages }, { from: 'BA:901209', to: 'SF:13477', stepFree: true, min: 6, max: 16 }, NOW);
   deepStrictEqual(own.groups[0]?.window, { min: 6, max: 16 });
   // Escalators too: Montgomery's, where the rider gets on, listed first, in the order of the trip.
-  const both = planTrip(schedule, { ...realtime(), access: outages }, { from: 'BA:901209', to: 'SF:13477', stepFree: true, escalators: true }, NOW);
+  const both = planTrip(schedule, { ...realtime(), access: outages }, { from: 'BA:901209', to: 'SF:13477', elevators: true, escalators: true }, NOW);
   deepStrictEqual(both.access?.map(({ station, kind, stops }) => `${kind} ${station} ${stops.join(',')}`), ['escalator BA:901209 BA:901209', 'elevator BA:901609 BA:901609']);
 });
 
@@ -553,14 +556,14 @@ test("a rider who chose Muni Metro at a shared station is not shown BART's platf
     { station: 'mont', kind: 'elevator' as const, location: 'Street to Concourse', reason: null, returns: null },
   ];
   const locations = (fromAgencies?: ('BA' | 'SF')[]) =>
-    planTrip(schedule, { ...realtime(), access: outages }, { from: 'BA:901209', to: 'SF:13477', stepFree: true, ...(fromAgencies ? { fromAgencies } : {}) }, NOW).access?.map(({ location }) => location);
+    planTrip(schedule, { ...realtime(), access: outages }, { from: 'BA:901209', to: 'SF:13477', elevators: true, ...(fromAgencies ? { fromAgencies } : {}) }, NOW).access?.map(({ location }) => location);
   deepStrictEqual(locations(), ['Platform', 'Street to Concourse']);
   deepStrictEqual(locations(['SF']), ['Street to Concourse']);
   // Riding the N from Montgomery's Muni Metro platform, which the shared station takes in.
-  const metro = planTrip(schedule, { ...realtime(), access: outages }, { from: 'SF:16994', to: 'SF:16998', stepFree: true }, NOW);
+  const metro = planTrip(schedule, { ...realtime(), access: outages }, { from: 'SF:16994', to: 'SF:16998', elevators: true }, NOW);
   deepStrictEqual(metro.access?.map(({ location }) => location), ['Street to Concourse']);
   // From the shared station with no system chosen, but only the N leaves it toward Church.
-  const onlyMetro = planTrip(schedule, { ...realtime(), access: outages }, { from: 'BA:901209', to: 'SF:16998', stepFree: true }, NOW);
+  const onlyMetro = planTrip(schedule, { ...realtime(), access: outages }, { from: 'BA:901209', to: 'SF:16998', elevators: true }, NOW);
   deepStrictEqual(onlyMetro.access?.map(({ location }) => location), ['Street to Concourse']);
 });
 
@@ -716,22 +719,22 @@ test("a stop's arrivals list each route and direction there, soonest first, and 
   throws(() => stopArrivals(schedule, realtime(), 'SF:0', NOW), /No stop/);
 });
 
-test("a stop's arrivals list its station's elevator and escalator outages for riders who asked", () => {
+test("a stop's arrivals list its station's elevator and escalator outages unless the rider turned them off", () => {
   const outages = [
     { station: 'mont', kind: 'elevator' as const, location: 'Platform', reason: 'Repair', returns: '10/23/2026' },
     { station: 'mont', kind: 'escalator' as const, location: 'Street to Concourse', reason: null, returns: null },
     // Another station's.
     { station: '24th', kind: 'elevator' as const, location: 'Street to Concourse', reason: null, returns: null },
   ];
-  const at = (stop: string, needs: { stepFree?: boolean; escalators?: boolean }) => stopArrivals(schedule, { ...realtime(), access: outages }, stop, NOW, undefined, needs).access;
+  const at = (stop: string, needs: { elevators?: boolean; escalators?: boolean }) => stopArrivals(schedule, { ...realtime(), access: outages }, stop, NOW, undefined, needs).access;
   strictEqual(at('BA:901201', {}), undefined);
-  deepStrictEqual(at('BA:901201', { stepFree: true }), [{ station: 'BA:901209', stops: ['BA:901209'], kind: 'elevator', location: 'Platform', reason: 'Repair', returns: '10/23/2026' }]);
+  deepStrictEqual(at('BA:901201', { elevators: true }), [{ station: 'BA:901209', stops: ['BA:901209'], kind: 'elevator', location: 'Platform', reason: 'Repair', returns: '10/23/2026' }]);
   deepStrictEqual(
-    at('BA:901201', { stepFree: true, escalators: true })?.map(({ kind, location }) => `${kind} ${location}`),
+    at('BA:901201', { elevators: true, escalators: true })?.map(({ kind, location }) => `${kind} ${location}`),
     ['elevator Platform', 'escalator Street to Concourse'],
   );
   // A street stop is at no BART station.
-  deepStrictEqual(at('SF:13477', { stepFree: true, escalators: true }), []);
+  deepStrictEqual(at('SF:13477', { elevators: true, escalators: true }), []);
 });
 
 test('every page names a direction as results do: a ferry by its last stop, a backtick as ’, and no "via"', () => {

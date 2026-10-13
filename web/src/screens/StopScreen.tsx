@@ -58,7 +58,7 @@ export function StopScreen({ search }: { search: Search }) {
   const failure = failureOf(error, 'Arrivals');
   useStopPin(pin, data, answered, search, settings, now, changePin);
   const pinFromStop = (next: Pin | null) => records.pinWithUndo(next, data?.routes);
-  const allAlerts = data ? viewAlerts(data, new Set([data.stop, ...data.rows.map(({ stop }) => stop)]), { elevators: settings.stepFree, escalators: settings.escalatorOutages }) : [];
+  const allAlerts = data ? viewAlerts(data, new Set([data.stop, ...data.rows.map(({ stop }) => stop)]), { elevators: settings.elevatorOutages, escalators: settings.escalatorOutages }) : [];
   const alerts = allAlerts.filter(({ id }) => !dismissedIds.has(id));
   // An elevator or escalator out at the stop's BART station, for riders who asked, as on results.
   const outages = outagesByStation(data?.access ?? []);

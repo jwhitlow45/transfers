@@ -515,6 +515,8 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-sheet__head h2 { flex: 1; margin: 0; font-size: var(--text-xl); }
 .tf-sheet__saved { text-align: center; font-size: var(--text-base); color: var(--muted); margin-top: var(--space-4); }
 .tf-setting { padding: var(--space-3) 0; border-bottom: var(--border-hair) solid var(--divider); }
+/* Opened from an outage sheet, the toggles show below the sticky header with their section's title. */
+.tf-setting--anchor { scroll-margin-top: 104px; }
 .tf-setting__label { font-weight: var(--weight-label); }
 .tf-setting__help { font-size: var(--text-base); color: var(--muted); }
 .tf-select { width: 100%; min-height: var(--tap); font: inherit; color: var(--text); background: var(--bg); border: var(--border-strong) solid var(--line); }

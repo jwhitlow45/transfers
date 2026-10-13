@@ -119,7 +119,7 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
   // Notices the rider dismissed stay hidden here and on every other search, until the Notices
   // page puts them back.
   const { dismissedIds, dismiss } = records;
-  const allAlerts = data ? viewAlerts(data, summary.boarding, { elevators: settings.stepFree, escalators: settings.escalatorOutages }) : [];
+  const allAlerts = data ? viewAlerts(data, summary.boarding, { elevators: settings.elevatorOutages, escalators: settings.escalatorOutages }) : [];
   const alerts = allAlerts.filter(({ id }) => !dismissedIds.has(id));
   const dismissedHere = allAlerts.length - alerts.length;
 

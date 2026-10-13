@@ -80,16 +80,18 @@ function relevantAlerts(alerts: RtAlert[], stops: Set<string>, routes: Set<strin
   return results.sort((a, b) => order[a.relevance] - order[b.relevance]);
 }
 
-// What a rider asked of BART's elevators and escalators: a rider who needs elevators hears of
-// theirs being out, and takes longer to change at a station, and one who relies on escalators
-// hears of theirs.
-export type AccessNeeds = { stepFree?: boolean; escalators?: boolean };
+// What a rider asked of stations: BART's elevator and escalator outages on the way, each listed
+// unless the rider turned it off (see accessNeeds in server/main.ts), and for a rider who needs
+// elevators, more time to change at a station.
+export type AccessNeeds = { stepFree?: boolean; elevators?: boolean; escalators?: boolean };
+
+export const wantsOutages = (needs: AccessNeeds) => Boolean(needs.elevators || needs.escalators);
 
 // The outages the rider asked about at the BART stations behind the given stop keys, each with
 // every key that leads to its station, so the page can mark where they touch the trip. `bartAt`
 // holds the keys where the rider rides BART, which a shared station's key alone does not say.
 export function stationOutages(schedule: Schedule, tables: Tables, outages: Outage[], needs: AccessNeeds, bartAt: Set<string>, keys: string[]): AccessOutage[] {
-  const kinds = new Set<Outage['kind']>([...(needs.stepFree ? ['elevator' as const] : []), ...(needs.escalators ? ['escalator' as const] : [])]);
+  const kinds = new Set<Outage['kind']>([...(needs.elevators ? ['elevator' as const] : []), ...(needs.escalators ? ['escalator' as const] : [])]);
   const found = new Map<Outage, AccessOutage>();
   for (const key of new Set(keys)) {
     const stop = schedule.stopsByKey.get(key);

@@ -5,7 +5,7 @@ import { type Schedule, type StopRow, routeKeyOf, stopKeyOf } from '../schedule.
 import { type FirstLeg, type PairingOptions, type SecondLeg, pairConnections } from './connections.ts';
 import { type Link, arrivalStops, changeSeconds, destinationStops, findLinks, walkBetween, walkTo } from './links.ts';
 import { pinnedTrip } from './pinned.ts';
-import { type RealtimeView, serviceStatus, stationOutages } from './realtime-view.ts';
+import { type RealtimeView, serviceStatus, stationOutages, wantsOutages } from './realtime-view.ts';
 import type { RouteRow } from '../schedule.ts';
 import { firstLegs, secondLegs } from './vehicles.ts';
 import { Tables } from './views.ts';
@@ -25,9 +25,10 @@ export type TripRequest = {
   firstRoutes?: string[];
   secondRoutes?: string[];
   hidden?: boolean;
-  // A rider who needs elevators: their outages along the trip, and more time to change at stations.
+  // A rider who needs elevators: more time to change at stations.
   stepFree?: boolean;
-  // A rider who relies on escalators: their outages along the trip.
+  // Elevator and escalator outages along the trip.
+  elevators?: boolean;
   escalators?: boolean;
   // At a shared station: ride from or catch BART, Muni Metro, or both when absent.
   fromAgencies?: Agency[];
@@ -301,7 +302,7 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
     routes: tables.routes,
     stops: tables.stops,
     alerts,
-    ...(request.stepFree || request.escalators
+    ...(wantsOutages(request)
       ? {
           access: stationOutages(
             schedule,
