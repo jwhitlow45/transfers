@@ -12,7 +12,7 @@ import type { Schedule } from '../schedule.ts';
 import { CALENDAR, buildSchedule, clock, files } from '../test-gtfs.ts';
 import { serviceDayStart } from '../time.ts';
 import { footpathsFor, walksFor } from './footpaths.ts';
-import { type Endpoint, planJourneys, readEnds } from './plan.ts';
+import { type Endpoint, type JourneyOptions, planJourneys, readEnds } from './plan.ts';
 
 // BART from Montgomery to 24th St every 10 minutes from 7:30, the 48 from 24th & Mission to
 // Potrero every 15 minutes from 7:32, and the 22 from a stop a few steps up Potrero to Dogpatch
@@ -212,6 +212,30 @@ test("a change's walks reach as far as the rider walks, from a station further, 
   deepStrictEqual([seconds('BA:901601', 'SF:13477'), seconds('BA:901601', 'SF:13477', { speed: 0.9 })], [180, 180]);
   // However many settings ask, the walks are worked out once.
   strictEqual(footpathsFor(schedule), paths);
+});
+
+test('step-free travel allows more time to change at a station and lists the outages at the stations the journeys use', () => {
+  const outages = [
+    { station: '24th', kind: 'elevator' as const, location: 'Street to Concourse', reason: 'Repair', returns: '10/23/2026' },
+    { station: 'mont', kind: 'escalator' as const, location: 'Platform', reason: 'Repair', returns: null },
+    // Glen Park is not on these journeys.
+    { station: 'glen', kind: 'elevator' as const, location: 'Station', reason: null, returns: null },
+  ];
+  const plan = (options: JourneyOptions = {}) => planJourneys(schedule, { ...realtime(), access: outages }, stop('BA:901209'), stop('SF:13700'), NOW, options);
+  const plain = plan();
+  deepStrictEqual([plain.journeys[0]!.legs[1], plain.access], [{ kind: 'walk', from: 'BA:901609', to: 'SF:13477', seconds: 180 }, undefined]);
+  // Getting off BART at 24th St takes three minutes more, and its elevator is out. Changing between
+  // buses takes no longer.
+  const stepFree = plan({ stepFree: true });
+  deepStrictEqual(stepFree.journeys[0]!.legs[1], { kind: 'walk', from: 'BA:901609', to: 'SF:13477', seconds: 360 });
+  deepStrictEqual(stepFree.journeys[0]!.legs[3], plain.journeys[0]!.legs[3]);
+  deepStrictEqual(stepFree.access, [{ station: 'BA:901609', stops: ['BA:901609'], kind: 'elevator', location: 'Street to Concourse', reason: 'Repair', returns: '10/23/2026' }]);
+  ok(stepFree.stops['BA:901609']);
+  // Riding BART from Montgomery, its platform escalators are on the way. Escalators alone leave
+  // the time to change as it is.
+  const both = plan({ stepFree: true, escalators: true });
+  deepStrictEqual(both.access?.map(({ kind, station }) => `${kind} ${station}`), ['escalator BA:901209', 'elevator BA:901609']);
+  deepStrictEqual(plan({ escalators: true }).journeys[0]!.legs[1], plain.journeys[0]!.legs[1]);
 });
 
 test('ends are read as a stop, a place by id or a point, and a bad one is turned away plainly', () => {

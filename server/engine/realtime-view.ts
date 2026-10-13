@@ -1,4 +1,5 @@
-import type { AgencyId, Alert, AlertRelevance, FeedStatus } from '../../shared/api.ts';
+import type { AccessOutage, AgencyId, Alert, AlertRelevance, FeedStatus } from '../../shared/api.ts';
+import { bartStationCode } from '../bart-stations.ts';
 import type { Agency } from '../config.ts';
 import type { Outage } from '../realtime/access.ts';
 import type { RtAlert, TripSnapshot } from '../realtime/snapshot.ts';
@@ -77,4 +78,34 @@ function relevantAlerts(alerts: RtAlert[], stops: Set<string>, routes: Set<strin
     results.push(alertView(alert, relevance, routes, stops));
   }
   return results.sort((a, b) => order[a.relevance] - order[b.relevance]);
+}
+
+// What a rider asked of BART's elevators and escalators: a rider who needs elevators hears of
+// theirs being out, and takes longer to change at a station, and one who relies on escalators
+// hears of theirs.
+export type AccessNeeds = { stepFree?: boolean; escalators?: boolean };
+
+// The outages the rider asked about at the BART stations behind the given stop keys, each with
+// every key that leads to its station, so the page can mark where they touch the trip. `bartAt`
+// holds the keys where the rider rides BART, which a shared station's key alone does not say.
+export function stationOutages(schedule: Schedule, tables: Tables, outages: Outage[], needs: AccessNeeds, bartAt: Set<string>, keys: string[]): AccessOutage[] {
+  const kinds = new Set<Outage['kind']>([...(needs.stepFree ? ['elevator' as const] : []), ...(needs.escalators ? ['escalator' as const] : [])]);
+  const found = new Map<Outage, AccessOutage>();
+  for (const key of new Set(keys)) {
+    const stop = schedule.stopsByKey.get(key);
+    const station = stop ? schedule.stationOf(stop) : null;
+    const code = station?.agency === 'BA' ? bartStationCode(station) : null;
+    if (!station || !code) continue;
+    // At a shared station, BART's platform elevators and escalators are no part of a Muni Metro
+    // rider's way, while its street and concourse ones are shared.
+    const metroOnly = !bartAt.has(key);
+    for (const outage of outages) {
+      if (outage.station !== code || !kinds.has(outage.kind)) continue;
+      if (metroOnly && /^platform/i.test(outage.location)) continue;
+      const entry = found.get(outage) ?? { station: tables.stop(station), stops: [], kind: outage.kind, location: outage.location, reason: outage.reason, returns: outage.returns };
+      entry.stops.push(key);
+      found.set(outage, entry);
+    }
+  }
+  return [...found.values()];
 }

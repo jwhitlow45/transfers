@@ -65,7 +65,7 @@ Checks against transfers J has made:
 
 Overrides, in priority order: the rider's own value for the search, a table of calibrated pairs kept in the repo, and the agency's `transfers.txt` `min_transfer_time` (BART uses it for timed cross-platform transfers).
 
-With step-free travel on (`stepfree=1`), a transfer that gets off or boards at a BART or Muni Metro station gets 3 more minutes on its default minimum, for waiting for and riding elevators. That includes BART's listed transfers, since some change levels (12th St and 19th St) and the list does not say which. A minimum the rider set stays as they set it.
+With step-free travel on (`stepfree=1`), a transfer that gets off or boards at a BART or Muni Metro station gets 3 more minutes on its default minimum, for waiting for and riding elevators. That includes BART's listed transfers, since some change levels (12th St and 19th St) and the list does not say which. A minimum the rider set stays as they set it. Trips with any number of changes add the same 3 minutes to each change that gets off or boards at a station.
 
 ### Why no buffer, unlike Google Maps
 

@@ -1,17 +1,15 @@
-import { type AccessOutage, type AgencyId, type Departure, type DestinationsResponse, type Group, MAX_MINUTES, type Notice, type PinRequest, type TripResponse, type WayBackResponse } from '../../shared/api.ts';
+import { type AgencyId, type Departure, type DestinationsResponse, type Group, MAX_MINUTES, type Notice, type PinRequest, type TripResponse, type WayBackResponse } from '../../shared/api.ts';
 import type { Agency } from '../config.ts';
-import { bartStationCode } from '../bart-stations.ts';
 import { RequestError } from '../http.ts';
-import type { Outage } from '../realtime/access.ts';
 import { type Schedule, type StopRow, routeKeyOf, stopKeyOf } from '../schedule.ts';
 import { type FirstLeg, type PairingOptions, type SecondLeg, pairConnections } from './connections.ts';
 import { type Link, arrivalStops, bartSiblings, findLinks, walkBetween } from './links.ts';
 import { pinnedTrip } from './pinned.ts';
-import { type RealtimeView, serviceStatus } from './realtime-view.ts';
+import { type RealtimeView, serviceStatus, stationOutages } from './realtime-view.ts';
 import type { RouteRow } from '../schedule.ts';
 import { firstLegs, secondLegs } from './vehicles.ts';
 import { Tables, stopView } from './views.ts';
-import { DEFAULT_MAX_WALK_METERS, defaultMaximum } from './walk.ts';
+import { DEFAULT_MAX_WALK_METERS, STEP_FREE_MINUTES, atRailStation, defaultMaximum } from './walk.ts';
 import { distanceMeters } from '../geo.ts';
 import { stopLabel } from '../../shared/labels.ts';
 
@@ -38,11 +36,6 @@ export type TripRequest = {
   // A trip the rider pinned, followed in the response as its vehicles run.
   pin?: PinRequest;
 };
-
-// Changing at a station step-free means waiting for and riding elevators, so the default transfer
-// minimum gets this much more. A minimum the rider set is theirs as it is: the page sends the
-// window back as shown, so adding to it would add again on every edit.
-const STEP_FREE_MINUTES = 3;
 
 const DEPARTURES_PER_GROUP = 3;
 
@@ -221,7 +214,10 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
     const routes = link.routes.filter((route) => !secondFilter || secondFilter.has(routeKeyOf(route)));
     if (routes.length === 0) continue;
     const linkForRoutes = routes.length === link.routes.length ? link : { ...link, routes };
-    const atStation = [link.alight, link.board].some(({ access }) => access === 'bart' || access === 'subway');
+    // Changing at a station step-free takes longer, so the default minimum gets more. A minimum the
+    // rider set is theirs as it is: the page sends the window back as shown, so adding to it would
+    // add again on every edit.
+    const atStation = [link.alight, link.board].some(atRailStation);
     const min = Math.min(MAX_MINUTES, request.min ?? link.defaultMinutes + (request.stepFree && link.kind === 'ride' && atStation ? STEP_FREE_MINUTES : 0));
     const feeders = link.firstLegs
       .filter(({ pattern }) => !firstFilter || firstFilter.has(routeKeyOf(schedule.route(pattern.route))))
@@ -327,30 +323,6 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
       : {}),
     feeds,
   };
-}
-
-// The outages the rider asked about at the BART stations behind the given stop keys, each with
-// every key that leads to its station, so the page can mark the groups it touches.
-function stationOutages(schedule: Schedule, tables: Tables, outages: Outage[], request: TripRequest, bartAt: Set<string>, keys: string[]): AccessOutage[] {
-  const kinds = new Set<Outage['kind']>([...(request.stepFree ? ['elevator' as const] : []), ...(request.escalators ? ['escalator' as const] : [])]);
-  const found = new Map<Outage, AccessOutage>();
-  for (const key of new Set(keys)) {
-    const stop = schedule.stopsByKey.get(key);
-    const station = stop ? schedule.stationOf(stop) : null;
-    const code = station?.agency === 'BA' ? bartStationCode(station) : null;
-    if (!station || !code) continue;
-    // At a shared station, BART's platform elevators and escalators are no part of a Muni Metro
-    // rider's way, while its street and concourse ones are shared.
-    const metroOnly = !bartAt.has(key);
-    for (const outage of outages) {
-      if (outage.station !== code || !kinds.has(outage.kind)) continue;
-      if (metroOnly && /^platform/i.test(outage.location)) continue;
-      const entry = found.get(outage) ?? { station: tables.stop(station), stops: [], kind: outage.kind, location: outage.location, reason: outage.reason, returns: outage.returns };
-      entry.stops.push(key);
-      found.set(outage, entry);
-    }
-  }
-  return [...found.values()];
 }
 
 // With a destination set, only routes that get there count, and a transfer point none of whose

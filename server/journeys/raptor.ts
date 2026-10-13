@@ -24,8 +24,8 @@ export type Network = {
   departure: (trips: PatternTrips, trip: number, position: number) => number | null;
   // Stops a short walk away, with the seconds the walk and any station stairs take.
   footpaths: (stop: number) => Access[];
-  // Seconds to change vehicles without leaving the stop.
-  changeSeconds: number;
+  // Seconds to change vehicles without leaving a stop.
+  changeSeconds: (stop: number) => number;
 };
 
 export type RideLeg = { kind: 'ride'; trips: PatternTrips; trip: number; board: number; alight: number; from: number; to: number; departs: number; arrives: number };
@@ -141,7 +141,7 @@ export function raptor(network: Network, starts: Access[], ends: Access[], leave
       marked.add(stop);
     };
     for (const stop of reached) {
-      offer(stop, arrived[stop]! + (arrivals.get(stop)!.kind === 'ride' ? network.changeSeconds : 0), { kind: 'stay' });
+      offer(stop, arrived[stop]! + (arrivals.get(stop)!.kind === 'ride' ? network.changeSeconds(stop) : 0), { kind: 'stay' });
       for (const path of network.footpaths(stop)) {
         const at = arrived[stop]! + path.seconds;
         offer(path.stop, at, { kind: 'walk', from: stop, seconds: path.seconds });

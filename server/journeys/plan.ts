@@ -2,10 +2,10 @@ import type { AgencyId } from '../../shared/api.ts';
 import type { Journey, JourneyEnd, JourneyLeg, JourneysResponse, PlaceResult } from '../../shared/journeys.ts';
 import { walkSeconds } from '../../shared/walk.ts';
 import { arrivalStops, headingOf, walkPoints } from '../engine/links.ts';
-import { type RealtimeView, SAME_RUN_SECONDS, serviceStatus } from '../engine/realtime-view.ts';
+import { type AccessNeeds, type RealtimeView, SAME_RUN_SECONDS, serviceStatus, stationOutages } from '../engine/realtime-view.ts';
 import { predictedTimes } from '../engine/track.ts';
 import { Tables } from '../engine/views.ts';
-import { type WalkSettings, transferSeconds } from '../engine/walk.ts';
+import { STEP_FREE_MINUTES, type WalkSettings, atRailStation, transferSeconds } from '../engine/walk.ts';
 import { distanceMeters, type Point } from '../geo.ts';
 import { RequestError } from '../http.ts';
 import { type Schedule, type StopRow, routeKeyOf, stopKeyOf } from '../schedule.ts';
@@ -18,7 +18,7 @@ import { type PatternTrips, timetableFor } from './timetable.ts';
 // or to, such as where they are or a place they searched for.
 export type Endpoint = { kind: 'stop'; stop: StopRow } | { kind: 'point'; name: string; at: Point };
 
-export type JourneyOptions = WalkSettings & { maxRides?: number; count?: number };
+export type JourneyOptions = WalkSettings & AccessNeeds & { maxRides?: number; count?: number };
 
 // Three changes at most: four vehicles take a rider anywhere these agencies reach.
 const MAX_RIDES = 4;
@@ -104,6 +104,7 @@ export function planJourneys(schedule: Schedule, realtime: RealtimeView, from: E
     routes: tables.routes,
     stops: tables.stops,
     alerts,
+    ...(options.stepFree || options.escalators ? { access: accessOutages(schedule, tables, realtime, options, shown) } : {}),
     ...(far ? { notice: { kind: 'far' as const, end: far } } : {}),
     feeds,
   };
@@ -117,7 +118,7 @@ type Prediction = { times: (number | null)[]; reported: (number | null)[]; ahead
 
 // The timetable for the days a journey from now can use, with the feed's predictions over it.
 // Canceled trips have no times, so no journey relies on one.
-function liveNetwork(schedule: Schedule, realtime: RealtimeView, now: number, walking: WalkSettings): LiveNetwork {
+function liveNetwork(schedule: Schedule, realtime: RealtimeView, now: number, options: JourneyOptions): LiveNetwork {
   const today = serviceDate(now);
   // Trips after midnight belong to the day before, and a journey late at night reaches the next.
   const dates = [addDays(today, -1), today, ...(serviceDayStart(addDays(today, 1)) < now + HORIZON_SECONDS ? [addDays(today, 1)] : [])];
@@ -125,6 +126,9 @@ function liveNetwork(schedule: Schedule, realtime: RealtimeView, now: number, wa
   const footpaths = footpathsFor(schedule);
   // Each stop's walks for the rider's settings, worked out the first time the search walks on.
   const walks = new Map<number, Access[]>();
+  // A rider who needs elevators takes longer to change at a station, as the transfer results
+  // allow (engine/trip.ts).
+  const stepFreeSeconds = (...stops: number[]) => (options.stepFree && stops.some((stop) => atRailStation(schedule.stop(stop))) ? STEP_FREE_MINUTES * 60 : 0);
   const tripsOf = new Map<number, PatternTrips[]>();
   const stopsOf = new Map<number, StopRow[]>();
   // Worked out the first time the search reaches each trip.
@@ -174,10 +178,14 @@ function liveNetwork(schedule: Schedule, realtime: RealtimeView, now: number, wa
     },
     footpaths: (stop) => {
       let list = walks.get(stop);
-      if (!list) walks.set(stop, (list = walksFor(footpaths.get(stop), walking)));
+      if (!list) {
+        list = walksFor(footpaths.get(stop), options);
+        if (options.stepFree) list = list.map((walk) => ({ ...walk, seconds: walk.seconds + stepFreeSeconds(stop, walk.stop) }));
+        walks.set(stop, list);
+      }
       return list;
     },
-    changeSeconds: CHANGE_SECONDS,
+    changeSeconds: (stop) => CHANGE_SECONDS + stepFreeSeconds(stop),
     prediction,
   };
 }
@@ -222,7 +230,7 @@ function latestBoarding(network: Network, path: Path): Path {
       }
       legs[index] = ride;
     }
-    deadline = ride.departs - (legs[index - 1]?.kind === 'ride' ? network.changeSeconds : 0);
+    deadline = ride.departs - (legs[index - 1]?.kind === 'ride' ? network.changeSeconds(ride.from) : 0);
   }
   return { ...path, legs };
 }
@@ -340,6 +348,16 @@ function tabulate(schedule: Schedule, tables: Tables, journeys: Journey[], ends:
     }
   }
   return { stops, routes, agencies };
+}
+
+// The elevator and escalator outages the rider asked about at the stations the journeys use.
+// Where a journey only passes through a shared station on Muni Metro, BART's platforms there are
+// none of its way.
+function accessOutages(schedule: Schedule, tables: Tables, realtime: RealtimeView, needs: AccessNeeds, journeys: Journey[]) {
+  const legs = journeys.flatMap(({ legs }) => legs);
+  const keys = legs.flatMap(({ from, to }) => [from, to]).filter((key) => key !== null);
+  const bartAt = new Set(legs.flatMap((leg) => (leg.kind === 'ride' && schedule.routesByKey.get(leg.route)?.agency === 'BA' ? [leg.from, leg.to] : [])));
+  return stationOutages(schedule, tables, realtime.access ?? [], needs, bartAt, keys);
 }
 
 function endView(tables: Tables, end: Endpoint): JourneyEnd {

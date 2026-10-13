@@ -12,7 +12,7 @@ import { stopArrivals } from './api/stop.ts';
 import { config, requireApiKeys } from './config.ts';
 import { trackTarget, trackVehicle } from './engine/track.ts';
 import { routeView, stopView } from './engine/views.ts';
-import type { RealtimeView } from './engine/realtime-view.ts';
+import type { AccessNeeds, RealtimeView } from './engine/realtime-view.ts';
 import { type TripRequest, destinations, planTrip, wayBack } from './engine/trip.ts';
 import { LONGEST_WALK_METERS, type WalkSettings } from './engine/walk.ts';
 import { RequestError } from './http.ts';
@@ -55,15 +55,12 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
     }
     case '/api/journeys': {
       const { from, to } = readEnds(schedule, url.searchParams, (id) => placeStore.places?.get(id) ?? null);
-      return sendJson(request, response, planJourneys(schedule, await realtimeView(), from, to, nowSeconds(), walkSettings(url.searchParams)));
+      const options = { ...walkSettings(url.searchParams), ...accessNeeds(url.searchParams) };
+      return sendJson(request, response, planJourneys(schedule, await realtimeView(options), from, to, nowSeconds(), options));
     }
     case '/api/trip': {
       const trip = tripRequest(url.searchParams);
-      // Elevator and escalator outages are fetched only for riders who asked for them, alongside
-      // the rest rather than after.
-      const [view, access] = await Promise.all([realtimeView(), trip.stepFree || trip.escalators ? realtime.accessOutages() : null]);
-      view.access = access;
-      return sendJson(request, response, planTrip(schedule, view, trip, nowSeconds()));
+      return sendJson(request, response, planTrip(schedule, await realtimeView(trip), trip, nowSeconds()));
     }
     case '/api/vehicle': {
       const trip = url.searchParams.get('trip');
@@ -131,14 +128,16 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
   throw new RequestError(404, 'Not found');
 }
 
-async function realtimeView(): Promise<RealtimeView> {
-  const { trips, alerts, status } = await realtime.current();
-  return { trips, alerts, status, updatedAt: realtime.updatedAt() };
+// Elevator and escalator outages are fetched only for riders who asked for them, alongside the
+// rest rather than after.
+async function realtimeView(needs: AccessNeeds = {}): Promise<RealtimeView> {
+  const [{ trips, alerts, status }, access] = await Promise.all([realtime.current(), needs.stepFree || needs.escalators ? realtime.accessOutages() : null]);
+  return { trips, alerts, status, updatedAt: realtime.updatedAt(), access };
 }
 
 function tripRequest(params: URLSearchParams, from = params.get('from'), to = params.get('to')): TripRequest {
   if (!from || !to) throw new RequestError(400, 'Send from and to');
-  const request: TripRequest = { from, to, ...walkSettings(params) };
+  const request: TripRequest = { from, to, ...walkSettings(params), ...accessNeeds(params) };
   const min = numberParam(params, 'min');
   const max = numberParam(params, 'max');
   const hide = numberParam(params, 'hide');
@@ -152,8 +151,6 @@ function tripRequest(params: URLSearchParams, from = params.get('from'), to = pa
   if (first) request.firstRoutes = first.split(',');
   if (second) request.secondRoutes = second.split(',');
   if (params.get('hidden') === '1') request.hidden = true;
-  if (params.get('stepfree') === '1') request.stepFree = true;
-  if (params.get('escalators') === '1') request.escalators = true;
   // BART or Muni Metro at a shared station: "BA", "SF", or both.
   const agencies = (name: string) => (params.get(name) ?? '').split(',').filter((agency): agency is 'BA' | 'SF' => agency === 'BA' || agency === 'SF');
   const fromAgencies = agencies('fm');
@@ -171,6 +168,10 @@ function walkSettings(params: URLSearchParams): WalkSettings {
   const walk = numberParam(params, 'walk');
   const speed = numberParam(params, 'speed');
   return { ...(walk !== undefined ? { walk: clamp(walk, 50, LONGEST_WALK_METERS) } : {}), ...(speed !== undefined ? { speed: clamp(speed, 0.3, 3) } : {}) };
+}
+
+function accessNeeds(params: URLSearchParams): AccessNeeds {
+  return { ...(params.get('stepfree') === '1' ? { stepFree: true } : {}), ...(params.get('escalators') === '1' ? { escalators: true } : {}) };
 }
 
 // A map's pinned stretch of a trip, as `from` and `to` stop positions, under an optional prefix.

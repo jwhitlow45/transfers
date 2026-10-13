@@ -21,7 +21,7 @@ function network(lines: { stops: number[]; trips: number[][] }[], walks: [number
     arrival: time,
     departure: time,
     footpaths: (stop) => walks.filter(([from]) => from === stop).map(([, to, seconds]) => ({ stop: to, seconds })),
-    changeSeconds: 60,
+    changeSeconds: () => 60,
   };
 }
 

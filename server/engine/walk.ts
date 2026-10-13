@@ -29,6 +29,13 @@ export const STATION_WALK_FACTOR = 1.5;
 export const NAMED_STOP_MAX_WALK_METERS = 800;
 // The default maximum is the minimum plus this, matching the 3 to 12 window J uses.
 export const DEFAULT_WINDOW_MINUTES = 9;
+// Changing at a station step-free means waiting for and riding elevators, which takes this much
+// more than the stairs.
+export const STEP_FREE_MINUTES = 3;
+
+// A stop at a rail station, BART or Muni Metro, which a rider reaches by stairs, escalators or
+// elevators.
+export const atRailStation = (stop: { access: Access }) => stop.access === 'bart' || stop.access === 'subway';
 
 // The rider's own settings, from their device: the longest walk they will take to change
 // vehicles, in meters, and how fast they walk, in meters a second.
