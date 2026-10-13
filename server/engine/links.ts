@@ -105,6 +105,8 @@ type Context = {
   // when it never does. With no destination, where the pattern ends.
   ridesTo: (pattern: PatternRow, position: number) => number;
   hasDestination: boolean;
+  // Going to a stop, where each first vehicle meets a route is its own way there.
+  everyPoint: boolean;
 };
 
 // The ways to one of three Tos: a stop the rider boards their next vehicle at, a route to catch,
@@ -131,6 +133,7 @@ export function findLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow
     splitSystems: schedule.sharedMembers.has(from.id),
     ridesTo,
     hasDestination: reaches !== null,
+    everyPoint: 'destination' in to,
   };
   const origins = schedule.boardingStops(from, settings.fromAgencies ?? null);
   // A stop a walk from From is no place to ride to.
@@ -235,12 +238,13 @@ export function walkTo(schedule: Schedule, from: StopRow, to: StopRow, maxWalk: 
 
 // Going to a stop, routes boarded at one place that all get there are one choice, whichever the
 // rider catches: the next train toward it at a BART platform, or the next of two buses at a pole.
-// Each departure still says its own route.
+// Each departure still says its own route. A shared station's BART and Muni Metro platforms stay
+// apart, a level and fare gates from each other.
 function pooledByBoard(schedule: Schedule, links: Link[]): Link[] {
   const pooled = new Map<string, Link>();
   const trips = (link: Link) => link.firstLegs.reduce((sum, { pattern }) => sum + pattern.trips, 0);
   for (const link of links) {
-    const key = `${link.kind}|${schedule.stationOf(link.board).id}`;
+    const key = `${link.kind}|${link.board.id}`;
     const current = pooled.get(key);
     if (!current) {
       pooled.set(key, link);
@@ -361,6 +365,12 @@ function rideLinks(context: Context, feeders: Feeder[], target: Target): Link[] 
 
   const byBoard = new Map<number, Pick[]>();
   for (const list of bySystem.values()) {
+    // Going to a stop, the 19 to Civic Center and the 48 to 24th St are both ways to BART to
+    // Montgomery, and the busier would otherwise hide the other (J, 2026-10-12).
+    if (context.everyPoint) {
+      for (const pick of list) byBoard.set(pick.board.stop.id, [...(byBoard.get(pick.board.stop.id) ?? []), pick]);
+      continue;
+    }
     const weight = new Map<number, { trips: number; ridden: number }>();
     for (const pick of list) {
       const current = weight.get(pick.board.stop.id) ?? { trips: 0, ridden: Infinity };

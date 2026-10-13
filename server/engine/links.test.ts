@@ -257,3 +257,29 @@ test('going to a stop, another route that stops on its corner gets the rider the
   deepStrictEqual(links.map((link) => `${link.kind} ${link.routes.map(({ shortName }) => shortName).join()}`), ['walk F']);
   schedule.close();
 });
+
+test('going to a stop, each place a first vehicle meets a route is its own way there, as it is not catching the route', () => {
+  // T comes from the west through B2, then B1, and on to To. F from From meets it at B1 and G,
+  // with fewer trips, at B2.
+  const schedule = build(
+    [
+      ['from', 0, false],
+      ['g1', -1200, true],
+      ['b2', -1200, false],
+      ['f1', 1200, true],
+      ['b1', 1200, false],
+      ['to', 3000, false],
+    ],
+    [
+      { id: 'f', route: 'F', direction: 0, headsign: 'East', sequence: ['from', 'f1'], count: 10 },
+      { id: 'g', route: 'G', direction: 1, headsign: 'West', sequence: ['from', 'g1'], count: 5 },
+      { id: 't', route: 'T', direction: 0, headsign: 'East', sequence: ['b2', 'b1', 'to'], count: 10 },
+    ],
+  );
+  const from = schedule.stopsByKey.get('SF:from')!;
+  const points = (links: ReturnType<typeof findLinks>) => links.map((link) => `${link.firstLegs.map(({ pattern }) => schedule.route(pattern.route).shortName).join()} to T at ${link.board.stopId}`).sort();
+  deepStrictEqual(points(findLinks(schedule, from, { destination: schedule.stopsByKey.get('SF:to')! })), ['F to T at b1', 'G to T at b2']);
+  // Catching T, the busier first vehicle's point is the one.
+  deepStrictEqual(points(findLinks(schedule, from, { route: schedule.routesByKey.get('SF:T')! })), ['F to T at b1']);
+  schedule.close();
+});

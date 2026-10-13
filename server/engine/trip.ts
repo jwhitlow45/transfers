@@ -218,7 +218,7 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
       ...(link.kind === 'walk' ? { kind: 'walk' as const } : {}),
       alight: tables.stop(link.alight),
       board: tables.stop(link.board),
-      routes: routes.map((route) => tables.route(route)),
+      routes: groupRoutes(routes.map((route) => tables.route(route)), going ? departures : null),
       direction: link.direction,
       headsign: link.headsign,
       walkMeters: link.walkMeters,
@@ -278,6 +278,13 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
       : {}),
     feeds,
   };
+}
+
+// The routes a group names. Going to a stop (`departures`), those its departures take, when any
+// do, as a pooled group may hold routes that run only at other hours, such as owl buses.
+function groupRoutes(keys: string[], departures: Departure[] | null) {
+  const taken = new Set(departures?.filter(({ canceled }) => !canceled).map(({ route }) => route));
+  return keys.some((key) => taken.has(key)) ? keys.filter((key) => taken.has(key)) : keys;
 }
 
 // With a destination set, only routes that get there count, and a transfer point none of whose
