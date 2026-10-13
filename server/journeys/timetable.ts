@@ -1,9 +1,9 @@
 import type { PatternRow, Schedule } from '../schedule.ts';
 import { serviceDayStart } from '../time.ts';
 
-// One pattern's trips on one service date, in the order they leave its first stop, with each
-// trip's arrival and departure at every stop, in unix seconds: trip t's departure at position p is
-// times[(t * stops + p) * 2 + 1].
+// Some of one pattern's trips on one service date, in the order they leave its first stop, with
+// each trip's arrival and departure at every stop, in unix seconds: trip t's departure at position
+// p is times[(t * stops + p) * 2 + 1]. None overtakes another (see patternTrips).
 export type PatternTrips = {
   pattern: PatternRow;
   keys: string[];
@@ -12,7 +12,7 @@ export type PatternTrips = {
 
 // A service date's trips, by pattern id, for routing in memory: a day is about half a million stop
 // times, which a request could not read from the database one query at a time.
-export type Timetable = { date: number; byPattern: Map<number, PatternTrips> };
+export type Timetable = { date: number; byPattern: Map<number, PatternTrips[]> };
 
 // The dates a schedule has loaded, kept while it is the current one. Three cover a journey from
 // late at night into the next morning.
@@ -51,16 +51,34 @@ function load(schedule: Schedule, date: number): Timetable {
     }
     current.times.push(dayStart + arrival, dayStart + departure);
   }
-  const byPattern = new Map<number, PatternTrips>();
+  const byPattern = new Map<number, PatternTrips[]>();
   for (const [id, list] of trips) {
     const pattern = schedule.patterns.get(id);
     if (!pattern) continue;
-    const width = pattern.stops.length * 2;
     // A trip with times at fewer stops than its pattern has would read past its own.
-    const whole = list.filter(({ times }) => times.length === width).sort((a, b) => a.times[1]! - b.times[1]!);
-    const times = new Float64Array(whole.length * width);
-    whole.forEach((trip, index) => times.set(trip.times, index * width));
-    byPattern.set(id, { pattern, keys: whole.map(({ key }) => key), times });
+    byPattern.set(id, patternTrips(pattern, list.filter(({ times }) => times.length === pattern.stops.length * 2)));
   }
   return { date, byPattern };
 }
+
+// A pattern's trips, split into lists in which none overtakes another, as an express can a local
+// on the same stops: in each, a trip that leaves before another is at every stop no later. The
+// router boards the first trip of a list it can catch, which is only the soonest anywhere when
+// the trips keep their order.
+export function patternTrips(pattern: PatternRow, trips: { key: string; times: number[] }[]): PatternTrips[] {
+  const lists: { key: string; times: number[] }[][] = [];
+  for (const trip of [...trips].sort((a, b) => a.times[1]! - b.times[1]!)) {
+    const list = lists.find((each) => !overtakes(trip.times, each.at(-1)!.times));
+    if (list) list.push(trip);
+    else lists.push([trip]);
+  }
+  const width = pattern.stops.length * 2;
+  return lists.map((list) => {
+    const times = new Float64Array(list.length * width);
+    list.forEach((trip, index) => times.set(trip.times, index * width));
+    return { pattern, keys: list.map(({ key }) => key), times };
+  });
+}
+
+// Whether a trip that leaves after another is somewhere before it.
+const overtakes = (later: number[], earlier: number[]) => later.some((time, index) => time < earlier[index]!);

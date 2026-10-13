@@ -13,7 +13,8 @@ export type Access = { stop: number; seconds: number };
 export type Network = {
   stopCount: number;
   patternsAt: (stop: number) => readonly { pattern: PatternRow; position: number }[];
-  // The trips of a pattern, one list for each service date loaded, each in the order they leave.
+  // The trips of a pattern on each service date loaded, in lists in which none overtakes another
+  // (see patternTrips), each in the order they leave.
   trips: (pattern: PatternRow) => PatternTrips[];
   // A trip's arrival or departure at a position, live where the feed predicts it, or null where it
   // does not stop or has already gone.
@@ -79,29 +80,34 @@ export function raptor(network: Network, starts: Access[], ends: Access[], leave
     }
     const rode: number[] = [];
     marked = new Set();
+    // Each list of a pattern's trips on its own, as the first of one to leave a stop may reach the
+    // next after a trip of another. Live times can still put a trip behind the next in its own
+    // list, which the router does not look for.
     for (const [pattern, from] of queue) {
       const stops = pattern.stops;
-      let ride: { trips: PatternTrips; trip: number; board: number; from: number } | null = null;
-      for (let position = from; position < stops.length; position++) {
-        const stop = stops[position]!;
-        if (ride) {
-          const arrives = network.arrival(ride.trips, ride.trip, position);
-          if (arrives !== null && arrives < Math.min(best[stop]!, bound)) {
-            current[stop] = arrives;
-            best[stop] = arrives;
-            label.set(stop, { kind: 'ride', ...ride, alight: position });
-            if (!marked.has(stop)) rode.push(stop);
-            marked.add(stop);
+      for (const trips of network.trips(pattern)) {
+        let ride: { trips: PatternTrips; trip: number; board: number; from: number } | null = null;
+        for (let position = from; position < stops.length; position++) {
+          const stop = stops[position]!;
+          if (ride) {
+            const arrives = network.arrival(trips, ride.trip, position);
+            if (arrives !== null && arrives < Math.min(best[stop]!, bound)) {
+              current[stop] = arrives;
+              best[stop] = arrives;
+              label.set(stop, { kind: 'ride', ...ride, alight: position });
+              if (!marked.has(stop)) rode.push(stop);
+              marked.add(stop);
+            }
           }
+          if (position === stops.length - 1 || previous[stop] === Infinity) continue;
+          // Changing at the stop the last vehicle let the rider off at takes a moment. A walk
+          // there already counts the time.
+          const ready = previous[stop]! + (previousLabel.get(stop)?.kind === 'ride' ? network.changeSeconds : 0);
+          const now = ride ? (network.departure(trips, ride.trip, position) ?? Infinity) : Infinity;
+          if (ready > now) continue;
+          const earlier = earliest(network, trips, position, ready, now);
+          if (earlier !== null) ride = { trips, trip: earlier, board: position, from: stop };
         }
-        if (position === stops.length - 1 || previous[stop] === Infinity) continue;
-        // Changing at the stop the last vehicle let the rider off at takes a moment. A walk
-        // there already counts the time.
-        const ready = previous[stop]! + (previousLabel.get(stop)?.kind === 'ride' ? network.changeSeconds : 0);
-        const now = ride ? (network.departure(ride.trips, ride.trip, position) ?? Infinity) : Infinity;
-        if (ready > now) continue;
-        const earlier = earliest(network, pattern, position, ready, now);
-        if (earlier) ride = { trips: earlier.trips, trip: earlier.trip, board: position, from: stop };
       }
     }
     walk(network, current, best, label, marked, rode, bound);
@@ -170,27 +176,25 @@ function walk(network: Network, current: Float64Array, best: Float64Array, label
   }
 }
 
-// The trip of a pattern that leaves a position soonest at or after `ready`, if before `before`.
-function earliest(network: Network, pattern: PatternRow, position: number, ready: number, before: number) {
-  let found: { trips: PatternTrips; trip: number; departs: number } | null = null;
-  const width = pattern.stops.length * 2;
-  for (const trips of network.trips(pattern)) {
-    const scheduled = (trip: number) => trips.times[trip * width + position * 2 + 1]!;
-    // The first trip scheduled to leave no more than LATE_SECONDS before the rider is ready.
-    let low = 0;
-    let high = trips.keys.length;
-    while (low < high) {
-      const middle = (low + high) >> 1;
-      if (scheduled(middle) < ready - LATE_SECONDS) low = middle + 1;
-      else high = middle;
-    }
-    for (let trip = low; trip < trips.keys.length; trip++) {
-      const soonest = Math.min(before, found?.departs ?? Infinity);
-      if (scheduled(trip) > soonest + EARLY_SECONDS) break;
-      const departs = network.departure(trips, trip, position);
-      if (departs === null || departs < ready || departs >= soonest) continue;
-      found = { trips, trip, departs };
-    }
+// The trip of a list that leaves a position soonest at or after `ready`, if before `before`.
+function earliest(network: Network, trips: PatternTrips, position: number, ready: number, before: number) {
+  const width = trips.pattern.stops.length * 2;
+  const scheduled = (trip: number) => trips.times[trip * width + position * 2 + 1]!;
+  // The first trip scheduled to leave no more than LATE_SECONDS before the rider is ready.
+  let low = 0;
+  let high = trips.keys.length;
+  while (low < high) {
+    const middle = (low + high) >> 1;
+    if (scheduled(middle) < ready - LATE_SECONDS) low = middle + 1;
+    else high = middle;
   }
-  return found;
+  let found: { trip: number; departs: number } | null = null;
+  for (let trip = low; trip < trips.keys.length; trip++) {
+    const soonest = Math.min(before, found?.departs ?? Infinity);
+    if (scheduled(trip) > soonest + EARLY_SECONDS) break;
+    const departs = network.departure(trips, trip, position);
+    if (departs === null || departs < ready || departs >= soonest) continue;
+    found = { trip, departs };
+  }
+  return found?.trip ?? null;
 }
