@@ -197,7 +197,9 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
     // letting the rider off somewhere other than the group's stop (or its station) says where.
     const groupStation = schedule.stationOf(link.alight).id;
     for (const departure of departures) {
-      if (departure.toward === link.headsign) delete departure.toward;
+      // Going to a stop, the group's header names no direction (see TransferPointGroup), so each
+      // departure keeps its own.
+      if (!going && departure.toward === link.headsign) delete departure.toward;
       for (const connection of departure.connections) {
         const stop = connection.alight ? schedule.stopsByKey.get(connection.alight) : undefined;
         if (!stop || schedule.stationOf(stop).id === groupStation) delete connection.alight;

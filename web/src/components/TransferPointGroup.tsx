@@ -122,11 +122,16 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
             </>
           )}
           {chips(routes, colorOf)}
-          <span>
-            <span aria-hidden="true">→ </span>
-            <span class="tf-sr">toward </span>
-            {group.headsign}
-          </span>
+          {/* Going to a stop, every vehicle in a group heads the rider's way, so the header names no
+              direction, and each departure says where it goes. Catching a route, the direction is
+              the choice (J, 2026-10-12). */}
+          {!context.going && (
+            <span>
+              <span aria-hidden="true">→ </span>
+              <span class="tf-sr">toward </span>
+              {group.headsign}
+            </span>
+          )}
         </h2>
         <div class="tf-group__meta">{place}</div>
         <div class="tf-group__off">{off}</div>
