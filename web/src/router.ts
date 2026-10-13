@@ -48,6 +48,8 @@ export function parsePage(location: Location): Page {
       fromLabel: params.get('fl') ?? decodeURIComponent(trip[1]!),
       toLabel: params.get('tl') ?? decodeURIComponent(trip[2]!),
     };
+    // A place or the rider's location under /t/, as from a link made by hand, is the trip planner's.
+    if (isJourneySearch(search)) return { name: 'journeys', search };
     const min = number('min');
     const max = number('max');
     const hide = number('hide');

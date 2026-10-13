@@ -15,9 +15,12 @@ export type JourneyListProps = { data: JourneysResponse; now: number; fromLabel:
 
 // The ways there, soonest first, each with when to set off, how long it takes and its vehicles,
 // and opened, every step, each vehicle's time opening its live map. A way drops off once its first
-// vehicle has left.
+// vehicle has left. A way on foot leaves whenever the rider does, so it stays.
 export function JourneyList({ data, now, fromLabel, toLabel }: JourneyListProps) {
-  const ahead = data.journeys.filter((journey) => (firstRide(journey)?.departs ?? journey.leaves) * 1000 >= now - 30_000);
+  const ahead = data.journeys.filter((journey) => {
+    const first = firstRide(journey);
+    return !first || first.departs * 1000 >= now - 30_000;
+  });
   const [opened, setOpened] = useState<Record<string, boolean>>({});
   if (ahead.length === 0) {
     return (

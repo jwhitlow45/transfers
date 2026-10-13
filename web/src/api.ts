@@ -55,6 +55,15 @@ export function takeInitialData<T>(): T | null {
   }
 }
 
+// What the rider set on this device that changes an answer, the same for transfers and trips: how
+// far and fast they walk, and whether they need step-free stations or want escalator outages.
+function writeRider(params: URLSearchParams, settings: DeviceSettings) {
+  if (settings.maxWalk !== DEFAULT_SETTINGS.maxWalk) params.set('walk', String(settings.maxWalk));
+  if (settings.walkSpeed !== DEFAULT_SETTINGS.walkSpeed) params.set('speed', String(settings.walkSpeed));
+  if (settings.stepFree) params.set('stepfree', '1');
+  if (settings.escalatorOutages) params.set('escalators', '1');
+}
+
 // The params of `url` named in `names`, for asking another endpoint with only what decides it.
 const only = (url: string, names: string[]) => new URLSearchParams([...new URLSearchParams(url.split('?')[1])].filter(([name]) => names.includes(name)));
 
@@ -70,16 +79,13 @@ export const apiUrl = {
     if (min !== null && min !== undefined) params.set('min', String(min));
     if (max !== null && max !== undefined) params.set('max', String(max));
     if (hide) params.set('hide', String(hide));
-    if (settings.maxWalk !== DEFAULT_SETTINGS.maxWalk) params.set('walk', String(settings.maxWalk));
-    if (settings.walkSpeed !== DEFAULT_SETTINGS.walkSpeed) params.set('speed', String(settings.walkSpeed));
+    writeRider(params, settings);
     if (search.dest) params.set('dest', search.dest);
     if (search.firstRoutes?.length) params.set('r1', search.firstRoutes.join(','));
     if (search.secondRoutes?.length) params.set('r2', search.secondRoutes.join(','));
     if (search.fromSystem) params.set('fm', search.fromSystem);
     if (search.toSystem) params.set('tm', search.toSystem);
     if (showHidden) params.set('hidden', '1');
-    if (settings.stepFree) params.set('stepfree', '1');
-    if (settings.escalatorOutages) params.set('escalators', '1');
     if (pin) writePin(params, pin);
     return `/api/trip?${params}`;
   },
@@ -110,6 +116,9 @@ export const apiUrl = {
     `/api/search?${new URLSearchParams({ q: query, kind: routes ? 'any' : 'stop', ...(near ? { lat: near.lat.toFixed(4), lon: near.lon.toFixed(4) } : {}) })}`,
   // Trips between two ends as the API names them (see shared/journeys.ts), the points by the names
   // the rider saw, walking at the rider's own speed.
-  journeys: (from: string, to: string, fromLabel: string, toLabel: string, settings: Pick<DeviceSettings, 'walkSpeed'>) =>
-    `/api/journeys?${new URLSearchParams({ from, to, fl: fromLabel, tl: toLabel, ...(settings.walkSpeed !== DEFAULT_SETTINGS.walkSpeed ? { speed: String(settings.walkSpeed) } : {}) })}`,
+  journeys(from: string, to: string, fromLabel: string, toLabel: string, settings: DeviceSettings) {
+    const params = new URLSearchParams({ from, to, fl: fromLabel, tl: toLabel });
+    writeRider(params, settings);
+    return `/api/journeys?${params}`;
+  },
 };

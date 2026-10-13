@@ -222,3 +222,12 @@ test('trips from or to a place or the rider have their own address, and two stop
   deepStrictEqual(parsePage(new URL(resultsPath(stops, 'trips'), 'https://transfers.test') as unknown as Location), { name: 'trip', search: stops, view: 'trips' });
   deepStrictEqual(parsePage(new URL(searchPath(stops), 'https://transfers.test') as unknown as Location), { name: 'trip', search: stops });
 });
+
+test('a place or the rider under /t/, as in a link made by hand, opens the trips page', async () => {
+  const history = new FakeHistory();
+  const { parsePage } = await load(history, { getItem: () => null, setItem: () => {} });
+  deepStrictEqual(parsePage(new URL('/t/%40here/SF%3A13517?fl=Your+location&tl=b', 'https://transfers.test') as unknown as Location), {
+    name: 'journeys',
+    search: { from: '@here', to: 'SF:13517', fromLabel: 'Your location', toLabel: 'b' },
+  });
+});

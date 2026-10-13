@@ -59,7 +59,7 @@ export function StopResults({ query, response, onPick, onPickPlace, includesRout
       ))}
       {/* Enter takes the first match, except under a route's own stop list (see SearchScreen). */}
       {(hits.length > 0 || along.length === 0) && (places.length === 0 || hits.length > 0) && <HitList label={label} hits={hits} response={response} onPick={onPick} enterTakesFirst={along.length === 0} />}
-      {places.length > 0 && <PlaceList places={places} near={near} onPick={onPickPlace} enterTakesFirst={hits.length === 0 && along.length === 0} />}
+      {places.length > 0 && <PlaceList query={query} places={places} near={near} onPick={onPickPlace} enterTakesFirst={hits.length === 0 && along.length === 0} announce={hits.length === 0} />}
     </>
   );
 }
@@ -157,10 +157,21 @@ function HitList({ label, hits, response, onPick, enterTakesFirst }: {
 // Places found by name, from OpenStreetMap, which its credit names under the list, as its license
 // asks wherever its data shows. A place is somewhere to walk to or from, so it has no routes. How far
 // away each is tells apart a chain's branches, as OpenStreetMap often has no street for them.
-function PlaceList({ places, near, onPick, enterTakesFirst }: { places: PlaceResult[]; near: Position | null; onPick: (place: PlaceResult) => void; enterTakesFirst: boolean }) {
+// With no stop matching, its count is what a screen reader hears (`announce`), as the stops' is.
+function PlaceList({ query, places, near, onPick, enterTakesFirst, announce }: {
+  query: string;
+  places: PlaceResult[];
+  near: Position | null;
+  onPick: (place: PlaceResult) => void;
+  enterTakesFirst: boolean;
+  announce: boolean;
+}) {
+  const count = places.length === 1 ? `1 place matches “${query}”` : `${places.length} places match “${query}”`;
   return (
     <div class="tf-results" role="region" aria-label="Places">
-      <div class="tf-results__label">Places</div>
+      <div class="tf-results__label" aria-live={announce ? 'polite' : undefined}>
+        {announce ? count : 'Places'}
+      </div>
       <div role="list">
         {places.map((place, index) => (
           <div role="listitem" key={place.id}>

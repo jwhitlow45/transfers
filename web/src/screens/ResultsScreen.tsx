@@ -36,7 +36,7 @@ import { tripPath } from '../../../shared/paths.ts';
 import { isStopToStop } from '../lib/ends.ts';
 import { useJourneys } from '../journeys/useJourneys.ts';
 import { LazyJourneyResults } from '../journeys/LazyJourneyResults.tsx';
-import { Tabs } from '../components/Tabs.tsx';
+import { Tabs, tabPanel } from '../components/Tabs.tsx';
 
 // The server puts the first trip's results in the page. They seed only the first visit, as of
 // when the page arrived: shown again on a later visit, even to the same trip, they would pass
@@ -141,7 +141,13 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
   const filteredOut = filtering && groups.length > 0 && groups.every((group) => !group.widen && visibleDepartures(group, now, showHidden).every(({ canceled }) => canceled));
   const routeNames = (keys: string[] | undefined) => keys?.map((key) => (data?.routes[key] ? spokenRoute(data.routes[key]!) : null)).filter(Boolean).join(' or ');
   const tabs = isStopToStop(search);
-  const shown: ResultsView = view ?? (tabs && data && (groups.length === 0 || filteredOut) ? 'trips' : 'transfers');
+  // Decided once, from the first results the page has, so the page never moves the rider from one
+  // tab to the other as times change or as they turn points off.
+  const [opening, setOpening] = useState<ResultsView | null>(null);
+  useEffect(() => {
+    if (tabs && !view && !opening && data) setOpening(groups.length === 0 || filteredOut ? 'trips' : 'transfers');
+  }, [Boolean(data)]);
+  const shown: ResultsView = tabs ? (view ?? opening ?? 'transfers') : 'transfers';
   const journeys = useJourneys(search, tabs && shown === 'trips');
   const tripsClock = liveClock({ data: journeys.data, fetchedAt: journeys.fetchedAt, settled: journeys.settled }, deviceNow);
   const firstNames = routeNames(search.firstRoutes);
@@ -210,7 +216,8 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
           onRefresh={shown === 'trips' ? journeys.refresh : refresh}
         />
         <main class="tf-page" id="main">
-          {tabs && <Tabs label="Show" options={RESULTS_TABS} selected={shown} onChoose={(next) => navigate(resultsPath(search, next), { replace: true })} />}
+          {tabs && <Tabs label="Show" options={RESULTS_TABS} selected={shown} panel={RESULTS_PANEL} onChoose={(next) => navigate(resultsPath(search, next), { replace: true })} />}
+          <div {...(tabs ? tabPanel(RESULTS_PANEL, shown) : { class: 'tf-tabpanel' })}>
           {shown === 'trips' ? (
             <>
               <LiveBanners feed={journeys.feed} fresh={tripsClock.fresh} showStale={tripsClock.showStale} secondsSinceUpdate={tripsClock.secondsSinceUpdate} />
@@ -291,6 +298,7 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
           )}
           </>
           )}
+          </div>
           <DataCredit />
         </main>
       </div>
@@ -381,6 +389,7 @@ function EmptyTrip({ data, search, summary, walk, update }: { data: TripResponse
 
 const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
+const RESULTS_PANEL = 'results-view';
 const RESULTS_TABS: { key: ResultsView; text: string }[] = [
   { key: 'trips', text: 'Trips' },
   { key: 'transfers', text: 'Transfers' },

@@ -1,12 +1,15 @@
-import type { TripResponse } from '../../../shared/api.ts';
+import type { Stop } from '../../../shared/api.ts';
 import { IconChevronRight, IconWarn } from '../icons/ui.tsx';
 import { type StationOutages, outageLabel, returnDate } from '../lib/outages.ts';
 import { shortStopName } from '../view.ts';
 import { Sheet } from './Sheet.tsx';
 
+// The answer an outage's station is named from: transfer results or trips.
+type Named = { stops: Record<string, Stop> };
+
 // An elevator or escalator out at a BART station on the trip, for riders who asked for them. It
 // stays on the results while it lasts, and opens what BART says about it.
-export function OutageTag({ outages, data, onOpen }: { outages: StationOutages; data: TripResponse; onOpen: () => void }) {
+export function OutageTag({ outages, data, onOpen }: { outages: StationOutages; data: Named; onOpen: () => void }) {
   return (
     <button type="button" class="tf-outage-tag" aria-haspopup="dialog" onClick={onOpen}>
       <IconWarn size={14} />
@@ -18,7 +21,7 @@ export function OutageTag({ outages, data, onOpen }: { outages: StationOutages; 
 
 // Each outage at the station: which one, why, and when BART expects it back, with the station's
 // accessibility page.
-export function OutageSheet({ outages, data, onClose }: { outages: StationOutages; data: TripResponse; onClose: () => void }) {
+export function OutageSheet({ outages, data, onClose }: { outages: StationOutages; data: Named; onClose: () => void }) {
   const stop = data.stops[outages.station];
   const name = shortStopName(stop, 'this station');
   return (

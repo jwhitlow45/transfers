@@ -723,6 +723,8 @@ button:disabled { opacity: .45; cursor: default; }
 /* A page's views, full width over what they show. */
 .tf-tabs { max-width: var(--form-max); }
 .tf-tabs .tf-seg__option { text-align: center; }
+/* What the tabs show, spaced as the page's own parts are. */
+.tf-tabpanel { display: flex; flex-direction: column; gap: var(--space-4); }
 
 /* Saved search colors: a stripe down the card, and across the top of its results. */
 .tf-saved { border-left: 8px solid var(--saved-color, var(--line)); }
