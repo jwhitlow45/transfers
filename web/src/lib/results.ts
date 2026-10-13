@@ -5,8 +5,9 @@ import { resolveRouteColor, routeColor } from './color.ts';
 import type { Pin } from '../storage.ts';
 import type { StationOutages } from './outages.ts';
 
-// A transfer point's identity, for the rider's on and off filter.
-export const pointId = (group: Group) => `${group.alight}>${group.board}>${group.direction ?? ''}>${group.routes.join('+')}`;
+// A transfer point's identity, for the rider's on and off filter. On a stop's trips tab, the
+// server's, which holds as the routes running there change.
+export const pointId = (group: Group) => group.key ?? `${group.alight}>${group.board}>${group.direction ?? ''}>${group.routes.join('+')}`;
 
 // Shared by every card on the results screen.
 export type CardContext = {
@@ -87,10 +88,14 @@ export function visibleDepartures(group: Group, now: number, showHidden: boolean
   return shown;
 }
 
-// Groups with nothing the rider can catch, and no wider window that would find something: no way
-// at all now, unless route filters are why.
+// Groups with nothing the rider can catch, and no wider window that would find something, which
+// route filters may be why.
 export const nothingCatchable = (groups: Group[], now: number, showHidden: boolean) =>
   groups.length > 0 && groups.every((group) => !group.widen && visibleDepartures(group, now, showHidden).every(({ canceled }) => canceled));
+
+// On a stop's trips tab, ways with nothing running on them that the rider could catch, whatever
+// their window or hiding (see Group): no way there now, as at 2 AM.
+export const nothingRuns = (groups: Group[]) => groups.length > 0 && groups.every(({ idle }) => idle);
 
 // Within a minute of the minimum is tight, as the design specifies.
 // A ride straight to the named To stop: a walk group whose departures say when they get there.

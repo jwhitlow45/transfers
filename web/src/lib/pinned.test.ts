@@ -152,3 +152,27 @@ test("a trip pinned on a stop's trips tab ends at the stop, whatever destination
   const answer = (view: 'trips' | 'transfers') => ({ view, to: { stop: 'SF:13500' } }) as unknown as TripResponse;
   deepStrictEqual([pinnedDestination(pin, answer('trips'), 'BA:902109'), pinnedDestination(pin, answer('transfers'), 'BA:902109'), pinnedDestination(pin, answer('transfers'), undefined)], ['SF:13500', 'BA:902109', undefined]);
 });
+
+test('a trip pinned from a row that boards across the street starts there until the server answers', () => {
+  const data = {
+    from: 'SF:14269',
+    groups: [
+      {
+        alight: 'SF:15565',
+        board: 'SF:15566',
+        departures: [
+          {
+            trip: 'SF:t1',
+            route: 'SF:49',
+            at: 830,
+            delay: 0,
+            live: true,
+            connections: [{ trip: 'SF:t0', route: 'SF:38', departs: 800, departDelay: 0, arrives: 825, arriveDelay: 0, live: true, transfer: 5, board: 'SF:14270' }],
+          },
+        ],
+      },
+    ],
+  } as unknown as TripResponse;
+  const pin = { first: { trip: 'SF:t0', alight: 'SF:15565' }, second: { trip: 'SF:t1', board: 'SF:15566' }, at: 830, ends: 830 };
+  strictEqual(pinnedFor(pin, data, undefined)?.first?.on?.stop, 'SF:14270');
+});

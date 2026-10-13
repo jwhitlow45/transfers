@@ -97,7 +97,8 @@ export function pinnedFor(pin: Pin, data: TripResponse, dest: string | undefined
     const first: PinnedLeg = {
       trip: connection.trip,
       route: connection.route,
-      on: { stop: data.from, at: connection.departs, delay: connection.departDelay },
+      // Where it picks the rider up: From, or going to a stop, one on its corner.
+      on: { stop: connection.board ?? data.from, at: connection.departs, delay: connection.departDelay },
       off: { stop: pin.first.alight, at: connection.arrives, delay: connection.arriveDelay },
       live: connection.live,
     };

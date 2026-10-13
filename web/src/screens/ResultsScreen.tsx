@@ -23,7 +23,7 @@ import { type StationOutages, groupStops, outagesByStation } from '../lib/outage
 import { ringsBell } from '../lib/eggs.ts';
 import { liveClock } from '../lib/freshness.ts';
 import { IconFilter, IconFlag, IconHidden } from '../icons/ui.tsx';
-import { type CardContext, chooseDirection, directionChoices, hintKey, nothingCatchable, orderGroups, pageColors, pointId, scaleFor, timeScale, visibleDepartures } from '../lib/results.ts';
+import { type CardContext, chooseDirection, directionChoices, hintKey, nothingCatchable, nothingRuns, orderGroups, pageColors, pointId, scaleFor, timeScale, visibleDepartures } from '../lib/results.ts';
 import { summarize } from '../lib/summary.ts';
 import { type ResultsView, cameBackTo, goBack, navigate, resultsPath } from '../router.ts';
 import { matchesServerDefaults, useSettings } from '../settings.tsx';
@@ -164,7 +164,7 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
   // No way to the stop with one change or none, at this hour or any, or ways with nothing running
   // on them now, as at 2 AM, so the trip planner's ways with more follow (J, 2026-10-12). Not where
   // the rider's route filters, or a transfer window too narrow, are why.
-  const noWays = going && !filtering && noneCatchable;
+  const noWays = going && !filtering && nothingRuns(groups);
   const fallback = going && data !== null && !filtering && (groups.length === 0 ? data.notice?.kind === 'unreachable' || data.notice?.kind === 'idle' : noWays);
   const journeys = useJourneys(search, fallback);
   const tripsClock = liveClock({ data: journeys.data, fetchedAt: journeys.fetchedAt, settled: journeys.settled }, deviceNow);

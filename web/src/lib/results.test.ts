@@ -1,7 +1,7 @@
 import { deepStrictEqual } from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Connection, Departure, Group } from '../../../shared/api.ts';
-import { cardLeft, listedConnections, nothingCatchable, orderGroups, tripSeconds, visibleDepartures } from './results.ts';
+import { cardLeft, listedConnections, nothingCatchable, nothingRuns, orderGroups, pointId, tripSeconds, visibleDepartures } from './results.ts';
 
 const at = (hour: number, minute: number) => (hour * 60 + minute) * 60;
 const connection = (trip: string, departs: number): Connection => ({ trip, route: 'BA:Yellow', departs, departDelay: 0, arrives: departs + 480, arriveDelay: 0, live: true, transfer: 4 });
@@ -84,4 +84,9 @@ test('groups with nothing left to catch, and no wider window offered, are no way
   // A window too narrow is not why there is nothing: widening is the way.
   deepStrictEqual(nothingCatchable([{ ...group, widen: { min: 3, max: 20 } } as Group], at(9, 0) * 1000, false), false);
   deepStrictEqual(nothingCatchable([], now, false), false);
+});
+
+test('on a trips tab, ways the server says nothing runs on are no way, and each keeps its own identity', () => {
+  deepStrictEqual([nothingRuns([{ ...group, idle: true } as Group]), nothingRuns([{ ...group, idle: true } as Group, group]), nothingRuns([])], [true, false, false]);
+  deepStrictEqual([pointId({ ...group, key: 'ride>SF:13477' } as Group), pointId(group)], ['ride>SF:13477', 'BA:901609>SF:13477>>SF:48']);
 });
