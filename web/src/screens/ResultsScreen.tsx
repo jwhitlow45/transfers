@@ -78,17 +78,21 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
   useEffect(() => {
     if (pin) changePin(pin);
   }, [tripPath(search)]);
-  const url = apiUrl.trip(search, settings, showHidden, pin, view);
+  // A trip pinned on one of a stop's tabs is followed on that tab: the page opens on it, and the
+  // other neither asks after the pin nor shows it, as each tab ends the trip at its own stop.
+  const asked = view ?? pin?.view;
+  const pinHere = pin && (!pin.view || !asked || pin.view === asked) ? pin : null;
+  const url = apiUrl.trip(search, settings, showHidden, pinHere, asked);
   // Results the server put in the page answer this request only if nothing differs from its defaults.
   const initial = useMemo(() => {
     const page = initialData;
     initialData = null;
     // Nor do they follow a pinned trip.
-    const matches = page && page.from === search.from && tripTo(page.to) === search.to && (!view || page.view === view) && matchesServerDefaults(settings) && !search.firstRoutes && !search.secondRoutes && !pin;
+    const matches = page && page.from === search.from && tripTo(page.to) === search.to && (!asked || page.view === asked) && matchesServerDefaults(settings) && !search.firstRoutes && !search.secondRoutes && !pin;
     return matches ? { data: page, fetchedAt: initialAt } : null;
   }, []);
   // Stored under the search's own address, so pinning adds no stored copy of its own.
-  const { data, error, fetchedAt, feed, settled, answered, refresh } = usePoll<TripResponse>(url, 30_000, initial, apiUrl.trip(search, settings, showHidden, null, view));
+  const { data, error, fetchedAt, feed, settled, answered, refresh } = usePoll<TripResponse>(url, 30_000, initial, apiUrl.trip(search, settings, showHidden, null, asked));
   // Every time on the page is the server's, so the clock is too.
   const { now, fresh, showStale, secondsSinceUpdate } = liveClock({ data, fetchedAt, settled }, deviceNow);
   const summary = summarize(search, data, now);
@@ -99,7 +103,7 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
 
   // The pinned trip as its vehicles run now. When it ends moves with them, and with a new
   // destination, and decides when it unpins itself.
-  const { pinned, unpinAt, expired } = usePinnedTrip(pin, data, answered, search, settings, now, changePin);
+  const { pinned, unpinAt, expired } = usePinnedTrip(pinHere, data, answered, search, settings, now, changePin);
   // Whether this visit shows how to pin, counted once per visit, until the rider first pins.
   const [hint, setHint] = useState(() => !pin && takePinHint());
   // Pinning says what happened, with Undo, and stops showing how to pin.
@@ -132,7 +136,7 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
   const scaleMinutes = scaleFor(groups, now);
   const toStop = !search.to.startsWith('route:');
   // The tab showing: the rider's, or the one the server chose, which holds all day (see TripResponse).
-  const shown = view ?? data?.view;
+  const shown = asked ?? data?.view;
   const panel = useId();
   // The trips tab takes the stop in To as where the rider is going, and a destination sent along
   // with it is none.
@@ -185,7 +189,7 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
     colorOf: data ? pageColors(groups, data) : () => '#55575a',
     destination,
     going,
-    pin,
+    pin: pinHere,
     onPin: pinFromResults,
     pinHint: hintGroup ? hintKey(hintGroup, visibleDepartures(hintGroup, now, showHidden)[0]?.trip) : null,
     showOutages: setOutagesOpen,
@@ -242,8 +246,8 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
               </AppLink>
             </EmptyState>
           )}
-          {pin && data && !expired && (
-            <PinnedCard pin={pin} pinned={pinned} data={data} destination={destination} colorOf={context.colorOf} pct={context.pct} now={now} unpinAt={unpinAt} onPin={pinFromResults} />
+          {pinHere && data && !expired && (
+            <PinnedCard pin={pinHere} pinned={pinned} data={data} destination={destination} colorOf={context.colorOf} pct={context.pct} now={now} unpinAt={unpinAt} onPin={pinFromResults} />
           )}
           {/* The trips with more changes say their own, at the stops and on the routes they use. */}
           {data && !fallback && untagged.length > 0 && (
