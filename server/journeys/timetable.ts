@@ -11,8 +11,9 @@ export type PatternTrips = {
 };
 
 // A service date's trips, by pattern id, for routing in memory: a day is about half a million stop
-// times, which a request could not read from the database one query at a time.
-export type Timetable = { date: number; byPattern: Map<number, PatternTrips[]> };
+// times, which a request could not read from the database one query at a time. Each trip can also
+// be found by its key, as the feed names the trips it times.
+export type Timetable = { date: number; byPattern: Map<number, PatternTrips[]>; byKey: Map<string, { trips: PatternTrips; trip: number }> };
 
 // The dates a schedule has loaded, kept while it is the current one. Three cover a journey from
 // late at night into the next morning.
@@ -58,13 +59,15 @@ function load(schedule: Schedule, date: number): Timetable {
     // A trip with times at fewer stops than its pattern has would read past its own.
     byPattern.set(id, patternTrips(pattern, list.filter(({ times }) => times.length === pattern.stops.length * 2)));
   }
-  return { date, byPattern };
+  const byKey = new Map<string, { trips: PatternTrips; trip: number }>();
+  for (const lists of byPattern.values()) for (const trips of lists) trips.keys.forEach((key, trip) => byKey.set(key, { trips, trip }));
+  return { date, byPattern, byKey };
 }
 
 // A pattern's trips, split into lists in which none overtakes another, as an express can a local
-// on the same stops: in each, a trip that leaves before another is at every stop no later. The
-// router boards the first trip of a list it can catch, which is only the soonest anywhere when
-// the trips keep their order.
+// on the same stops: in each, a trip that leaves before another is at every stop no later. Of a
+// list's trips running on schedule, the router follows only the first it can catch, which is only
+// the soonest anywhere when the trips keep their order.
 export function patternTrips(pattern: PatternRow, trips: { key: string; times: number[] }[]): PatternTrips[] {
   const lists: { key: string; times: number[] }[][] = [];
   for (const trip of [...trips].sort((a, b) => a.times[1]! - b.times[1]!)) {

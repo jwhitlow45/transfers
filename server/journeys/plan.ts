@@ -177,6 +177,27 @@ function liveNetwork(schedule: Schedule, realtime: RealtimeView, now: number, op
     list[trip] = found;
     return found;
   };
+  // The trips the feed names, by the list they are in, found the first time the search asks, and
+  // of those, the ones it times.
+  let named: Map<PatternTrips, number[]> | null = null;
+  const timed = new Map<PatternTrips, Set<number>>();
+  const live = (trips: PatternTrips) => {
+    if (!named) {
+      named = new Map();
+      for (const key of realtime.trips?.trips.keys() ?? []) {
+        for (const { byKey } of tables) {
+          const at = byKey.get(key);
+          if (!at) continue;
+          let list = named.get(at.trips);
+          if (!list) named.set(at.trips, (list = []));
+          list.push(at.trip);
+        }
+      }
+    }
+    let found = timed.get(trips);
+    if (!found) timed.set(trips, (found = new Set((named.get(trips) ?? []).filter((trip) => prediction(trips, trip) !== null))));
+    return found;
+  };
   return {
     stopCount: Math.max(...schedule.stops.keys()) + 1,
     patternsAt: (stop) => schedule.patternsByStop.get(stop) ?? [],
@@ -199,7 +220,7 @@ function liveNetwork(schedule: Schedule, realtime: RealtimeView, now: number, op
       // scheduled wait.
       return position < live.ahead || arrives === null || arrives === undefined ? null : arrives + (trips.times[at + 1]! - trips.times[at]!);
     },
-    live: (trips, trip) => prediction(trips, trip) !== null,
+    live,
     footpaths: (stop) => {
       let list = walks.get(stop);
       if (!list) {

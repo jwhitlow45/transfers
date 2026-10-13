@@ -23,9 +23,9 @@ export type Network = {
   // does not stop or has already gone.
   arrival: (trips: PatternTrips, trip: number, position: number) => number | null;
   departure: (trips: PatternTrips, trip: number, position: number) => number | null;
-  // Whether the feed times a trip. Those it does not run on schedule, so none of them passes
-  // another in its list (see patternTrips).
-  live: (trips: PatternTrips, trip: number) => boolean;
+  // The trips of a list the feed times. The rest run on schedule, so none of those passes another
+  // in the list (see patternTrips).
+  live: (trips: PatternTrips) => ReadonlySet<number>;
   // Stops a short walk away, with the seconds the walk and any station stairs take.
   footpaths: (stop: number) => Access[];
   // Seconds to change vehicles without leaving a stop.
@@ -47,11 +47,6 @@ type Readiness = { kind: 'stay' } | { kind: 'walk'; from: number; seconds: numbe
 // from. Off a vehicle, the two differ by the moment a change takes, so a walk that arrives later
 // can still have the rider ready sooner.
 type Round = { arrived: Float64Array; arrivals: Map<number, Arrival>; ready: Float64Array; readiness: Map<number, Readiness> };
-
-// Trips run late more often than early: a trip due this long before the rider is ready may still
-// be catchable, and one due this long after the first on schedule cannot pass it.
-const LATE_SECONDS = 3600;
-const EARLY_SECONDS = 600;
 
 type Ride = { trips: PatternTrips; trip: number; board: number; from: number };
 
@@ -100,6 +95,7 @@ export function raptor(network: Network, starts: Access[], ends: Access[], leave
     for (const [pattern, from] of queue) {
       const stops = pattern.stops;
       for (const trips of network.trips(pattern)) {
+        const live = network.live(trips);
         const aboard: Ride[] = [];
         // Where in `aboard` the trip on schedule is.
         let onSchedule = -1;
@@ -118,10 +114,10 @@ export function raptor(network: Network, starts: Access[], ends: Access[], leave
           }
           const ready = previous.ready[stop]!;
           if (position === stops.length - 1 || ready === Infinity) continue;
-          for (const trip of catchable(network, trips, position, ready)) {
+          for (const trip of catchable(network, trips, live, position, ready)) {
             if (aboard.some((ride) => ride.trip === trip)) continue;
             const ride = { trips, trip, board: position, from: stop };
-            if (network.live(trips, trip)) aboard.push(ride);
+            if (live.has(trip)) aboard.push(ride);
             else if (onSchedule === -1) onSchedule = aboard.push(ride) - 1;
             // One on schedule ahead of the one aboard, which the rider was too late for further back.
             else if (trip < aboard[onSchedule]!.trip) aboard[onSchedule] = ride;
@@ -216,28 +212,28 @@ export function raptor(network: Network, starts: Access[], ends: Access[], leave
   }
 }
 
-// The trips of a list a rider ready at `ready` can catch at a position: the first on schedule, and
-// each the feed times that is due before it, or after it by less than a trip runs early.
-function catchable(network: Network, trips: PatternTrips, position: number, ready: number) {
+// The trips of a list a rider ready at `ready` can catch at a position: each the feed times, as
+// those may run anywhere among the rest, and the first of the rest.
+function catchable(network: Network, trips: PatternTrips, live: ReadonlySet<number>, position: number, ready: number) {
+  const found: number[] = [];
+  for (const trip of live) {
+    const departs = network.departure(trips, trip, position);
+    if (departs !== null && departs >= ready) found.push(trip);
+  }
   const width = trips.pattern.stops.length * 2;
   const scheduled = (trip: number) => trips.times[trip * width + position * 2 + 1]!;
-  // The first trip scheduled to leave no more than LATE_SECONDS before the rider is ready.
+  // The first trip scheduled to leave once the rider is ready.
   let low = 0;
   let high = trips.keys.length;
   while (low < high) {
     const middle = (low + high) >> 1;
-    if (scheduled(middle) < ready - LATE_SECONDS) low = middle + 1;
+    if (scheduled(middle) < ready) low = middle + 1;
     else high = middle;
   }
-  const found: number[] = [];
-  let until = Infinity;
-  for (let trip = low; trip < trips.keys.length && scheduled(trip) <= until; trip++) {
-    const live = network.live(trips, trip);
-    if (!live && until < Infinity) continue;
-    const departs = network.departure(trips, trip, position);
-    if (departs === null || departs < ready) continue;
+  for (let trip = low; trip < trips.keys.length; trip++) {
+    if (live.has(trip)) continue;
     found.push(trip);
-    if (!live) until = departs + EARLY_SECONDS;
+    break;
   }
   return found;
 }
