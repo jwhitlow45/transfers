@@ -616,7 +616,7 @@ function HowItWorks({ open: openAtFirst }: { open: boolean }) {
           not. The last results show at once while new ones load, and extras like the live map load only when you open them.
         </p>
         <p>
-          Settings has your walking speed and longest walk, and step-free travel, which allows more time to change at stations and lists elevator outages on your way.
+          Settings has your walking speed and longest walk, whether BART's elevator and escalator outages show, and more time to change at stations if you use elevators.
         </p>
         <p>Tap a connection to pin it to the top of its results, where it stays and updates live until you unpin it.</p>
       </Collapse>

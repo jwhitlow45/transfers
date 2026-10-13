@@ -436,13 +436,14 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-outage-tags--lead { margin-top: 0; }
 .tf-outage-tag { position: relative; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 6px 0 var(--space-2); background: var(--late-tint); color: var(--late); font-size: var(--text-sm); font-weight: var(--weight-label); text-align: left; }
 .tf-outage-tag::after { content: ''; position: absolute; inset: -6px 0; }
-.tf-outages { list-style: none; margin: var(--space-3) 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
-/* Spaced as the outages above them (J, 2026-10-13). A tap target's height would add space that
-   varies with how a link wraps, so each reaches halfway into the space around it instead. */
-.tf-outage-links { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-3); }
+/* One step between everything in an outage sheet (J, 2026-10-13): its outages, its links, and Done.
+   A tap target's height would add space that varies with how a link wraps, so each link's tap area
+   reaches halfway into the space around it instead, which this step makes at least 44 px. */
+.tf-outages { list-style: none; margin: var(--space-3) 0 var(--space-6); padding: 0; display: flex; flex-direction: column; gap: var(--space-6); }
+.tf-outage-links { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-6); }
 .tf-outage-links .tf-link-button { position: relative; min-height: 0; }
-.tf-outage-links .tf-link-button::after { content: ''; position: absolute; inset: calc(var(--space-3) / -2) 0; }
-.tf-outage-links + .tf-sheet__done { margin-top: var(--space-3); }
+.tf-outage-links .tf-link-button::after { content: ''; position: absolute; inset: calc(var(--space-6) / -2) 0; }
+.tf-outage-links + .tf-sheet__done { margin-top: var(--space-6); }
 .tf-outage { padding: var(--space-3) var(--space-4); border: 1px solid var(--late); background: var(--late-tint); }
 .tf-outage__kicker { display: flex; align-items: center; gap: 6px; color: var(--late); }
 .tf-outage .tf-kicker { color: var(--late); }

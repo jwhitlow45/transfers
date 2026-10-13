@@ -228,7 +228,7 @@ export type TripResponse = {
   routes: Record<string, Route>;
   stops: Record<string, Stop>;
   alerts: Alert[];
-  // Present when the rider asked for step-free travel or escalator outages.
+  // BART's elevator and escalator outages along the trip, present unless the rider turned both off.
   access?: AccessOutage[];
   // Present when the request named a pinned trip, with the pin as it was named, so a page can tell
   // an answer for a pin since replaced however little of the trip the answer still knows.
@@ -262,8 +262,8 @@ export type StopResponse = {
   routes: Record<string, Route>;
   stops: Record<string, Stop>;
   alerts: Alert[];
-  // Present when the rider asked for step-free travel or escalator outages: those at the stop's
-  // BART station, as a trip's answer has them.
+  // BART's elevator and escalator outages at the stop's station, as a trip's answer has them,
+  // present unless the rider turned both off.
   access?: AccessOutage[];
   feeds: FeedStatus[];
   // Present when the request named a pinned arrival (see readPin): its vehicle as it runs now,

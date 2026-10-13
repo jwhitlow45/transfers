@@ -94,7 +94,8 @@ function clampTimes<T extends { min?: number | null; max?: number | null; hide?:
 }
 
 export function loadSettings(): DeviceSettings {
-  const stored = readStored<Partial<DeviceSettings>>('settings', {});
+  const read = readStored<unknown>('settings', {});
+  const stored: Partial<DeviceSettings> = read !== null && typeof read === 'object' ? read : {};
   // Settings saved before outages showed by default hold escalator outages off, which was then
   // the default rather than a choice, so they show now too.
   const outages = 'elevatorOutages' in stored ? {} : { escalatorOutages: true };

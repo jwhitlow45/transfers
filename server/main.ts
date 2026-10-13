@@ -25,6 +25,9 @@ import { nowSeconds } from './time.ts';
 
 const pool = new KeyPool(requireApiKeys(), join(config.dataDir, 'key-usage.json'));
 const realtime = new Realtime(pool);
+// Outages show by default, so they are fetched at start, and the first rider after a deploy does
+// not wait on bart.gov for them.
+void realtime.accessOutages();
 const store = new ScheduleStore(config.dataDir, pool);
 
 const server = createServer((request, response) => {
@@ -125,8 +128,8 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
   throw new RequestError(404, 'Not found');
 }
 
-// Elevator and escalator outages are fetched only for riders who asked for them, alongside the
-// rest rather than after.
+// Elevator and escalator outages are fetched for riders who have not turned them off, alongside
+// the rest rather than after.
 async function realtimeView(needs: AccessNeeds = {}): Promise<RealtimeView> {
   const [{ trips, alerts, status }, access] = await Promise.all([realtime.current(), wantsOutages(needs) ? realtime.accessOutages() : null]);
   return { trips, alerts, status, updatedAt: realtime.updatedAt(), access };

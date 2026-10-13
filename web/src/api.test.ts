@@ -53,3 +53,18 @@ test('the server reads back the pinned trip the page sends, with or without a fi
     deepStrictEqual(readPin(params, (name) => (params.has(name) ? Number(params.get(name)) : undefined)), sent);
   }
 });
+
+test('outages are asked for by saying nothing, and turned off one kind at a time', () => {
+  const search = { from: 'SF:1', to: 'SF:2', fromLabel: 'A', toLabel: 'B' };
+  const params = (settings: typeof DEFAULT_SETTINGS) =>
+    [apiUrl.trip(search, settings, false), apiUrl.stop('SF:1', settings), apiUrl.journeys('SF:1', 'SF:2', settings)].map((url) => {
+      const sent = new URLSearchParams(url.split('?')[1]);
+      return ['elevators', 'escalators', 'stepfree'].map((name) => sent.get(name));
+    });
+  // At the defaults, nothing, so the answer matches the one the server puts in a trip's page.
+  deepStrictEqual(params(DEFAULT_SETTINGS), [[null, null, null], [null, null, null], [null, null, null]]);
+  deepStrictEqual(params({ ...DEFAULT_SETTINGS, elevatorOutages: false }), [['0', null, null], ['0', null, null], ['0', null, null]]);
+  deepStrictEqual(params({ ...DEFAULT_SETTINGS, escalatorOutages: false }), [[null, '0', null], [null, '0', null], [null, '0', null]]);
+  // The stop's arrivals take no transfer, so step-free time is not asked there.
+  deepStrictEqual(params({ ...DEFAULT_SETTINGS, stepFree: true }), [[null, null, '1'], [null, null, null], [null, null, '1']]);
+});

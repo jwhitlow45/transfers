@@ -9,7 +9,7 @@ export type ViewAlert = { id: string; severity: Severity; kicker: string; title:
 // How the kicker starts for a notice about no stop of the trip in particular.
 export const NOTICE = 'Notice · ';
 
-// The rider's access needs: elevators, escalators, or both.
+// The outages the rider shows: elevators, escalators, or both. Notices about them are raised.
 export type Needs = { elevators: boolean; escalators: boolean };
 
 // Severe: names a stop the rider boards at. Warning: another stop on the trip, a reroute, or

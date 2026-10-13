@@ -32,9 +32,9 @@ export type JourneyLeg = WalkLeg | RideLeg;
 export type Journey = { leaves: number; arrives: number; rides: number; legs: JourneyLeg[] };
 
 // The next few ways from `from` to `to`, soonest first, with the routes, stops, alerts and feeds
-// they use, as the transfer results give theirs. `access` is present when the request asks for
-// step-free travel or escalator outages, as the transfer results' is: the outages at the stations
-// the ways use.
+// they use, as the transfer results give theirs. `access` holds the outages at the stations the
+// ways use, present unless the rider turned both elevator and escalator outages off, as the
+// transfer results' is.
 export type JourneysResponse = {
   generatedAt: number;
   dataAt: number | null;
