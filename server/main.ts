@@ -25,8 +25,8 @@ import { nowSeconds } from './time.ts';
 
 const pool = new KeyPool(requireApiKeys(), join(config.dataDir, 'key-usage.json'));
 const realtime = new Realtime(pool);
-// Outages show by default, so they are fetched at start, and the first rider after a deploy does
-// not wait on bart.gov for them.
+// Outages show by default, so they are fetched at start, and the first rider after a deploy waits
+// on bart.gov only if they come before that fetch finishes.
 void realtime.accessOutages();
 const store = new ScheduleStore(config.dataDir, pool);
 

@@ -90,9 +90,9 @@ export class Realtime {
   }
 
   // Elevator and escalator outages at BART stations, fetched at start and then when a rider wants
-  // them, at most every five minutes. The first request waits for them, a bounded wait. Later ones refresh
-  // in the background and answer with the last list, so no request waits on bart.gov. Null when
-  // none have been fetched.
+  // them, at most every five minutes. A request before the first list arrives waits for it, a
+  // bounded wait. Later ones refresh in the background and answer with the last list, so they do
+  // not wait on bart.gov. Null when none have been fetched.
   async accessOutages(): Promise<Outage[] | null> {
     const now = nowSeconds();
     if (now - Math.max(this.access.fetchedAt, this.access.failedAt) >= ACCESS_SECONDS) {
