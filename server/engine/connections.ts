@@ -38,6 +38,12 @@ export type PairingOptions = {
   // How many second-leg departures to show.
   count: number;
   showHidden: boolean;
+  // Going to a stop: pair each first vehicle with the departure in its window that gets there
+  // soonest, which past a pooled local can be a later express.
+  soonestThere?: boolean;
+  // Going to a stop, the minutes to walk from From to each other stop a first vehicle may pick
+  // the rider up at, by stop key, such as across the street, which `hide` comes on top of.
+  boardWalk?: ReadonlyMap<string, number>;
 };
 
 // Whole minutes rounded down, the same number the rider sees, so a 2:59 wait is "2 min" and
@@ -45,7 +51,8 @@ export type PairingOptions = {
 export const minutesBetween = (from: number, to: number) => Math.floor((to - from) / 60);
 
 // Pairs each first vehicle with the first departure it can make (a later departure is never a
-// better match for the same vehicle), keeps the first `count` departures that have a qualifying
+// better match for the same vehicle, unless it gets to a stop the rider is going to sooner, as an
+// express does past a local; see soonestThere), keeps the first `count` departures that have a qualifying
 // connection, and lists every first vehicle that makes each one. Vehicles and departures that do
 // not qualify are dropped before choosing those departures, so they never take a spot.
 export function pairConnections(firstLegs: FirstLeg[], secondLegs: SecondLeg[], options: PairingOptions): Departure[] {
@@ -77,8 +84,15 @@ export function pairConnections(firstLegs: FirstLeg[], secondLegs: SecondLeg[], 
     };
 
     const firstIndex = departures.findIndex(({ at }) => minutesBetween(vehicle.arrives, at) >= min);
-    const first = departures[firstIndex];
-    const tooSoon = !left && minutesAway < hide;
+    let first = departures[firstIndex];
+    if (first && options.soonestThere) {
+      const there = (departure: SecondLeg) => departure.destination ?? Infinity;
+      for (const later of departures.slice(firstIndex + 1)) {
+        if (minutesBetween(vehicle.arrives, later.at) > max) break;
+        if (there(later) < there(first)) first = later;
+      }
+    }
+    const tooSoon = !left && minutesAway < hide + (options.boardWalk?.get(vehicle.board ?? '') ?? 0);
     if (first) {
       const transfer = minutesBetween(vehicle.arrives, first.at);
       if (tooSoon) hidden.push(connect(first, 'soon'));

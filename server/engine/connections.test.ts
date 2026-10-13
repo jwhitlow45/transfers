@@ -84,3 +84,22 @@ test('shows destination arrival only when it comes after boarding', () => {
   strictEqual(result[0]?.destination, minutes(28));
   strictEqual(result[1]?.destination, undefined);
 });
+
+test('going to a stop, a train pairs with the bus in its window that gets there soonest, past a local to an express', () => {
+  // The train arrives at 3. The local leaves at 7 and gets there at 60, the express at 8 and 30.
+  const local = bus('local', minutes(7), { destination: minutes(60) });
+  const express = bus('express', minutes(8), { destination: minutes(30) });
+  const trains = [train('t1', minutes(1), minutes(3))];
+  deepStrictEqual(summary(pairConnections(trains, [local, express], { ...options, hide: 0, soonestThere: true })), [['express', ['t1:5']]]);
+  deepStrictEqual(summary(pairConnections(trains, [local, express], { ...options, hide: 0 })), [['local', ['t1:4']]]);
+  // An express past the window's end is no match.
+  deepStrictEqual(summary(pairConnections(trains, [local, bus('late', minutes(20), { destination: minutes(25) })], { ...options, hide: 0, soonestThere: true })), [['local', ['t1:4']]]);
+});
+
+test('a first vehicle leaving from across the street needs the walk there on top of what the rider hides', () => {
+  // The train leaves in 4 minutes, from a stop a 2 minute walk away. Hiding under 3 minutes hides it.
+  const trains = [train('t1', minutes(4), minutes(8), { board: 'SF:across' })];
+  const across = new Map([['SF:across', 2]]);
+  deepStrictEqual(summary(pairConnections(trains, [bus('b1', minutes(12))], { ...options, boardWalk: across })), []);
+  deepStrictEqual(summary(pairConnections(trains, [bus('b1', minutes(12))], options)), [['b1', ['t1:4']]]);
+});

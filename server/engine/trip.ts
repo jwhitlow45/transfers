@@ -3,13 +3,13 @@ import type { Agency } from '../config.ts';
 import { RequestError } from '../http.ts';
 import { type Schedule, type StopRow, routeKeyOf, stopKeyOf } from '../schedule.ts';
 import { type FirstLeg, type PairingOptions, type SecondLeg, pairConnections } from './connections.ts';
-import { type Link, arrivalStops, destinationStops, findLinks, walkBetween, walkTo } from './links.ts';
+import { type Link, arrivalStops, changeSeconds, destinationStops, findLinks, walkBetween, walkTo } from './links.ts';
 import { pinnedTrip } from './pinned.ts';
 import { type RealtimeView, serviceStatus, stationOutages } from './realtime-view.ts';
 import type { RouteRow } from '../schedule.ts';
 import { firstLegs, secondLegs } from './vehicles.ts';
 import { Tables } from './views.ts';
-import { DEFAULT_MAX_WALK_METERS, STEP_FREE_MINUTES, atRailStation, defaultMaximum } from './walk.ts';
+import { DEFAULT_MAX_WALK_METERS, STEP_FREE_MINUTES, atRailStation, defaultMaximum, minimumMinutes } from './walk.ts';
 import { distanceMeters } from '../geo.ts';
 
 export type TripRequest = {
@@ -151,6 +151,16 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
 
   const tables = new Tables(schedule);
   const allLinks = cachedLinks(schedule, from, to, request, now);
+  const fromStops = new Set([from, ...schedule.boardingStops(from)].map(stopKeyOf));
+  // Going to a stop, the walk to each stop on From's corner a first vehicle may leave from, as a
+  // change's walk is timed, which a vehicle leaving there has to allow on top of the rider's own.
+  const boardWalk = going
+    ? new Map(
+        destinationStops(schedule, from)
+          .filter((stop) => !fromStops.has(stopKeyOf(stop)))
+          .map((stop) => [stopKeyOf(stop), minimumMinutes(changeSeconds(walkBetween(schedule, from, stop), from, stop, request.speed))] as const),
+      )
+    : null;
   const links = destination && !going ? towardDestination(schedule, allLinks, destination, toStop ?? null) : allLinks;
   const notice = links.length > 0 ? undefined : emptyNotice(schedule, from, to, request, destination, toStop ?? null, now);
   if (notice?.kind === 'walkable') tables.stop(schedule.stopsByKey.get(notice.stop)!);
@@ -200,7 +210,7 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
       departures = walkDepartures(second, now, Math.max(link.defaultMinutes, request.hide ?? 0));
     } else {
       const first = firstLegs(context, linkForRoutes, firstFilter);
-      const pairing = { now, min, max, hide: request.hide ?? 0, count: DEPARTURES_PER_GROUP, showHidden: request.hidden ?? false };
+      const pairing = { now, min, max, hide: request.hide ?? 0, count: DEPARTURES_PER_GROUP, showHidden: request.hidden ?? false, soonestThere: going, ...(boardWalk ? { boardWalk } : {}) };
       departures = pairConnections(first, second, pairing);
       widen = connects(departures, now) ? null : widenWindow(first, second, pairing);
     }
@@ -208,7 +218,6 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
     // letting the rider off somewhere other than the group's stop (or its station) says where.
     const groupStation = schedule.stationOf(link.alight).id;
     // Going to a stop, a vehicle that picks the rider up on From's corner says where.
-    const fromStops = new Set([from, ...schedule.boardingStops(from)].map(stopKeyOf));
     for (const departure of departures) {
       // Going to a stop, the group's header names no direction (see TransferPointGroup), so each
       // departure keeps its own.
@@ -236,7 +245,7 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
       ...(link.kind === 'walk' ? { kind: 'walk' as const } : {}),
       alight: tables.stop(link.alight),
       board: tables.stop(link.board),
-      routes: groupRoutes(routes.map((route) => tables.route(route)), going ? departures : null),
+      routes: routes.map((route) => tables.route(route)),
       direction: link.direction,
       headsign: link.headsign,
       walkMeters: link.walkMeters,
@@ -296,13 +305,6 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
       : {}),
     feeds,
   };
-}
-
-// The routes a group names. Going to a stop (`departures`), those its departures take, when any
-// do, as a pooled group may hold routes that run only at other hours, such as owl buses.
-function groupRoutes(keys: string[], departures: Departure[] | null) {
-  const taken = new Set(departures?.filter(({ canceled }) => !canceled).map(({ route }) => route));
-  return keys.some((key) => taken.has(key)) ? keys.filter((key) => taken.has(key)) : keys;
 }
 
 // With a destination set, only routes that get there count, and a transfer point none of whose
