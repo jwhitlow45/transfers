@@ -39,6 +39,14 @@ test('keeps a lone letter or compass point whole', () => {
   deepStrictEqual(shorten('B St & 3rd Ave', 'N B St & 1st Ave', 'Alexander Ave & East Rd', 'West Portal Ave & 14th Ave'), ['B St & 3rd', 'N B St & 1st', 'Alexander & East Rd', 'West Portal & 14th']);
 });
 
+test('shortens streets that share a word with a landmark', () => {
+  deepStrictEqual(shorten('Golden Gate Ave & Polk St', 'Mission St & School St', 'Bridgeway & Gate 5 Rd'), ['Golden Gate & Polk', 'Mission & School', 'Bridgeway & Gate 5']);
+});
+
+test('tidies the spaces in a name first', () => {
+  deepStrictEqual(shorten('Addison  St & Digby St', 'Wisconsin St &  25th St', 'Potrero Ave&15th St'), ['Addison & Digby', 'Wisconsin & 25th', 'Potrero & 15th']);
+});
+
 test("keeps SamTrans's at", () => {
   deepStrictEqual(shorten('Broadway at Maple St'), ['Broadway at Maple']);
 });
@@ -71,6 +79,8 @@ test('leaves two different corners that would read alike as they are', () => {
   deepStrictEqual(shorten({ name: 'El Camino Real & Oak Ave', lat: 37.5 }, { name: 'Oak St & El Camino Real', lat: 37.545 }), [null, null]);
   // One that already reads as the other would shortened.
   deepStrictEqual(shorten({ name: 'Main St & 1st Ave', lat: 37.5 }, { name: 'Main & 1st', lat: 37.6 }), [null, null]);
+  // One named with at, the other with &.
+  deepStrictEqual(shorten({ name: 'Broadway at Maple St', lat: 37.5 }, { name: 'Maple Ave & Broadway', lat: 37.6 }), [null, null]);
 });
 
 test('shortens one corner the agencies spelled two ways', () => {

@@ -85,7 +85,8 @@ export class Tables {
     return key;
   }
 
-  // A stop results name in a line that may wrap, with its short name when it has one.
+  // A stop that results name in an arrival line, which may wrap, with its short name when it has
+  // one (see Stop.shortName).
   namedStop(stop: StopRow) {
     const key = this.stop(stop);
     const short = shortCornerName(this.schedule, stop);

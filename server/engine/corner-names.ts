@@ -41,16 +41,19 @@ function splitStreet(street: string): Street {
   return type && bare.length > 1 && !/^(North|South|East|West)$/.test(bare) ? { name, type } : { name: street, type: null };
 }
 
-// Names that say more than two streets: a landmark after a hyphen ("Edison St-Hillsdale Shopping
-// Ctr"), a stop between two corners ("Fremont St btwn Folsom St & Howard St"), or where at the
-// corner a stop is ("University Ave Farside", "Pacific Manor School Rear Entrance").
-const MORE_THAN_STREETS = /[/()-]|\b(btwn|between|farside|nearside|entrance|school|ramp|onramp|gate|hub|station|platform)\b/i;
+// Names that say more than two streets: a landmark after a hyphen or slash ("Edison St-Hillsdale
+// Shopping Ctr"), a stop between two corners ("Fremont St btwn Folsom St & Howard St"), or where
+// at the corner a stop is ("University Ave Farside", "Pacific Manor School Rear Entrance"). Words
+// that also name streets, such as Gate and School ("Golden Gate Ave", "School St"), are left to
+// the hyphen, which comes before every landmark that uses them.
+const MORE_THAN_STREETS = /[/()-]|\b(btwn|between|farside|nearside|entrance)\b/i;
 
 // The two streets a corner stop is named for, "26th St & De Haro St" or SamTrans's "Broadway at
 // Maple St". Null for any other name: stations, addresses, and corners with more said, such as
 // "Grant Ave/Chinatown".
 function cornerOf(name: string): { streets: [Street, Street]; joint: string } | null {
-  const match = name.match(/^(.+?) (&|at) (.+)$/);
+  // Some names have doubled spaces, or none around the &: "Addison  St", "Potrero Ave&15th St".
+  const match = name.trim().replace(/\s+/g, ' ').replace(/ ?& ?/g, ' & ').match(/^(.+?) (&|at) (.+)$/);
   if (!match || MORE_THAN_STREETS.test(name) || match[3]!.includes(' & ')) return null;
   return { streets: [splitStreet(match[1]!), splitStreet(match[3]!)], joint: match[2]! };
 }

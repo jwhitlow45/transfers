@@ -219,6 +219,11 @@ test('sends the short name of the stop in To, and of no other', () => {
   strictEqual(response.stops['SF:13486']?.shortName, undefined);
 });
 
+test('sends the short name of the destination set on the transfers tab', () => {
+  const response = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477', view: 'transfers', dest: 'SF:13500' }, NOW);
+  strictEqual(response.stops['SF:13500']?.shortName, '24th & Potrero');
+});
+
 test('pairs live and scheduled trips and shows the canceled bus in place', () => {
   const response = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477' }, NOW);
   const departures = response.groups[0]!.departures.map((departure) => ({
