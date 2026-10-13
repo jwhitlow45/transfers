@@ -1,3 +1,4 @@
+import { walkSeconds } from '../../shared/walk.ts';
 import type { Agency } from '../config.ts';
 import { distanceMeters } from '../geo.ts';
 import { type PatternRow, type RouteRow, type Schedule, type StopRow, stopKeyOf } from '../schedule.ts';
@@ -6,6 +7,7 @@ import {
   NAMED_STOP_MAX_WALK_METERS,
   STATION_WALK_FACTOR,
   minimumMinutes,
+  paceFreeSeconds,
   transferSeconds,
 } from './walk.ts';
 
@@ -467,7 +469,14 @@ export function walkPoints(schedule: Schedule, stop: StopRow) {
 // How long changing vehicles takes on a walk from walkBetween: a station's own time between its
 // platforms, or else getting off one, walking, and getting on the other.
 export function changeSeconds(walk: ReturnType<typeof walkBetween>, alight: StopRow, board: StopRow, speed?: number) {
-  return walk.fixedSeconds ?? transferSeconds({ exit: alight.access, entry: board.access, meters: walk.meters, ...(speed ? { speed } : {}) });
+  const { seconds, meters } = changeParts(walk, alight, board);
+  return seconds + walkSeconds(meters, speed);
+}
+
+// changeSeconds as the seconds it takes at any pace and the meters walked at the rider's own.
+export function changeParts(walk: ReturnType<typeof walkBetween>, alight: StopRow, board: StopRow) {
+  if (walk.fixedSeconds !== undefined) return { seconds: walk.fixedSeconds, meters: 0 };
+  return { seconds: paceFreeSeconds({ exit: alight.access, entry: board.access, meters: walk.meters }), meters: walk.meters };
 }
 
 // The minutes J timed for this change, when he has.

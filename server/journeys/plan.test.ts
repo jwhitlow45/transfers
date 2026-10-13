@@ -6,9 +6,12 @@ import type { RealtimeView } from '../engine/realtime-view.ts';
 import { RequestError } from '../http.ts';
 import { type FeedObject, decodeFeed, encodeFeed } from '../realtime/feed.ts';
 import { buildAlerts, buildTripSnapshot } from '../realtime/snapshot.ts';
+import { changeSeconds, walkBetween } from '../engine/links.ts';
+import type { WalkSettings } from '../engine/walk.ts';
 import type { Schedule } from '../schedule.ts';
 import { CALENDAR, buildSchedule, clock, files } from '../test-gtfs.ts';
 import { serviceDayStart } from '../time.ts';
+import { footpathsFor, walksFor } from './footpaths.ts';
 import { type Endpoint, planJourneys, readEnds } from './plan.ts';
 
 // BART from Montgomery to 24th St every 10 minutes from 7:30, the 48 from 24th & Mission to
@@ -190,6 +193,25 @@ test('the answer carries the alerts on the routes and stops its journeys use', (
   const alert = (id: string, routeId: string, text: string) => ({ id, alert: { informedEntity: [{ agencyId: 'SF', routeId }], headerText: { translation: [{ text, language: 'en' }] } } });
   const response = planJourneys(schedule, realtime([alert('a48', 'SF:48', '48 detour'), alert('a9', 'SF:9', '9 detour')]), stop('BA:901209'), stop('SF:13700'), NOW);
   deepStrictEqual(response.alerts.map(({ header, relevance }) => `${header} ${relevance}`), ['48 detour route']);
+});
+
+test("a change's walks reach as far as the rider walks, from a station further, each timed at their pace as a transfer is", () => {
+  const paths = footpathsFor(schedule);
+  const row = (key: string) => schedule.stopsByKey.get(key)!;
+  const seconds = (from: string, to: string, settings: WalkSettings = {}) => walksFor(paths.get(row(from).id), settings).find(({ stop }) => stop === row(to).id)?.seconds;
+  for (const speed of [undefined, 0.9, 1.4]) {
+    const change = changeSeconds(walkBetween(schedule, row('SF:13500'), row('SF:13600')), row('SF:13500'), row('SF:13600'), speed);
+    strictEqual(seconds('SF:13500', 'SF:13600', speed ? { speed } : {}), Math.ceil(change));
+  }
+  // The two corners of 24th and Potrero are 56 m apart.
+  strictEqual(seconds('SF:13500', 'SF:13600', { walk: 50 }), undefined);
+  // About 1,060 m along 24th Street from the train or the bus at Mission, which counts as 700 from
+  // the station.
+  deepStrictEqual([seconds('BA:901601', 'SF:13500', { walk: 800 }) !== undefined, seconds('SF:13477', 'SF:13500', { walk: 800 }) !== undefined], [true, false]);
+  // The change J timed takes as long at any pace.
+  deepStrictEqual([seconds('BA:901601', 'SF:13477'), seconds('BA:901601', 'SF:13477', { speed: 0.9 })], [180, 180]);
+  // However many settings ask, the walks are worked out once.
+  strictEqual(footpathsFor(schedule), paths);
 });
 
 test('ends are read as a stop, a place by id or a point, and a bad one is turned away plainly', () => {

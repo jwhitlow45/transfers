@@ -13,6 +13,9 @@ const ENTRY_SECONDS: Record<Access, number> = { bart: 120, subway: 105, ferry: 1
 const CROSSING_SECONDS = 30;
 const CROSSING_METERS = 30;
 
+// The longest walk between stops a rider can ask for, well past the app's own choices, so no
+// request has the server look further.
+export const LONGEST_WALK_METERS = 1500;
 // The longest straight-line walk that counts as a transfer between two street stops. Checked
 // against how SF riders transfer: 300 m catches every Muni crossing where both routes stop
 // (the longest is 208 m) and 97.8% of route pairs that meet, without pulling in parallel streets.
@@ -32,9 +35,14 @@ export const DEFAULT_WINDOW_MINUTES = 9;
 export type WalkSettings = { walk?: number; speed?: number };
 
 export function transferSeconds(options: { exit: Access; entry: Access; meters: number; speed?: number }) {
-  const walk = walkSeconds(options.meters, options.speed);
+  return paceFreeSeconds(options) + walkSeconds(options.meters, options.speed);
+}
+
+// The part of a transfer's time that is the same at any walking pace: getting off, crossing, and
+// getting on.
+export function paceFreeSeconds(options: { exit: Access; entry: Access; meters: number }) {
   const crossing = options.meters > CROSSING_METERS ? CROSSING_SECONDS : 0;
-  return EXIT_SECONDS[options.exit] + walk + crossing + ENTRY_SECONDS[options.entry];
+  return EXIT_SECONDS[options.exit] + crossing + ENTRY_SECONDS[options.entry];
 }
 
 // Rounded up to whole minutes, with no buffer added. Minute comparisons round down, so a transfer

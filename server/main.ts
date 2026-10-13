@@ -14,7 +14,7 @@ import { trackTarget, trackVehicle } from './engine/track.ts';
 import { routeView, stopView } from './engine/views.ts';
 import type { RealtimeView } from './engine/realtime-view.ts';
 import { type TripRequest, destinations, planTrip, wayBack } from './engine/trip.ts';
-import type { WalkSettings } from './engine/walk.ts';
+import { LONGEST_WALK_METERS, type WalkSettings } from './engine/walk.ts';
 import { RequestError } from './http.ts';
 import { planJourneys, readEnds } from './journeys/plan.ts';
 import { PlaceStore } from './places/store.ts';
@@ -170,7 +170,7 @@ function tripRequest(params: URLSearchParams, from = params.get('from'), to = pa
 function walkSettings(params: URLSearchParams): WalkSettings {
   const walk = numberParam(params, 'walk');
   const speed = numberParam(params, 'speed');
-  return { ...(walk !== undefined ? { walk: clamp(walk, 50, 1500) } : {}), ...(speed !== undefined ? { speed: clamp(speed, 0.3, 3) } : {}) };
+  return { ...(walk !== undefined ? { walk: clamp(walk, 50, LONGEST_WALK_METERS) } : {}), ...(speed !== undefined ? { speed: clamp(speed, 0.3, 3) } : {}) };
 }
 
 // A map's pinned stretch of a trip, as `from` and `to` stop positions, under an optional prefix.

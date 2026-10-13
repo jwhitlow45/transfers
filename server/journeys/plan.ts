@@ -10,7 +10,7 @@ import { distanceMeters, type Point } from '../geo.ts';
 import { RequestError } from '../http.ts';
 import { type Schedule, type StopRow, routeKeyOf, stopKeyOf } from '../schedule.ts';
 import { addDays, serviceDate, serviceDayStart } from '../time.ts';
-import { footpathsFor } from './footpaths.ts';
+import { footpathsFor, walksFor } from './footpaths.ts';
 import { type Access, type Network, type Path, type RideLeg, raptor } from './raptor.ts';
 import { type PatternTrips, timetableFor } from './timetable.ts';
 
@@ -122,7 +122,9 @@ function liveNetwork(schedule: Schedule, realtime: RealtimeView, now: number, wa
   // Trips after midnight belong to the day before, and a journey late at night reaches the next.
   const dates = [addDays(today, -1), today, ...(serviceDayStart(addDays(today, 1)) < now + HORIZON_SECONDS ? [addDays(today, 1)] : [])];
   const tables = dates.map((date) => timetableFor(schedule, date));
-  const footpaths = footpathsFor(schedule, walking);
+  const footpaths = footpathsFor(schedule);
+  // Each stop's walks for the rider's settings, worked out the first time the search walks on.
+  const walks = new Map<number, Access[]>();
   const tripsOf = new Map<number, PatternTrips[]>();
   const stopsOf = new Map<number, StopRow[]>();
   // Worked out the first time the search reaches each trip.
@@ -170,7 +172,11 @@ function liveNetwork(schedule: Schedule, realtime: RealtimeView, now: number, wa
       // scheduled wait.
       return position < live.ahead || arrives === null || arrives === undefined ? null : arrives + (trips.times[at + 1]! - trips.times[at]!);
     },
-    footpaths: (stop) => footpaths.get(stop) ?? [],
+    footpaths: (stop) => {
+      let list = walks.get(stop);
+      if (!list) walks.set(stop, (list = walksFor(footpaths.get(stop), walking)));
+      return list;
+    },
     changeSeconds: CHANGE_SECONDS,
     prediction,
   };
