@@ -424,6 +424,8 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--group-min)), 1fr)); gap: 20px var(--space-7); align-items: start; }
 .tf-group { display: flex; flex-direction: column; gap: var(--space-4); margin-top: var(--space-2); }
 .tf-group__title { margin: 0; font-size: 18px; font-weight: var(--weight-bold); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); }
+/* Between what the rider boards at From and what they change to. */
+.tf-group__then { color: var(--muted); }
 .tf-group__meta { font-size: var(--text-base); color: var(--muted); margin-top: 2px; }
 /* A nearby stop's letter, in its color, as its marker on the map shows it. As tall as a route chip. */
 .tf-stop-letter { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 1.4em; height: 1.4em; color: #fff; font-size: inherit; font-weight: var(--weight-heavy); line-height: 1; }

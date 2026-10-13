@@ -28,14 +28,15 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
   const board = data.stops[group.board];
   const alight = data.stops[group.alight];
   const routes = group.routes.map((key) => data.routes[key]).filter((route) => route !== undefined);
+  // What the rider boards at From, ahead of what they change to, as several can lead to one place
+  // to change, and one place to change can follow several (J, 2026-10-12). A walk group has none.
+  const firstRoutes = group.kind === 'walk' ? [] : group.firstRoutes.map((key) => data.routes[key]).filter((route) => route !== undefined);
   const colorOf = context.colorOf;
   const departures = visibleDepartures(group, context.now, context.showHidden, true);
   const noun = firstNoun(group, data);
   const boardName = shortStopName(board, group.board);
   const alightName = shortStopName(alight, group.alight);
   const sameStop = group.alight === group.board;
-  // BART groups hold every line toward one direction, so each chip names its line.
-  const many = routes.length > 1;
   const routeLabel = familyName(group.routes, data);
   const station = board?.serves ? 'BART and Muni Metro station' : board ? `${agencyName(board)} station` : null;
   const boardLink = <StopLink stop={board}>{boardName}</StopLink>;
@@ -111,15 +112,16 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
     <section class="tf-group">
       <div>
         <h2 class="tf-group__title">
-          {routes.length > 4 ? (
-            // A group pooling BART and Muni Metro would carry nine chips. One per system says the
-            // same, and each departure still shows its own line.
-            familyChips(routes)
-          ) : (
-            routes.map((route) => (
-              <RouteChip key={route.key} route={route} iconSize={18} color={colorOf(route.key)} label={many && route.agency === 'BA' ? route.name : undefined} />
-            ))
+          {firstRoutes.length > 0 && (
+            <>
+              {chips(firstRoutes, colorOf)}
+              <span class="tf-group__then" aria-hidden="true">
+                ›
+              </span>
+              <span class="tf-sr">then </span>
+            </>
           )}
+          {chips(routes, colorOf)}
           <span>
             <span aria-hidden="true">→ </span>
             <span class="tf-sr">toward </span>
@@ -168,6 +170,14 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
 }
 
 const SYSTEM_CHIP = '#1d2d3d';
+
+// A group's routes as chips, each BART line by its color when there are several. A group pooling
+// BART and Muni Metro would carry nine chips. One per system says the same, and each departure
+// still shows its own line.
+function chips(routes: Route[], colorOf: CardContext['colorOf']) {
+  if (routes.length > 4) return familyChips(routes);
+  return routes.map((route) => <RouteChip key={route.key} route={route} iconSize={18} color={colorOf(route.key)} label={routes.length > 1 && route.agency === 'BA' ? route.name : undefined} />);
+}
 
 function familyChips(routes: Route[]) {
   const bart = routes.find(({ agency }) => agency === 'BA');
