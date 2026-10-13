@@ -9,15 +9,16 @@ export type Search = {
   min?: number;
   max?: number;
   hide?: number;
-  // Where the rider is going on a route in To. A stop in To is itself where they are going.
+  // Where the rider is going on the second vehicle, which a stop's trips tab takes as the stop.
   dest?: string;
   destLabel?: string;
   firstRoutes?: string[];
   secondRoutes?: string[];
   // Transfer points the rider turned off, by pointId.
   off?: string[];
-  // At a shared downtown station: ride from only BART ("BA") or only Muni Metro ("SF").
+  // At a shared downtown station: ride from, or catch, only BART ("BA") or only Muni Metro ("SF").
   fromSystem?: 'BA' | 'SF';
+  toSystem?: 'BA' | 'SF';
 };
 
 // /t/SF:13477/route:SF:48?fl=…&tl=…, with the From and To keys in the path.
@@ -36,5 +37,6 @@ export function tripPath(search: Search) {
   if (search.secondRoutes?.length) params.set('r2', search.secondRoutes.join(','));
   if (search.off?.length) params.set('off', search.off.join(','));
   if (search.fromSystem) params.set('fm', search.fromSystem);
+  if (search.toSystem) params.set('tm', search.toSystem);
   return `/t/${encodeURIComponent(search.from)}/${encodeURIComponent(search.to)}?${params}`;
 }

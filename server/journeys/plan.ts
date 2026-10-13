@@ -1,7 +1,7 @@
 import type { AgencyId } from '../../shared/api.ts';
 import type { Journey, JourneyLeg, JourneysResponse } from '../../shared/journeys.ts';
 import { walkSeconds } from '../../shared/walk.ts';
-import { arrivalStops, headingOf } from '../engine/links.ts';
+import { destinationStops, headingOf } from '../engine/links.ts';
 import { type AccessNeeds, type RealtimeView, SAME_RUN_SECONDS, serviceStatus, stationOutages } from '../engine/realtime-view.ts';
 import { predictedTimes } from '../engine/track.ts';
 import { Tables } from '../engine/views.ts';
@@ -55,7 +55,7 @@ function readStop(schedule: Schedule, key: string) {
 export function planJourneys(schedule: Schedule, realtime: RealtimeView, from: StopRow, to: StopRow, now: number, options: JourneyOptions = {}): JourneysResponse {
   const network = liveNetwork(schedule, realtime, now, options);
   const starts = schedule.boardingStops(from).map((stop) => ({ stop: stop.id, seconds: 0 }));
-  const ends = arrivalStops(schedule, to).map((stop) => ({ stop: stop.id, seconds: 0 }));
+  const ends = destinationStops(schedule, to).map((stop) => ({ stop: stop.id, seconds: 0 }));
   const maxRides = options.maxRides ?? MAX_RIDES;
   const count = options.count ?? JOURNEYS;
   let journeys: Journey[] = [];

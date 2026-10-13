@@ -207,3 +207,11 @@ test("a stop's arrivals have an address of their own, a search with no To", asyn
   strictEqual(searchPath({ from: 'SF:13477', to: '', fromLabel: 'a', toLabel: '' }), '/stop/SF%3A13477?fl=a');
   strictEqual(searchPath({ from: 'SF:13477', to: 'SF:13517', fromLabel: 'a', toLabel: 'b' }), '/t/SF%3A13477/SF%3A13517?fl=a&tl=b');
 });
+
+test('the tab the rider chose for a stop in To is kept in its address, and without one the page decides', async () => {
+  const history = new FakeHistory();
+  const { parsePage, resultsPath, searchPath } = await load(history, { getItem: () => null, setItem: () => {} });
+  const stops = { from: 'SF:13516', to: 'BA:901209', fromLabel: 'a', toLabel: 'b' };
+  deepStrictEqual(parsePage(new URL(resultsPath(stops, 'transfers'), 'https://transfers.test') as unknown as Location), { name: 'trip', search: stops, view: 'transfers' });
+  deepStrictEqual(parsePage(new URL(searchPath(stops), 'https://transfers.test') as unknown as Location), { name: 'trip', search: stops });
+});

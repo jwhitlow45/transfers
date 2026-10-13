@@ -199,6 +199,9 @@ export type PinRequest = { first?: { trip: string; alight: string; at?: number }
 
 export type TripResponse = {
   notice?: Notice;
+  // For a stop in To: trips there, or transfers to what boards there, as asked, or else the tab
+  // the page opens on (J, 2026-10-12).
+  view?: 'trips' | 'transfers';
   generatedAt: number;
   // When the server last got live data from 511, in unix seconds, or null when it has none.
   // How stale a page is counts from here, so it covers both the server and the rider's link.

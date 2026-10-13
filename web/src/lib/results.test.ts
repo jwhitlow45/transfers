@@ -47,12 +47,19 @@ test('a card has left once its bus has, or every train that makes it has', () =>
   );
 });
 
-test('going to a stop, the way there soonest comes first, and catching a route, the soonest to leave', () => {
-  // The 8:12 bus after a change gets there at 8:22. A bus straight there leaves sooner, at 8:05, but
-  // takes until 8:30.
-  const change = { ...group, departures: [departure('m3', at(8, 12), [connection('b2', at(8, 1))], at(8, 22))] } as unknown as Group;
-  const straight = { ...group, kind: 'walk', alight: 'SF:13486', board: 'SF:13486', departures: [departure('w1', at(8, 5), [], at(8, 30))] } as unknown as Group;
+test('a ride straight to To comes after the transfers there, however soon it leaves', () => {
+  const straight = { ...group, kind: 'walk', alight: 'SF:13477', board: 'SF:13477', departures: [departure('w1', at(8, 1), [], at(8, 11))] } as unknown as Group;
   const kinds = (groups: Group[]) => groups.map(({ kind }) => kind ?? 'ride');
-  deepStrictEqual(kinds(orderGroups([straight, change], now, false, true)), ['ride', 'walk']);
-  deepStrictEqual(kinds(orderGroups([change, straight], now, false, false)), ['walk', 'ride']);
+  deepStrictEqual(kinds(orderGroups([straight, group], now, false, undefined, false)), ['ride', 'walk']);
+  // With a destination, a walk group's times are the destination's, so soonest comes first.
+  deepStrictEqual(kinds(orderGroups([group, straight], now, false, 'SF:13500', false)), ['walk', 'ride']);
+});
+
+test('going to a stop, the fastest trip there comes first, whenever it sets off', () => {
+  // The 8:12 bus is made by the 8:01 train and gets there at 8:22: 21 minutes from setting off.
+  // The 8:32 bus is made by the 8:21 train and gets there at 8:35: 14 minutes, though later.
+  const sooner = { ...group, board: 'SF:1', departures: [departure('m3', at(8, 12), [connection('b2', at(8, 1))], at(8, 22))] } as unknown as Group;
+  const faster = { ...group, board: 'SF:2', departures: [departure('m5', at(8, 32), [connection('b4', at(8, 21))], at(8, 35))] } as unknown as Group;
+  const boards = (groups: Group[]) => groups.map(({ board }) => board);
+  deepStrictEqual(boards(orderGroups([sooner, faster], now, false, undefined, true)), ['SF:2', 'SF:1']);
 });

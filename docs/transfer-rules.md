@@ -1,13 +1,13 @@
 # Transfer rules
 
-Status: the window rules and the terminal version's rules are agreed with J (2026-10-03), and the inputs as they stand (2026-10-12). The thresholds under "Choosing the transfer point" are implementation choices, marked Open until J settles them.
+Status: the inputs, the window rules, and the terminal version's rules are agreed with J (2026-10-03), and the trips tab for a stop in To (2026-10-12). The thresholds under "Choosing the transfer point" are implementation choices, marked Open until J settles them.
 
 ## Inputs
 
-A search names a **From** stop, where the rider boards the first vehicle, and a **To**, which is either a route they want to catch or a stop they are going to (J, 2026-10-12).
+A search names a **From** stop, where the rider boards the first vehicle, and a **To**, which is either the stop where they board the second vehicle or a route they want to reach.
 
-- **To is a route.** The targets are its directions. Asking for one BART line asks for both of its routes. Example: 26th St & De Haro (13516) to the 22 rides the 19 inbound to 16th St, then boards the 22 toward UCSF Mission Bay or toward Bay Street. The 48 also serves 13516 but never comes near the 22, so it drops out. The rider may also set a destination stop on the route, which then shows when each departure gets there and keeps only the routes that go on to it.
-- **To is a stop.** It is where the rider is going, as a route's destination is. The targets are the directions of every route that gets there, each worked out as for a route in To with the stop as its destination. A route gets there when it stops at the stop, at one of a station's platforms, or at a stop on its corner: within 50 m, measured from a station's entrances. Example: Montgomery St BART to Muni 13477 rides BART to 24th St Mission, whose entrance is 36 m from the stop. A stop a walk from From gets no rides, only a note that it is a walk. See "Going to a stop" below.
+- **To is a stop.** The results have two tabs (J, 2026-10-12). **Transfers**: the targets are the routes and directions boarding there, or one per platform at a rail station. Example: Montgomery St BART to Muni 13477 gets off at 24th St Mission. **Trips**: the stop is where the rider is going, worked out as in "The trips tab" below. The page opens on Transfers when a route already takes the rider from near From to the stop, or the stop is a walk away, as they are then likely going there to catch something, and on Trips otherwise: 13516 to 24th St Mission BART opens on Transfers, and 13516 to Montgomery on Trips. Every pattern counts for that choice, so it holds all day.
+- **To is a route.** The targets are its directions. Asking for one BART line asks for both of its routes. Example: 26th St & De Haro (13516) to the 22 rides the 19 inbound to 16th St, then boards the 22 toward UCSF Mission Bay or toward Bay Street. The 48 also serves 13516 but never comes near the 22, so it drops out.
 
 Each target gets one group, worked out as below.
 
@@ -19,6 +19,7 @@ Straight-line limits, checked on 2026-10-03 against 511's BART station maps and 
 |---|---|---|---|
 | Street stop to street stop | 300 m | about 4.6 min | Catches every Muni crossing where both routes stop (the longest is 208 m, the 45 to the T at 4th & King) and 97.8% of route pairs that meet. 400 m adds about 1 point of coverage and 50% more nearby routes per stop, mostly parallel streets. |
 | Either end a BART station or Muni Metro platform | 450 m (1.5 times the street limit) | about 7.0 min | Measured from the nearest BART entrance. Catches 98.7% of the connections BART's station maps list. The one miss is Civic Center to the 49 and 90 at Van Ness (about 510 m). |
+| To is a named stop | 800 m | about 12 min | The rider picked the walk, so the limit only stops absurd pairings. |
 
 Riders set the street limit in device settings, and the station limit scales with it. The analysis scripts are not in the repo; the numbers above are the record.
 
@@ -27,24 +28,25 @@ Riders set the street limit in device settings, and the station limit scales wit
 Reworked on 2026-10-03 after six reviewers walked through live trips and found pages full of points no one would use. Open: every threshold in this section (3 hours, 60 seconds, 2 minutes, 150 m, half the walk) is an implementation choice J has not settled.
 
 1. **Only what runs.** Patterns count only if a trip starts within three hours either side of now. Owl and bus-substitute patterns otherwise crowd the day, and the reverse at night. A target with nothing running gets "isn't running now, runs again Mon 7:15 AM".
-2. **Walk before riding.** If the target route stops within the usual walking range of From, before any destination, the group is a walk: "No transfer needed: the 48 stops here", or "walk 2 min to Van Ness & Sutter", with its departures. No ride is offered for that target. Of the stops in range, the nearest wins unless it has under three quarters of the busiest one's trips (J's choice), so a quiet branch at the nearest pole loses to the main service a block over, but a busier stop does not pull the rider off a stop nearly every vehicle makes. With a destination, only stops before it count. Walk groups honor "hide departures under N" but not the transfer window, which measures time between two vehicles.
-   - **Straight there.** Going to a stop, a walk group is a ride straight there, headed "The 48 goes straight to 26th St & De Haro St", with each departure's arrival there, which may be across the street from it (J, 2026-10-07). A ride that ends where its route ends counts as well. Example: 13477 to 13516, which the eastbound 48 serves across the street at 13517.
+2. **Walk before riding.** If the target route stops within the usual walking range of From (or, for a named stop, anywhere on its way there), the group is a walk: "No transfer needed: the 48 stops here", or "walk 2 min to Van Ness & Sutter", with its departures. No ride is offered for that target. Of the stops in range, the nearest wins unless it has under three quarters of the busiest one's trips (J's choice), so a quiet branch at the nearest pole loses to the main service a block over, but a busier stop does not pull the rider off a stop nearly every vehicle makes. With a destination, only stops before it count. Riding straight to a named stop pools every route that does it into one group, showing when each reaches the stop. Walk groups honor "hide departures under N" but not the transfer window, which measures time between two vehicles.
+   - **Straight there, across the street too** (J, 2026-10-07). When To is a stop, one of its own routes that carries the rider from From (or a stop within walking range) to To, or to a street stop within 50 m of it such as the stop across the street, is a walk group too, headed "The 48 goes straight to 26th St & De Haro St", with each departure's arrival there. It does not say no transfer is needed, since the rider may be going to To to catch something there (J, 2026-10-08). A ride that ends where its route ends counts as well. Transfers to the routes at To stay beside it and are listed first, since a rider may name To to catch one of them (J: from 24th St & Mission to 26th St & De Haro, someone may ride the 48 to catch the 19). Example: 13477 to 13516, which the eastbound 48 serves across the street at 13517, shows the 48 and the transfer to the northbound 19. Another route passing To's corner does not count, so Montgomery St BART to the 48 at 13477 does not offer the 14, which stops on that corner. These rides are added after long walks are weighed, so they never crowd out a transfer, and are left out when To is itself within walking range of From.
 3. **First meeting place.** Along each first-leg pattern, the first run of stops within walking range of the target gives the point. Within that run, the earliest stop whose transfer is within a minute of the quickest, so the rider is not sent further for a slightly shorter walk. A stop only counts if it is closer to the target than From.
 4. **No pointless boarding.** A board stop is dropped when the target ends within walking range of where the rider got off, when the target later passes within 150 m of From or of any stop the rider rode through (they could have boarded there), or when it comes back within half the walk distance of the alight stop. A walk group skips a stop where the vehicle would then pass closer to From before the rider gets off, and drops the direction entirely, offering no ride either, when it ends within walking range of From.
 5. **One point per direction.** Of the first-leg patterns' points, the board stop most first-leg trips can use wins, and every pattern that can reach it pools in, wherever each lets the rider off. A row names its own stop when it differs from the group's. Only at a shared station do BART and Muni Metro each pick their own (J's choice, 2026-10-03), pooling when they pick the same stop. A pick needing more than two minutes over the quickest is left out rather than widening everyone's window. With a destination set, only routes that go on to it are considered when choosing.
-6. **Stations.** Getting off on any platform of one station is getting off at the station.
-
-### Going to a stop
-
-When To is a stop (J, 2026-10-12):
-
-- **Straight there, or else one change.** A route that takes the rider there, from From or a short walk from it, leaves out the ways with a change (J, 2026-10-12: 13516 to 24th & Mission shows the 48 alone, not the 48 to the 67).
-- **One group per place to board.** Routes boarded at one stop, or at one station's platforms, that all get there are one group, whichever the rider catches: the next train toward it at a BART platform, or the next of two buses at a pole. Each departure still names its own route.
-- **Soonest there first.** Groups are ordered by the soonest any of their departures the rider can still make gets there. The page shows the first four, and the rest on a tap.
-- **More changes when nothing simpler works.** With no way there taking one transfer or none, the page shows trips with up to three changes from the trip planner (`server/journeys/`), which starts at From's platforms and ends at To or a stop on its corner, as rides there do above. Between ends 2 km apart or less, those trips include walking all the way, and walking never hides a trip by vehicle (J, 2026-10-12).
-- **The return trip** goes from To back to From, found the same way.
+6. **Stations.** Getting off on any platform of one station is getting off at the station. When To is a rail station, departures group by platform, with every line in one group, since a rider transferring to BART cares which way the train goes.
 
 Directions read as riders say them: BART uses each line's last stop ("Antioch, Richmond"), not its headsigns, which name stations behind the rider. A trip ending early says where it goes.
+
+### The trips tab
+
+On the trips tab of a stop in To, the stop is where the rider is going (J, 2026-10-12):
+
+- **Every route that gets there.** The targets are the directions of every route that gets there, each worked out as for a route in To with the stop as its destination. A route gets there when it stops at the stop, at one of a station's platforms, or at a stop on its corner: within 50 m, measured from a station's entrances. Example: Montgomery St BART to Muni 13477 rides BART to 24th St Mission, whose entrance is 36 m from the stop. A stop a walk from From gets no rides, only a note that it is a walk.
+- **Straight there, or else one change.** A route that takes the rider there, from From or a short walk from it, leaves out the ways with a change (J: 13516 to 24th & Mission shows the 48 alone, not the 48 to the 67).
+- **One group per place to board.** Routes boarded at one stop, or at one station's platforms, that all get there are one group, whichever the rider catches: the next train toward it at a BART platform, or the next of two buses at a pole. Each departure still names its own route.
+- **Fastest first.** Groups are ordered by the fastest trip there of those the rider can still make, from setting off (the first vehicle leaving From, or the vehicle itself with none) to getting there, then by the soonest there (J). The page shows the first four, and the rest on a tap.
+- **More changes when nothing simpler works.** With no way there taking one transfer or none, the page shows trips with up to three changes from the trip planner (`server/journeys/`), which starts at From's platforms and ends at To or a stop on its corner, as rides there do above. Between ends 2 km apart or less, those trips include walking all the way, and walking never hides a trip by vehicle (J).
+- **The return trip** goes from the stop back to From, found the same way. On the transfers tab, it goes back from the destination the rider set, or else from the stop.
 
 ## Minimum transfer time
 

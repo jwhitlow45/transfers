@@ -145,7 +145,11 @@ function tripRequest(params: URLSearchParams, from = params.get('from'), to = pa
   // BART or Muni Metro at a shared station: "BA", "SF", or both.
   const agencies = (name: string) => (params.get(name) ?? '').split(',').filter((agency): agency is 'BA' | 'SF' => agency === 'BA' || agency === 'SF');
   const fromAgencies = agencies('fm');
+  const toAgencies = agencies('tm');
   if (fromAgencies.length) request.fromAgencies = fromAgencies;
+  if (toAgencies.length) request.toAgencies = toAgencies;
+  const view = params.get('view');
+  if (view === 'trips' || view === 'transfers') request.view = view;
   const pin = readPin(params, (name) => numberParam(params, name));
   if (pin) request.pin = pin;
   return request;

@@ -108,12 +108,12 @@ test('a loop that comes back past From after the rider gets off still boards nea
   const boards = (links: ReturnType<typeof findLinks>) => links.map((link) => `${link.kind} at ${link.board.stopId}`);
   deepStrictEqual(boards(findLinks(schedule, from, { stop: to })), ['walk at across']);
   deepStrictEqual(boards(findLinks(schedule, from, { route: schedule.routesByKey.get('SF:C')! }, { reaches: new Set([to.id]) })), ['walk at across']);
-  // Going on past the stop and around to From itself, the ride ends where it started.
-  deepStrictEqual(boards(findLinks(schedule, from, { route: schedule.routesByKey.get('SF:C')! }, { reaches: new Set([from.id]) })), []);
+  // Going on past the named stop and around to From itself, the ride ends where it started.
+  deepStrictEqual(boards(findLinks(schedule, from, { stop: to }, { reaches: new Set([from.id]) })), []);
   schedule.close();
 });
 
-test('a ride straight to a stop may end across the street from it, or where the route ends', () => {
+test('a ride straight to a named stop may end across the street from it, or where the route ends', () => {
   const schedule = network(2);
   const links = (from: string, to: string) =>
     findLinks(schedule, schedule.stopsByKey.get(`SF:${from}`)!, { stop: schedule.stopsByKey.get(`SF:${to}`)! }).map((link) => `${link.kind} ${link.headsign} at ${link.board.stopId}`);
@@ -127,7 +127,7 @@ test('a ride straight to a stop may end across the street from it, or where the 
   schedule.close();
 });
 
-test('a pinned ride straight to a stop ends where the bus reaches it or its corner after boarding', () => {
+test('a pinned ride straight to a named stop ends where the bus reaches it or its corner after boarding', () => {
   // A loop that starts at To, and after picking the rider up comes back across the street from it.
   const schedule = build(
     [
@@ -148,7 +148,7 @@ test('a pinned ride straight to a stop ends where the bus reaches it or its corn
   schedule.close();
 });
 
-test('a ride straight to a stop arrives at the first of the stop or its corner it reaches, in the results and when pinned', () => {
+test('a ride straight to a named stop arrives at the first of the stop or its corner it reaches, in the results and when pinned', () => {
   // The bus passes the stop across the street just before To.
   const schedule = build(
     [
@@ -170,7 +170,7 @@ test('a ride straight to a stop arrives at the first of the stop or its corner i
   schedule.close();
 });
 
-test('a route that stops on the corner of the stop the rider is going to gets them there too', () => {
+test('another route on the named stop\'s corner is no ride there, as the rider named the stop for its own', () => {
   // Like the 14 on Mission St at 24th, beside the 48's stop on 24th St.
   const schedule = build(
     [
@@ -188,9 +188,8 @@ test('a route that stops on the corner of the stop the rider is going to gets th
   );
   const links = (to: string) =>
     findLinks(schedule, schedule.stopsByKey.get('SF:from')!, { stop: schedule.stopsByKey.get(`SF:${to}`)! }).map((link) => `${link.kind} ${link.routes.map(({ shortName }) => shortName).join()}`);
-  // F reaches the corner, so it rides straight to D's stop too, and D, which only comes back from
-  // further on, is no way there.
-  deepStrictEqual(links('to'), ['walk F']);
+  // F reaches the corner, so it is how the rider gets to D, not a ride to D's stop.
+  deepStrictEqual(links('to'), ['ride D']);
   deepStrictEqual(links('corner'), ['walk F']);
   schedule.close();
 });
@@ -211,7 +210,7 @@ test('going to a stop, routes boarded at one place that both get there are one c
       { id: 'c', route: 'C', direction: 0, headsign: 'West', sequence: ['from', 'away'], count: 10 },
     ],
   );
-  const links = findLinks(schedule, schedule.stopsByKey.get('SF:from')!, { stop: schedule.stopsByKey.get('SF:to')! });
+  const links = findLinks(schedule, schedule.stopsByKey.get('SF:from')!, { destination: schedule.stopsByKey.get('SF:to')! });
   deepStrictEqual(links.map((link) => `${link.kind} ${link.routes.map(({ shortName }) => shortName).join('+')} at ${link.board.stopId}`), ['walk A+B at from']);
   schedule.close();
 });
@@ -229,11 +228,32 @@ test('going to a stop a route already reaches from near From, the ways with a ch
     { id: 'd', route: 'D', direction: 0, headsign: 'East', sequence: ['change', 'to'], count: 10 },
   ];
   const links = (schedule: Schedule) =>
-    findLinks(schedule, schedule.stopsByKey.get('SF:from')!, { stop: schedule.stopsByKey.get('SF:to')! }).map((link) => `${link.kind} ${link.routes.map(({ shortName }) => shortName).join('+')}`);
+    findLinks(schedule, schedule.stopsByKey.get('SF:from')!, { destination: schedule.stopsByKey.get('SF:to')! }).map((link) => `${link.kind} ${link.routes.map(({ shortName }) => shortName).join('+')}`);
   const changing = build(stops, runs);
   deepStrictEqual(links(changing), ['ride D']);
   changing.close();
   const straight = build(stops, [...runs, { id: 'a', route: 'A', direction: 0, headsign: 'East', sequence: ['from', 'to'], count: 10 }]);
   deepStrictEqual(links(straight), ['walk A']);
   straight.close();
+});
+
+test('going to a stop, another route that stops on its corner gets the rider there too', () => {
+  // Like the 14 on Mission St at 24th, beside the 48's stop on 24th St.
+  const schedule = build(
+    [
+      ['from', 0, false],
+      ['to', 900, false],
+      ['corner', 900, true],
+      ['past', 1500, true],
+      ['start', 1800, false],
+      ['end', 600, false],
+    ],
+    [
+      { id: 'f', route: 'F', direction: 0, headsign: 'East', sequence: ['from', 'corner', 'past'], count: 10 },
+      { id: 'd', route: 'D', direction: 1, headsign: 'West', sequence: ['start', 'to', 'end'], count: 10 },
+    ],
+  );
+  const links = findLinks(schedule, schedule.stopsByKey.get('SF:from')!, { destination: schedule.stopsByKey.get('SF:to')! });
+  deepStrictEqual(links.map((link) => `${link.kind} ${link.routes.map(({ shortName }) => shortName).join()}`), ['walk F']);
+  schedule.close();
 });

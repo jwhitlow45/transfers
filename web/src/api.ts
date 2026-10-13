@@ -71,7 +71,8 @@ const only = (url: string, names: string[]) => new URLSearchParams([...new URLSe
 // stored answer of the same question.
 export const apiUrl = {
   // A search's transfers: its own settings first, then the device's.
-  trip(search: Search, settings: DeviceSettings, showHidden: boolean, pin: Pin | null = null) {
+  // `view` is the tab asked for, for a stop in To. Without one, the server picks (see TripResponse).
+  trip(search: Search, settings: DeviceSettings, showHidden: boolean, pin: Pin | null = null, view?: 'trips' | 'transfers') {
     const params = new URLSearchParams({ from: search.from, to: search.to });
     const min = search.min ?? settings.min;
     const max = search.max ?? settings.max;
@@ -84,13 +85,15 @@ export const apiUrl = {
     if (search.firstRoutes?.length) params.set('r1', search.firstRoutes.join(','));
     if (search.secondRoutes?.length) params.set('r2', search.secondRoutes.join(','));
     if (search.fromSystem) params.set('fm', search.fromSystem);
+    if (search.toSystem) params.set('tm', search.toSystem);
+    if (view) params.set('view', view);
     if (showHidden) params.set('hidden', '1');
     if (pin) writePin(params, pin);
     return `/api/trip?${params}`;
   },
   // The destinations a trip can have, which depend only on its ends and the rider's walk, so
   // changing what results show asks nothing again.
-  destinations: (tripUrl: string) => `/api/destinations?${only(tripUrl, ['from', 'to', 'walk', 'speed', 'fm'])}`,
+  destinations: (tripUrl: string) => `/api/destinations?${only(tripUrl, ['from', 'to', 'walk', 'speed', 'fm', 'tm'])}`,
   // A stop's arrivals, which its page, its saved card, and a pinned arrival all ask for, the pin's
   // vehicle with them when one is pinned there.
   stop(stop: string, pin: PinRequest | null = null) {

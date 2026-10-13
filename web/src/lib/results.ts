@@ -15,11 +15,14 @@ export type CardContext = {
   scaleMinutes: number;
   // Unix seconds to a position on the shared time scale, 0 to 100.
   pct: (unixSeconds: number) => number;
-  // The search's destination stop key and name, when it has one: a stop in To, or a route's.
+  // The search's destination stop key and name, when it has one: the stop in To on its trips tab,
+  // or else the one the rider set.
   destination: string | undefined;
   destinationName: string | null;
   // The To stop's name, for walk groups that ride straight to it.
   toName: string | null;
+  // The trips tab of a stop in To, which takes it as where the rider is going.
+  going: boolean;
   showHidden: boolean;
   colorOf: (routeKey: string) => string;
   // The trip pinned to these results, and pinning one, or unpinning with null.
@@ -85,16 +88,25 @@ export function visibleDepartures(group: Group, now: number, showHidden: boolean
 }
 
 // Within a minute of the minimum is tight, as the design specifies.
-// A ride with no change to the stop in To: a walk group whose departures say when they get there.
-export const ridesStraightTo = (group: Group) => group.kind === 'walk' && group.departures.some((departure) => departure.destination !== undefined);
+// A ride straight to the named To stop: a walk group whose departures say when they get there.
+// With a destination set, those times are the destination's instead.
+export const ridesStraightTo = (group: Group, destination: string | undefined) =>
+  group.kind === 'walk' && !destination && group.departures.some((departure) => departure.destination !== undefined);
 
-// Going to a stop, the ways that get the rider there soonest come first (J, 2026-10-12). Catching
-// a route, the soonest to leave. A group with nothing that gets there goes last.
-export function orderGroups(groups: Group[], now: number, showHidden: boolean, toStop: boolean) {
+// Groups by their soonest departure, with rides straight to To after the transfers there, which a
+// rider may have named To to catch (J, 2026-10-08). Going to a stop, by the fastest trip there of
+// those the rider can still make, from setting off to getting there, and then by the soonest there
+// (J, 2026-10-12). A group with nothing that gets there goes last.
+export function orderGroups(groups: Group[], now: number, showHidden: boolean, destination: string | undefined, going: boolean) {
   const catchable = (group: Group) => visibleDepartures(group, now, showHidden).filter(({ canceled }) => !canceled);
   const firstAt = (group: Group) => catchable(group)[0]?.at ?? Infinity;
-  const arrives = (group: Group) => Math.min(Infinity, ...catchable(group).map(({ destination }) => destination ?? Infinity));
-  return [...groups].sort((a, b) => (toStop ? arrives(a) - arrives(b) : 0) || firstAt(a) - firstAt(b));
+  if (!going) return [...groups].sort((a, b) => Number(ridesStraightTo(a, destination)) - Number(ridesStraightTo(b, destination)) || firstAt(a) - firstAt(b));
+  // A row sets off when its first vehicle leaves From, or with none, when its own does.
+  const trips = (group: Group) =>
+    catchable(group).flatMap(({ at, connections, destination: there }) => (there === undefined ? [] : group.kind === 'walk' ? [{ takes: there - at, there }] : connections.map(({ departs }) => ({ takes: there - departs, there }))));
+  const fastest = (group: Group) => Math.min(Infinity, ...trips(group).map(({ takes }) => takes));
+  const soonest = (group: Group) => Math.min(Infinity, ...trips(group).map(({ there }) => there));
+  return [...groups].sort((a, b) => fastest(a) - fastest(b) || soonest(a) - soonest(b) || firstAt(a) - firstAt(b));
 }
 
 export const isTight = (connection: Connection, min: number) => !connection.hidden && connection.transfer <= min + 1;

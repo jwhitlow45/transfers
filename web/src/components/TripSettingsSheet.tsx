@@ -69,12 +69,13 @@ function ShareButton({ search, onCopied }: { search: Search; onCopied: () => voi
 }
 
 // Sharing the trip, and its return trip, side by side, each with an icon (J, 2026-10-08). The return
-// trip goes from where the rider is going back to where they started, found as any way to a stop
-// is, so it needs a stop to go back from: the stop in To, or a route's destination. It takes this
-// page's place, rising over it and the sheet, rather than opening a page deeper, and its own
-// return trip comes back here.
-function TripActions({ search, onCopied }: { search: Search; onCopied: () => void }) {
-  const goingTo = !search.to.startsWith('route:') ? { stop: search.to, label: search.toLabel } : search.dest ? { stop: search.dest, label: search.destLabel ?? search.dest } : null;
+// trip goes from where the rider is going back to where they started, as the trips to a stop, so it
+// needs a stop to go back from: the stop in To on its trips tab, or else the destination the rider
+// set, or the stop in To. It takes this page's place, rising over it and the sheet, rather than
+// opening a page deeper, and its own return trip comes back here.
+function TripActions({ search, going, onCopied }: { search: Search; going: boolean; onCopied: () => void }) {
+  const toStop = !search.to.startsWith('route:') ? { stop: search.to, label: search.toLabel } : null;
+  const goingTo = going ? toStop : search.dest ? { stop: search.dest, label: search.destLabel ?? search.dest } : toStop;
   const path = goingTo ? tripPath({ from: goingTo.stop, to: search.from, fromLabel: goingTo.label, toLabel: search.fromLabel }) : null;
   const leaveOpen = useLeaveOpen();
   const note = path ? null : 'Set a destination stop below for the return trip.';
@@ -106,7 +107,7 @@ export function TripSettingsSheet({ search, data, window, savedName, chain, dest
   // The saved search's name, which keeps these settings, or null when it is not saved.
   savedName: string | null;
   chain: string;
-  // Null when To is a stop, which is itself the destination.
+  // Null on a stop's trips tab, where the stop is itself the destination.
   destinationsUrl: string | null;
   showHidden: boolean;
   update: SearchUpdate;
@@ -147,7 +148,7 @@ export function TripSettingsSheet({ search, data, window, savedName, chain, dest
 
   return (
     <Sheet title={TRIP_SETTINGS} subtitle={chain} onClose={onClose}>
-      <TripActions search={search} onCopied={onCopied} />
+      <TripActions search={search} going={destinationsUrl === null} onCopied={onCopied} />
       <WindowSetting window={window} update={update} />
       <ResetWindow search={search} update={update} />
       <MinutesSlider

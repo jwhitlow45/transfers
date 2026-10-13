@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useId, useMemo, useState } from 'preact/hooks';
 import type { TripResponse } from '../../../shared/api.ts';
 import { apiUrl, takeInitialData } from '../api.ts';
 import { AlertList } from '../components/AlertList.tsx';
@@ -25,7 +25,7 @@ import { liveClock } from '../lib/freshness.ts';
 import { IconFilter, IconFlag, IconHidden } from '../icons/ui.tsx';
 import { type CardContext, chooseDirection, directionChoices, hintKey, orderGroups, pageColors, pointId, scaleFor, timeScale, visibleDepartures } from '../lib/results.ts';
 import { summarize } from '../lib/summary.ts';
-import { cameBackTo, goBack, navigate } from '../router.ts';
+import { type ResultsView, cameBackTo, goBack, navigate, resultsPath } from '../router.ts';
 import { matchesServerDefaults, useSettings } from '../settings.tsx';
 import { type Pin, type Search, clearPinHint, rememberRecent, takePinHint, updateSaved } from '../storage.ts';
 import { shortStopName, spokenRoute } from '../view.ts';
@@ -35,6 +35,7 @@ import { failureOf } from '../lib/failure.ts';
 import { tripPath } from '../../../shared/paths.ts';
 import { useJourneys } from '../journeys/useJourneys.ts';
 import { LazyJourneyResults } from '../journeys/LazyJourneyResults.tsx';
+import { Tabs, tabPanel } from '../components/Tabs.tsx';
 
 // The server puts the first trip's results in the page. They seed only the first visit, as of
 // when the page arrived: shown again on a later visit, even to the same trip, they would pass
@@ -48,10 +49,13 @@ const tripTo = (to: TripResponse['to']) => ('route' in to ? `route:${to.route}` 
 // Going to a stop, the ways there that arrive soonest, and the rest a tap away.
 const GROUPS_SHOWN = 4;
 
-// The ways from a stop to a stop or route. A stop in To is where the rider is going: every way
-// there with one change or none, soonest there first, and when there is none, trips with more
-// changes (J, 2026-10-12). A route in To is one to catch, perhaps on to a destination of its own.
-export function ResultsScreen({ search }: { search: Search }) {
+// The ways from a stop to a route to catch, perhaps on to a destination of its own, or to a stop.
+// A stop in To has two tabs (J, 2026-10-12): the trips there, as where the rider is going, and the
+// transfers to what boards there. Unless the rider chose one (`view`), the server picks: transfers
+// when a route already takes the rider there, as they are likely going there to catch something,
+// and trips otherwise. The trips are a route straight there when one goes, or else every way with
+// one change, fastest first, and when there is none, trips with more changes.
+export function ResultsScreen({ search, view }: { search: Search; view?: ResultsView }) {
   const { settings, update: updateSettings } = useSettings();
   const deviceNow = useNow();
   const { showHidden } = settings;
@@ -74,17 +78,17 @@ export function ResultsScreen({ search }: { search: Search }) {
   useEffect(() => {
     if (pin) changePin(pin);
   }, [tripPath(search)]);
-  const url = apiUrl.trip(search, settings, showHidden, pin);
+  const url = apiUrl.trip(search, settings, showHidden, pin, view);
   // Results the server put in the page answer this request only if nothing differs from its defaults.
   const initial = useMemo(() => {
     const page = initialData;
     initialData = null;
     // Nor do they follow a pinned trip.
-    const matches = page && page.from === search.from && tripTo(page.to) === search.to && matchesServerDefaults(settings) && !search.firstRoutes && !search.secondRoutes && !pin;
+    const matches = page && page.from === search.from && tripTo(page.to) === search.to && (!view || page.view === view) && matchesServerDefaults(settings) && !search.firstRoutes && !search.secondRoutes && !pin;
     return matches ? { data: page, fetchedAt: initialAt } : null;
   }, []);
   // Stored under the search's own address, so pinning adds no stored copy of its own.
-  const { data, error, fetchedAt, feed, settled, answered, refresh } = usePoll<TripResponse>(url, 30_000, initial, apiUrl.trip(search, settings, showHidden));
+  const { data, error, fetchedAt, feed, settled, answered, refresh } = usePoll<TripResponse>(url, 30_000, initial, apiUrl.trip(search, settings, showHidden, null, view));
   // Every time on the page is the server's, so the clock is too.
   const { now, fresh, showStale, secondsSinceUpdate } = liveClock({ data, fetchedAt, settled }, deviceNow);
   const summary = summarize(search, data, now);
@@ -118,19 +122,24 @@ export function ResultsScreen({ search }: { search: Search }) {
   const update: SearchUpdate = (change) => {
     const next = change(search);
     if (saved) updateSaved(next);
-    navigate(tripPath(next), { replace: true });
+    navigate(view ? resultsPath(next, view) : tripPath(next), { replace: true });
   };
   const toggleSaved = () => records.toggleSaved(`${summary.from} to ${summary.to}`, summary.lineColor);
 
   const groups = summary.groups;
   const scaleMinutes = scaleFor(groups, now);
   const toStop = !search.to.startsWith('route:');
-  // A stop in To is itself where the rider is going, and a destination sent along with it is none.
-  const destination = toStop ? search.to : search.dest;
-  const destinationLabel = toStop ? search.toLabel : search.destLabel;
-  const ordered = orderGroups(groups, now, showHidden, toStop);
+  // The tab showing: the rider's, or the one the server chose, which holds all day (see TripResponse).
+  const shown = view ?? data?.view;
+  const panel = useId();
+  // The trips tab takes the stop in To as where the rider is going, and a destination sent along
+  // with it is none.
+  const going = toStop && shown === 'trips';
+  const destination = going ? search.to : search.dest;
+  const destinationLabel = going ? search.toLabel : search.destLabel;
+  const ordered = orderGroups(groups, now, showHidden, search.dest, going);
   const [showAll, setShowAll] = useState(false);
-  const shownGroups = toStop && !showAll ? ordered.slice(0, GROUPS_SHOWN) : ordered;
+  const shownGroups = going && !showAll ? ordered.slice(0, GROUPS_SHOWN) : ordered;
   // Elevator and escalator outages: each transfer point tags those where it gets off or changes,
   // and the rest, such as where the rider starts or is going, lead the results. Each opens what
   // BART says about it.
@@ -147,7 +156,7 @@ export function ResultsScreen({ search }: { search: Search }) {
   const routeNames = (keys: string[] | undefined) => keys?.map((key) => (data?.routes[key] ? spokenRoute(data.routes[key]!) : null)).filter(Boolean).join(' or ');
   // No way to the stop with one change or none, at this hour or any, so the trip planner's ways
   // with more follow (J, 2026-10-12).
-  const fallback = toStop && data !== null && groups.length === 0 && (data.notice?.kind === 'unreachable' || data.notice?.kind === 'idle');
+  const fallback = going && data !== null && groups.length === 0 && (data.notice?.kind === 'unreachable' || data.notice?.kind === 'idle');
   const journeys = useJourneys(search, fallback);
   const firstNames = routeNames(search.firstRoutes);
   const secondNames = routeNames(search.secondRoutes);
@@ -169,6 +178,7 @@ export function ResultsScreen({ search }: { search: Search }) {
     showHidden,
     colorOf: data ? pageColors(groups, data) : () => '#55575a',
     destination,
+    going,
     pin,
     onPin: pinFromResults,
     pinHint: hintGroup ? hintKey(hintGroup, visibleDepartures(hintGroup, now, showHidden)[0]?.trip) : null,
@@ -183,7 +193,7 @@ export function ResultsScreen({ search }: { search: Search }) {
   // The header chip takes the same color its group gives it, which may have stepped away from a clash.
   const toColor = summary.toRoute && data ? context.colorOf(summary.toRoute.key) : undefined;
   const toChip = summary.toRoute ? <RouteChip route={summary.toRoute} {...(toColor ? { color: toColor } : {})} /> : <span>{summary.to}</span>;
-  const destinationsUrl = toStop ? null : apiUrl.destinations(url);
+  const destinationsUrl = going ? null : apiUrl.destinations(url);
 
   return (
     <>
@@ -203,8 +213,8 @@ export function ResultsScreen({ search }: { search: Search }) {
               : []),
             // At the end of the line, where its name has the rest of it, cut short where that is too
             // little (J, 2026-10-08).
-            // A stop in To says itself where the rider is going.
-            ...(!toStop && search.dest
+            // On the trips tab, the stop in To says itself where the rider is going.
+            ...(!going && search.dest
               ? [{ key: 'dest', icon: <IconFlag />, short: shortStopName(data?.stops[search.dest], search.destLabel?.replace(/ \(\w+\)$/, '') ?? search.dest), full: `Showing when each departure gets you to ${search.destLabel ?? search.dest}. Trip settings changes it` }]
               : []),
           ]}
@@ -215,6 +225,8 @@ export function ResultsScreen({ search }: { search: Search }) {
           }}
         />
         <main class="tf-page" id="main">
+          {toStop && shown && <Tabs label="Show" options={RESULTS_TABS} selected={shown} panel={panel} onChoose={(next) => navigate(resultsPath(search, next), { replace: true })} />}
+          <div {...(toStop && shown ? tabPanel(panel, shown) : { class: 'tf-tabpanel' })}>
           <LiveBanners feed={feed} fresh={fresh} showStale={showStale} secondsSinceUpdate={secondsSinceUpdate} />
           {data && <FeedOutages feeds={data.feeds} routeKeys={groups.flatMap(({ routes }) => routes)} routes={data.routes} />}
           {failure && (
@@ -243,6 +255,13 @@ export function ResultsScreen({ search }: { search: Search }) {
               onChoose={(system) => update(({ fromSystem: _system, ...rest }) => (system ? { ...rest, fromSystem: system } : rest))}
             />
           )}
+          {data && 'stop' in data.to && !going && ((data.systems?.to?.length ?? 0) > 1 || search.toSystem) && (
+            <SystemSwitcher
+              label={`At ${shortStopName(data.stops[data.to.stop])}, catch`}
+              selected={search.toSystem}
+              onChoose={(system) => update(({ toSystem: _system, ...rest }) => (system ? { ...rest, toSystem: system } : rest))}
+            />
+          )}
           {data &&
             directionChoices(data.groups, search.off ?? [], data).map((choice) => (
               <DirectionSwitcher
@@ -259,7 +278,7 @@ export function ResultsScreen({ search }: { search: Search }) {
             <SkeletonResults />
           ) : data && (groups.length === 0 || filteredOut) ? (
             <>
-              <EmptyTrip data={data} search={search} summary={summary} walk={settings} update={update} />
+              <EmptyTrip data={data} search={search} summary={summary} going={going} walk={settings} update={update} />
               {fallback && (
                 <section class="tf-section" aria-labelledby="more-changes">
                   <h2 id="more-changes">With more changes</h2>
@@ -290,6 +309,7 @@ export function ResultsScreen({ search }: { search: Search }) {
               </div>
             )
           )}
+          </div>
           <DataCredit />
         </main>
       </div>
@@ -319,7 +339,7 @@ export function ResultsScreen({ search }: { search: Search }) {
 }
 
 // Why nothing showed up, in the rider's terms, with the one thing that might help.
-function EmptyTrip({ data, search, summary, walk, update }: { data: TripResponse; search: Search; summary: ReturnType<typeof summarize>; walk: { maxWalk: number; walkSpeed: number }; update: SearchUpdate }) {
+function EmptyTrip({ data, search, summary, going, walk, update }: { data: TripResponse; search: Search; summary: ReturnType<typeof summarize>; going: boolean; walk: { maxWalk: number; walkSpeed: number }; update: SearchUpdate }) {
   const notice = data.notice;
   const route = summary.toRoute;
   // "the 48", or a BART line by its color.
@@ -327,7 +347,7 @@ function EmptyTrip({ data, search, summary, walk, update }: { data: TripResponse
   const again = (next: number | null, place: string) => (next ? `${place} starts again ${weekdayClock(next)}.` : `${place} does not run in the next few days.`);
   if (notice?.kind === 'idle' && notice.side === 'to') {
     return (
-      <EmptyState title={route ? `${capitalize(toName)} isn't running now` : `Nothing that goes to ${summary.to} is running now`}>
+      <EmptyState title={route ? `${capitalize(toName)} isn't running now` : going ? `Nothing that goes to ${summary.to} is running now` : `Nothing boards at ${summary.to} right now`}>
         <div class="tf-muted">{again(notice.next, route ? 'Service' : 'Service there')}</div>
       </EmptyState>
     );
@@ -371,7 +391,7 @@ function EmptyTrip({ data, search, summary, walk, update }: { data: TripResponse
     );
   }
   // Going to a stop, the trips with more changes follow.
-  if (!route) return <EmptyState title={`No way to ${summary.to} with one transfer or none`} />;
+  if (going) return <EmptyState title={`No way to ${summary.to} with one transfer or none`} />;
   return (
     <EmptyState title={`Nothing from ${summary.from} gets within a short walk of ${toName}`}>
       <div class="tf-muted">{walk.maxWalk < 650 ? 'A longer walk between stops, in Settings, may find one.' : 'Try a stop or route closer to where you start.'}</div>
@@ -380,3 +400,8 @@ function EmptyTrip({ data, search, summary, walk, update }: { data: TripResponse
 }
 
 const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
+const RESULTS_TABS: { key: ResultsView; text: string }[] = [
+  { key: 'trips', text: 'Trips' },
+  { key: 'transfers', text: 'Transfers' },
+];

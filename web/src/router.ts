@@ -5,7 +5,8 @@ import { type Search, isStopSearch, readStored, stopSearch, writeStored } from '
 
 export type Page =
   | { name: 'home' }
-  | { name: 'trip'; search: Search }
+  // `view` is the tab the rider chose for a stop in To (see ResultsScreen).
+  | { name: 'trip'; search: Search; view?: ResultsView }
   // A stop's arrivals, its search with no To (see stopSearch).
   | { name: 'stop'; search: Search }
   | { name: 'nearby' }
@@ -18,6 +19,11 @@ export type Page =
 export const stopPath = (search: Pick<Search, 'from' | 'fromLabel'>) => `/stop/${encodeURIComponent(search.from)}?${new URLSearchParams({ fl: search.fromLabel })}`;
 
 // A trip's own address, or a stop's for a search with no To.
+export type ResultsView = 'trips' | 'transfers';
+
+// A search's results on the tab the rider chose.
+export const resultsPath = (search: Search, view: ResultsView) => `${tripPath(search)}&view=${view}`;
+
 export const searchPath = (search: Search) => (isStopSearch(search) ? stopPath(search) : tripPath(search));
 
 export function parsePage(location: Location): Page {
@@ -53,8 +59,11 @@ export function parsePage(location: Location): Page {
     if (off) search.off = off.split(',');
     const system = (value: string | null) => (value === 'BA' || value === 'SF' ? value : undefined);
     const fromSystem = system(params.get('fm'));
+    const toSystem = system(params.get('tm'));
     if (fromSystem) search.fromSystem = fromSystem;
-    return { name: 'trip', search };
+    if (toSystem) search.toSystem = toSystem;
+    const view = params.get('view');
+    return { name: 'trip', search, ...(view === 'trips' || view === 'transfers' ? { view } : {}) };
   }
   const stop = location.pathname.match(/^\/stop\/([^/]+)$/);
   if (stop) {

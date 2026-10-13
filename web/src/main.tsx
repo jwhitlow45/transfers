@@ -98,7 +98,7 @@ function useLayers(page: Page, peeking: boolean) {
 function screenFor(layer: Layer) {
   const { page } = layer;
   if (page.name === 'home') return <SearchScreen key={layer.homeKey} />;
-  if (page.name === 'trip') return <ResultsScreen key={searchId(page.search)} search={page.search} />;
+  if (page.name === 'trip') return <ResultsScreen key={searchId(page.search)} search={page.search} view={page.view} />;
   if (page.name === 'stop') return <StopScreen key={page.search.from} search={page.search} />;
   if (page.name === 'nearby') return <NearbyScreen />;
   if (page.name === 'settings') return <SettingsScreen />;
