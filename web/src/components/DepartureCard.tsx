@@ -108,7 +108,7 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
         </span>
         {destination && (
           <span class="tf-band__dest" aria-hidden="true">
-            {tripMinutes !== null ? `${destination} · ${tripMinutes}\u00a0min trip` : destination}
+            {tripMinutes !== null ? `${destination} · ${tripMinutes}\u00a0min` : destination}
           </span>
         )}
       </span>
