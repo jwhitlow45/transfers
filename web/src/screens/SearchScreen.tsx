@@ -423,7 +423,8 @@ export function SearchScreen() {
           }}
           // Later, so a tap on a recent stop lands before the list goes.
           onBlur={() => setTimeout(() => setTyping(Boolean(document.activeElement?.closest('.tf-fields'))), 200)}
-          canSwap={!to.picked?.key.startsWith('route:')}
+          // A route cannot be where a trip starts, nor the rider's location where it ends (J, 2026-10-12).
+          canSwap={!to.picked?.key.startsWith('route:') && from.picked?.key !== HERE}
           onSwap={() => {
             setFrom(to);
             setTo(from);
