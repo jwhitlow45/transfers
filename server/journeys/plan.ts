@@ -31,7 +31,9 @@ const PREPARE_AHEAD_SECONDS = 10 * 60;
 // How far a rider walks between a point and a stop, and further when nothing is that close.
 const ACCESS_METERS = 800;
 const FAR_ACCESS_METERS = 1600;
-// Ends closer than this get a walk among their journeys, as do any it gets between soonest.
+// Ends closer than this get a walk among their journeys. Further, a straight line can cross water
+// or a freeway, as from the Ferry Building to Jack London Square, so walking is left out until the
+// planner knows the streets.
 const WALK_ONLY_METERS = 2000;
 // Changing vehicles without leaving the stop.
 const CHANGE_SECONDS = 60;
@@ -87,11 +89,9 @@ export function planJourneys(schedule: Schedule, realtime: RealtimeView, from: E
     journeys = keepBest([...journeys, ...paths.map((path) => journeyOf(schedule, network, latestBoarding(network, path)))]);
     leaveAt = leavesAt(fastest) + 60;
   }
-  // Walking all the way is one of the ways between ends close enough, and between any, when it
-  // gets there first in the hours a search looks ahead. Vehicles it beats drop out.
+  // Walking all the way is one of the ways between ends close enough. Vehicles it beats drop out.
   const walk = walkOnly(from, to, now, options.speed);
-  const soonest = Math.min(now + HORIZON_SECONDS, ...journeys.map(({ arrives }) => arrives));
-  if (walk.meters <= WALK_ONLY_METERS || walk.journey.arrives <= soonest) journeys = keepBest([...journeys, walk.journey]);
+  if (walk.meters <= WALK_ONLY_METERS) journeys = keepBest([...journeys, walk.journey]);
   journeys.sort((a, b) => a.leaves - b.leaves || a.arrives - b.arrives);
   const shown = journeys.slice(0, count);
   // With no way at all, a point no stop is near is why.

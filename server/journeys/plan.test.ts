@@ -142,14 +142,13 @@ test('a journey to a place walks from the nearest stops, and one to a place with
   deepStrictEqual(short.journeys[0], { leaves: NOW, arrives: short.journeys[0]!.arrives, rides: 0, legs: [{ kind: 'walk', from: 'SF:13500', to: null, seconds: short.journeys[0]!.arrives - NOW }] });
 });
 
-test('walking all the way is offered however far when nothing gets there sooner', () => {
-  // Over 2 km apart, a long walk each side of the one stop near both, and walking straight there
-  // is quicker than by way of it. At 10 nothing runs at all.
+test('walking all the way is offered only between ends 2 km or less apart, as a straight line further can cross water', () => {
+  // Over 2 km apart, with a long walk each side of the one stop near both, walking straight there
+  // would be quicker than by way of it, but is not offered. At 10 nothing runs at all.
   const [north, south] = [point(37.7685, -122.3887, 'North'), point(37.7469, -122.3887, 'South')];
   for (const now of [NOW, DAY + 10 * 3600]) {
     const { journeys } = planJourneys(schedule, realtime([], now), north, south, now);
-    deepStrictEqual(journeys.map(({ rides, legs }) => `${rides} ${legs.map(({ kind }) => kind)}`), ['0 walk']);
-    ok(journeys[0]!.arrives - now > 2000 / 1.4);
+    deepStrictEqual(journeys.filter(({ rides }) => rides === 0), []);
   }
 });
 
@@ -169,10 +168,8 @@ test("the feed's predictions time a journey where it has them", () => {
   const train = rideLegs(first.legs)[0]!;
   deepStrictEqual([train.live, train.departDelay], [false, null]);
   // 16 minutes late, it comes after the 8:32, so the rider takes that one and the train before it.
-  // Setting off now, walking there gets in a moment sooner.
   const late = planJourneys(schedule, realtime([fortyEight(3, 960)]), stop('BA:901209'), stop('SF:13700'), NOW).journeys;
-  deepStrictEqual(late.slice(0, 2).map(({ legs }) => rides(legs)), [[], ['BA:Yellow-S 8:20:00', 'SF:48 8:32:00', 'SF:22 8:45:00']]);
-  ok(late[0]!.arrives < late[1]!.arrives);
+  deepStrictEqual(rides(late[0]!.legs), ['BA:Yellow-S 8:20:00', 'SF:48 8:32:00', 'SF:22 8:45:00']);
 });
 
 test('a journey never relies on a canceled trip, or one that has left the stop', () => {

@@ -6,7 +6,8 @@ import type { PatternTrips } from './timetable.ts';
 // stops the last round reached, then walking on to stops nearby. Each round from the first that
 // reaches the end sooner than the rounds before gives one journey: the fastest for that many
 // vehicles. Walking all the way is the planner's to offer, timed straight there rather than by
-// way of stops, so round 0 gives no journey, and leaves out none that is slower than walking.
+// way of stops, so round 0 gives no journey, and its walks to the end leave every vehicle there in
+// for the planner to weigh against walking (see keepBest in plan.ts).
 
 // A stop with the seconds it takes to walk between it and where the rider starts or ends.
 export type Access = { stop: number; seconds: number };
@@ -48,6 +49,12 @@ type Round = { arrived: Float64Array; arrivals: Map<number, Arrival>; ready: Flo
 // be catchable, and one due this long after the best found cannot beat it.
 const LATE_SECONDS = 3600;
 const EARLY_SECONDS = 600;
+// A trip leaving this soon after the first the rider can catch may still pass it, as live times
+// let one run late behind the next, so the scan follows it too. One further behind than this
+// where the soonest arrives is taken to stay behind.
+const OVERTAKE_SECONDS = 600;
+
+type Ride = { trips: PatternTrips; trip: number; board: number; from: number };
 
 // The fastest way to the end for each number of vehicles from one up to `maxRides` that arrives
 // sooner than any with fewer, fewest first, setting off at `leaveAt` and arriving before `latest`.
@@ -74,7 +81,7 @@ export function raptor(network: Network, starts: Access[], ends: Access[], leave
     bestArrived[access.stop] = at;
     round.arrivals.set(access.stop, { kind: 'start', access });
   }
-  let marked = getReady(round, started);
+  let marked = getReady(round, started, true);
   rounds.push(round);
 
   for (let k = 1; k <= maxRides && marked.size > 0; k++) {
@@ -87,33 +94,39 @@ export function raptor(network: Network, starts: Access[], ends: Access[], leave
     }
     const rode: number[] = [];
     // Each list of a pattern's trips on its own, as the first of one to leave a stop may reach the
-    // next after a trip of another. Live times can still put a trip behind the next in its own
-    // list, which the router does not look for.
+    // next after a trip of another. Within a list, live times can still put a trip behind one that
+    // left after it, so the scan follows each trip the rider can catch soon after the first, each
+    // stop counting the soonest of them. A trip that skips a stop carries its riders on past it,
+    // while those waiting there may board another.
     for (const [pattern, from] of queue) {
       const stops = pattern.stops;
       for (const trips of network.trips(pattern)) {
-        let ride: { trips: PatternTrips; trip: number; board: number; from: number } | null = null;
+        let aboard: Ride[] = [];
         for (let position = from; position < stops.length; position++) {
           const stop = stops[position]!;
-          let now = Infinity;
-          if (ride) {
+          let soonest: { ride: Ride; arrives: number } | null = null;
+          for (const ride of aboard) {
             const arrives = network.arrival(trips, ride.trip, position);
-            if (arrives !== null && arrives < Math.min(bestArrived[stop]!, bound)) {
+            if (arrives !== null && (!soonest || arrives < soonest.arrives)) soonest = { ride, arrives };
+          }
+          if (soonest) {
+            const first = soonest.arrives;
+            if (first < Math.min(bestArrived[stop]!, bound)) {
               if (round.arrived[stop] === Infinity) rode.push(stop);
-              round.arrived[stop] = arrives;
-              bestArrived[stop] = arrives;
-              round.arrivals.set(stop, { kind: 'ride', ...ride, alight: position });
+              round.arrived[stop] = first;
+              bestArrived[stop] = first;
+              round.arrivals.set(stop, { kind: 'ride', ...soonest.ride, alight: position });
             }
-            // A trip that skips the stop keeps the rider aboard: with no time there, it cannot be
-            // weighed against one boarded there.
-            const departs = network.departure(trips, ride.trip, position);
-            if (departs === null) continue;
-            now = departs;
+            aboard = aboard.filter((ride) => (network.arrival(trips, ride.trip, position) ?? first) < first + OVERTAKE_SECONDS);
           }
           const ready = previous.ready[stop]!;
-          if (position === stops.length - 1 || ready === Infinity || ready > now) continue;
-          const earlier = earliest(network, trips, position, ready, now);
-          if (earlier !== null) ride = { trips, trip: earlier, board: position, from: stop };
+          if (position === stops.length - 1 || ready === Infinity) continue;
+          // Nothing the rider catches here can pass a trip already aboard that leaves well before.
+          const leaving = Math.min(...aboard.map((ride) => network.departure(trips, ride.trip, position) ?? Infinity));
+          if (ready > leaving + OVERTAKE_SECONDS) continue;
+          for (const trip of catchable(network, trips, position, ready)) {
+            if (!aboard.some((ride) => ride.trip === trip)) aboard.push({ trips, trip, board: position, from: stop });
+          }
         }
       }
     }
@@ -131,7 +144,7 @@ export function raptor(network: Network, starts: Access[], ends: Access[], leave
   // When the rider can board at the stops the round reached, and those a short walk on: changing
   // where a vehicle let them off takes a moment, while a walk counts its own time. Returns the
   // stops where that is sooner than before, for the next round to board at.
-  function getReady({ arrived, arrivals, ready, readiness }: Round, reached: number[]) {
+  function getReady({ arrived, arrivals, ready, readiness }: Round, reached: number[], start = false) {
     const marked = new Set<number>();
     const offer = (stop: number, at: number, how: Readiness) => {
       if (at >= Math.min(bestReady[stop]!, bound)) return;
@@ -145,7 +158,9 @@ export function raptor(network: Network, starts: Access[], ends: Access[], leave
       for (const path of network.footpaths(stop)) {
         const at = arrived[stop]! + path.seconds;
         offer(path.stop, at, { kind: 'walk', from: stop, seconds: path.seconds });
-        bestArrived[path.stop] = Math.min(bestArrived[path.stop]!, at);
+        // Walking from the start to the end bars no vehicle getting there later, which may leave
+        // later too (see the top).
+        if (!(start && endAt.has(path.stop))) bestArrived[path.stop] = Math.min(bestArrived[path.stop]!, at);
       }
     }
     return marked;
@@ -201,8 +216,9 @@ export function raptor(network: Network, starts: Access[], ends: Access[], leave
   }
 }
 
-// The trip of a list that leaves a position soonest at or after `ready`, if before `before`.
-function earliest(network: Network, trips: PatternTrips, position: number, ready: number, before: number) {
+// The trips of a list a rider ready at `ready` can catch at a position: the soonest to leave, and
+// those leaving within OVERTAKE_SECONDS after it.
+function catchable(network: Network, trips: PatternTrips, position: number, ready: number) {
   const width = trips.pattern.stops.length * 2;
   const scheduled = (trip: number) => trips.times[trip * width + position * 2 + 1]!;
   // The first trip scheduled to leave no more than LATE_SECONDS before the rider is ready.
@@ -213,13 +229,14 @@ function earliest(network: Network, trips: PatternTrips, position: number, ready
     if (scheduled(middle) < ready - LATE_SECONDS) low = middle + 1;
     else high = middle;
   }
-  let found: { trip: number; departs: number } | null = null;
+  const found: { trip: number; departs: number }[] = [];
+  let first = Infinity;
   for (let trip = low; trip < trips.keys.length; trip++) {
-    const soonest = Math.min(before, found?.departs ?? Infinity);
-    if (scheduled(trip) > soonest + EARLY_SECONDS) break;
+    if (scheduled(trip) > first + OVERTAKE_SECONDS + EARLY_SECONDS) break;
     const departs = network.departure(trips, trip, position);
-    if (departs === null || departs < ready || departs >= soonest) continue;
-    found = { trip, departs };
+    if (departs === null || departs < ready) continue;
+    found.push({ trip, departs });
+    first = Math.min(first, departs);
   }
-  return found?.trip ?? null;
+  return found.filter(({ departs }) => departs <= first + OVERTAKE_SECONDS).map(({ trip }) => trip);
 }
