@@ -87,6 +87,11 @@ export function visibleDepartures(group: Group, now: number, showHidden: boolean
   return shown;
 }
 
+// Groups with nothing the rider can catch, and no wider window that would find something: no way
+// at all now, unless route filters are why.
+export const nothingCatchable = (groups: Group[], now: number, showHidden: boolean) =>
+  groups.length > 0 && groups.every((group) => !group.widen && visibleDepartures(group, now, showHidden).every(({ canceled }) => canceled));
+
 // Within a minute of the minimum is tight, as the design specifies.
 // A ride straight to the named To stop: a walk group whose departures say when they get there.
 // With a destination set, those times are the destination's instead.

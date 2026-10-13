@@ -31,6 +31,10 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
   // What the rider boards at From, ahead of what they change to, as several can lead to one place
   // to change, and one place to change can follow several (J, 2026-10-12). A walk group has none.
   const firstRoutes = group.kind === 'walk' ? [] : group.firstRoutes.map((key) => data.routes[key]).filter((route) => route !== undefined);
+  // Going to a stop, a pooled group names the routes its departures take, when any do, as it may
+  // hold some that run only at other hours, such as owl buses. Its identity keeps them all.
+  const taken = routes.filter((route) => group.departures.some(({ canceled, route: key }) => !canceled && key === route.key));
+  const titleRoutes = context.going && taken.length > 0 ? taken : routes;
   const colorOf = context.colorOf;
   const departures = visibleDepartures(group, context.now, context.showHidden, true);
   const noun = firstNoun(group, data);
@@ -121,7 +125,7 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
               <span class="tf-sr">then </span>
             </>
           )}
-          {chips(routes, colorOf)}
+          {chips(titleRoutes, colorOf)}
           {/* Going to a stop, every vehicle in a group heads the rider's way, so the header names no
               direction, and each departure says where it goes. Catching a route, the direction is
               the choice (J, 2026-10-12). */}

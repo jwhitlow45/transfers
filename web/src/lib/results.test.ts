@@ -1,7 +1,7 @@
 import { deepStrictEqual } from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Connection, Departure, Group } from '../../../shared/api.ts';
-import { cardLeft, listedConnections, orderGroups, tripSeconds, visibleDepartures } from './results.ts';
+import { cardLeft, listedConnections, nothingCatchable, orderGroups, tripSeconds, visibleDepartures } from './results.ts';
 
 const at = (hour: number, minute: number) => (hour * 60 + minute) * 60;
 const connection = (trip: string, departs: number): Connection => ({ trip, route: 'BA:Yellow', departs, departDelay: 0, arrives: departs + 480, arriveDelay: 0, live: true, transfer: 4 });
@@ -75,4 +75,13 @@ test('a trip takes from the last vehicle that still makes it, or with none, from
   // A bus straight there, leaving at 8:05 and there at 8:20, after a 2 minute walk to it.
   deepStrictEqual(tripSeconds(departure('w1', at(8, 5), [], at(8, 20)), true, 120, now), 17 * 60);
   deepStrictEqual(tripSeconds(departure('w2', at(8, 5), []), true, 120, now), null);
+});
+
+test('groups with nothing left to catch, and no wider window offered, are no way at all', () => {
+  // At 9:00 every bus in the group has left.
+  deepStrictEqual(nothingCatchable([group], at(9, 0) * 1000, false), true);
+  deepStrictEqual(nothingCatchable([group], now, false), false);
+  // A window too narrow is not why there is nothing: widening is the way.
+  deepStrictEqual(nothingCatchable([{ ...group, widen: { min: 3, max: 20 } } as Group], at(9, 0) * 1000, false), false);
+  deepStrictEqual(nothingCatchable([], now, false), false);
 });

@@ -52,6 +52,14 @@ export function JourneyResults({ journeys, search, now, dismissedIds, onDismiss 
       )}
       {data && <AlertList key={`${search.from}>${search.to}`} alerts={alerts} dismissed={allAlerts.length - alerts.length} onDismiss={onDismiss} />}
       {!data && !failure && feed === 'loading' && <SkeletonResults />}
+      {/* No answer for want of a connection, which the banner above says, with a way to try again. */}
+      {!data && !failure && feed === 'offline' && (
+        <EmptyState alert title="Can’t load trips. Check your connection.">
+          <button type="button" class="tf-btn-outline tf-btn-secondary" onClick={journeys.refresh}>
+            Retry
+          </button>
+        </EmptyState>
+      )}
       {data && <JourneyList data={data} now={now} toLabel={search.toLabel} />}
       {outagesOpen && data && <OutageSheet outages={outagesOpen} data={data} onClose={() => setOutagesOpen(null)} />}
     </>

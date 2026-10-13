@@ -23,7 +23,7 @@ import { type StationOutages, groupStops, outagesByStation } from '../lib/outage
 import { ringsBell } from '../lib/eggs.ts';
 import { liveClock } from '../lib/freshness.ts';
 import { IconFilter, IconFlag, IconHidden } from '../icons/ui.tsx';
-import { type CardContext, chooseDirection, directionChoices, hintKey, orderGroups, pageColors, pointId, scaleFor, timeScale, visibleDepartures } from '../lib/results.ts';
+import { type CardContext, chooseDirection, directionChoices, hintKey, nothingCatchable, orderGroups, pageColors, pointId, scaleFor, timeScale, visibleDepartures } from '../lib/results.ts';
 import { summarize } from '../lib/summary.ts';
 import { type ResultsView, cameBackTo, goBack, navigate, resultsPath } from '../router.ts';
 import { matchesServerDefaults, useSettings } from '../settings.tsx';
@@ -154,12 +154,16 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
   // connects, which is not so, and offer hidden connections, which the filters hide too, so the
   // page says the filters are why instead. A window too narrow says so in its group, with Widen.
   const filtering = Boolean(search.firstRoutes?.length || search.secondRoutes?.length);
-  const filteredOut = filtering && groups.length > 0 && groups.every((group) => !group.widen && visibleDepartures(group, now, showHidden).every(({ canceled }) => canceled));
+  const noneCatchable = nothingCatchable(groups, now, showHidden);
+  const filteredOut = filtering && noneCatchable;
   const routeNames = (keys: string[] | undefined) => keys?.map((key) => (data?.routes[key] ? spokenRoute(data.routes[key]!) : null)).filter(Boolean).join(' or ');
-  // No way to the stop with one change or none, at this hour or any, so the trip planner's ways
-  // with more follow (J, 2026-10-12).
-  const fallback = going && data !== null && groups.length === 0 && (data.notice?.kind === 'unreachable' || data.notice?.kind === 'idle');
+  // No way to the stop with one change or none, at this hour or any, or ways with nothing running
+  // on them now, as at 2 AM, so the trip planner's ways with more follow (J, 2026-10-12). Not where
+  // the rider's route filters, or a transfer window too narrow, are why.
+  const noWays = going && !filtering && noneCatchable;
+  const fallback = going && data !== null && !filtering && (groups.length === 0 ? data.notice?.kind === 'unreachable' || data.notice?.kind === 'idle' : noWays);
   const journeys = useJourneys(search, fallback);
+  const tripsClock = liveClock({ data: journeys.data, fetchedAt: journeys.fetchedAt, settled: journeys.settled }, deviceNow);
   const firstNames = routeNames(search.firstRoutes);
   const secondNames = routeNames(search.secondRoutes);
   const filterText =
@@ -278,13 +282,16 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
             ))}
           {!data && feed === 'loading' ? (
             <SkeletonResults />
-          ) : data && (groups.length === 0 || filteredOut) ? (
+          ) : data && (groups.length === 0 || filteredOut || noWays) ? (
             <>
-              <EmptyTrip data={data} search={search} summary={summary} going={going} walk={settings} update={update} />
+              <EmptyTrip data={data} search={search} summary={summary} going={going} noWays={noWays} walk={settings} update={update} />
               {fallback && (
                 <section class="tf-section" aria-labelledby="more-changes">
                   <h2 id="more-changes">With more changes</h2>
-                  <LazyJourneyResults journeys={journeys} search={search} now={now} dismissedIds={dismissedIds} onDismiss={dismiss} />
+                  {/* Asked for apart from the results above, so they say for themselves when they are old.
+                      With none yet, the trips below say why. */}
+                  {journeys.data && <LiveBanners feed={journeys.feed} fresh={tripsClock.fresh} showStale={tripsClock.showStale} secondsSinceUpdate={tripsClock.secondsSinceUpdate} />}
+                  <LazyJourneyResults journeys={journeys} search={search} now={tripsClock.now} dismissedIds={dismissedIds} onDismiss={dismiss} />
                 </section>
               )}
             </>
@@ -341,12 +348,14 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
 }
 
 // Why nothing showed up, in the rider's terms, with the one thing that might help.
-function EmptyTrip({ data, search, summary, going, walk, update }: { data: TripResponse; search: Search; summary: ReturnType<typeof summarize>; going: boolean; walk: { maxWalk: number; walkSpeed: number }; update: SearchUpdate }) {
+function EmptyTrip({ data, search, summary, going, noWays, walk, update }: { data: TripResponse; search: Search; summary: ReturnType<typeof summarize>; going: boolean; noWays: boolean; walk: { maxWalk: number; walkSpeed: number }; update: SearchUpdate }) {
   const notice = data.notice;
   const route = summary.toRoute;
   // "the 48", or a BART line by its color.
   const toName = route ? (route.agency === 'BA' ? `the ${route.name} line` : `the ${summary.to}`) : summary.to;
   const again = (next: number | null, place: string) => (next ? `${place} starts again ${weekdayClock(next)}.` : `${place} does not run in the next few days.`);
+  // Going to a stop, ways with nothing running on them now are none.
+  if (noWays) return <EmptyState title={`No way to ${summary.to} with one transfer or none right now`} />;
   if (notice?.kind === 'idle' && notice.side === 'to') {
     return (
       <EmptyState title={route ? `${capitalize(toName)} isn't running now` : going ? `Nothing that goes to ${summary.to} is running now` : `Nothing boards at ${summary.to} right now`}>
