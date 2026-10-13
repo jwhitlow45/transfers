@@ -205,11 +205,17 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
     const second = secondLegs(context, linkForRoutes, going ? destinationStops(schedule, toStop!) : destination ? schedule.boardingStops(destination) : reaching, true);
     let departures: Departure[];
     let widen: { min: number; max: number } | null = null;
+    // Whether anything on this way runs that a rider could still catch and change from, whatever
+    // their window or hiding, so a page going to a stop can tell no service, as at 2 AM, from its
+    // own settings leaving nothing.
+    let runs: boolean;
     if (link.kind === 'walk') {
       // The rider's "hide departures under N" counts here too, alongside the walk itself.
       departures = walkDepartures(second, now, Math.max(link.defaultMinutes, request.hide ?? 0));
+      runs = second.some(({ canceled, at }) => !canceled && at >= now);
     } else {
       const first = firstLegs(context, linkForRoutes, firstFilter);
+      runs = first.some((vehicle) => !vehicle.canceled && vehicle.departs >= now && second.some(({ canceled, at }) => !canceled && at >= vehicle.arrives));
       const pairing = { now, min, max, hide: request.hide ?? 0, count: DEPARTURES_PER_GROUP, showHidden: request.hidden ?? false, soonestThere: going, ...(boardWalk ? { boardWalk } : {}) };
       departures = pairConnections(first, second, pairing);
       widen = connects(departures, now) ? null : widenWindow(first, second, pairing);
@@ -243,6 +249,9 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
     }
     groups.push({
       ...(link.kind === 'walk' ? { kind: 'walk' as const } : {}),
+      // Going to a stop, a group is the place it boards, whichever routes run there at this hour.
+      ...(going ? { key: `${link.kind}>${stopKeyOf(link.board)}` } : {}),
+      ...(going && !runs ? { idle: true as const } : {}),
       alight: tables.stop(link.alight),
       board: tables.stop(link.board),
       routes: routes.map((route) => tables.route(route)),

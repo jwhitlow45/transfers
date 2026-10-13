@@ -317,3 +317,18 @@ test('going to a stop, the first vehicle may pick the rider up across the street
   ok(response.stops['SF:across']);
   schedule.close();
 });
+
+test('going to a stop, a route straight there from across the street counts the walk across', () => {
+  const schedule = build(
+    [
+      ['from', 0, true],
+      ['across', 0, false],
+      ['to', 1500, false],
+    ],
+    [{ id: 's', route: 'S', direction: 0, headsign: 'East', sequence: ['across', 'to'], count: 1 }],
+  );
+  const [link] = findLinks(schedule, schedule.stopsByKey.get('SF:from')!, { destination: schedule.stopsByKey.get('SF:to')! });
+  deepStrictEqual([link?.kind, link?.board.stopId], ['walk', 'across']);
+  ok(link!.walkMeters > 15 && link!.defaultMinutes >= 1);
+  schedule.close();
+});

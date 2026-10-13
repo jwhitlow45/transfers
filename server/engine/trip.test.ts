@@ -396,6 +396,17 @@ test('the trips to a station a block away say it is a walk, and those to one fur
   deepStrictEqual([glenPark.kind, departure.destination], ['walk', departure.at + 240]);
 });
 
+test('the trips to a stop say when nothing on a way runs, whatever the window, and name each way by where it boards', () => {
+  // At 11, BART here has stopped for the day, though the 48 runs again from 2.
+  const late = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13500', view: 'trips' }, DAY + 11 * 3600);
+  deepStrictEqual(late.groups.map(({ idle, key }) => ({ idle, key })), [{ idle: true, key: 'ride>SF:13477' }]);
+  // At 8 it runs, so a window nothing fits is the rider's own doing, not a lack of service.
+  const strict = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13500', view: 'trips', min: 30, max: 30 }, NOW);
+  deepStrictEqual(strict.groups.map(({ idle }) => idle), [undefined]);
+  // Transfers groups keep the identity they always had.
+  strictEqual(planTrip(schedule, realtime(), { from: 'BA:901209', to: 'route:SF:48' }, NOW).groups[0]!.key, undefined);
+});
+
 test('with nothing typed, From lists the stops nearest the rider, and how far each is', () => {
   // On 24th St, a few steps east of Mission.
   const near = search(schedule, '', { routes: false, near: { lat: 37.752178, lon: -122.41845 } }).results.map((result) => (result.type === 'stop' ? `${result.key} ${result.meters}` : ''));

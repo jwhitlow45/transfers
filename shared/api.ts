@@ -115,6 +115,12 @@ export type Group = {
   // walk: the route already stops at or near From, so there is no first vehicle. alight is then
   // From, and departures have no connections.
   kind?: 'walk';
+  // On a stop's trips tab: the group's identity, the place it boards, which holds as the routes
+  // running there change with the hour (see pointId).
+  key?: string;
+  // On a stop's trips tab: nothing on this way runs that the rider could catch, whatever their
+  // transfer window or hiding.
+  idle?: true;
   // Stop keys: where the rider gets off the first vehicle and boards the second.
   alight: string;
   board: string;

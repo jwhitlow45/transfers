@@ -138,9 +138,11 @@ export function findLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow
   const origins = schedule.boardingStops(from, settings.fromAgencies ?? null);
   // Going to a stop, a first vehicle may also pick the rider up on From's corner, such as across
   // the street, as Muni stops serve one direction and the way back from somewhere starts on the
-  // other side. Not where the rider chose BART or Muni Metro at a shared station.
+  // other side. Not where the rider chose BART or Muni Metro at a shared station. Walks to a route
+  // still count from From itself, so crossing to its stop takes its time.
+  const pickups = [...origins];
   if ('destination' in to && !settings.fromAgencies?.size) {
-    for (const stop of destinationStops(schedule, from)) if (!origins.includes(stop)) origins.push(stop);
+    for (const stop of destinationStops(schedule, from)) if (!pickups.includes(stop)) pickups.push(stop);
   }
   // A stop a walk from From is no place to ride to.
   if ('destination' in to && walkTo(schedule, from, to.destination, context.maxWalk) !== null) return [];
@@ -156,7 +158,7 @@ export function findLinks(schedule: Schedule, from: StopRow, to: { stop: StopRow
   const targets = runningTargets(
     'stop' in to ? stopTargets(schedule, to.stop, settings.toAgencies ?? null) : 'route' in to ? routeTargets(schedule, to.route) : destinationTargets(schedule, endStops!),
   );
-  const feeders: Feeder[] = origins.flatMap((originStop) =>
+  const feeders: Feeder[] = pickups.flatMap((originStop) =>
     schedule
       .boardingPatterns(originStop.id)
       .filter(({ pattern }) => runs(pattern))
