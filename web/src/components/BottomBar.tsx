@@ -17,8 +17,8 @@ export function BottomBar({ windowText, saved, failed = false, onBack, onOpen, o
   failed?: boolean;
   onBack: () => void;
   onOpen?: () => void;
-  // Without it there is nothing to save, as for trips from a place or the rider's location, which
-  // Home's saved cards cannot follow.
+  // Without it there is nothing to save, as for trips from the rider's location, which Home's saved
+  // cards cannot follow.
   onToggleSaved?: () => void;
   children?: ComponentChildren;
 }) {

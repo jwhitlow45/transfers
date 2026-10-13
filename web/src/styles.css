@@ -247,7 +247,6 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-results { border: var(--border-strong) solid var(--line); margin-top: calc(-1 * var(--space-2)); }
 .tf-results__label { padding: var(--space-2) var(--space-4); font-size: var(--text-sm); color: var(--muted); border-bottom: var(--border-hair) solid var(--divider); }
 .tf-result--here .tf-result__name { display: inline-flex; align-items: center; gap: var(--space-2); }
-.tf-results__credit { padding: var(--space-2) var(--space-4); font-size: var(--text-xs); color: var(--muted); border-top: var(--border-hair) solid var(--divider); }
 .tf-result { display: flex; flex-direction: column; gap: var(--space-1); width: 100%; text-align: left; padding: var(--space-3) var(--space-4); min-height: 64px; border-bottom: var(--border-hair) solid var(--divider); }
 @media (hover: hover) { .tf-result:hover { background: color-mix(in srgb, var(--text) 5%, transparent); } }
 /* The match Enter would take, marked so the rider knows before pressing it. */

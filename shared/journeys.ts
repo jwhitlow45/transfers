@@ -1,13 +1,11 @@
 import type { AccessOutage, Alert, FeedStatus, Route, Stop } from './api.ts';
 
-// Trips with any number of vehicles, between any two of a stop, a place found by name, or where the
-// rider is (J, 2026-10-12), from /api/journeys. Times are unix seconds, as in api.ts.
+// Trips with any number of vehicles, from a stop or where the rider is to a stop (J, 2026-10-12),
+// from /api/journeys. Times are unix seconds, as in api.ts.
 
-// Where a trip starts or ends, as a request names it: a stop by its key, a place by "place:" and
-// its id, or a point on the map by "@lat,lon", such as where the phone says the rider is.
-export const placeEnd = (id: string) => `place:${id}`;
+// Where a trip starts or ends, as a request names it: a stop by its key, or a point on the map by
+// "@lat,lon", such as where the phone says the rider is.
 export const pointEnd = (lat: number, lon: number) => `@${lat.toFixed(4)},${lon.toFixed(4)}`;
-export const isStopEnd = (end: string) => !end.startsWith('place:') && !end.startsWith('@');
 
 // Where a trip starts or ends, as an answer gives it: a stop, by key, or a point the rider walks
 // from or to, with its name.
@@ -61,7 +59,3 @@ export type JourneysResponse = {
   notice?: JourneysNotice;
   feeds: FeedStatus[];
 };
-
-// A place found by name, from OpenStreetMap, credited wherever one shows. `kind` says what it is in
-// a word or two ("Café", "Museum"), and `street` where it is, when OpenStreetMap knows.
-export type PlaceResult = { id: string; name: string; kind: string; street: string | null; lat: number; lon: number };

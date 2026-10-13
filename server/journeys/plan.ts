@@ -1,5 +1,5 @@
 import type { AgencyId } from '../../shared/api.ts';
-import type { Journey, JourneyEnd, JourneyLeg, JourneysResponse, PlaceResult } from '../../shared/journeys.ts';
+import type { Journey, JourneyEnd, JourneyLeg, JourneysResponse } from '../../shared/journeys.ts';
 import { walkSeconds } from '../../shared/walk.ts';
 import { arrivalStops, headingOf, walkPoints } from '../engine/links.ts';
 import { type AccessNeeds, type RealtimeView, SAME_RUN_SECONDS, serviceStatus, stationOutages } from '../engine/realtime-view.ts';
@@ -15,7 +15,7 @@ import { type Access, type Network, type Path, type RideLeg, raptor } from './ra
 import { type PatternTrips, timetableFor } from './timetable.ts';
 
 // Where a journey starts or ends, as the planner takes it: a stop, or a point the rider walks from
-// or to, such as where they are or a place they searched for.
+// or to, such as where they are.
 export type Endpoint = { kind: 'stop'; stop: StopRow } | { kind: 'point'; name: string; at: Point };
 
 export type JourneyOptions = WalkSettings & AccessNeeds & { maxRides?: number; count?: number };
@@ -42,25 +42,19 @@ const CHANGE_WORTH_SECONDS = 5 * 60;
 // At most this many searches for each journey asked for, as many a search finds only journeys
 // another beats.
 const MAX_SEARCHES_PER_JOURNEY = 3;
-// Enough for "Your location" or a place's name. A label comes back in the answer, so it is capped.
+// Enough for "Your location". A label comes back in the answer, so it is capped.
 const MAX_LABEL_LENGTH = 100;
 
-// Both ends as a request names them (see placeEnd and pointEnd in shared/journeys.ts), each point
-// with the label the page shows for it. `place` finds a place in the place list by id.
-export function readEnds(schedule: Schedule, params: URLSearchParams, place: (id: string) => PlaceResult | null) {
+// Both ends as a request names them (see pointEnd in shared/journeys.ts), each point with the label
+// the page shows for it.
+export function readEnds(schedule: Schedule, params: URLSearchParams) {
   const [from, to] = [params.get('from'), params.get('to')];
   if (!from || !to) throw new RequestError(400, 'Send from and to');
   if (from === to) throw new RequestError(400, 'From and To are the same place');
-  return { from: readEnd(schedule, from, params.get('fl'), place), to: readEnd(schedule, to, params.get('tl'), place) };
+  return { from: readEnd(schedule, from, params.get('fl')), to: readEnd(schedule, to, params.get('tl')) };
 }
 
-function readEnd(schedule: Schedule, value: string, label: string | null, place: (id: string) => PlaceResult | null): Endpoint {
-  if (value.startsWith('place:')) {
-    const found = place(value.slice('place:'.length));
-    // The list is rebuilt weekly, and a place gone from OpenStreetMap leaves with it.
-    if (!found) throw new RequestError(404, 'That place is not in the list anymore');
-    return { kind: 'point', name: found.name, at: { lat: found.lat, lon: found.lon } };
-  }
+function readEnd(schedule: Schedule, value: string, label: string | null): Endpoint {
   if (value.startsWith('@')) {
     const [, lat, lon] = (value.match(/^@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/) ?? []).map(Number);
     if (lat === undefined || lon === undefined || Math.abs(lat) > 90 || Math.abs(lon) > 180) throw new RequestError(400, 'That is not a place on the map');

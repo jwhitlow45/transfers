@@ -83,8 +83,8 @@ export function SearchFields({ from, to, onFrom, onTo, onFocus, onBlur, onEnter,
       <div class="tf-fields__stack">
         {/* The keyboard's Enter says where it goes: from From on to To, and from To to the results
             once From is picked. */}
-        <Field id="field-from" label="From" value={from} placeholder="Stop, place, or your location" enterKeyHint="next" onChange={onFrom} onFocus={() => onFocus('from')} onBlur={onBlur} onEnter={() => onEnter('from')} />
-        <Field id="field-to" label="To" value={to} placeholder="Stop, route, or place" enterKeyHint={from.meta ? 'go' : 'next'} onChange={onTo} onFocus={() => onFocus('to')} onBlur={onBlur} onEnter={() => onEnter('to')} />
+        <Field id="field-from" label="From" value={from} placeholder="Stop, stop code, or your location" enterKeyHint="next" onChange={onFrom} onFocus={() => onFocus('from')} onBlur={onBlur} onEnter={() => onEnter('from')} />
+        <Field id="field-to" label="To" value={to} placeholder="Stop, stop code, or route" enterKeyHint={from.meta ? 'go' : 'next'} onChange={onTo} onFocus={() => onFocus('to')} onBlur={onBlur} onEnter={() => onEnter('to')} />
       </div>
       <button type="button" class="tf-swap" onClick={onSwap} disabled={!canSwap} aria-label="Swap From and To">
         <IconSwap />

@@ -1,6 +1,5 @@
-// 511's data agreement requires this credit next to the data, and OpenStreetMap's license asks for
-// its own wherever its places show (`places`).
-export function DataCredit({ places = false }: { places?: boolean }) {
+// 511's data agreement requires this credit next to the data.
+export function DataCredit() {
   return (
     <footer class="tf-credit">
       <span>
@@ -15,15 +14,6 @@ export function DataCredit({ places = false }: { places?: boolean }) {
           BART
         </a>
       </span>
-      {places && (
-        <span>
-          Places ©{' '}
-          <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">
-            OpenStreetMap
-          </a>{' '}
-          contributors
-        </span>
-      )}
     </footer>
   );
 }

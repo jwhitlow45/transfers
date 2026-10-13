@@ -1,8 +1,5 @@
 import { useState } from 'preact/hooks';
 import type { Route, RouteSearchResult, RouteStops, SearchResponse, StopSearchResult } from '../../../shared/api.ts';
-import type { PlaceResult } from '../../../shared/journeys.ts';
-import { metersFrom } from '../../../shared/projection.ts';
-import type { Position } from '../lib/location.ts';
 import { agencyName, spokenRoute } from '../view.ts';
 import { Segmented } from './DirectionSwitcher.tsx';
 import { RouteChip } from './RouteChip.tsx';
@@ -40,37 +37,19 @@ const hitsCount = (query: string, count: number, includesRoutes: boolean) =>
 
 const alongLabel = (route: Route) => `${route.agency === 'BA' ? 'Stations' : 'Stops'} on the ${spokenRoute(route)}`;
 
-// What a screen reader hears of an answer: each route's stops, then the stops and places that
-// match, as StopResults shows them (see SearchScreen).
+// What a screen reader hears of an answer: each route's stops, then the stops that match, as
+// StopResults shows them (see SearchScreen).
 export function searchCount(query: string, response: SearchResponse, includesRoutes: boolean) {
-  const [hits, places] = [response.results.length, response.places?.length ?? 0];
+  const hits = response.results.length;
   const routes = (response.along ?? []).flatMap(({ route }) => (response.routes[route] ? [alongLabel(response.routes[route])] : []));
-  const placeCount = places === 1 ? '1 place' : `${places} places`;
-  const matches =
-    places > 0
-      ? hits === 0
-        ? `${placeCount} ${places === 1 ? 'matches' : 'match'} “${query}”`
-        : `${hitsCount(query, hits, includesRoutes)}, and ${placeCount}`
-      : hits > 0 || routes.length === 0
-        ? hitsCount(query, hits, includesRoutes)
-        : null;
-  return [...routes, ...(matches ? [matches] : [])].join('. ');
+  return [...routes, ...(hits > 0 || routes.length === 0 ? [hitsCount(query, hits, includesRoutes)] : [])].join('. ');
 }
 
 // A plain list of buttons, counted for screen readers by Home's live region (see searchCount). It
 // is not a listbox, since there is no arrow-key model to go with one.
-export function StopResults({ query, response, onPick, onPickPlace, includesRoutes, near }: {
-  query: string;
-  response: SearchResponse;
-  onPick: (hit: SearchHit) => void;
-  onPickPlace: (place: PlaceResult) => void;
-  includesRoutes: boolean;
-  // Where the phone says the rider is, when location is already allowed, for how far each place is.
-  near: Position | null;
-}) {
+export function StopResults({ query, response, onPick, includesRoutes }: { query: string; response: SearchResponse; onPick: (hit: SearchHit) => void; includesRoutes: boolean }) {
   const hits = response.results;
   const along = response.along ?? [];
-  const places = response.places ?? [];
   const label = hitsCount(query, hits.length, includesRoutes);
   return (
     <>
@@ -78,9 +57,7 @@ export function StopResults({ query, response, onPick, onPickPlace, includesRout
         <RouteStopList key={route.route} along={route} response={response} onPick={onPick} />
       ))}
       {/* Enter takes the first match, except under a route's own stop list (see SearchScreen). */}
-      {(hits.length > 0 || along.length === 0) && (places.length === 0 || hits.length > 0) && <HitList label={label} hits={hits} response={response} onPick={onPick} enterTakesFirst={along.length === 0} />}
-      {places.length > 0 && <PlaceList places={places} near={near} onPick={onPickPlace} enterTakesFirst={hits.length === 0 && along.length === 0} />}
-
+      {(hits.length > 0 || along.length === 0) && <HitList label={label} hits={hits} response={response} onPick={onPick} enterTakesFirst={along.length === 0} />}
     </>
   );
 }
@@ -170,44 +147,4 @@ function HitList({ label, hits, response, onPick, enterTakesFirst }: {
       </div>
     </div>
   );
-}
-
-// Places found by name, from OpenStreetMap, which its credit names under the list, as its license
-// asks wherever its data shows. A place is somewhere to walk to or from, so it has no routes. How far
-// away each is tells apart a chain's branches, as OpenStreetMap often has no street for them.
-function PlaceList({ places, near, onPick, enterTakesFirst }: { places: PlaceResult[]; near: Position | null; onPick: (place: PlaceResult) => void; enterTakesFirst: boolean }) {
-  return (
-    <div class="tf-results" role="region" aria-label="Places">
-      <div class="tf-results__label">Places</div>
-      <div role="list">
-        {places.map((place, index) => (
-          <div role="listitem" key={place.id}>
-            <button type="button" class={`tf-result${enterTakesFirst && index === 0 ? ' tf-result--enter' : ''}`} onClick={() => onPick(place)}>
-              <span class="tf-result__top">
-                <span class="tf-result__name">
-                  {place.name}
-                  {enterTakesFirst && index === 0 && <span class="tf-sr"> (Enter picks this)</span>}
-                </span>
-                <span class="tf-result__code">{place.kind}</span>
-              </span>
-              {(place.street || near) && <span class="tf-result__dir">{[near && distanceText(near, place), place.street].filter(Boolean).join(' · ')}</span>}
-            </button>
-          </div>
-        ))}
-      </div>
-      <div class="tf-results__credit">
-        ©{' '}
-        <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">
-          OpenStreetMap
-        </a>{' '}
-        contributors
-      </div>
-    </div>
-  );
-}
-
-// "450 m away", or "2.3 km away" past a kilometer.
-function distanceText(near: Position, place: Position) {
-  const meters = Math.hypot(...metersFrom(near, place));
-  return meters < 1000 ? `${Math.max(10, Math.round(meters / 10) * 10)} m away` : `${(meters / 1000).toFixed(1)} km away`;
 }

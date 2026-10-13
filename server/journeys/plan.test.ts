@@ -133,11 +133,11 @@ test('a journey from where the rider is walks to the nearest stops first', () =>
   ok(slow.kind === 'walk' && walk.kind === 'walk' && slow.seconds > walk.seconds);
 });
 
-test('a journey to a place walks from the nearest stops, and one to a place within a walk offers the walk', () => {
-  const toPlace = planJourneys(schedule, realtime(), stop('BA:901209'), point(37.7585, -122.3887, 'Dogpatch Saloon'), NOW);
-  const last = toPlace.journeys[0]!.legs.at(-1)!;
+test('a journey to a point on the map walks from the nearest stops, and one to a point within a walk offers the walk', () => {
+  const toPoint = planJourneys(schedule, realtime(), stop('BA:901209'), point(37.7585, -122.3887, 'Dogpatch'), NOW);
+  const last = toPoint.journeys[0]!.legs.at(-1)!;
   deepStrictEqual([last.kind, last.kind === 'walk' && last.from, last.kind === 'walk' && last.to], ['walk', 'SF:13700', null]);
-  deepStrictEqual(toPlace.to, { kind: 'point', name: 'Dogpatch Saloon', lat: 37.7585, lon: -122.3887 });
+  deepStrictEqual(toPoint.to, { kind: 'point', name: 'Dogpatch', lat: 37.7585, lon: -122.3887 });
   const short = planJourneys(schedule, realtime(), stop('SF:13500'), point(37.7535, -122.405, 'Corner'), NOW);
   deepStrictEqual(short.journeys[0], { leaves: NOW, arrives: short.journeys[0]!.arrives, rides: 0, legs: [{ kind: 'walk', from: 'SF:13500', to: null, seconds: short.journeys[0]!.arrives - NOW }] });
 });
@@ -243,10 +243,9 @@ test('the days a search will read are loaded ahead of it, the next one by evenin
   deepStrictEqual(await prepareJourneys(() => null, NOW), []);
 });
 
-test('ends are read as a stop, a place by id or a point, and a bad one is turned away plainly', () => {
-  const place = (id: string) => (id === 'n1' ? { id, name: 'Philz Coffee', kind: 'Cafe', street: null, lat: 37.7525, lon: -122.4182 } : null);
-  const read = (params: Record<string, string>) => readEnds(schedule, new URLSearchParams(params), place);
-  deepStrictEqual(read({ from: 'SF:13477', to: 'place:n1' }), { from: stop('SF:13477'), to: point(37.7525, -122.4182, 'Philz Coffee') });
+test('ends are read as a stop or a point, and a bad one is turned away plainly', () => {
+  const read = (params: Record<string, string>) => readEnds(schedule, new URLSearchParams(params));
+  deepStrictEqual(read({ from: '@37.7525,-122.4182', to: 'SF:13477' }), { from: point(37.7525, -122.4182), to: stop('SF:13477') });
   deepStrictEqual(read({ from: '@37.7521,-122.4191', to: '@37.7585,-122.3887', tl: '  Dogpatch Saloon ' }), { from: point(37.7521, -122.4191), to: point(37.7585, -122.3887, 'Dogpatch Saloon') });
   strictEqual((read({ from: '@37.7521,-122.4191', to: 'SF:13700', fl: 'x'.repeat(500) }).from as { name: string }).name.length, 100);
   const refused = (params: Record<string, string>, status: number, message: string) =>
@@ -254,6 +253,6 @@ test('ends are read as a stop, a place by id or a point, and a bad one is turned
   refused({ from: 'SF:13477' }, 400, 'Send from and to');
   refused({ from: 'SF:13477', to: 'SF:13477' }, 400, 'From and To are the same place');
   refused({ from: 'SF:13477', to: 'SF:99999' }, 404, 'No stop SF:99999');
-  refused({ from: 'SF:13477', to: 'place:w2' }, 404, 'That place is not in the list anymore');
+  refused({ from: 'SF:13477', to: 'place:w2' }, 404, 'No stop place:w2');
   for (const to of ['@91,0', '@37.75,-200', '@37.75', '@37.75,-122.4,1', '@north,west']) refused({ from: 'SF:13477', to }, 400, 'That is not a place on the map');
 });

@@ -8,16 +8,15 @@ import { useSwipeBack } from '../gestures.ts';
 import { useNow } from '../hooks.ts';
 import { LazyJourneyResults } from '../journeys/LazyJourneyResults.tsx';
 import { useJourneys } from '../journeys/useJourneys.ts';
-import { endKind } from '../lib/ends.ts';
 import { failureOf } from '../lib/failure.ts';
 import { liveClock } from '../lib/freshness.ts';
 import { useSearchRecords } from '../records.ts';
 import { goBack } from '../router.ts';
 import { type Search, rememberRecent } from '../storage.ts';
 
-// Trips from or to a place or wherever the rider is, which only the trip planner answers (J,
-// 2026-10-12). Opened again from Recent, a trip from where the rider is starts wherever they are
-// then, as the page looks it up each time.
+// Trips from wherever the rider is, which only the trip planner answers (J, 2026-10-12). Opened
+// again from Recent, a trip from where the rider is starts wherever they are then, as the page
+// looks it up each time.
 export function JourneysScreen({ search }: { search: Search }) {
   const journeys = useJourneys(search, true);
   const { data, error, fetchedAt, feed, settled, refresh } = journeys;
@@ -44,7 +43,7 @@ export function JourneysScreen({ search }: { search: Search }) {
         <main class="tf-page" id="main">
           <LiveBanners feed={feed} fresh={fresh} showStale={showStale} secondsSinceUpdate={secondsSinceUpdate} />
           <LazyJourneyResults journeys={journeys} search={search} now={now} dismissedIds={dismissedIds} onDismiss={dismiss} />
-          <DataCredit places={[search.from, search.to].some((key) => endKind(key) === 'place')} />
+          <DataCredit />
         </main>
       </div>
       <BottomBar windowText={null} saved={false} failed={failure !== null && !data} onBack={() => goBack()}>

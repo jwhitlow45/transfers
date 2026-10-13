@@ -17,7 +17,6 @@ import { type TripRequest, destinations, planTrip, wayBack } from './engine/trip
 import { LONGEST_WALK_METERS, type WalkSettings } from './engine/walk.ts';
 import { RequestError } from './http.ts';
 import { planJourneys, prepareJourneys, readEnds } from './journeys/plan.ts';
-import { PlaceStore } from './places/store.ts';
 import { KeyPool } from './realtime/keys.ts';
 import { Realtime } from './realtime/manager.ts';
 import { sendJson } from './json.ts';
@@ -27,7 +26,6 @@ import { nowSeconds } from './time.ts';
 const pool = new KeyPool(requireApiKeys(), join(config.dataDir, 'key-usage.json'));
 const realtime = new Realtime(pool);
 const store = new ScheduleStore(config.dataDir, pool);
-const placeStore = new PlaceStore(config.dataDir);
 
 const server = createServer((request, response) => {
   handle(request, response).catch((error: unknown) => {
@@ -50,11 +48,10 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
   switch (url.pathname) {
     case '/api/search': {
       const near = point(url.searchParams);
-      const places = placeStore.places;
-      return sendJson(request, response, search(schedule, url.searchParams.get('q') ?? '', { routes: url.searchParams.get('kind') !== 'stop', ...(near ? { near } : {}), ...(places ? { places } : {}) }));
+      return sendJson(request, response, search(schedule, url.searchParams.get('q') ?? '', { routes: url.searchParams.get('kind') !== 'stop', ...(near ? { near } : {}) }));
     }
     case '/api/journeys': {
-      const { from, to } = readEnds(schedule, url.searchParams, (id) => placeStore.places?.get(id) ?? null);
+      const { from, to } = readEnds(schedule, url.searchParams);
       const options = { ...walkSettings(url.searchParams), ...accessNeeds(url.searchParams) };
       return sendJson(request, response, planJourneys(schedule, await realtimeView(options), from, to, nowSeconds(), options));
     }
@@ -232,10 +229,7 @@ function allowRequest(request: IncomingMessage) {
 }
 
 server.listen(config.port, () => console.log(`Listening on ${config.port}, fetching trip updates every ${realtime.tripSeconds} s while in use`));
-void store.start().then(() => {
-  placeStore.start(() => store.schedule);
-  prepareSearches();
-});
+void store.start().then(prepareSearches);
 
 // Trip searches find what they read loaded already: once the schedule opens, within a minute of a
 // rebuild, and ahead of each evening, when searches start reaching into the next day.
@@ -253,7 +247,6 @@ for (const signal of ['SIGTERM', 'SIGINT'] as const) {
   process.on(signal, () => {
     server.close();
     store.schedule?.close();
-    placeStore.places?.close();
     process.exit(0);
   });
 }

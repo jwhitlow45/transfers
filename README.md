@@ -2,9 +2,9 @@
 
 Live transfer times between any two Bay Area transit stops: Muni, BART, SamTrans, and Golden Gate Transit. Pick where you board and the stop or route you want to transfer to, and it lists the next departures you can make, every vehicle that makes each one, and how late each is running.
 
-It also plans trips with any number of changes from a stop, a place found by name, or where you are, to a stop or a place. Between two stops, the results show trips and transfers as two tabs.
+It also plans trips with any number of changes from a stop, or from where you are, to a stop. Between two stops, the results show trips and transfers as two tabs.
 
-Data provided by [511.org](https://511.org) and BART. Places © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors.
+Data provided by [511.org](https://511.org) and BART.
 
 ## Running locally
 
@@ -18,8 +18,6 @@ pnpm dev:web      # Frontend on :5173, proxying /api to :3000.
 
 To build the schedule from zips already on disk instead of downloading: `pnpm ingest <dir with SF.zip, BA.zip, SM.zip, GG.zip, GF.zip>`.
 
-The API builds the place list from OpenStreetMap's Overpass servers about weekly, starting 10 minutes after it starts. To build it now: `pnpm places [schedule.db] [places.db]`, which takes about a quarter of an hour.
-
 Checks: `pnpm typecheck` (TypeScript 7) and `pnpm test` (Node's test runner).
 
 ## Layout
@@ -29,7 +27,6 @@ Checks: `pnpm typecheck` (TypeScript 7) and `pnpm test` (Node's test runner).
   - `realtime/`: decodes GTFS-realtime feeds and spreads requests across 511 keys.
   - `engine/`: finds transfer points and pairs connections. The rules are in [docs/transfer-rules.md](docs/transfer-rules.md).
   - `journeys/`: plans trips with any number of changes (RAPTOR), from timetables kept in memory.
-  - `places/`: the place list from OpenStreetMap, and search over it.
   - `api/`, `main.ts`: the HTTP API.
 - `web/`: Preact frontend built with Vite.
 - `shared/api.ts` and `shared/journeys.ts`: the JSON the API sends.

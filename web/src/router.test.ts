@@ -208,22 +208,21 @@ test("a stop's arrivals have an address of their own, a search with no To", asyn
   strictEqual(searchPath({ from: 'SF:13477', to: 'SF:13517', fromLabel: 'a', toLabel: 'b' }), '/t/SF%3A13477/SF%3A13517?fl=a&tl=b');
 });
 
-test('trips from or to a place or the rider have their own address, and two stops open on the tab chosen', async () => {
+test('trips from the rider have their own address, and two stops open on the tab chosen', async () => {
   const history = new FakeHistory();
   const { parsePage, searchPath, resultsPath } = await load(history, { getItem: () => null, setItem: () => {} });
-  const here = { from: '@here', to: 'place:node-42', fromLabel: 'Your location', toLabel: 'Dolores Park' };
+  const here = { from: '@here', to: 'SF:13517', fromLabel: 'Your location', toLabel: '24th St & Potrero Ave' };
   const path = searchPath(here);
-  strictEqual(path, '/j/%40here/place%3Anode-42?fl=Your+location&tl=Dolores+Park');
+  strictEqual(path, '/j/%40here/SF%3A13517?fl=Your+location&tl=24th+St+%26+Potrero+Ave');
   deepStrictEqual(parsePage(new URL(path, 'https://transfers.test') as unknown as Location), { name: 'journeys', search: here });
-  // A stop to a place is a trip too, and a stop to a route stays transfers.
-  strictEqual(searchPath({ from: 'SF:13477', to: 'place:way-7', fromLabel: 'a', toLabel: 'b' }), '/j/SF%3A13477/place%3Away-7?fl=a&tl=b');
+  // A stop to a route stays transfers.
   strictEqual(searchPath({ from: 'SF:13477', to: 'route:SF:22', fromLabel: 'a', toLabel: '22' }), '/t/SF%3A13477/route%3ASF%3A22?fl=a&tl=22');
   const stops = { from: 'SF:13477', to: 'SF:13517', fromLabel: 'a', toLabel: 'b' };
   deepStrictEqual(parsePage(new URL(resultsPath(stops, 'trips'), 'https://transfers.test') as unknown as Location), { name: 'trip', search: stops, view: 'trips' });
   deepStrictEqual(parsePage(new URL(searchPath(stops), 'https://transfers.test') as unknown as Location), { name: 'trip', search: stops });
 });
 
-test('a place or the rider under /t/, as in a link made by hand, opens the trips page', async () => {
+test('the rider under /t/, as in a link made by hand, opens the trips page', async () => {
   const history = new FakeHistory();
   const { parsePage } = await load(history, { getItem: () => null, setItem: () => {} });
   deepStrictEqual(parsePage(new URL('/t/%40here/SF%3A13517?fl=Your+location&tl=b', 'https://transfers.test') as unknown as Location), {

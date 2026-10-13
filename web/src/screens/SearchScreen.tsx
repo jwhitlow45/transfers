@@ -55,10 +55,9 @@ import { tripPath } from '../../../shared/paths.ts';
 import { Flag } from '../components/StatusTag.tsx';
 import { rowKey } from '../components/RouteCard.tsx';
 import { endKind, HERE, HERE_LABEL } from '../lib/ends.ts';
-import { placeEnd, type PlaceResult } from '../../../shared/journeys.ts';
 
-// A picked stop, route, place, or the rider's location (see lib/ends.ts). `short` is what headers
-// and lists call it.
+// A picked stop, route, or the rider's location (see lib/ends.ts). `short` is what headers and
+// lists call it.
 export type Picked = { key: string; label: string; meta: string; short: string };
 type FieldState = { query: string; picked?: Picked };
 
@@ -68,10 +67,6 @@ function pickedFrom(hit: SearchHit, response: SearchResponse): Picked {
     return { key: `route:${hit.route}`, label: hitName(hit, response), meta: hitMeta(hit, response), short: route ? chipLabel(route) : hit.route };
   }
   return { key: hit.key, label: hit.name, meta: hitMeta(hit, response), short: stopLabel(hit) };
-}
-
-function pickedPlace(place: PlaceResult): Picked {
-  return { key: placeEnd(place.id), label: place.name, meta: [place.kind, place.street].filter(Boolean).join(' · '), short: place.name };
 }
 
 // Where the phone says the rider is, looked up when the results open (see useJourneys).
@@ -254,10 +249,7 @@ export function SearchScreen() {
 
   const pick = (hit: SearchHit) => {
     if (!response) return;
-    take(pickedFrom(hit, response));
-  };
-  const pickPlace = (place: PlaceResult) => take(pickedPlace(place));
-  const take = (picked: Picked) => {
+    const picked = pickedFrom(hit, response);
     rememberPicked(picked);
     const field = focus;
     (field === 'from' ? setFrom : setTo)({ query: picked.label, picked });
@@ -273,11 +265,10 @@ export function SearchScreen() {
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     requestAnimationFrame(() => requestAnimationFrame(() => navigate(path)));
   };
-  // Transfers to a route, trips from or to a place or the rider, or both for two stops (see
-  // searchPath).
+  // Transfers to a route, trips from the rider, or both for two stops (see searchPath).
   const open = (fromPicked: Picked, toPicked: Picked) => leave(searchPath({ from: fromPicked.key, to: toPicked.key, fromLabel: fromPicked.short, toLabel: toPicked.short }));
   const showArrivals = () => from.picked && leave(stopPath({ from: from.picked.key, fromLabel: from.picked.short }));
-  // Catching a route takes a stop to start from, which a place or the rider's location is not.
+  // Catching a route takes a stop to start from, which the rider's location is not.
   const routeFromNoStop = Boolean(to.picked && endKind(to.picked.key) === 'route' && from.picked && endKind(from.picked.key) !== 'stop');
   const go = () => {
     if (from.picked && to.picked && !routeFromNoStop) open(from.picked, to.picked);
@@ -300,9 +291,8 @@ export function SearchScreen() {
   };
   const takeFirst = (field: 'from' | 'to') => {
     const hit = response?.along?.length ? undefined : response?.results[0];
-    const place = response?.along?.length ? undefined : response?.places?.[0];
-    if (!response || (!hit && !place)) return;
-    const picked = hit ? pickedFrom(hit, response) : pickedPlace(place!);
+    if (!response || !hit) return;
+    const picked = pickedFrom(hit, response);
     rememberPicked(picked);
     (field === 'from' ? setFrom : setTo)({ query: picked.label, picked });
     setFocus(null);
@@ -461,7 +451,7 @@ export function SearchScreen() {
                 ? 'Pick From and To from the lists'
                 : !from.picked
                   ? 'Pick where you start from the list'
-                  : 'Pick a stop, route or place to go to from the list'}
+                  : 'Pick a To stop or route from the list'}
           </p>
         )}
         {searchFailed && query && (
@@ -492,7 +482,7 @@ export function SearchScreen() {
             </div>
           </div>
         )}
-        {query && response && <StopResults query={query} response={response} onPick={pick} onPickPlace={pickPlace} includesRoutes={focus === 'to'} near={near} />}
+        {query && response && <StopResults query={query} response={response} onPick={pick} includesRoutes={focus === 'to'} />}
         {/* What a screen reader hears of each answer, mounted from the start, as a live region only
             speaks what changes in it. */}
         <div class="tf-sr" aria-live="polite">
@@ -595,7 +585,7 @@ function HowItWorks({ open: openAtFirst }: { open: boolean }) {
           Pick a stop and the route you want to catch, or the stop where you will catch it. Transfers shows the next few departures you can catch, and under each one every
           vehicle from your stop that makes it within your transfer window, with live times from 511 and how long each transfer is.
         </p>
-        <p>To get somewhere, pick where you start, a stop, a place, or your location, and where you are going. Trips shows the next few ways there, with any changes.</p>
+        <p>To get to a stop, pick where you start, a stop or your location, and the stop you are going to. Trips shows the next few ways there, with any changes.</p>
         <p>
           It helps most going from frequent service to infrequent, such as BART to a bus that comes every 20 minutes, where the train you catch decides whether you make
           the bus.

@@ -8,7 +8,7 @@ export type Page =
   | { name: 'home' }
   // `view` is the tab the rider last chose, when both ends are stops (see isStopToStop).
   | { name: 'trip'; search: Search; view?: ResultsView }
-  // Trips with any number of changes, from or to a place or wherever the rider is.
+  // Trips with any number of changes, from wherever the rider is.
   | { name: 'journeys'; search: Search }
   // A stop's arrivals, its search with no To (see stopSearch).
   | { name: 'stop'; search: Search }
@@ -23,15 +23,15 @@ export const stopPath = (search: Pick<Search, 'from' | 'fromLabel'>) => `/stop/$
 
 export type ResultsView = 'trips' | 'transfers';
 
-// Trips from or to a place or the rider's location: /j/@here/place:node-123?fl=…&tl=…
+// Trips from the rider's location: /j/@here/SF:13517?fl=…&tl=…
 export const journeysPath = (search: Pick<Search, 'from' | 'to' | 'fromLabel' | 'toLabel'>) =>
   `/j/${encodeURIComponent(search.from)}/${encodeURIComponent(search.to)}?${new URLSearchParams({ fl: search.fromLabel, tl: search.toLabel })}`;
 
 // A stop-to-stop search's results, on the tab the rider chose.
 export const resultsPath = (search: Search, view: ResultsView) => `${tripPath(search)}&view=${view}`;
 
-// A search's own address: a stop's arrivals with no To, trips from or to a place or the rider, or
-// the transfer results.
+// A search's own address: a stop's arrivals with no To, trips from the rider, or the transfer
+// results.
 export const searchPath = (search: Search) => (isStopSearch(search) ? stopPath(search) : isJourneySearch(search) ? journeysPath(search) : tripPath(search));
 
 export function parsePage(location: Location): Page {
@@ -48,7 +48,7 @@ export function parsePage(location: Location): Page {
       fromLabel: params.get('fl') ?? decodeURIComponent(trip[1]!),
       toLabel: params.get('tl') ?? decodeURIComponent(trip[2]!),
     };
-    // A place or the rider's location under /t/, as from a link made by hand, is the trip planner's.
+    // The rider's location under /t/, as from a link made by hand, is the trip planner's.
     if (isJourneySearch(search)) return { name: 'journeys', search };
     const min = number('min');
     const max = number('max');
