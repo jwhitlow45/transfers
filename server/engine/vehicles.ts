@@ -18,7 +18,8 @@ const SECOND_LEG_HORIZON = 4 * 3600;
 // Golden Gate's longest rides from Santa Rosa.
 const UNDER_WAY_SECONDS = 3 * 3600;
 
-type TimeAt = { at: number; delay: number | null };
+// `scheduled`: the schedule's time alone, as no live delay reached it.
+type TimeAt = { at: number; delay: number | null; scheduled?: true };
 
 // Every first-leg vehicle that leaves the From stop and reaches the link's alight stop: live
 // predictions where the feed has them, and scheduled trips the feed does not know about.
@@ -70,6 +71,7 @@ export function firstLegs(context: VehicleContext, link: Link, routeFilter: Set<
           arrives: arrives.at,
           arriveDelay: arrives.delay,
           live: true,
+          ...(arrives.scheduled ? { arrivesScheduled: true } : {}),
           canceled: false,
         });
       }
@@ -99,6 +101,7 @@ export function firstLegs(context: VehicleContext, link: Link, routeFilter: Set<
           arrives: arrives.at,
           arriveDelay: arrives.delay,
           live: true,
+          ...(arrives.scheduled ? { arrivesScheduled: true } : {}),
           canceled: false,
         });
         continue;
@@ -159,7 +162,10 @@ export function secondLegs(context: VehicleContext, link: Link, destinationStops
         canceled: trip.canceled,
       };
       const reaches = destinationStops.flatMap((stop) => timeAfter(context, trip, index, staticTrip, pattern, stop) ?? []).sort((a, b) => a.at - b.at)[0];
-      if (reaches) leg.destination = reaches.at;
+      if (reaches) {
+        leg.destination = reaches.at;
+        if (reaches.scheduled) leg.destinationScheduled = true;
+      }
       legs.set(leg.trip, leg);
     }
   }
@@ -193,7 +199,7 @@ export function secondLegs(context: VehicleContext, link: Link, destinationStops
           delay: at.delay,
           live: true,
           canceled: false,
-          ...(reaches ? { destination: reaches.at } : {}),
+          ...(reaches ? { destination: reaches.at, ...(reaches.scheduled ? { destinationScheduled: true } : {}) } : {}),
         });
         continue;
       }
@@ -306,7 +312,7 @@ function timeAtPosition(context: VehicleContext, trip: RtTrip, staticTrip: { row
     }
   }
   const at = scheduled + (delay ?? 0);
-  return { at: gone(schedule, trip, pattern, position) ? Math.min(at, now - 1) : at, delay };
+  return { at: gone(schedule, trip, pattern, position) ? Math.min(at, now - 1) : at, delay, ...(delay === null ? { scheduled: true } : {}) };
 }
 
 // A realtime trip's time at a later stop. When the feed leaves that stop out, the schedule
@@ -332,5 +338,6 @@ function timeAfter(
   if (fromPosition === -1 || position === -1) return null;
   const scheduled = context.schedule.scheduledTimeAt(staticTrip.row, position, context.now);
   const delay = [...trip.stops.slice(0, fromIndex + 1)].reverse().find(({ delay }) => delay !== null)?.delay ?? null;
-  return scheduled === null ? null : { at: scheduled + (delay ?? 0), delay };
+  if (scheduled === null) return null;
+  return delay === null ? { at: scheduled, delay, scheduled: true } : { at: scheduled + delay, delay };
 }

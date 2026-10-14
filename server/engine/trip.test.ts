@@ -286,6 +286,29 @@ test('a bus that has left the transfer stop stays until it reaches the destinati
   strictEqual(planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477', dest: 'SF:13500' }, NOW + 800).groups[0]!.departures.some(({ trip }) => trip === 'SF:m2'), false);
 });
 
+test("a live vehicle's later time is marked as the schedule's when the feed gives no delay to carry there", () => {
+  const busAt = (n: number) => DAY + 7.5 * 3600 + 120 + n * 900;
+  const leaves = DAY + 7.5 * 3600 + 3 * 600;
+  // A bus and a train the feed times where the rider boards each, with no delay, and nothing later.
+  const timeOnly = [
+    { id: 'm3', tripUpdate: { trip: { tripId: 'SF:m3', routeId: 'SF:48' }, stopTimeUpdate: [{ stopId: '13477', arrival: { time: busAt(3) + 60 } }] } },
+    { id: 'b3', tripUpdate: { trip: { tripId: 'BA:b3', routeId: 'BA:Yellow-S' }, stopTimeUpdate: [{ stopId: '901201', arrival: { time: leaves + 60 } }] } },
+  ];
+  const { departures } = planTrip(schedule, realtime(timeOnly), { from: 'BA:901209', to: 'SF:13477', dest: 'SF:13500' }, NOW).groups[0]!;
+  const marks = departures.map(({ trip, live, destinationScheduled, connections }) => [trip, live, destinationScheduled ?? false, connections.map(({ trip, live, arrivesScheduled }) => [trip, live, arrivesScheduled ?? false])]);
+  // m4's update reaches its destination and b8's where the rider gets off. A trip the feed does
+  // not know is scheduled throughout, which `live` already says.
+  deepStrictEqual(marks, [
+    ['SF:m2', false, false, [['BA:b2', false, false]]],
+    ['SF:m3', true, true, [['BA:b3', true, true]]],
+    ['SF:m4', true, false, [['BA:b5', false, false]]],
+    ['SF:m5', true, false, []],
+    ['SF:m6', false, false, [['BA:b8', true, false]]],
+  ]);
+  // The time is the schedule's, a minute before the feed has the bus at the stop.
+  strictEqual(departures[1]!.destination, busAt(3) + 600);
+});
+
 test('names the alert on the boarding stop', () => {
   const response = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477' }, NOW);
   deepStrictEqual(response.alerts.map(({ relevance, header }) => [relevance, header]), [['stop', '48 STOP TEMP. MOVED Board at 24th & Capp']]);

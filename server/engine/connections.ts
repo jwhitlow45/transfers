@@ -13,6 +13,8 @@ export type FirstLeg = {
   arrives: number;
   arriveDelay: number | null;
   live: boolean;
+  // A live vehicle whose arrival is the schedule's time alone (see Connection).
+  arrivesScheduled?: true;
   canceled: boolean;
 };
 
@@ -26,6 +28,8 @@ export type SecondLeg = {
   live: boolean;
   canceled: boolean;
   destination?: number;
+  // A live vehicle whose time at the destination is the schedule's alone (see Departure).
+  destinationScheduled?: true;
 };
 
 export type PairingOptions = {
@@ -74,6 +78,7 @@ export function pairConnections(firstLegs: FirstLeg[], secondLegs: SecondLeg[], 
       arrives: vehicle.arrives,
       arriveDelay: vehicle.arriveDelay,
       live: vehicle.live,
+      ...(vehicle.arrivesScheduled ? { arrivesScheduled: true as const } : {}),
       ...(vehicle.alight ? { alight: vehicle.alight } : {}),
       ...(vehicle.board ? { board: vehicle.board } : {}),
     };
@@ -145,7 +150,10 @@ export function pairConnections(firstLegs: FirstLeg[], secondLegs: SecondLeg[], 
         .sort((a, b) => a.departs - b.departs || a.arrives - b.arrives),
     };
     if (departure.canceled) result.canceled = true;
-    if (departure.destination !== undefined && departure.destination > departure.at) result.destination = departure.destination;
+    if (departure.destination !== undefined && departure.destination > departure.at) {
+      result.destination = departure.destination;
+      if (departure.destinationScheduled) result.destinationScheduled = true;
+    }
     return result;
   });
 }

@@ -206,6 +206,7 @@ function drawLeg(schedule: Schedule, leg: Leg, project: (point: Point) => [numbe
         ? { ...pointOf(project(estimate.point)), bearing: estimate.point.bearing, at: null, estimate: estimate.source }
         : null,
     ...(missing ? { missing } : {}),
+    ...(expected.predicted ? {} : { scheduled: true as const }),
     stopsAway: coming ? targetAt - vehicleAt : null,
     passed: vehicleAt > targetAt,
   };

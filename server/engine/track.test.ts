@@ -163,6 +163,19 @@ test('with no place for it, the map says why: not started, ended, or canceled', 
   strictEqual(track(EIGHT + 600).path.every(({ at }) => at !== null && at < EIGHT + 600), true);
 });
 
+test("a map says its times are the schedule's when the feed predicts none of the trip, wherever the vehicle is placed from", () => {
+  const scheduled = (response: ReturnType<typeof trackVehicle>) => response.scheduled ?? false;
+  const late = feed({ stops: [update('103', { delay: 120 })] });
+  deepStrictEqual(
+    [
+      scheduled(trackVehicle(schedule, at({ lon: lon(1.5), stopId: '102' }), { trip: 'SF:t1', stop: 'SF:104' }, EIGHT + 90)),
+      scheduled(trackVehicle(schedule, { vehicles: null }, { trip: 'SF:t1', stop: 'SF:104' }, EIGHT + 150)),
+      scheduled(trackVehicle(schedule, { vehicles: null, trips: late }, { trip: 'SF:t1', stop: 'SF:104' }, EIGHT + 270)),
+    ],
+    [true, true, false],
+  );
+});
+
 test('each stop drawn carries when the vehicle is due there', () => {
   const times = (response: ReturnType<typeof trackVehicle>) => Object.fromEntries(response.path.map(({ stop, at }) => [response.stops[stop]!.name.slice(-6), at === null ? null : at - EIGHT]));
   // A bus reporting its position with no trip update runs to the schedule, a minute a stop.

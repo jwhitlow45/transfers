@@ -86,7 +86,10 @@ export type Connection = {
   // Where the rider gets off.
   arrives: number;
   arriveDelay: number | null;
+  // Whether `departs` is from the feed. `arrives` is too, unless `arrivesScheduled` says the feed
+  // gave no delay to carry to where the rider gets off, so it is the schedule's time.
   live: boolean;
+  arrivesScheduled?: true;
   // Whole minutes from arriving to the second vehicle reaching the boarding stop, rounded down.
   transfer: number;
   // Where this vehicle lets the rider off, when it is not the group's alight stop. A group pools
@@ -110,8 +113,10 @@ export type Departure = {
   delay: number | null;
   live: boolean;
   canceled?: boolean;
-  // When it reaches the rider's destination stop, if they set one.
+  // When it reaches the rider's destination stop, if they set one: from the feed when `live`,
+  // unless `destinationScheduled` says the feed gave no delay to carry there.
   destination?: number;
+  destinationScheduled?: true;
   connections: Connection[];
 };
 
@@ -338,6 +343,9 @@ export type TrackLeg = {
   vehicle: { x: number; y: number; bearing: number | null; at: number | null; estimate?: 'predicted' | 'scheduled' } | null;
   // Why there is no vehicle, when that is known.
   missing?: 'canceled' | 'not-started' | 'ended';
+  // The times in `path` are the schedule's, as the feed predicts none of the trip, whether or not
+  // the vehicle reports where it is.
+  scheduled?: true;
   // Stops the vehicle makes before the rider's: 0 when the rider's is next. Null with no
   // position, or once it has gone past.
   stopsAway: number | null;

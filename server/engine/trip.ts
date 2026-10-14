@@ -393,7 +393,7 @@ function walkDepartures(second: SecondLeg[], now: number, walkMinutes: number): 
   const underWay = second.filter(({ at, canceled, destination }) => !canceled && at < now && destination !== undefined && destination >= now);
   return [...underWay, ...sorted.filter((leg) => (running.includes(leg) || leg.canceled) && (!leg.canceled || leg.at <= last))]
     .sort((a, b) => a.at - b.at)
-    .map(({ trip, route, at, delay, live, canceled, destination, toward }) => ({
+    .map(({ trip, route, at, delay, live, canceled, destination, destinationScheduled, toward }) => ({
       trip,
       route,
       at,
@@ -401,7 +401,7 @@ function walkDepartures(second: SecondLeg[], now: number, walkMinutes: number): 
       live,
       connections: [],
       ...(canceled ? { canceled: true } : {}),
-      ...(destination !== undefined && destination > at ? { destination } : {}),
+      ...(destination !== undefined && destination > at ? { destination, ...(destinationScheduled ? { destinationScheduled } : {}) } : {}),
       ...(toward ? { toward } : {}),
     }));
 }
