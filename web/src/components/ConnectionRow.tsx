@@ -1,5 +1,5 @@
 import type { Connection, Departure } from '../../../shared/api.ts';
-import { clock, minutesSince, minutesUntil, walkText } from '../format.ts';
+import { approx, clock, minutesSince, minutesUntil, walkText } from '../format.ts';
 import { pinOf, sameRun } from '../lib/pinned.ts';
 import { type CardContext, isTight } from '../lib/results.ts';
 import { IconPin } from '../icons/ui.tsx';
@@ -41,6 +41,9 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
   const ago = minutesSince(connection.departs, context.now);
   const now = !left && minutes < 1;
   const status = statusOf(connection.departDelay, connection.live);
+  // Where the rider gets off, and so the transfer, can be the schedule's even on a live vehicle.
+  const offScheduled = !connection.live || Boolean(connection.arrivesScheduled);
+  const transferScheduled = offScheduled || !departure.live;
   const tight = isTight(connection, min);
   const hidden = connection.hidden ? HIDDEN[connection.hidden] : null;
   // A pooled group's vehicles can let the rider off at different stops. The group names its
@@ -59,7 +62,7 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
   const walk = walkText(connection.walkMeters ?? walkMeters, useSettings().settings.walkSpeed);
   const spoken =
     `${route ? spokenRoute(route) : 'Vehicle'}, ${left ? (ago < 1 ? 'just left' : `left ${ago} minute${ago === 1 ? '' : 's'} ago`) : now ? 'arriving now' : `arrives in ${minutes} minute${minutes === 1 ? '' : 's'}`}, ${clock(connection.departs)}, ${status.label}. ` +
-    `${boardAt ? `${boardAt}. ` : ''}Off at ${offAt ?? alightName} ${clock(connection.arrives)}.${walk ? ` ${walk}.` : ''} ${connection.transfer} minute transfer${tight ? ', tight' : ''}${hidden ? `, hidden because it is ${hidden.spoken}` : ''}.`;
+    `${boardAt ? `${boardAt}. ` : ''}Off at ${offAt ?? alightName} ${clock(connection.arrives)}${offScheduled ? ', scheduled' : ''}.${walk ? ` ${walk}.` : ''} ${transferScheduled ? 'Scheduled ' : ''}${connection.transfer} minute transfer${tight ? ', tight' : ''}${hidden ? `, hidden because it is ${hidden.spoken}` : ''}.`;
   const secondEnd = departure.destination ?? departure.at + 8 * 60;
   // The vehicle's time opens its map with where the rider gets on and where they get off to
   // transfer marked.
@@ -127,7 +130,7 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
         <div class="tf-row__off">
           {/* Plain, to keep the row simple: the time above opens the same vehicle's map. */}
           <span class="tf-row__keep" aria-hidden="true">
-            Off {clock(connection.arrives)}
+            Off {approx(clock(connection.arrives), offScheduled)}
           </span>
           {offAt && (
             <>
@@ -144,7 +147,7 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
         </div>
       </div>
       <div class="tf-row__xfer" aria-hidden="true">
-        <div class="tf-row__xfer-min">{connection.transfer}&nbsp;min</div>
+        <div class="tf-row__xfer-min">{approx(String(connection.transfer), transferScheduled)}&nbsp;min</div>
         <div class="tf-row__xfer-label">transfer</div>
         {tight && <div class="tf-tight">TIGHT</div>}
         {hidden && <div class="tf-hidden-tag">{hidden.tag}</div>}

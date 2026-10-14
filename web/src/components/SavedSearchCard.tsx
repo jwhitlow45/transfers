@@ -1,11 +1,11 @@
-import type { ComponentChildren } from 'preact';
+import { type ComponentChildren, Fragment } from 'preact';
 import { useRef, useState } from 'preact/hooks';
-import { clock } from '../format.ts';
+import { approx, clock } from '../format.ts';
 import { IconPencil, IconPin, IconTransfer } from '../icons/ui.tsx';
 import { SAVED_COLORS } from '../lib/color.ts';
 import type { NextConnection } from '../lib/summary.ts';
 import { RouteChip } from './RouteChip.tsx';
-import { Flag, StatusTag } from './StatusTag.tsx';
+import { Approx, Flag, StatusTag } from './StatusTag.tsx';
 import { typeWithoutUndo } from '../typing.ts';
 import { keepInPlace } from '../lib/scroll.ts';
 
@@ -199,7 +199,13 @@ export function SavedTripBody({ chain, named, windowText, next, loading, severeA
               (J, 2026-10-08). */}
           {next && next.later.length > 0 && (
             <span class="tf-saved__then">
-              then {next.later.join(', ')}
+              then{' '}
+              {next.later.map(({ minutes, scheduled }, index) => (
+                <Fragment key={index}>
+                  {index > 0 && ', '}
+                  <Approx scheduled={scheduled}>{scheduled ? Math.max(1, minutes) : minutes}</Approx>
+                </Fragment>
+              ))}
               <span class="tf-sr"> min</span>
             </span>
           )}
@@ -212,7 +218,7 @@ export function SavedTripBody({ chain, named, windowText, next, loading, severeA
                 index > 0 && next.transfer !== null && (
                   <span key={`xfer${index}`} class="tf-saved__xfer">
                     <IconTransfer />
-                    {next.transfer} min transfer
+                    {approx(String(next.transfer), next.transferScheduled)} min transfer
                   </span>
                 ),
                 <span key={`leg${index}`} class="tf-saved__leg">

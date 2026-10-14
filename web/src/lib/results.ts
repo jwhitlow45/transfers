@@ -123,9 +123,14 @@ export function orderGroups(groups: Group[], now: number, showHidden: boolean, d
 export function tripSeconds(departure: Departure, walk: boolean, walkSeconds: number, now: number) {
   if (departure.destination === undefined) return null;
   if (walk) return departure.destination - departure.at + walkSeconds;
+  const start = tripStart(departure, now);
+  return start ? departure.destination - start.departs : null;
+}
+
+// The vehicle from From that a trip's length counts from (see tripSeconds).
+export function tripStart(departure: Departure, now: number) {
   const ahead = departure.connections.filter(({ departs }) => departs * 1000 >= now);
-  const latest = Math.max(...(ahead.length > 0 ? ahead : departure.connections).map(({ departs }) => departs));
-  return latest === -Infinity ? null : departure.destination - latest;
+  return (ahead.length > 0 ? ahead : departure.connections).reduce<Connection | null>((latest, connection) => (!latest || connection.departs > latest.departs ? connection : latest), null);
 }
 
 // The vehicles that make a departure, in the order its card lists them: by when they leave, or

@@ -1,7 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import type { PinnedLeg, PinnedStop, PinnedTrip, TripResponse } from '../../../shared/api.ts';
 import type { Pin } from '../storage.ts';
-import { clock, countdownTo, minutesUntil, walkText } from '../format.ts';
+import { approx, clock, countdownTo, minutesUntil, walkText } from '../format.ts';
 import { IconClose, IconPin } from '../icons/ui.tsx';
 import { type PinnedPhase, pinnedPhase, pinnedTransfer } from '../lib/pinned.ts';
 import { type Mark, TimeLink } from '../track.tsx';
@@ -65,6 +65,10 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
   // results do. A hidden connection is outside the window already.
   const min = group && !connection?.hidden ? group.window.min : undefined;
   const missed = transfer !== null && transfer < 0;
+  // Each vehicle's Scheduled tag says it of the time it is boarded. Getting off, and the transfer
+  // between them, say it themselves.
+  const transferScheduled = Boolean(first && (!first.live || !second.live));
+  const transferText = (minutes: number) => `${approx(String(minutes), transferScheduled)}\u00a0min`;
   const canceled = [first, second].find((leg) => leg?.canceled);
   const status = canceled ? `The ${label(canceled)} at ${clock(canceled.on?.at ?? canceled.off!.at)} is canceled` : statusText(phase, first, second, name, label, now);
   const countdown = countdownOf(phase, first, second, now);
@@ -120,10 +124,10 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
   const spoken = [
     `Pinned trip. ${status}.`,
     first && `${label(first)} at ${clock(first.on!.at)}, ${statusOf(first.on!.delay, first.live, first.canceled).label}.`,
-    first?.off && `Off at ${name(first.off)} ${clock(first.off.at)}.${walk ? ` ${walk}.` : ''}`,
-    transfer !== null && (missed ? `Transfer missed by ${-transfer} minutes.` : `${transfer} minute transfer.`),
+    first?.off && `Off at ${name(first.off)} ${clock(first.off.at)}${first.live ? '' : ', scheduled'}.${walk ? ` ${walk}.` : ''}`,
+    transfer !== null && (missed ? `Transfer missed by ${-transfer} minutes${transferScheduled ? ', scheduled' : ''}.` : `${transferScheduled ? 'Scheduled ' : ''}${transfer} minute transfer.`),
     `${label(second)} at ${clock(second.on.at)} from ${name(second.on)}, ${statusOf(second.on.delay, second.live, second.canceled).label}.`,
-    second.off && `Arrives at ${name(second.off)} ${clock(second.off.at)}.`,
+    second.off && `Arrives at ${name(second.off)} ${clock(second.off.at)}${second.live ? '' : ', scheduled'}.`,
   ]
     .filter(Boolean)
     .join(' ');
@@ -147,7 +151,7 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
           {first && vehicle(first, first.on!, firstLink)}
           {first?.off && (
             <div class="tf-row__off" aria-hidden="true">
-              <span class="tf-row__keep">Off {clock(first.off.at)}</span> at {name(first.off)}
+              <span class="tf-row__keep">Off {approx(clock(first.off.at), !first.live)}</span> at {name(first.off)}
               {walk && (
                 <>
                   &nbsp;· <span class="tf-row__keep">{walk}</span>
@@ -159,7 +163,7 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
               between the vehicles, where the rider makes it (see styles.css). */}
           {transfer !== null && (
             <div class="tf-pinned__xfer" aria-hidden="true">
-              {missed ? <span class="tf-pinned__missed">Missed by {-transfer}&nbsp;min</span> : `${transfer}\u00a0min transfer`}
+              {missed ? <span class="tf-pinned__missed">Missed by {transferText(-transfer)}</span> : `${transferText(transfer)} transfer`}
             </div>
           )}
           <div class={first ? 'tf-pinned__second' : undefined}>
@@ -169,7 +173,7 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
             </div>
             {second.off && (
               <div class="tf-row__off" aria-hidden="true">
-                Arrive <span class="tf-pinned__arrive">{clock(second.off.at)}</span> at {name(second.off)}
+                Arrive <span class="tf-pinned__arrive">{approx(clock(second.off.at), !second.live)}</span> at {name(second.off)}
               </div>
             )}
           </div>
@@ -179,11 +183,11 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
             (missed ? (
               <>
                 <div class="tf-row__xfer-min tf-pinned__missed">Missed</div>
-                <div class="tf-row__xfer-label">by {-transfer}&nbsp;min</div>
+                <div class="tf-row__xfer-label">by {transferText(-transfer)}</div>
               </>
             ) : (
               <>
-                <div class="tf-row__xfer-min">{transfer}&nbsp;min</div>
+                <div class="tf-row__xfer-min">{transferText(transfer)}</div>
                 <div class="tf-row__xfer-label">transfer</div>
               </>
             ))}
@@ -210,17 +214,19 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
 
 // The countdown column, as a row's, to what happens next: the first vehicle leaving, getting off
 // it, the second leaving, and arriving at the destination. Under a minute it says so in words.
+// Getting off and arriving are marked when they come from the schedule alone (see approx), as a
+// vehicle's tag speaks only for when it is boarded.
 function countdownOf(phase: PinnedPhase, first: PinnedLeg | null, second: PinnedLeg, now: number) {
-  const until = (stop: PinnedStop, lead: string, soon: string) => countdownTo(stop.at, now, lead, soon);
+  const until = (stop: PinnedStop, lead: string, soon: string, scheduled = false) => countdownTo(stop.at, now, lead, soon, scheduled);
   switch (phase) {
     case 'wait':
       return until(first!.on!, 'Leaves in', 'Leaving');
     case 'ride':
-      return until(first!.off!, 'Off in', 'Getting off');
+      return until(first!.off!, 'Off in', 'Getting off', !first!.live);
     case 'change':
       return until(second.on!, 'Board in', 'Boarding');
     case 'ride-second':
-      return until(second.off!, 'Arrive in', 'Arriving');
+      return until(second.off!, 'Arrive in', 'Arriving', !second.live);
     case 'done':
       return { lead: 'Done', num: '✓', unit: null };
   }
@@ -240,11 +246,11 @@ function statusText(phase: PinnedPhase, first: PinnedLeg | null, second: PinnedL
     case 'wait':
       return `${label(first!)} leaves ${name(first!.on!)} ${due(first!.on!)}`;
     case 'ride':
-      return `Off at ${name(first!.off!)} ${due(first!.off!)}`;
+      return `Off at ${name(first!.off!)} ${due(first!.off!)}${first!.live ? '' : ', scheduled'}`;
     case 'change':
       return `${label(second)} leaves ${name(second.on!)} ${due(second.on!)}`;
     case 'ride-second':
-      return `At ${name(second.off!)} ${due(second.off!)}`;
+      return `At ${name(second.off!)} ${due(second.off!)}${second.live ? '' : ', scheduled'}`;
     case 'done':
       return second.off ? `Reached ${name(second.off)} ${when(second.off)}` : `${label(second)} left ${name(second.on!)} ${when(second.on!)}`;
   }

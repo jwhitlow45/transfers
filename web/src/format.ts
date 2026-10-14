@@ -15,10 +15,18 @@ export const minutesSince = (unixSeconds: number, nowMs: number) => Math.floor((
 // "Now" within a minute, or the minutes, kept on one line with their unit.
 export const untilText = (minutes: number) => (minutes < 1 ? 'Now' : `${minutes}\u00a0min`);
 
+// A value worked out from the schedule alone, with no live prediction in it, reads "~38" (J,
+// 2026-10-14). Where a Scheduled tag already sits beside a vehicle's time, its time and countdown
+// stay bare, as one mark says it (J, 2026-10-03).
+export const approx = (text: string, scheduled: boolean) => (scheduled ? `~${text}` : text);
+// Minutes to a time from the schedule alone, at least one, as "~0" says nothing a rider can use.
+export const approxMinutes = (minutes: number, scheduled: boolean) => (scheduled ? approx(String(Math.max(1, minutes)), true) : String(minutes));
+
 // A countdown column's words for a time to come: `soon` over "Now" within a minute, or `lead` over
-// its minutes (see Countdown).
-export function countdownTo(at: number, nowMs: number, lead: string, soon: string) {
+// its minutes (see Countdown), which a time from the schedule alone marks as such.
+export function countdownTo(at: number, nowMs: number, lead: string, soon: string, scheduled = false) {
   const minutes = minutesUntil(at, nowMs);
+  if (scheduled) return { lead, num: approxMinutes(minutes, true), unit: 'min' };
   return minutes < 1 ? { lead: soon, num: 'Now', unit: null } : { lead, num: String(minutes), unit: 'min' };
 }
 

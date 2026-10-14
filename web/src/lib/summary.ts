@@ -8,19 +8,27 @@ import { pageColors, pointId, ridesStraightTo, visibleDepartures } from './resul
 // One vehicle of the next connection, for a saved card to draw as the results page does.
 export type Leg = { route: Route | undefined; at: number; status: Status };
 // The soonest connection: minutes until it leaves, its vehicles, the minutes to make the
-// transfer (null when the route already stops at From, so there is none), and the same in one
-// line for screen readers. `pin` is the trip pinned from the card, built as results build it.
-export type NextConnection = { minutes: number; legs: Leg[]; transfer: number | null; line: string; later: number[]; pin: Pin };
+// transfer (null when the route already stops at From, so there is none), whether those come from
+// the schedule alone, and the same in one line for screen readers. `pin` is the trip pinned from
+// the card, built as results build it.
+export type NextConnection = { minutes: number; legs: Leg[]; transfer: number | null; transferScheduled: boolean; line: string; later: Later[]; pin: Pin };
+// Minutes until a later departure, and whether its time is the schedule's alone.
+export type Later = { minutes: number; scheduled: boolean };
 
 // Alerts about a stop the rider stands at, not yet dismissed.
 export const countStopAlerts = (alerts: Alert[], stops: ReadonlySet<string>, dismissed: ReadonlySet<string>) =>
   alerts.filter(({ id, relevance, stops: affected }) => relevance === 'stop' && affected.some((stop) => stops.has(stop)) && !dismissed.has(id)).length;
 
 // Minutes until the next two departures after the soonest, from every time the card could have
-// drawn. One first vehicle often connects to several second vehicles, so repeats are dropped.
-export function laterMinutes(departs: number[], soonest: number, now: number): number[] {
-  const minutes = departs.filter((at) => at > soonest).sort((a, b) => a - b).map((at) => minutesUntil(at, now));
-  return [...new Set(minutes)].slice(0, 2);
+// drawn. One first vehicle often connects to several second vehicles, so repeats are dropped. A
+// minute is scheduled only when every departure in it is, as one live prediction there is enough.
+export function laterMinutes(departs: { at: number; live: boolean }[], soonest: number, now: number): Later[] {
+  const later = new Map<number, boolean>();
+  for (const { at, live } of departs.filter(({ at }) => at > soonest).sort((a, b) => a.at - b.at)) {
+    const minutes = minutesUntil(at, now);
+    later.set(minutes, (later.get(minutes) ?? true) && !live);
+  }
+  return [...later].slice(0, 2).map(([minutes, scheduled]) => ({ minutes, scheduled }));
 }
 
 // The parts of a trip that headers, saved cards, and recent searches all describe.
@@ -51,18 +59,20 @@ export function summarize(search: Search, data: TripResponse | null, now: number
   // The soonest first vehicle that makes a connection, with both legs and their lateness.
   let next: NextConnection | null = null;
   let soonest = Infinity;
-  const leaves: number[] = [];
+  const leaves: { at: number; live: boolean }[] = [];
   for (const group of groups) {
     for (const departure of visibleDepartures(group, now, false)) {
       if (departure.canceled) continue;
       for (const connection of departure.connections) {
-        leaves.push(connection.departs);
+        leaves.push({ at: connection.departs, live: connection.live });
         if (connection.departs >= soonest) continue;
         soonest = connection.departs;
         const first = data!.routes[connection.route];
         const second = data!.routes[departure.route];
         const firstStatus = statusOf(connection.departDelay, connection.live);
         const secondStatus = statusOf(departure.delay, departure.live);
+        // From where the first vehicle lets the rider off to the second reaching them.
+        const transferScheduled = !connection.live || Boolean(connection.arrivesScheduled) || !departure.live;
         next = {
           minutes: minutesUntil(connection.departs, now),
           legs: [
@@ -70,9 +80,10 @@ export function summarize(search: Search, data: TripResponse | null, now: number
             { route: second, at: departure.at, status: secondStatus },
           ],
           transfer: connection.transfer,
+          transferScheduled,
           later: [],
           pin: pinOf(departure, group.board, { connection, alight: connection.alight ?? group.alight }),
-          line: `${first ? chipLabel(first) : ''} ${clock(connection.departs)} (${firstStatus.label.toLowerCase()}), ${connection.transfer} minute transfer, ${second ? chipLabel(second) : ''} ${clock(departure.at)} (${secondStatus.label.toLowerCase()})`,
+          line: `${first ? chipLabel(first) : ''} ${clock(connection.departs)} (${firstStatus.label.toLowerCase()}), ${transferScheduled ? 'scheduled ' : ''}${connection.transfer} minute transfer, ${second ? chipLabel(second) : ''} ${clock(departure.at)} (${secondStatus.label.toLowerCase()})`,
         };
       }
     }
@@ -82,7 +93,7 @@ export function summarize(search: Search, data: TripResponse | null, now: number
   if (!next) {
     for (const group of groups.filter(({ kind }) => kind === 'walk')) {
       const open = visibleDepartures(group, now, false).filter(({ canceled }) => !canceled);
-      leaves.push(...open.map(({ at }) => at));
+      leaves.push(...open.map(({ at, live }) => ({ at, live })));
       const departure = open[0];
       if (!departure || departure.at >= soonest) continue;
       soonest = departure.at;
@@ -92,6 +103,7 @@ export function summarize(search: Search, data: TripResponse | null, now: number
         minutes: minutesUntil(departure.at, now),
         legs: [{ route, at: departure.at, status }],
         transfer: null,
+        transferScheduled: false,
         later: [],
         pin: pinOf(departure, group.board),
         line: `${route ? chipLabel(route) : ''} ${clock(departure.at)} (${status.label.toLowerCase()}) · no transfer needed`,

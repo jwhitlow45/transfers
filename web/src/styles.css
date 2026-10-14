@@ -212,6 +212,8 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-flag--late { background: var(--late-tint); color: var(--late); }
 .tf-flag--caution { background: var(--caution-tint); color: var(--caution); }
 .tf-status-text--ontime { color: var(--ok); } .tf-status-text--nodata { color: var(--muted); }
+/* Drawn as the band's Scheduled chip, so it reads as the same mark in every row. */
+.tf-status-text--scheduled { padding: 0 5px; color: var(--muted); border: 1px dashed currentColor; }
 /* on the reversed band */
 .tf-band .tf-status--ontime { color: var(--on-field); }
 .tf-band .tf-status--nodata { color: var(--on-field-muted); }
@@ -465,6 +467,8 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-row { position: relative; display: grid; grid-template-columns: var(--countdown-col) minmax(0, 1fr) auto; gap: var(--space-3); align-items: start; padding: var(--space-3) var(--space-4); border-top: var(--border-hair) solid var(--divider); }
 .tf-row__lead { font-size: var(--text-xs); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-caps); text-transform: uppercase; white-space: nowrap; color: var(--muted); }
 .tf-row__num { font-size: var(--text-num); font-weight: var(--weight-heavy); line-height: 1; letter-spacing: -0.02em; }
+/* As tall as a full-size number, so the column keeps its height. */
+.tf-row__num--long { font-size: calc(var(--text-num) * 0.78); line-height: var(--text-num); }
 .tf-row__unit { font-size: var(--text-base); font-weight: var(--weight-semibold); }
 .tf-row__main { min-width: 0; padding-top: 2px; }
 .tf-row__line { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) 6px; font-size: var(--text-lg); font-weight: var(--weight-bold); }

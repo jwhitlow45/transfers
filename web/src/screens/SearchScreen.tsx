@@ -1,3 +1,4 @@
+import { Fragment } from 'preact';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import type { Route, SearchResponse, StopResponse, TripResponse } from '../../../shared/api.ts';
 import { apiUrl, getJson } from '../api.ts';
@@ -52,7 +53,7 @@ import { chipLabel, dayLabel, stopLabel } from '../view.ts';
 import { AppLink } from '../components/AppLink.tsx';
 import { topUnderHeader } from '../lib/scroll.ts';
 import { tripPath } from '../../../shared/paths.ts';
-import { Flag } from '../components/StatusTag.tsx';
+import { Approx, Flag } from '../components/StatusTag.tsx';
 import { rowKey } from '../components/RouteCard.tsx';
 
 // A picked stop or route. `short` is what headers and lists call it.
@@ -780,8 +781,8 @@ function SavedStop({ search, now, pulls, onMove, canMoveUp, canMoveDown, onRepor
   const live = useHomeLive(polled, `saved:${search.id}`, pulls, onReport, now);
   const serverNow = live.now;
   const rows = (data?.rows ?? [])
-    .map((row) => ({ row, minutes: row.arrivals.map(({ at }) => minutesUntil(at, serverNow)).filter((minutes) => minutes >= 0).slice(0, 3) }))
-    .filter(({ minutes }) => minutes.length > 0)
+    .map((row) => ({ row, times: row.arrivals.map(({ at, live }) => ({ minutes: minutesUntil(at, serverNow), scheduled: !live })).filter(({ minutes }) => minutes >= 0).slice(0, 3) }))
+    .filter(({ times }) => times.length > 0)
     .slice(0, 3);
   return (
     <div class="tf-saved-slot" ref={slot}>
@@ -797,7 +798,7 @@ function SavedStop({ search, now, pulls, onMove, canMoveUp, canMoveDown, onRepor
         onRemove={onRemove}
       >
         <span class="tf-saved-stop">
-          {rows.map(({ row, minutes }) => {
+          {rows.map(({ row, times }) => {
             // BART's lines through one platform go by one chip, as their rider takes whichever comes.
             const routes = row.routes.map((key) => data!.routes[key]).filter((route) => route !== undefined);
             const chips = routes.filter((route, index) => routes.findIndex((other) => chipLabel(other) === chipLabel(route)) === index);
@@ -814,8 +815,13 @@ function SavedStop({ search, now, pulls, onMove, canMoveUp, canMoveDown, onRepor
                   {row.headsign}
                 </span>
                 <span class="tf-saved-stop__in">
-                  {minutes.map((value) => (value < 1 ? 'Now' : value)).join(', ')}
-                  {minutes.at(-1)! >= 1 && ' min'}
+                  {times.map(({ minutes, scheduled }, index) => (
+                    <Fragment key={index}>
+                      {index > 0 && ', '}
+                      <Approx scheduled={scheduled}>{scheduled ? Math.max(1, minutes) : minutes < 1 ? 'Now' : minutes}</Approx>
+                    </Fragment>
+                  ))}
+                  {(times.at(-1)!.scheduled || times.at(-1)!.minutes >= 1) && ' min'}
                 </span>
               </span>
             );

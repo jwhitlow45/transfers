@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'preact/hooks';
 import type { Route, Stop, TrackLeg, TrackResponse } from '../../../shared/api.ts';
-import { clock, minutesUntil, untilText } from '../format.ts';
+import { approx, clock, minutesUntil, untilText } from '../format.ts';
 import { useNow, usePoll } from '../hooks.ts';
 import { ModeGlyph } from '../icons/ModeIcon.tsx';
 import { IconFit, IconFold, IconFullRoute } from '../icons/ui.tsx';
@@ -14,6 +14,7 @@ import { useSettings } from '../settings.tsx';
 import { shortStopName } from '../view.ts';
 import { Collapse } from './Collapse.tsx';
 import { RouteChip } from './RouteChip.tsx';
+import { Approx } from './StatusTag.tsx';
 import './TrackMap.css';
 import { YouMarker } from './YouMarker.tsx';
 import { failureOf } from '../lib/failure.ts';
@@ -119,6 +120,7 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
   const offAt = offIndex === undefined ? null : (data.path[offIndex]?.at ?? null);
   const boardAt = next && next.targetIndex !== null ? (next.path[next.targetIndex]?.at ?? null) : null;
   const transferMinutes = offAt !== null && boardAt !== null ? Math.floor((boardAt - offAt) / 60) : transfer?.minutes;
+  const transferScheduled = Boolean(data.scheduled || next?.scheduled);
   // Missed, or tight as results mark a transfer within a minute of the window's shortest (isTight
   // in lib/results.ts), each drawn as results draw it.
   const missed = transferMinutes !== undefined && transferMinutes < 0;
@@ -127,8 +129,8 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
     transferMinutes === undefined
       ? 'Transfer to'
       : missed
-        ? `Transfer missed by ${-transferMinutes} minute${transferMinutes === -1 ? '' : 's'}, to`
-        : `${transferMinutes} minute transfer${tight ? ', tight' : ''}, to`;
+        ? `Transfer missed by ${-transferMinutes} minute${transferMinutes === -1 ? '' : 's'}${transferScheduled ? ', scheduled' : ''}, to`
+        : `${transferScheduled ? 'Scheduled ' : ''}${transferMinutes} minute transfer${tight ? ', tight' : ''}, to`;
   const legs: Drawn[] = [
     ...(next && nextLabels ? [{ leg: next, color: nextColor, labels: nextLabels, mode: nextRoute?.mode ?? 'bus' }] : []),
     { leg: data, color, labels, mode: route?.mode ?? 'bus' },
@@ -174,7 +176,7 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
             </div>
             {transferMinutes !== undefined && (
               <div class="tf-row__xfer tf-track__xfer" aria-hidden="true">
-                <div class="tf-row__xfer-min">{Math.abs(transferMinutes)}&nbsp;min</div>
+                <div class="tf-row__xfer-min">{approx(String(Math.abs(transferMinutes)), transferScheduled)}&nbsp;min</div>
                 <div class="tf-row__xfer-label">{missed ? 'missed by' : 'transfer'}</div>
                 {tight && <div class="tf-tight">TIGHT</div>}
               </div>
@@ -404,7 +406,7 @@ function LegList({ leg, stops, labels, color, now }: { leg: TrackLeg; stops: Rec
       ))}
       {index === nextIndex && !labels.has(index) && <span class="tf-track__tag">Next stop</span>}
       {/* A canceled trip comes with no times. */}
-      <When at={leg.path[index]!.at ?? null} passed={passedAt(leg, index)} now={now} />
+      <When at={leg.path[index]!.at ?? null} passed={passedAt(leg, index)} scheduled={Boolean(leg.scheduled)} now={now} />
     </li>
   );
   const fold = (run: number[]) => {
@@ -438,15 +440,18 @@ function LegList({ leg, stops, labels, color, now }: { leg: TrackLeg; stops: Rec
 // When the vehicle is due at a stop: minutes from now, as the results count down, over the clock
 // time. A stop behind the vehicle says it has passed, with about when it left. Positions and
 // predictions arrive apart, so the clock is kept on the right side of now: a stop passed early
-// never shows a time to come, nor a stop ahead a time gone.
-function When({ at, passed, now }: { at: number | null; passed: boolean; now: number }) {
+// never shows a time to come, nor a stop ahead a time gone. A trip the feed predicts none of has
+// the schedule's times, marked as such (see approx).
+function When({ at, passed, scheduled, now }: { at: number | null; passed: boolean; scheduled: boolean; now: number }) {
   if (at === null) return null;
   const minutes = minutesUntil(at, now);
   const shown = passed ? Math.min(at, now / 1000) : Math.max(at, now / 1000);
   return (
     <span class="tf-track__when">
-      <span class={`tf-track__in${passed ? ' tf-track__in--passed' : ''}`}>{passed ? 'Passed' : untilText(minutes)}</span>
-      <span class="tf-track__time">{clock(shown)}</span>
+      <span class={`tf-track__in${passed ? ' tf-track__in--passed' : ''}`}>{passed ? 'Passed' : scheduled ? <Approx scheduled>{`${Math.max(1, minutes)}\u00a0min`}</Approx> : untilText(minutes)}</span>
+      <span class="tf-track__time">
+        <Approx scheduled={scheduled}>{clock(shown)}</Approx>
+      </span>
     </span>
   );
 }

@@ -1,9 +1,9 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import type { Departure, Group } from '../../../shared/api.ts';
 import { IconFold, IconPin } from '../icons/ui.tsx';
-import { clock, minutesSince, minutesUntil, untilText } from '../format.ts';
+import { approx, approxMinutes, clock, minutesSince, minutesUntil, untilText } from '../format.ts';
 import { pinOf, sameRun } from '../lib/pinned.ts';
-import { type CardContext, hintKey, listedConnections, tripSeconds } from '../lib/results.ts';
+import { type CardContext, hintKey, listedConnections, tripSeconds, tripStart } from '../lib/results.ts';
 import { useSettings } from '../settings.tsx';
 import { walkSeconds } from '../../../shared/walk.ts';
 import { TimeLink } from '../track.tsx';
@@ -13,7 +13,7 @@ import { ConnectionRow } from './ConnectionRow.tsx';
 import { Departed } from './Departed.tsx';
 import { PinToggle } from './PinToggle.tsx';
 import { RouteChip } from './RouteChip.tsx';
-import { StatusTag } from './StatusTag.tsx';
+import { Approx, StatusTag } from './StatusTag.tsx';
 import { TimeTicks } from './TimeBar.tsx';
 
 // One second-leg departure: a reversed band, then every first vehicle that makes it. The band
@@ -46,7 +46,13 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
         <span class="tf-canceled__time">{clock(departure.at)}</span>
         <StatusTag status={statusOf(null, true, true)} />
         <span class="tf-canceled__note">
-          Not counted.{next && ` Next ${route ? chipLabel(route) : ''} toward ${group.headsign} at ${clock(next.at)}.`}
+          Not counted.
+          {next && (
+            <>
+              {` Next ${route ? chipLabel(route) : ''} toward ${group.headsign} at `}
+              <Approx scheduled={!next.live}>{clock(next.at)}</Approx>.
+            </>
+          )}
         </span>
       </div>
     );
@@ -64,22 +70,31 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
   const walkPinLabel = pinLabel([route, departure.at]);
   const destinationName = context.destinationName ?? (walk ? context.toName : null);
   const destinationShort = context.destinationName ? context.destinationShort : walk ? context.toShort : null;
-  const destination = destinationName && departure.destination ? `${destinationName} ${clock(departure.destination)}` : null;
+  // The time there is the schedule's alone when the departure's is, or when no live delay reaches it.
+  const destinationScheduled = !departure.live || Boolean(departure.destinationScheduled);
+  const destinationAt = departure.destination ? approx(clock(departure.destination), destinationScheduled) : null;
+  const destination = destinationName && destinationAt ? `${destinationName} ${destinationAt}` : null;
   // With it, how long the trip takes, from setting off, as the rider may weigh a later one that
-  // is quicker (J, 2026-10-12).
+  // is quicker (J, 2026-10-12). It is from the schedule when either end is.
   const { walkSpeed } = useSettings().settings;
   const trip = destination ? tripSeconds(departure, walk, walk ? walkSeconds(group.walkMeters, walkSpeed) : 0, context.now) : null;
   const tripMinutes = trip === null ? null : Math.max(1, Math.round(trip / 60));
+  const tripScheduled = destinationScheduled || (!walk && tripStart(departure, context.now)?.live === false);
   const toward = departure.toward ? `To ${departure.toward}` : null;
   const count = departure.connections.length;
   const listed = listedConnections(departure, context.going);
-  const countdowns = departure.connections.filter(({ departs }) => departs * 1000 >= context.now).map(({ departs }) => Math.max(0, minutesUntil(departs, context.now)));
+  const countdowns = departure.connections
+    .filter(({ departs }) => departs * 1000 >= context.now)
+    .map(({ departs, live }) => ({ minutes: Math.max(0, minutesUntil(departs, context.now)), scheduled: !live }));
   const gone = count - countdowns.length;
-  const summary = [`${count} ${noun[count === 1 ? 0 : 1]}`, gone > 0 && `${gone} departed`, countdowns.length > 0 && `in ${countdowns.join(', ')}\u00a0min`].filter(Boolean).join(' · ');
+  const shownCountdowns = countdowns.map(({ minutes, scheduled }) => approxMinutes(minutes, scheduled)).join(', ');
+  const spokenCountdowns = countdowns.map(({ minutes, scheduled }) => (scheduled ? `scheduled ${Math.max(1, minutes)}` : minutes)).join(', ');
+  const summary = [`${count} ${noun[count === 1 ? 0 : 1]}`, gone > 0 && `${gone} departed`, countdowns.length > 0 && `in ${shownCountdowns}\u00a0min`].filter(Boolean).join(' · ');
+  const spokenDestination = destinationName && departure.destination ? `${destinationName} ${clock(departure.destination)}${destinationScheduled ? ' scheduled' : ''}` : null;
   const spoken =
     `${route ? spokenRoute(route) : 'Departure'} at ${clock(departure.at)}, ${status.label}, ` +
-    `${away ? away.toLowerCase() : `${minutes} minutes away`}${toward ? `, ${toward.toLowerCase()}` : ''}${destination ? `, reaches ${destination}` : ''}${tripMinutes !== null ? `, a ${tripMinutes} minute trip` : ''}.` +
-    (walk ? '' : ` ${count} connecting ${noun[count === 1 ? 0 : 1]}${expanded ? '' : [gone > 0 && `, ${gone} already left`, countdowns.length > 0 && `, leaving in ${countdowns.join(', ')} minutes`].filter(Boolean).join('')}.`);
+    `${away ? away.toLowerCase() : `${minutes} minutes away`}${toward ? `, ${toward.toLowerCase()}` : ''}${spokenDestination ? `, reaches ${spokenDestination}` : ''}${tripMinutes !== null ? `, a ${tripScheduled ? 'scheduled ' : ''}${tripMinutes} minute trip` : ''}.` +
+    (walk ? '' : ` ${count} connecting ${noun[count === 1 ? 0 : 1]}${expanded ? '' : [gone > 0 && `, ${gone} already left`, countdowns.length > 0 && `, leaving in ${spokenCountdowns} minutes`].filter(Boolean).join('')}.`);
   // The spoken summary says everything shown, so screen readers skip the shown text and reach
   // only the links in it.
   const band = (
@@ -128,8 +143,8 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
         </span>
         {destination && (
           <ArrivalLine
-            full={arrivalText(destination, tripMinutes)}
-            short={destinationShort && departure.destination ? arrivalText(`${destinationShort} ${clock(departure.destination)}`, tripMinutes) : null}
+            full={arrivalText(destination, tripMinutes, tripScheduled)}
+            short={destinationShort && destinationAt ? arrivalText(`${destinationShort} ${destinationAt}`, tripMinutes, tripScheduled) : null}
           />
         )}
       </span>
@@ -210,7 +225,7 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
   );
 }
 
-const arrivalText = (destination: string, tripMinutes: number | null) => (tripMinutes !== null ? `${destination} · ${tripMinutes}\u00a0min` : destination);
+const arrivalText = (destination: string, tripMinutes: number | null, scheduled: boolean) => (tripMinutes !== null ? `${destination} · ${approx(String(tripMinutes), scheduled)}\u00a0min` : destination);
 
 // When a departure arrives, and how long the trip takes. Where the line would wrap, a corner's
 // short name stands in for its full one (J, 2026-10-13). Laid out full and measured before paint,

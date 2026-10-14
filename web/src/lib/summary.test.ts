@@ -4,14 +4,19 @@ import type { Alert } from '../../../shared/api.ts';
 import { countStopAlerts, laterMinutes } from './summary.ts';
 
 const now = 1_000_000 * 1000;
-const at = (minutes: number) => 1_000_000 + minutes * 60;
+const at = (minutes: number, live = true) => ({ at: 1_000_000 + minutes * 60, live });
+const live = (minutes: number) => ({ minutes, scheduled: false });
 
 test('later keeps the next two departures after the soonest, once each', () => {
-  deepStrictEqual(laterMinutes([at(16), at(4), at(9), at(4), at(9), at(30)], at(4), now), [9, 16]);
+  deepStrictEqual(laterMinutes([at(16), at(4), at(9), at(4), at(9), at(30)], at(4).at, now), [live(9), live(16)]);
 });
 
 test('later is empty when nothing follows', () => {
-  deepStrictEqual(laterMinutes([at(4), at(4)], at(4), now), []);
+  deepStrictEqual(laterMinutes([at(4), at(4)], at(4).at, now), []);
+});
+
+test('a later minute is scheduled only when every departure in it is', () => {
+  deepStrictEqual(laterMinutes([at(4), at(9, false), at(9), at(16, false)], at(4).at, now), [live(9), { minutes: 16, scheduled: true }]);
 });
 
 const alert = (id: string, relevance: string, stops: string[]) => ({ id, relevance, stops }) as unknown as Alert;
