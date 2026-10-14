@@ -17,8 +17,9 @@ export function OfflineBanner({ statusText }: { statusText: string }) {
   );
 }
 
-// A banner for each agency whose live feed is down or stale while others still work. `routeKeys`
-// are the routes the page shows, which each banner names those of its agency from.
+// A banner for each agency whose live feed is down while others still work, as its times are then
+// the schedule's. A stale feed's times are old predictions, not the schedule's, which StaleBanner
+// says. `routeKeys` are the routes the page shows, which each banner names those of its agency from.
 export function FeedOutages({ feeds, routeKeys, routes }: { feeds: FeedStatus[]; routeKeys: string[]; routes: Record<string, Route> }) {
   const liveAgencies = feeds
     .filter(({ state }) => state === 'live')
@@ -28,7 +29,7 @@ export function FeedOutages({ feeds, routeKeys, routes }: { feeds: FeedStatus[];
   return (
     <>
       {feeds
-        .filter(({ state }) => state === 'down' || state === 'stale')
+        .filter(({ state }) => state === 'down')
         .map(({ agency }) => (
           <FeedOutageBanner key={agency} agency={agencyOnly(agency)} routes={routesOf(agency)} liveAgencies={liveAgencies} />
         ))}

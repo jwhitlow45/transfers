@@ -118,6 +118,8 @@ Every time from the schedule alone is marked as one, wherever it shows (J, 2026-
 
 Pages show how old the live data is, counted from when the server last got it from 511, so it grows when either the rider's device or the server falls behind. The server and each page both refresh every 30 seconds, so data on screen is normally under about 61 seconds old. Past 75 seconds (two and a half refreshes), the page warns, saying whether the device missed a refresh or 511 has not sent new predictions. Pages never refresh faster when data is old: each keeps its own 30 second rhythm from when it opened, so devices never line up into bursts.
 
+An agency whose live feed is down gets a banner saying its times are from the schedule. A stale feed gets none, as its times are old predictions, not the schedule's, and the warning above already says how old.
+
 ## Where settings live
 
 - Device settings (browser storage): walking speed, longest transfer walk, default window, default for hiding departures.
