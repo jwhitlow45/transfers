@@ -309,6 +309,13 @@ test("a live vehicle's later time is marked as the schedule's when the feed give
   strictEqual(departures[1]!.destination, busAt(3) + 600);
 });
 
+test("a train that has left From, which the feed lists only as skipping a later stop, gets off at the schedule's time", () => {
+  const skips = [{ id: 'b2', tripUpdate: { trip: { tripId: 'BA:b2', routeId: 'BA:Yellow-S' }, stopTimeUpdate: [{ stopId: '902101', scheduleRelationship: 'SKIPPED' as const }] } }];
+  const { departures } = planTrip(schedule, realtime(skips), { from: 'BA:901209', to: 'SF:13477' }, NOW).groups[0]!;
+  const b2 = departures.flatMap(({ connections }) => connections).find(({ trip }) => trip === 'BA:b2')!;
+  deepStrictEqual([b2.live, b2.arrivesScheduled, b2.arrives], [true, true, DAY + 7.5 * 3600 + 2 * 600 + 480]);
+});
+
 test('names the alert on the boarding stop', () => {
   const response = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477' }, NOW);
   deepStrictEqual(response.alerts.map(({ relevance, header }) => [relevance, header]), [['stop', '48 STOP TEMP. MOVED Board at 24th & Capp']]);
