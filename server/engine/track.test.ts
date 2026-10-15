@@ -186,6 +186,9 @@ test('a skipped stop alone times nothing, and stops before the first one timed t
   const trip = (stops: ReturnType<typeof update>[]): RtTrip => ({ agency: 'SF', tripId: 't', routeId: null, canceled: false, added: false, vehicle: null, stops });
   const skipped = predictedTimes(scheduled, stops, trip([update('2', { skipped: true })]), 1000);
   deepStrictEqual([skipped.predicted, skipped.timed, skipped.times], [true, false, [100, null, 300, 400]]);
+  // Nor does a time a feed puts on a skip, which GTFS-realtime says it should not.
+  const timedSkip = predictedTimes(scheduled, stops, trip([update('2', { skipped: true, time: 250, delay: 50 })]), 1000);
+  deepStrictEqual([timedSkip.timed, timedSkip.times], [false, [100, null, 300, 400]]);
   const later = predictedTimes(scheduled, stops, trip([update('2', { skipped: true }), update('3', { delay: 60 })]), 1000);
   deepStrictEqual([later.predicted, later.timed, later.times], [true, true, [160, null, 360, 460]]);
   // The feed's own time is live even where the schedule has none to work a delay from.
