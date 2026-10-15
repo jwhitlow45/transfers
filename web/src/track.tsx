@@ -15,7 +15,9 @@ export type Mark = { stop: string; kind: 'yours' | 'transfer' | 'destination' };
 // rider has to make it, and the destination they ride it to, when they set one. `min` is the
 // shortest transfer the rider's window allows, for marking a tight one as results do. A hidden
 // connection, outside the window already, has none.
-export type Transfer = { trip: string; stop: string; color?: string; minutes?: number; min?: number; destination?: string };
+// `scheduled`: `minutes` come from a time that is the schedule's alone, for the map to mark them
+// while it has only those to show.
+export type Transfer = { trip: string; stop: string; color?: string; minutes?: number; scheduled?: boolean; min?: number; destination?: string };
 // `pin` pins the trip the rider opened the map from, when it is one trip they can pin, from the
 // sheet's header: its state, kept as the page says while the sheet is open, what it pins for
 // screen readers and for telling pins apart, and pinning or not.

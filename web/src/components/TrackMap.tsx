@@ -119,8 +119,9 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
   const offIndex = [...labels].find(([, kinds]) => kinds.includes('transfer'))?.[0];
   const offAt = offIndex === undefined ? null : (data.path[offIndex]?.at ?? null);
   const boardAt = next && next.targetIndex !== null ? (next.path[next.targetIndex]?.at ?? null) : null;
-  const transferMinutes = offAt !== null && boardAt !== null ? Math.floor((boardAt - offAt) / 60) : transfer?.minutes;
-  const transferScheduled = Boolean(data.scheduled || next?.scheduled);
+  const both = offAt !== null && boardAt !== null;
+  const transferMinutes = both ? Math.floor((boardAt - offAt) / 60) : transfer?.minutes;
+  const transferScheduled = both ? Boolean(data.scheduled || next?.scheduled) : Boolean(transfer?.scheduled);
   // Missed, or tight as results mark a transfer within a minute of the window's shortest (isTight
   // in lib/results.ts), each drawn as results draw it.
   const missed = transferMinutes !== undefined && transferMinutes < 0;
@@ -446,9 +447,18 @@ function When({ at, passed, scheduled, now }: { at: number | null; passed: boole
   if (at === null) return null;
   const minutes = minutesUntil(at, now);
   const shown = passed ? Math.min(at, now / 1000) : Math.max(at, now / 1000);
+  // The clock says "scheduled" to screen readers, once for the stop, so the minutes only show it.
+  const until = scheduled ? (
+    <>
+      <span aria-hidden="true">~</span>
+      {`${Math.max(1, minutes)}\u00a0min`}
+    </>
+  ) : (
+    untilText(minutes)
+  );
   return (
     <span class="tf-track__when">
-      <span class={`tf-track__in${passed ? ' tf-track__in--passed' : ''}`}>{passed ? 'Passed' : scheduled ? <Approx scheduled>{`${Math.max(1, minutes)}\u00a0min`}</Approx> : untilText(minutes)}</span>
+      <span class={`tf-track__in${passed ? ' tf-track__in--passed' : ''}`}>{passed ? 'Passed' : until}</span>
       <span class="tf-track__time">
         <Approx scheduled={scheduled}>{clock(shown)}</Approx>
       </span>

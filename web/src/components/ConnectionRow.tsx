@@ -73,7 +73,7 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
   ];
   // The second vehicle this one connects to, drawn on the same map, on to the destination.
   const destination = departure.destination !== undefined ? context.destination : undefined;
-  const transfer = { trip: departure.trip, stop: board, color: secondColor, minutes: connection.transfer, ...(hidden ? {} : { min }), ...(destination ? { destination } : {}) };
+  const transfer = { trip: departure.trip, stop: board, color: secondColor, minutes: connection.transfer, scheduled: transferScheduled, ...(hidden ? {} : { min }), ...(destination ? { destination } : {}) };
   const { pin } = context;
   // The same vehicles, stops, and run: trip ids repeat every day.
   const pinned = pin?.first?.trip === connection.trip && pin.first.alight === offStop && pin.second.trip === departure.trip && pin.second.board === board && sameRun(pin.at, departure.at);

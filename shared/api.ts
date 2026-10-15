@@ -195,8 +195,10 @@ export type Notice =
 export type AccessOutage = { station: string; stops: string[]; kind: 'elevator' | 'escalator'; location: string; reason: string | null; returns: string | null };
 
 // Where one vehicle of a pinned trip is due, or about when it left: a stop key, unix seconds, and
-// seconds late (negative early), null without a prediction.
-export type PinnedStop = { stop: string; at: number; delay: number | null };
+// seconds late (negative early), null without a prediction. `scheduled` marks a time that is the
+// schedule's alone on a leg otherwise live, as results tell it before the answer for a pin comes
+// (see Connection.arrivesScheduled).
+export type PinnedStop = { stop: string; at: number; delay: number | null; scheduled?: true };
 
 // One vehicle of a pinned trip, where the rider gets on and where they get off. `off` is null for
 // the last vehicle when no destination is set or the trip does not reach it. A stop is null when

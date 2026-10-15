@@ -1,4 +1,4 @@
-import type { Connection, Departure, PinRequest, PinnedLeg, PinnedTrip, Route, TripResponse } from '../../../shared/api.ts';
+import type { Connection, Departure, PinRequest, PinnedLeg, PinnedStop, PinnedTrip, Route, TripResponse } from '../../../shared/api.ts';
 import { pinLabel } from '../view.ts';
 import type { Pin } from '../storage.ts';
 
@@ -53,6 +53,9 @@ export const samePin = (a: Pin, b: Pin) =>
 export const pinnedDestination = (pin: Pin, data: TripResponse, dest: string | undefined) =>
   data.view === 'trips' && 'stop' in data.to ? data.to.stop : (dest ?? (!pin.first && 'stop' in data.to ? data.to.stop : undefined));
 
+// Whether a pinned vehicle's time at a stop is the schedule's alone (see approx in format.ts).
+export const scheduledAt = (leg: PinnedLeg, stop: PinnedStop) => !leg.live || Boolean(stop.scheduled);
+
 // Whole minutes from the first vehicle reaching the stop the rider leaves it at to the second
 // reaching where they board it, as the results count a transfer. Negative when the second leaves
 // first. Null without both times.
@@ -87,7 +90,7 @@ export function pinnedFor(pin: Pin, data: TripResponse, dest: string | undefined
       trip: departure.trip,
       route: departure.route,
       on: { stop: group.board, at: departure.at, delay: departure.delay },
-      off: end && departure.destination !== undefined ? { stop: end, at: departure.destination, delay: null } : null,
+      off: end && departure.destination !== undefined ? { stop: end, at: departure.destination, delay: null, ...(departure.destinationScheduled ? { scheduled: true } : {}) } : null,
       live: departure.live,
       ...(departure.canceled ? { canceled: true } : {}),
     };
@@ -99,7 +102,7 @@ export function pinnedFor(pin: Pin, data: TripResponse, dest: string | undefined
       route: connection.route,
       // Where it picks the rider up: From, or going to a stop, one on its corner.
       on: { stop: connection.board ?? data.from, at: connection.departs, delay: connection.departDelay },
-      off: { stop: pin.first.alight, at: connection.arrives, delay: connection.arriveDelay },
+      off: { stop: pin.first.alight, at: connection.arrives, delay: connection.arriveDelay, ...(connection.arrivesScheduled ? { scheduled: true } : {}) },
       live: connection.live,
     };
     return { first, second };

@@ -2,7 +2,7 @@ import { deepStrictEqual, strictEqual } from 'node:assert/strict';
 import { test } from 'node:test';
 import { clock } from '../format.ts';
 import type { Connection, Departure, PinnedTrip, TripResponse } from '../../../shared/api.ts';
-import { pinOf, pinToastText, pinnedDestination, pinnedEnd, pinnedFor, pinnedNow, pinnedPhase, pinnedTransfer, samePin, steadyPinned } from './pinned.ts';
+import { pinOf, pinToastText, pinnedDestination, pinnedEnd, pinnedFor, pinnedNow, pinnedPhase, pinnedTransfer, samePin, scheduledAt, steadyPinned } from './pinned.ts';
 
 // BART from Montgomery at 8:00, off at 24th St at 8:08, then the 48 there at 8:17 to Potrero at 8:27.
 const trip: PinnedTrip = {
@@ -65,6 +65,36 @@ test('until the answer for a new pin arrives, the results it was pinned from sta
   strictEqual(pinnedFor(pin, { ...data, pinned: trip, pin: asked }, 'SF:13500'), trip);
   // An answer for a pin since replaced does not.
   strictEqual(pinnedFor({ ...pin, second: { ...pin.second, trip: 'SF:m4' } }, { ...data, pinned: trip, pin: asked }, undefined), null);
+});
+
+test("until the answer comes, a live vehicle's time from the schedule alone stays marked as such", () => {
+  const data = {
+    from: 'BA:901209',
+    groups: [
+      {
+        alight: 'BA:901609',
+        board: 'SF:13477',
+        departures: [
+          {
+            trip: 'SF:m3',
+            route: 'SF:48',
+            at: 817,
+            delay: 60,
+            live: true,
+            destination: 827,
+            destinationScheduled: true,
+            connections: [{ trip: 'BA:b3', route: 'BA:Yellow', departs: 800, departDelay: 0, arrives: 808, arriveDelay: null, live: true, arrivesScheduled: true, transfer: 9 }],
+          },
+        ],
+      },
+    ],
+  } as unknown as TripResponse;
+  const pinned = pinnedFor({ first: { trip: 'BA:b3', alight: 'BA:901609' }, second: { trip: 'SF:m3', board: 'SF:13477' }, at: 817, ends: 827 }, data, 'SF:13500')!;
+  deepStrictEqual([pinned.first!.off, pinned.second!.off], [
+    { stop: 'BA:901609', at: 808, delay: null, scheduled: true },
+    { stop: 'SF:13500', at: 827, delay: null, scheduled: true },
+  ]);
+  deepStrictEqual([scheduledAt(pinned.first!, pinned.first!.on!), scheduledAt(pinned.first!, pinned.first!.off!), scheduledAt({ ...pinned.second!, live: false }, pinned.second!.on!)], [false, true, true]);
 });
 
 test("an answer for the same vehicles on another day's run, or at another stop, is not this pin's, however little of the trip it knows", () => {
