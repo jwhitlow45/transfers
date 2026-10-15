@@ -206,7 +206,7 @@ function drawLeg(schedule: Schedule, leg: Leg, project: (point: Point) => [numbe
         ? { ...pointOf(project(estimate.point)), bearing: estimate.point.bearing, at: null, estimate: estimate.source }
         : null,
     ...(missing ? { missing } : {}),
-    ...(expected.predicted ? {} : { scheduled: true as const }),
+    ...(expected.timed ? {} : { scheduled: true as const }),
     stopsAway: coming ? targetAt - vehicleAt : null,
     passed: vehicleAt > targetAt,
   };
@@ -240,7 +240,7 @@ function placeOf(schedule: Schedule, tripRow: number, stops: StopRow[], line: { 
 // Where a vehicle that reports no position should be: between the last stop it was due to leave
 // and the next, as far along the line as the time between them has run. Without a place, why
 // not: it is canceled, its trip has yet to start, or its trip has ended.
-function estimatePlace(stops: StopRow[], line: { shape: Point[]; passes: number[] }, { times, predicted }: ReturnType<typeof expectedTimes>, canceled: boolean, now: number): Estimate {
+function estimatePlace(stops: StopRow[], line: { shape: Point[]; passes: number[] }, { times, timed }: ReturnType<typeof expectedTimes>, canceled: boolean, now: number): Estimate {
   if (canceled) return { missing: 'canceled' };
   const next = times.findIndex((time) => time !== null && time > now);
   if (next === 0) return { missing: 'not-started' };
@@ -252,7 +252,7 @@ function estimatePlace(stops: StopRow[], line: { shape: Point[]; passes: number[
   const arrives = times[next]!;
   const share = Math.min(1, Math.max(0, (now - times[left]!) / (arrives - times[left]!)));
   const point = alongLine(line.shape, line.passes[left]!, line.passes[next]!, share, stops[left]!, stops[next]!);
-  return { next, from: left, point, source: predicted ? 'predicted' : 'scheduled' };
+  return { next, from: left, point, source: timed ? 'predicted' : 'scheduled' };
 }
 
 type Estimate =
@@ -269,7 +269,9 @@ export function expectedTimes(schedule: Schedule, tripRow: number, stops: StopRo
 // it lists the stop, or else the schedule plus the latest delay before it, as GTFS-realtime says
 // delays carry forward. A prediction with only a time carries the delay it implies. Without the
 // trip in the feed, the schedule alone. `ahead` is the first stop the feed lists: the trip has
-// left every stop before it.
+// left every stop before it. `predicted` says the feed lists the trip, whose skipped stops then
+// count, and `timed` that it gives a time or delay for it, without which every time is still the
+// schedule's.
 export function predictedTimes(scheduled: (number | null)[], stops: { stopId: string }[], rt: RtTrip | undefined, now: number) {
   // The feed's stops matched to positions in order. The feed drops visits already made, so a stop
   // a loop makes twice is told apart by the update's stop sequence, or else by which visit is
@@ -290,10 +292,12 @@ export function predictedTimes(scheduled: (number | null)[], stops: { stopId: st
   // The feed's own delay at each stop it lists, which on BART can differ by a minute or so from its
   // time less the schedule here. The results show this one.
   const reported = scheduled.map((_, index) => listed.get(index)?.delay ?? null);
-  if (listed.size === 0) return { times: scheduled, scheduled, reported, predicted: false, ahead: 0 };
+  if (listed.size === 0) return { times: scheduled, scheduled, reported, predicted: false, timed: false, ahead: 0 };
   const delayAt = (index: number, update: RtStopTime) => update.delay ?? (update.time !== null && scheduled[index] !== null ? update.time - scheduled[index]! : null);
   const first = Math.min(...listed.keys());
-  let delay = delayAt(first, listed.get(first)!) ?? 0;
+  // Stops before the first that gives a delay take its delay, as a skipped stop gives none.
+  const firstTimed = [...listed].find(([index, update]) => delayAt(index, update) !== null);
+  let delay = firstTimed ? delayAt(...firstTimed)! : 0;
   const times = scheduled.map((time, index) => {
     // The feed lists only stops still ahead, so the trip has left every stop before its first.
     if (index < first) return time === null ? null : Math.min(time + delay, now);
@@ -304,7 +308,7 @@ export function predictedTimes(scheduled: (number | null)[], stops: { stopId: st
     if (update?.time !== null && update?.time !== undefined) return update.time;
     return time === null ? null : time + delay;
   });
-  return { times, scheduled, reported, predicted: true, ahead: first };
+  return { times, scheduled, reported, predicted: true, timed: firstTimed !== undefined, ahead: first };
 }
 
 // The point a share of the way along the line from one shape point to another, and the way the

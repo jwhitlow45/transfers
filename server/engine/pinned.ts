@@ -38,7 +38,7 @@ function pinnedLeg(schedule: Schedule, snapshot: TripSnapshot | null, trip: stri
   const pattern = row ? schedule.patterns.get(row.pattern) : undefined;
   if (!row || !pattern) return rt ? addedLeg(schedule, rt, trip, onStop, offStops, tables) : null;
   const stops = pattern.stops.map((id) => schedule.stop(id));
-  const { times, scheduled, reported, predicted } = expectedTimes(schedule, row.row, stops, rt, now, near);
+  const { times, scheduled, reported, timed } = expectedTimes(schedule, row.row, stops, rt, now, near);
   const onVisits = visitsTo(schedule, pattern.stops, onStop);
   const offVisits = offStops.flatMap((stop) => visitsTo(schedule, pattern.stops, stop)).sort((a, b) => a - b);
   const offStopAt = (index: number) => offStops.find((stop) => visitsTo(schedule, pattern.stops, stop).includes(index))!;
@@ -58,7 +58,7 @@ function pinnedLeg(schedule: Schedule, snapshot: TripSnapshot | null, trip: stri
     if (time === null || time === undefined) return null;
     const planned = scheduled[index!];
     // As the results count it: the feed's own delay where it gives one.
-    const delay = !predicted ? null : (reported[index!] ?? (planned === null || planned === undefined ? null : time - planned));
+    const delay = !timed ? null : (reported[index!] ?? (planned === null || planned === undefined ? null : time - planned));
     return { stop: tables.stop(stop), at: time, delay };
   };
   return {
@@ -67,7 +67,7 @@ function pinnedLeg(schedule: Schedule, snapshot: TripSnapshot | null, trip: stri
     on: at(onAt, onStop),
     // The destination only counts once the vehicle has picked the rider up.
     off: onAt !== null && offAt !== null && offAt > onAt ? at(offAt, offStopAt(offAt)) : null,
-    live: predicted,
+    live: timed,
     ...(rt?.canceled ? { canceled: true } : {}),
   };
 }

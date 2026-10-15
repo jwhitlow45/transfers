@@ -7,7 +7,7 @@ import type { RtTrip, RtVehicle, TripSnapshot, VehicleSnapshot } from '../realti
 import type { Schedule } from '../schedule.ts';
 import { CALENDAR, buildSchedule, files } from '../test-gtfs.ts';
 import { serviceDayStart } from '../time.ts';
-import { trackVehicle } from './track.ts';
+import { predictedTimes, trackVehicle } from './track.ts';
 
 // One bus line running east along a street, with a stop every 0.002 degrees of longitude
 // (about 176 m), and its shape drawn through every stop and the points between them. A second
@@ -166,14 +166,28 @@ test('with no place for it, the map says why: not started, ended, or canceled', 
 test("a map says its times are the schedule's when the feed predicts none of the trip, wherever the vehicle is placed from", () => {
   const scheduled = (response: ReturnType<typeof trackVehicle>) => response.scheduled ?? false;
   const late = feed({ stops: [update('103', { delay: 120 })] });
+  // A stop the feed says the trip skips times nothing else on it.
+  const skips = feed({ stops: [update('104', { skipped: true })] });
   deepStrictEqual(
     [
       scheduled(trackVehicle(schedule, at({ lon: lon(1.5), stopId: '102' }), { trip: 'SF:t1', stop: 'SF:104' }, EIGHT + 90)),
       scheduled(trackVehicle(schedule, { vehicles: null }, { trip: 'SF:t1', stop: 'SF:104' }, EIGHT + 150)),
       scheduled(trackVehicle(schedule, { vehicles: null, trips: late }, { trip: 'SF:t1', stop: 'SF:104' }, EIGHT + 270)),
+      scheduled(trackVehicle(schedule, { vehicles: null, trips: skips }, { trip: 'SF:t1', stop: 'SF:103' }, EIGHT + 150)),
     ],
-    [true, true, false],
+    [true, true, false, true],
   );
+  strictEqual(trackVehicle(schedule, { vehicles: null, trips: skips }, { trip: 'SF:t1', stop: 'SF:103' }, EIGHT + 150).vehicle?.estimate, 'scheduled');
+});
+
+test('a skipped stop alone times nothing, and stops before the first one timed take its delay', () => {
+  const stops = ['1', '2', '3', '4'].map((stopId) => ({ stopId }));
+  const scheduled = [100, 200, 300, 400];
+  const trip = (stops: ReturnType<typeof update>[]): RtTrip => ({ agency: 'SF', tripId: 't', routeId: null, canceled: false, added: false, vehicle: null, stops });
+  const skipped = predictedTimes(scheduled, stops, trip([update('2', { skipped: true })]), 1000);
+  deepStrictEqual([skipped.predicted, skipped.timed, skipped.times], [true, false, [100, null, 300, 400]]);
+  const later = predictedTimes(scheduled, stops, trip([update('2', { skipped: true }), update('3', { delay: 60 })]), 1000);
+  deepStrictEqual([later.predicted, later.timed, later.times], [true, true, [160, null, 360, 460]]);
 });
 
 test('each stop drawn carries when the vehicle is due there', () => {

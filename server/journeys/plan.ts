@@ -118,7 +118,8 @@ type LiveNetwork = Network & { prediction: (trips: PatternTrips, trip: number) =
 
 // A trip's run as the feed predicts it: when it reaches each stop (null where it skips the stop or
 // is canceled), the feed's own delay at each stop it lists, and the first stop it has yet to leave.
-type Prediction = { times: (number | null)[]; reported: (number | null)[]; ahead: number };
+// `timed`: the feed gives a time or delay for the trip, not just stops it skips (see predictedTimes).
+type Prediction = { times: (number | null)[]; reported: (number | null)[]; ahead: number; timed: boolean };
 
 // The timetable for the days a journey from now can use, with the feed's predictions over it.
 // Canceled trips have no times, so no journey relies on one.
@@ -144,13 +145,13 @@ function liveNetwork(schedule: Schedule, realtime: RealtimeView, now: number, op
     const last = trips.times[trip * width + width - 2]!;
     const sameRun = now > first - SAME_RUN_SECONDS && now < last + SAME_RUN_SECONDS;
     let found: Prediction | null = null;
-    if (rt && sameRun && rt.canceled) found = { times: trips.pattern.stops.map(() => null), reported: [], ahead: 0 };
+    if (rt && sameRun && rt.canceled) found = { times: trips.pattern.stops.map(() => null), reported: [], ahead: 0, timed: false };
     else if (rt && sameRun) {
       let stops = stopsOf.get(trips.pattern.id);
       if (!stops) stopsOf.set(trips.pattern.id, (stops = trips.pattern.stops.map((id) => schedule.stop(id))));
       const scheduled = stops.map((_, position) => trips.times[trip * width + position * 2]!);
       const predicted = predictedTimes(scheduled, stops, rt, now);
-      if (predicted.predicted) found = { times: predicted.times, reported: predicted.reported, ahead: predicted.ahead };
+      if (predicted.predicted) found = { times: predicted.times, reported: predicted.reported, ahead: predicted.ahead, timed: predicted.timed };
     }
     list[trip] = found;
     return found;
@@ -276,7 +277,7 @@ function journeyOf(schedule: Schedule, network: LiveNetwork, path: Path): Journe
     const width = pattern.stops.length * 2;
     const live = network.prediction(leg.trips, leg.trip);
     // As the results count it: the feed's own delay where it gives one.
-    const delay = (position: number, at: number, scheduled: number) => (live ? (live.reported[position] ?? at - scheduled) : null);
+    const delay = (position: number, at: number, scheduled: number) => (live?.timed ? (live.reported[position] ?? at - scheduled) : null);
     legs.push({
       kind: 'ride',
       trip: keys[leg.trip]!,
@@ -288,7 +289,7 @@ function journeyOf(schedule: Schedule, network: LiveNetwork, path: Path): Journe
       arrives: leg.arrives,
       departDelay: delay(leg.board, leg.departs, times[leg.trip * width + leg.board * 2 + 1]!),
       arriveDelay: delay(leg.alight, leg.arrives, times[leg.trip * width + leg.alight * 2]!),
-      live: live !== null,
+      live: Boolean(live?.timed),
       stops: leg.alight - leg.board,
     });
   }
