@@ -188,6 +188,9 @@ test('a skipped stop alone times nothing, and stops before the first one timed t
   deepStrictEqual([skipped.predicted, skipped.timed, skipped.times], [true, false, [100, null, 300, 400]]);
   const later = predictedTimes(scheduled, stops, trip([update('2', { skipped: true }), update('3', { delay: 60 })]), 1000);
   deepStrictEqual([later.predicted, later.timed, later.times], [true, true, [160, null, 360, 460]]);
+  // The feed's own time is live even where the schedule has none to work a delay from.
+  const untimed = predictedTimes([100, null, 300, 400], stops, trip([update('2', { time: 250 })]), 1000);
+  deepStrictEqual([untimed.timed, untimed.times], [true, [100, 250, 300, 400]]);
 });
 
 test('each stop drawn carries when the vehicle is due there', () => {

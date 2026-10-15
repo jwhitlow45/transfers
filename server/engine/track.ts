@@ -296,8 +296,8 @@ export function predictedTimes(scheduled: (number | null)[], stops: { stopId: st
   const delayAt = (index: number, update: RtStopTime) => update.delay ?? (update.time !== null && scheduled[index] !== null ? update.time - scheduled[index]! : null);
   const first = Math.min(...listed.keys());
   // Stops before the first that gives a delay take its delay, as a skipped stop gives none.
-  const firstTimed = [...listed].find(([index, update]) => delayAt(index, update) !== null);
-  let delay = firstTimed ? delayAt(...firstTimed)! : 0;
+  const firstDelay = [...listed].find(([index, update]) => delayAt(index, update) !== null);
+  let delay = firstDelay ? delayAt(...firstDelay)! : 0;
   const times = scheduled.map((time, index) => {
     // The feed lists only stops still ahead, so the trip has left every stop before its first.
     if (index < first) return time === null ? null : Math.min(time + delay, now);
@@ -308,7 +308,8 @@ export function predictedTimes(scheduled: (number | null)[], stops: { stopId: st
     if (update?.time !== null && update?.time !== undefined) return update.time;
     return time === null ? null : time + delay;
   });
-  return { times, scheduled, reported, predicted: true, timed: firstTimed !== undefined, ahead: first };
+  const timed = [...listed.values()].some((update) => update.time !== null || update.delay !== null);
+  return { times, scheduled, reported, predicted: true, timed, ahead: first };
 }
 
 // The point a share of the way along the line from one shape point to another, and the way the
