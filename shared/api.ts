@@ -93,6 +93,9 @@ export type Connection = {
   // A live vehicle that has yet to leave the first stop of its trip, whose times assume it leaves
   // there on time (see notStarted in server/engine/vehicles.ts).
   notStarted?: true;
+  // A trip the published schedule lacks, such as an added BART train, which has no line to draw on
+  // a map.
+  added?: true;
   // Whole minutes from arriving to the second vehicle reaching the boarding stop, rounded down.
   transfer: number;
   // Where this vehicle lets the rider off, when it is not the group's alight stop. A group pools

@@ -103,3 +103,19 @@ test('a first vehicle leaving from across the street needs the walk there on top
   deepStrictEqual(summary(pairConnections(trains, [bus('b1', minutes(12))], { ...options, boardWalk: across })), []);
   deepStrictEqual(summary(pairConnections(trains, [bus('b1', minutes(12))], options)), [['b1', ['t1:4']]]);
 });
+
+test('a train yet to leave the first stop of its trip has not left From, whatever its time, and comes a minute from now at the soonest', () => {
+  const waiting = train('t1', minutes(-2), minutes(6), { notStarted: true, added: true });
+  // Too soon to reach with three minutes to get there, so hidden, rather than kept as one the rider may be on.
+  deepStrictEqual(summary(pairConnections([waiting], [bus('b1', minutes(12))], options)), []);
+  deepStrictEqual(summary(pairConnections([train('t1', minutes(-2), minutes(6))], [bus('b1', minutes(12))], options)), [['b1', ['t1:6']]]);
+  // With no time needed to reach From, it is one the rider can catch, with its marks.
+  const [departure] = pairConnections([waiting], [bus('b1', minutes(12))], { ...options, hide: 0 });
+  deepStrictEqual([departure?.trip, departure?.connections[0]?.notStarted, departure?.connections[0]?.added], ['b1', true, true]);
+});
+
+test('a bus yet to leave the first stop of its trip stays with the train under way that makes it, after its time', () => {
+  const result = pairConnections([train('t1', minutes(-10), minutes(-4))], [bus('b1', minutes(-1), { notStarted: true })], options);
+  deepStrictEqual(summary(result), [['b1', ['t1:3']]]);
+  deepStrictEqual(summary(pairConnections([train('t1', minutes(-10), minutes(-4))], [bus('b1', minutes(-1))], options)), []);
+});

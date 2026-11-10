@@ -344,6 +344,33 @@ test('a bus the feed still lists at the first stop of its trip is marked as yet 
   strictEqual(planTrip(schedule, live, { from: 'BA:901209', to: 'SF:13477', pin }, NOW).pinned!.second!.notStarted, true);
 });
 
+test('a bus at the first stop of its trip is yet to leave it, however its feed numbers its stops, and an added train is marked as the schedule lacks it', () => {
+  const busAt = (n: number) => DAY + 7.5 * 3600 + 120 + n * 900;
+  const listing = (stops: [number, string][]) => [
+    { id: 'm3', tripUpdate: { trip: { tripId: 'SF:m3', routeId: 'SF:48' }, stopTimeUpdate: stops.map(([stopSequence, stopId], index) => ({ stopSequence, stopId, arrival: { time: busAt(3) - 120 + index * 120, delay: 0 } })) } },
+  ];
+  const marked = (entities: FeedObject['entity']) => planTrip(schedule, realtime(entities), { from: 'BA:901209', to: 'SF:13477' }, NOW).groups[0]!.departures.find(({ trip }) => trip === 'SF:m3')?.notStarted;
+  // A feed that counts its stops from 0 still has the bus at 24th & Valencia, where the 48 starts.
+  strictEqual(marked(listing([[0, '13486'], [1, '13477']])), true);
+  // Listing 24th & Mission first, it has left.
+  strictEqual(marked(listing([[2, '13477']])), undefined);
+  const added = [
+    {
+      id: 'bx',
+      tripUpdate: {
+        trip: { tripId: 'BA:bx', routeId: 'BA:Yellow-S', scheduleRelationship: 'ADDED' as const },
+        stopTimeUpdate: [
+          { stopId: '901201', departure: { time: NOW + 300 } },
+          { stopId: '901601', arrival: { time: NOW + 780 } },
+        ],
+      },
+    },
+  ];
+  const connections = planTrip(schedule, realtime(added), { from: 'BA:901209', to: 'SF:13477' }, NOW).groups[0]!.departures.flatMap(({ connections }) => connections);
+  strictEqual(connections.find(({ trip }) => trip === 'BA:bx')?.added, true);
+  ok(connections.some(({ trip, added }) => trip !== 'BA:bx' && added === undefined));
+});
+
 test('names the alert on the boarding stop', () => {
   const response = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477' }, NOW);
   deepStrictEqual(response.alerts.map(({ relevance, header }) => [relevance, header]), [['stop', '48 STOP TEMP. MOVED Board at 24th & Capp']]);

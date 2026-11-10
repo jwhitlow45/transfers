@@ -17,6 +17,8 @@ export type FirstLeg = {
   arrivesScheduled?: true;
   // A live vehicle yet to leave the first stop of its trip (see Connection).
   notStarted?: true;
+  // A trip the schedule lacks (see Connection).
+  added?: true;
   canceled: boolean;
 };
 
@@ -70,10 +72,12 @@ export function pairConnections(firstLegs: FirstLeg[], secondLegs: SecondLeg[], 
   const hidden: { departure: SecondLeg; connection: Connection }[] = [];
 
   for (const vehicle of [...firstLegs].sort((a, b) => a.departs - b.departs)) {
-    const minutesAway = minutesBetween(now, vehicle.departs);
+    // One yet to leave the first stop of its trip comes a minute from now at the soonest, whatever
+    // its time, and has not left From (see notStarted in vehicles.ts).
+    const minutesAway = vehicle.notStarted ? Math.max(1, minutesBetween(now, vehicle.departs)) : minutesBetween(now, vehicle.departs);
     if (vehicle.canceled) continue;
     // A vehicle that has left is one the rider may be on, so it is never too soon.
-    const left = vehicle.departs < now;
+    const left = vehicle.departs < now && !vehicle.notStarted;
     const base = {
       trip: vehicle.trip,
       route: vehicle.route,
@@ -84,6 +88,7 @@ export function pairConnections(firstLegs: FirstLeg[], secondLegs: SecondLeg[], 
       live: vehicle.live,
       ...(vehicle.arrivesScheduled ? { arrivesScheduled: true as const } : {}),
       ...(vehicle.notStarted ? { notStarted: true as const } : {}),
+      ...(vehicle.added ? { added: true as const } : {}),
       ...(vehicle.alight ? { alight: vehicle.alight } : {}),
       ...(vehicle.board ? { board: vehicle.board } : {}),
     };
@@ -116,9 +121,10 @@ export function pairConnections(firstLegs: FirstLeg[], secondLegs: SecondLeg[], 
 
   const byTime = (a: SecondLeg, b: SecondLeg) => a.at - b.at;
   // A pair whose first vehicle has left is under way: the rider may be on it. It stays while the
-  // second vehicle has yet to leave, or with a destination, to get there.
-  const underWay = ({ connection }: (typeof qualifying)[number]) => connection.departs < now;
-  const ongoing = ({ departure }: (typeof qualifying)[number]) => departure.at >= now || (departure.destination ?? -Infinity) >= now;
+  // second vehicle has yet to leave, or with a destination, to get there. Neither has left while it
+  // has yet to leave the first stop of its trip.
+  const underWay = ({ connection }: (typeof qualifying)[number]) => connection.departs < now && !connection.notStarted;
+  const ongoing = ({ departure }: (typeof qualifying)[number]) => departure.at >= now || departure.notStarted === true || (departure.destination ?? -Infinity) >= now;
   const kept = (pairs: typeof qualifying) => pairs.filter((pair) => !underWay(pair) || ongoing(pair));
   const ahead = (pairs: typeof qualifying) => [...new Set(pairs.filter((pair) => !underWay(pair)).map(({ departure }) => departure))].sort(byTime);
   // The count is of departures the rider can still catch from From. Those under way come on top.
