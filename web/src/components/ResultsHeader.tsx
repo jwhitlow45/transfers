@@ -39,7 +39,7 @@ const UPDATE: StatusItem = {
   onPress: () => void forceRefresh(),
 };
 
-// The live status as one line of short items. Each one opens its full sentence on tap, and
+// The live status as short items at the end of the title row. Each one opens its full sentence on tap, and
 // screen readers hear the full sentence as its name. Only changes of state are announced: the
 // age ticking every second would otherwise be read out constantly.
 // `failed` replaces the live item when the server answered with an error, such as for a stop no
@@ -129,10 +129,10 @@ function liveStatusSentence(feed: FeedState, seconds: number | null, stale: bool
   return ago ? `Live times, updated ${ago}` : 'Live times';
 }
 
-// Sticky header for every screen: back, a title, and the live status. Results and Home leave out
-// onBack, Results since its back button sits in the bottom bar. Home sets its own title row's end.
-// Screens with live data pass onRefresh to be refreshed by pulling down. Every screen lays the
-// title and status out the same, so moving between them does not shift either.
+// Sticky header for every screen, one row: back, a title, the live status, and `end`, such as
+// Home's clock and settings. Results and Home leave out onBack, Results since its back button sits
+// in the bottom bar. Screens with live data pass onRefresh to be refreshed by pulling down. Every
+// screen lays the row out the same, so moving between them does not shift it.
 export function ScreenHeader({ title, end, feed, secondsSinceUpdate, stale, failed, items, accent, onBack, onRefresh }: {
   title: ComponentChildren;
   end?: ComponentChildren;
@@ -156,11 +156,15 @@ export function ScreenHeader({ title, end, feed, secondsSinceUpdate, stale, fail
           </button>
         )}
         <h1 class="tf-chain">{title}</h1>
-        {end}
+        {/* One row: the title, then how fresh the times are, then the screen's own controls. With
+            too little room, the end drops under the title as a whole. */}
+        {(feed || end) && (
+          <div class="tf-header__end">
+            {feed && <LiveStatus feed={feed} secondsSinceUpdate={secondsSinceUpdate ?? null} stale={stale ?? false} failed={failed ?? null} items={items ?? []} />}
+            {end}
+          </div>
+        )}
       </div>
-      {feed && (
-        <LiveStatus feed={feed} secondsSinceUpdate={secondsSinceUpdate ?? null} stale={stale ?? false} failed={failed ?? null} items={items ?? []} />
-      )}
       {/* The saved color and the loading bar share the few pixels under the header, where neither
           moves the page as a search is saved or loads. While loading, the saved color is the bar. */}
       <HeaderEdge loading={loading} />

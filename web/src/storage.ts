@@ -187,21 +187,6 @@ export function restoreAllNotices() {
   writeStored('dismissed', []);
 }
 
-// Results tell a rider that tapping a connection pins it on their first few visits, until they
-// first pin one. Each call counts a visit and says whether to show the hint on it.
-const PIN_HINT_VISITS = 3;
-
-export function takePinHint() {
-  const left = readStored<number>('pinHint', PIN_HINT_VISITS);
-  if (left <= 0) return false;
-  writeStored('pinHint', left - 1);
-  return true;
-}
-
-export function clearPinHint() {
-  writeStored('pinHint', 0);
-}
-
 export function loadSaved(): SavedSearch[] {
   return readStored<SavedSearch[]>('saved', []).map(clampTimes);
 }

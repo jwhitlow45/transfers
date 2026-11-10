@@ -32,15 +32,9 @@ export type CardContext = {
   // The trip pinned to these results, and pinning one, or unpinning with null.
   pin: Pin | null;
   onPin: (pin: Pin | null) => void;
-  // The card that says how to pin, on a rider's first visits, by hintKey.
-  pinHint: string | null;
   // Opens what BART says about a station's elevator or escalator outages.
   showOutages: (outages: StationOutages) => void;
 };
-
-// A departure's card: one trip can appear in two groups, such as BART's and Muni Metro's at a
-// shared station.
-export const hintKey = (group: Group, trip: string | undefined) => (trip === undefined ? null : `${pointId(group)}|${trip}`);
 
 // Unix seconds to a place on the shared time scale, 0 to 100, from now to `scaleMinutes` ahead.
 export const timeScale = (now: number, scaleMinutes: number) => (unixSeconds: number) => Math.max(0, Math.min(100, ((unixSeconds * 1000 - now) / 60_000 / scaleMinutes) * 100));

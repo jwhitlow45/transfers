@@ -2,17 +2,18 @@ import { useRef, useState } from 'preact/hooks';
 import { focusInstead } from '../focus.ts';
 import { motionOff } from '../gestures.ts';
 import { IconChevronRight, IconFold, IconInfo, IconWarn } from '../icons/ui.tsx';
-import { NOTICE, type ViewAlert } from '../lib/alerts.ts';
+import type { ViewAlert } from '../lib/alerts.ts';
 import { Collapse } from './Collapse.tsx';
 import { AppLink } from './AppLink.tsx';
 
-// Inline, collapsible, ordered by importance. Alerts on the rider's boarding stop open at first.
-// Folded, each is one line, since riders often have a notice from each agency above their
-// results. Opened, each can be dismissed, and the Notices page puts it back. The list ends in a
-// quieter row counting this trip's dismissed notices, which opens that page, and holds the
-// notices' place when every one is dismissed.
+// Inline, ordered by importance, one row each, since riders often have a notice from each agency
+// above their results. An alert where the rider boards is tinted and shows its kind and its whole
+// title. Any other shows up to two lines of its title. A tap opens the rest: its kind, body and
+// agency, and Dismiss, which the Notices page undoes. The list ends in a quieter row counting this
+// trip's dismissed notices, which opens that page, and holds the notices' place when every one is
+// dismissed.
 export function AlertList({ alerts, dismissed, onDismiss }: { alerts: ViewAlert[]; dismissed: number; onDismiss: (alert: ViewAlert) => void }) {
-  const [open, setOpen] = useState<Record<string, boolean>>(() => Object.fromEntries(alerts.filter(({ startOpen }) => startOpen).map(({ id }) => [id, true])));
+  const [open, setOpen] = useState<Record<string, boolean>>({});
   // A dismissed notice closes as a folded one does before it goes, so what is below slides up
   // rather than jumping.
   const [leaving, setLeaving] = useState<ReadonlySet<string>>(new Set());
@@ -38,7 +39,7 @@ export function AlertList({ alerts, dismissed, onDismiss }: { alerts: ViewAlert[
   return (
     <section ref={section} class="tf-alerts" aria-label="Service alerts">
       {alerts.map((alert) => {
-        const isOpen = open[alert.id] ?? alert.startOpen;
+        const isOpen = open[alert.id] ?? false;
         const panel = `alert-${alert.id.replace(/[^\w-]/g, '_')}`;
         return (
           <Collapse key={alert.id} open={!leaving.has(alert.id)}>
@@ -46,31 +47,18 @@ export function AlertList({ alerts, dismissed, onDismiss }: { alerts: ViewAlert[
               <button type="button" class="tf-alert__toggle" aria-expanded={isOpen} aria-controls={panel} onClick={() => setOpen((current) => ({ ...current, [alert.id]: !isOpen }))}>
                 <span class="tf-alert__icon">{alert.severity === 'info' ? <IconInfo /> : <IconWarn />}</span>
                 <span class="tf-alert__text">
-                  <span class="tf-kicker">
-                    {/* Narrow screens leave out the plain word "Notice" from a folded one's
-                        kicker, so more of the title shows (see styles.css). */}
-                    {alert.kicker.startsWith(NOTICE) ? (
-                      <>
-                        <span class="tf-alert__notice">{NOTICE}</span>
-                        {alert.kicker.slice(NOTICE.length)}
-                      </>
-                    ) : (
-                      alert.kicker
-                    )}
-                  </span>
-                  <span class="tf-alert__sep" aria-hidden="true">
-                    ·
-                  </span>
+                  {/* Folded, only the boarding alert shows its kind. Screen readers hear it on each. */}
+                  <span class="tf-alert__kicker">{alert.kicker}</span>
+                  <span class="tf-sr">: </span>
                   <span class="tf-alert__title">{alert.title}</span>
                 </span>
-                {/* The size of every disclosure chevron on results: departed folds' and bands'. */}
                 <span class="tf-alert__chev">
                   <IconFold />
                 </span>
               </button>
               <Collapse open={isOpen} id={panel}>
                 <div class="tf-alert__body">
-                  {alert.body}
+                  {alert.body && <p>{alert.body}</p>}
                   <div class="tf-alert__foot">
                     <div class="tf-alert__meta">
                       <span>{alert.meta}</span>
@@ -95,7 +83,7 @@ export function AlertList({ alerts, dismissed, onDismiss }: { alerts: ViewAlert[
           <span class="tf-alert__icon">
             <IconInfo />
           </span>
-          <span class="tf-kicker">{dismissed === 1 ? '1 dismissed notice' : `${dismissed} dismissed notices`}</span>
+          <span class="tf-alert__text">{dismissed === 1 ? '1 dismissed notice' : `${dismissed} dismissed notices`}</span>
           <span class="tf-alert__chev">
             <IconChevronRight />
           </span>

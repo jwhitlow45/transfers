@@ -22,12 +22,12 @@ import { viewAlerts } from '../lib/alerts.ts';
 import { type StationOutages, groupStops, outagesByStation } from '../lib/outages.ts';
 import { ringsBell } from '../lib/eggs.ts';
 import { liveClock } from '../lib/freshness.ts';
-import { IconFilter, IconFlag, IconHidden } from '../icons/ui.tsx';
-import { type CardContext, chooseDirection, directionChoices, hintKey, nothingCatchable, nothingRuns, orderGroups, pageColors, pointId, scaleFor, timeScale, visibleDepartures } from '../lib/results.ts';
+import { IconChevron, IconFilter, IconHidden } from '../icons/ui.tsx';
+import { type CardContext, chooseDirection, directionChoices, nothingCatchable, nothingRuns, orderGroups, pageColors, pointId, scaleFor, timeScale } from '../lib/results.ts';
 import { summarize } from '../lib/summary.ts';
 import { type ResultsView, cameBackTo, goBack, navigate, resultsPath } from '../router.ts';
 import { matchesServerDefaults, useSettings } from '../settings.tsx';
-import { type Pin, type Search, clearPinHint, rememberRecent, takePinHint, updateSaved } from '../storage.ts';
+import { type Pin, type Search, rememberRecent, updateSaved } from '../storage.ts';
 import { shortStopName, spokenRoute } from '../view.ts';
 import { AppLink } from '../components/AppLink.tsx';
 import { EmptyState } from '../components/EmptyState.tsx';
@@ -104,14 +104,8 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
   // The pinned trip as its vehicles run now. When it ends moves with them, and with a new
   // destination, and decides when it unpins itself.
   const { pinned, unpinAt, expired } = usePinnedTrip(pinHere, data, answered, search, settings, now, changePin);
-  // Whether this visit shows how to pin, counted once per visit, until the rider first pins.
-  const [hint, setHint] = useState(() => !pin && takePinHint());
-  // Pinning says what happened, with Undo, and stops showing how to pin.
+  // Pinning says what happened, with Undo.
   const pinFromResults = (next: Pin | null) => {
-    if (next) {
-      clearPinHint();
-      setHint(false);
-    }
     // A stop's tab goes with the pin, so Home follows the trip on the tab it was pinned on.
     const tagged = next && toStop && shown ? { ...next, view: shown } : next;
     records.pinWithUndo(tagged, data?.routes, tagged !== null && ringsBell(tagged, data));
@@ -152,8 +146,6 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
   const [outagesOpen, setOutagesOpen] = useState<StationOutages | null>(null);
   const tagged = new Set(ordered.flatMap((group) => [...groupStops(group)]));
   const untagged = outagesByStation((data?.access ?? []).filter(({ stops }) => !stops.some((stop) => tagged.has(stop))));
-  // The first card with connections says how to pin.
-  const hintGroup = hint ? ordered.find((group) => group.kind !== 'walk') : undefined;
   // Route filters can leave every transfer point with nothing to catch. Each would then say nothing
   // connects, which is not so, and offer hidden connections, which the filters hide too, so the
   // page says the filters are why instead. A window too narrow says so in its group, with Widen.
@@ -193,7 +185,6 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
     going,
     pin: pinHere,
     onPin: pinFromResults,
-    pinHint: hintGroup ? hintKey(hintGroup, visibleDepartures(hintGroup, now, showHidden)[0]?.trip) : null,
     showOutages: setOutagesOpen,
   };
   // A request the server refused, such as for a stop no longer in the schedule, is no live time.
@@ -204,7 +195,7 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
   const hide = search.hide ?? settings.hide;
   // The header chip takes the same color its group gives it, which may have stepped away from a clash.
   const toColor = summary.toRoute && data ? context.colorOf(summary.toRoute.key) : undefined;
-  const toChip = summary.toRoute ? <RouteChip route={summary.toRoute} {...(toColor ? { color: toColor } : {})} /> : <span>{summary.to}</span>;
+  const toChip = summary.toRoute ? <RouteChip route={summary.toRoute} size="sm" {...(toColor ? { color: toColor } : {})} /> : <span>{summary.to}</span>;
   const destinationsUrl = going ? null : apiUrl.destinations(url);
 
   return (
@@ -223,12 +214,7 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
             ...(filtering
               ? [{ key: 'routes', icon: <IconFilter />, short: 'Filtered', full: `${filterText}. Trip settings has the rest` }]
               : []),
-            // At the end of the line, where its name has the rest of it, cut short where that is too
-            // little (J, 2026-10-08).
-            // On the trips tab, the stop in To says itself where the rider is going.
-            ...(!going && search.dest
-              ? [{ key: 'dest', icon: <IconFlag />, short: shortStopName(data?.stops[search.dest], search.destLabel?.replace(/ \(\w+\)$/, '') ?? search.dest), full: `Showing when each departure gets you to ${search.destLabel ?? search.dest}. Trip settings changes it` }]
-              : []),
+            // A destination is named by each group's heading and each departure's arrival line.
           ]}
           accent={saved?.color}
           onRefresh={() => {
@@ -290,10 +276,11 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
             <SkeletonResults />
           ) : data && (groups.length === 0 || filteredOut || noWays) ? (
             <>
-              <EmptyTrip data={data} search={search} summary={summary} going={going} noWays={noWays} walk={settings} update={update} />
+              {/* With trips to fall back on, why there are no simpler ones is their heading. */}
+              {!fallback && <EmptyTrip data={data} search={search} summary={summary} going={going} noWays={noWays} walk={settings} update={update} />}
               {fallback && (
                 <section class="tf-section" aria-labelledby="more-changes">
-                  <h2 id="more-changes">With more changes</h2>
+                  <EmptyTrip data={data} search={search} summary={summary} going={going} noWays={noWays} walk={settings} update={update} more="more-changes" />
                   {/* Asked for apart from the results above, so they say for themselves when they are old.
                       With none yet, the trips below say why. */}
                   {journeys.data && <LiveBanners feed={journeys.feed} fresh={tripsClock.fresh} showStale={tripsClock.showStale} secondsSinceUpdate={tripsClock.secondsSinceUpdate} />}
@@ -317,8 +304,11 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
                   />
                 ))}
                 {shownGroups.length < ordered.length && (
-                  <button type="button" class="tf-btn-outline tf-btn-secondary" onClick={() => setShowAll(true)}>
-                    Show {ordered.length - shownGroups.length} more {ordered.length - shownGroups.length === 1 ? 'way' : 'ways'} there
+                  <button type="button" class="tf-fold tf-fold--bare" onClick={() => setShowAll(true)}>
+                    <span>
+                      Show {ordered.length - shownGroups.length} more {ordered.length - shownGroups.length === 1 ? 'way' : 'ways'} there
+                    </span>
+                    <IconChevron />
                   </button>
                 )}
               </div>
@@ -354,17 +344,20 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
 }
 
 // Why nothing showed up, in the rider's terms, with the one thing that might help.
-function EmptyTrip({ data, search, summary, going, noWays, walk, update }: { data: TripResponse; search: Search; summary: ReturnType<typeof summarize>; going: boolean; noWays: boolean; walk: { maxWalk: number; walkSpeed: number }; update: SearchUpdate }) {
+// `more` is set when trips with more changes follow: it is the id their section goes by, and the
+// notice is then that section's heading, saying so in the same breath.
+function EmptyTrip({ data, search, summary, going, noWays, walk, update, more }: { data: TripResponse; search: Search; summary: ReturnType<typeof summarize>; going: boolean; noWays: boolean; walk: { maxWalk: number; walkSpeed: number }; update: SearchUpdate; more?: string }) {
+  const heading = more ? { id: more, more: 'These take more changes.' } : {};
   const notice = data.notice;
   const route = summary.toRoute;
   // "the 48", or a BART line by its color.
   const toName = route ? (route.agency === 'BA' ? `the ${route.name} line` : `the ${summary.to}`) : summary.to;
   const again = (next: number | null, place: string) => (next ? `${place} starts again ${weekdayClock(next)}.` : `${place} does not run in the next few days.`);
   // Going to a stop, ways with nothing running on them now are none.
-  if (noWays) return <EmptyState title={`No way to ${summary.to} with one transfer or none right now`} />;
+  if (noWays) return <EmptyState {...heading} title={`No way to ${summary.to} with one transfer or none right now`} />;
   if (notice?.kind === 'idle' && notice.side === 'to') {
     return (
-      <EmptyState title={route ? `${capitalize(toName)} isn't running now` : going ? `Nothing that goes to ${summary.to} is running now` : `Nothing boards at ${summary.to} right now`}>
+      <EmptyState {...heading} title={route ? `${capitalize(toName)} isn't running now` : going ? `Nothing that goes to ${summary.to} is running now` : `Nothing boards at ${summary.to} right now`}>
         <div class="tf-muted">{again(notice.next, route ? 'Service' : 'Service there')}</div>
       </EmptyState>
     );
@@ -408,7 +401,7 @@ function EmptyTrip({ data, search, summary, going, noWays, walk, update }: { dat
     );
   }
   // Going to a stop, the trips with more changes follow.
-  if (going) return <EmptyState title={`No way to ${summary.to} with one transfer or none`} />;
+  if (going) return <EmptyState {...heading} title={`No way to ${summary.to} with one transfer or none`} />;
   return (
     <EmptyState title={`Nothing from ${summary.from} gets within a short walk of ${toName}`}>
       <div class="tf-muted">{walk.maxWalk < 650 ? 'A longer walk between stops, in Settings, may find one.' : 'Try a stop or route closer to where you start.'}</div>

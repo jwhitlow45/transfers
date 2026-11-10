@@ -1,10 +1,9 @@
-import { type ComponentChildren, Fragment } from 'preact';
 import type { Group, Route } from '../../../shared/api.ts';
 import { walkMinutes } from '../format.ts';
 import { IconGerbil } from '../icons/ui.tsx';
 import { groupStops, outagesByStation } from '../lib/outages.ts';
 import { type CardContext, alightVerb, cardLeft, familyName, firstNoun, firstWord, pointId, ridesStraightTo, visibleDepartures } from '../lib/results.ts';
-import { agencyName, shortStopName, windowText } from '../view.ts';
+import { shortStopName, windowText } from '../view.ts';
 import { DepartureCard } from './DepartureCard.tsx';
 import { Departed } from './Departed.tsx';
 import { OutageTag } from './Outages.tsx';
@@ -42,9 +41,7 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
   const alightName = shortStopName(alight, group.alight);
   const sameStop = group.alight === group.board;
   const routeLabel = familyName(group.routes, data);
-  const station = board?.serves ? 'BART and Muni Metro station' : board ? `${agencyName(board)} station` : null;
   const boardLink = <StopLink stop={board}>{boardName}</StopLink>;
-  const place = joined([board?.direction, <>at {boardLink}</>, board?.code ? `stop ${board.code}` : station]);
   // Cards whose vehicles have all left fold into one section above the rest. Inside it they open,
   // as the rider looking there wants their rows.
   const left = departures.filter((departure) => !departure.canceled && cardLeft(group, departure, context.now));
@@ -92,16 +89,18 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
       <span class="tf-walk-gerbil" aria-hidden="true">
         <IconGerbil />
       </span>
-      {walkTime}&nbsp;min walk
+      {walkTime}&nbsp;min walk to {boardLink}
     </>
   );
+  // With a destination set, the heading names it, as the rider chose it, and every vehicle under it
+  // goes there. Otherwise it names the direction, which is then the choice (J, 2026-10-12).
+  const destinationName = context.going ? null : context.destinationName;
   const card = (departure: (typeof departures)[number]) => (
     <DepartureCard
       key={departure.trip}
       departure={departure}
       group={group}
       next={ahead.slice(ahead.indexOf(departure) + 1).find(({ canceled }) => !canceled)}
-      boardName={boardName}
       alightName={alightName}
       noun={noun}
       walk={walk}
@@ -132,13 +131,13 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
           {!context.going && (
             <span>
               <span aria-hidden="true">→ </span>
-              <span class="tf-sr">toward </span>
-              {group.headsign}
+              <span class="tf-sr">{destinationName ? 'to ' : 'toward '}</span>
+              {destinationName ?? group.headsign}
             </span>
           )}
         </h2>
-        <div class="tf-group__meta">{place}</div>
-        <div class="tf-group__off">{off}</div>
+        {/* Where to change is said here, once, for every card under it. */}
+        <p class="tf-group__how">{off}</p>
         {/* An elevator or escalator out where the rider gets off or changes, for riders who asked. */}
         {outages.length > 0 && (
           <div class="tf-outage-tags">
@@ -205,13 +204,3 @@ function familyChips(routes: Route[]) {
 
 // A number and its unit stay on one line: "3–12 min" never wraps before "min".
 const keepUnit = (text: string) => text.replace(/ min\b/g, '\u00a0min');
-
-// Parts of a line joined by " · ", leaving out the empty ones.
-function joined(parts: (ComponentChildren | null | undefined | false)[]) {
-  return parts.filter(Boolean).map((part, index) => (
-    <Fragment key={index}>
-      {index > 0 && ' · '}
-      {part}
-    </Fragment>
-  ));
-}

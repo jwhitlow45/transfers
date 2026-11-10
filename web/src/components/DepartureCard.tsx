@@ -1,9 +1,9 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import type { Departure, Group } from '../../../shared/api.ts';
-import { IconFold, IconPin } from '../icons/ui.tsx';
+import { IconFold } from '../icons/ui.tsx';
 import { approx, approxMinutes, atLeast, clock, hasLeft, minuteCount, minutesSince, minutesUntil, untilText } from '../format.ts';
 import { pinOf, sameRun } from '../lib/pinned.ts';
-import { type CardContext, hintKey, listedConnections, tripSeconds, tripStart } from '../lib/results.ts';
+import { type CardContext, listedConnections, tripSeconds, tripStart } from '../lib/results.ts';
 import { useSettings } from '../settings.tsx';
 import { walkSeconds } from '../../../shared/walk.ts';
 import { TimeLink } from '../track.tsx';
@@ -13,17 +13,15 @@ import { ConnectionRow, connectionMap } from './ConnectionRow.tsx';
 import { Departed } from './Departed.tsx';
 import { PinToggle } from './PinToggle.tsx';
 import { RouteChip } from './RouteChip.tsx';
-import { Approx, StatusTag } from './StatusTag.tsx';
-import { TimeTicks } from './TimeBar.tsx';
+import { Approx, PinnedTag, StatusTag } from './StatusTag.tsx';
 
 // One second-leg departure: a reversed band, then every first vehicle that makes it. The band
 // opens and closes the card. Closed, it keeps one line of countdowns for those vehicles.
-export function DepartureCard({ departure, group, next, boardName, alightName, noun, walk, allLeft = false, expanded, onToggle, colorOf, context }: {
+export function DepartureCard({ departure, group, next, alightName, noun, walk, allLeft = false, expanded, onToggle, colorOf, context }: {
   departure: Departure;
   group: Group;
   // The next departure still running, for the canceled note.
   next: Departure | undefined;
-  boardName: string;
   alightName: string;
   noun: readonly [string, string];
   // A route already at or near From: the card is just the departure, with nothing to open.
@@ -101,31 +99,12 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
   const spoken =
     `${route ? spokenRoute(route) : 'Departure'} at ${clock(departure.at)}, ${status.label}, ` +
     `${away ? away.toLowerCase() : notStarted ? `at least ${minuteCount(Math.max(1, minutes))} away` : `${minuteCount(minutes)} away`}${toward ? `, ${toward.toLowerCase()}` : ''}${spokenDestination ? `, reaches ${spokenDestination}` : ''}${tripMinutes !== null ? `, a ${tripScheduled ? 'scheduled ' : ''}${tripMinutes} minute trip` : ''}.` +
-    (walk ? '' : ` ${count} connecting ${noun[count === 1 ? 0 : 1]}${expanded ? '' : [gone > 0 && `, ${gone} already left`, countdowns.length > 0 && `, leaving in ${spokenCountdowns} minutes`].filter(Boolean).join('')}.`);
+    (walk ? (walkPinned ? ' Pinned.' : '') : ` ${count} connecting ${noun[count === 1 ? 0 : 1]}${expanded ? '' : [gone > 0 && `, ${gone} already left`, countdowns.length > 0 && `, leaving in ${spokenCountdowns} minutes`].filter(Boolean).join('')}.`);
   // The spoken summary says everything shown, so screen readers skip the shown text and reach
   // only the links in it.
   const band = (
     <>
       <span class="tf-band__main">
-        {/* Floated, so the lines under it take the band's whole width once it ends, which the
-            arrival line usually needs on a phone. */}
-        <span class="tf-band__right" aria-hidden="true">
-          {/* Read top to bottom: "12 min away", "Now arriving", "Just left", "3 min ago". */}
-          <span class="tf-band__in">{left ? (ago < 1 ? 'Just' : `${ago}\u00a0min`) : untilText(minutes, notStarted)}</span>
-          {walkPinned ? (
-            <span class="tf-band__inlabel tf-band__inlabel--pinned">
-              <IconPin filled size={13} />
-              Pinned
-            </span>
-          ) : (
-            <span class="tf-band__inlabel">{left ? (ago < 1 ? 'left' : 'ago') : minutes < 1 && !notStarted ? 'arriving' : 'away'}</span>
-          )}
-          {!walk && (
-            <span class="tf-band__chev">
-              <IconFold />
-            </span>
-          )}
-        </span>
         <span class="tf-band__line">
           <RouteChip route={route} size="band" color={color} hidden />
           <span class="tf-band__time">
@@ -145,17 +124,38 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
               </TimeLink>
             )}
           </span>
-          <StatusTag status={status} hidden />
+          {/* The Scheduled tag marks the time, so it sits beside it. Any other status has the line
+              under the time, as in every row. */}
+          {status.kind === 'scheduled' && <StatusTag status={status} hidden />}
         </span>
-        <span class="tf-band__sub" aria-hidden="true">
-          {[toward, walk ? null : `Arrives at ${boardName}`].filter(Boolean).join(' · ')}
-        </span>
+        {status.kind !== 'scheduled' && (
+          <span class="tf-band__sub" aria-hidden="true">
+            <StatusTag status={status} hidden />
+          </span>
+        )}
+        {toward && (
+          <span class="tf-band__sub tf-band__toward" aria-hidden="true">
+            {toward}
+          </span>
+        )}
         {destination && (
           <ArrivalLine
             full={arrivalText(destination, tripMinutes, tripScheduled)}
             short={destinationShort && destinationAt ? arrivalText(`${destinationShort} ${destinationAt}`, tripMinutes, tripScheduled) : null}
           />
         )}
+        {walkPinned && (
+          <span class="tf-band__sub" aria-hidden="true">
+            <PinnedTag />
+          </span>
+        )}
+      </span>
+      {/* The band is the card's header, so its countdown stays on the right (J, 2026-11-09). Read
+          top to bottom: "12 min away", "Now arriving", "Just left", "3 min ago". */}
+      <span class="tf-end tf-band__end" aria-hidden="true">
+        <span class="tf-end__n">{left ? (ago < 1 ? 'Just' : `${ago}\u00a0min`) : untilText(minutes, notStarted)}</span>
+        <span class="tf-end__u">{left ? (ago < 1 ? 'left' : 'ago') : minutes < 1 && !notStarted ? 'arriving' : 'away'}</span>
+        {!walk && <IconFold />}
       </span>
     </>
   );
@@ -201,13 +201,6 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
       {/* The rows and the closed card's one-line summary each slide, so they trade places
           smoothly. */}
       <Collapse open={expanded} id={panel}>
-        <TimeTicks scaleMinutes={context.scaleMinutes} />
-        {context.pinHint !== null && context.pinHint === hintKey(group, departure.trip) && (
-          <p class="tf-pin-hint">
-            <IconPin size={14} />
-            Tap a connection to pin it to the top
-          </p>
-        )}
         {gone > 0 && !allLeft ? (
           <>
             <Departed count={gone} place={shortStopName(context.data.stops[context.data.from], context.data.from)}>
@@ -243,8 +236,8 @@ function ArrivalLine({ full, short }: { full: string; short: string | null }) {
   const line = useRef<HTMLSpanElement>(null);
   const [wraps, setWraps] = useState(false);
   // Counts changes to the line's room: its width, and the size of what comes before it in the
-  // band. A status tag that stops wrapping, or a countdown that grows, moves the line beside or
-  // below the floated countdown with the same width and text. None of these depend on the line,
+  // band. A status that stops wrapping, or a countdown that grows, changes the room the line has
+  // with the same width and text. None of these depend on the line,
   // so its own changes never come back here.
   const [room, setRoom] = useState(0);
   useLayoutEffect(() => setWraps(false), [full, short, room]);
@@ -274,7 +267,7 @@ function ArrivalLine({ full, short }: { full: string; short: string | null }) {
     return () => observer.disconnect();
   }, [short !== null]);
   return (
-    <span class="tf-band__dest" aria-hidden="true" ref={line}>
+    <span class="tf-band__sub tf-band__dest" aria-hidden="true" ref={line}>
       {wraps && short ? short : full}
     </span>
   );
