@@ -128,6 +128,10 @@
    the pages' does (see styles.css). */
 @container (max-width: 16rem) {
   .tf-track > * { --tm-1: 4px; --tm-2: 8px; --tm-3: 12px; --tm-4: 16px; --tm-5: 24px; }
+  /* The map's corner has no room for the pinch hint beside Full and Fit, so it goes, and the
+     keys' hint, which shows only with the keyboard's focus, sits over the two buttons. */
+  .tf-track__frame .tf-map-hint--touch { display: none; }
+  .tf-track__frame .tf-map-hint--keys { bottom: calc(var(--map-inset, 0px) + var(--tm-2) + var(--tm-tap) + var(--tm-2)); }
 }
 /* The sheet's own gaps hold at their 100% size too, as the pages' do at large text (see
    styles.css). By the screen's width, as a container cannot be styled by its own query. */
