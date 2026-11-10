@@ -1,13 +1,13 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import type { Departure, Group } from '../../../shared/api.ts';
 import { IconFold } from '../icons/ui.tsx';
-import { approx, approxMinutes, atLeast, clock, hasLeft, minuteCount, minutesSince, minutesUntil, untilText } from '../format.ts';
+import { approx, approxMinutes, atLeast, clock, hasLeft, minuteCount, minutesSince, minutesUntil, stillWaiting, untilText } from '../format.ts';
 import { pinOf, sameRun } from '../lib/pinned.ts';
 import { type CardContext, listedConnections, tripSeconds, tripStart } from '../lib/results.ts';
 import { useSettings } from '../settings.tsx';
 import { walkSeconds } from '../../../shared/walk.ts';
 import { TimeLink } from '../track.tsx';
-import { chipLabel, pinLabel, shortStopName, spokenRoute, statusOf, vehicleAt } from '../view.ts';
+import { chipLabel, pinLabel, shortStopName, spokenRoute, statusAt, statusOf, vehicleAt } from '../view.ts';
 import { Collapse } from './Collapse.tsx';
 import { ConnectionRow, connectionMap } from './ConnectionRow.tsx';
 import { Departed } from './Departed.tsx';
@@ -55,8 +55,9 @@ export function DepartureCard({ departure, group, next, alightName, noun, walk, 
       </div>
     );
   }
-  const status = statusOf(departure.delay, departure.live, false, departure.notStarted);
-  const notStarted = departure.notStarted === true;
+  const status = statusAt(departure.at, context.now, departure.delay, departure.live, false, departure.notStarted);
+  // Yet to leave the first stop of its trip, while it is held as coming (see stillWaiting).
+  const notStarted = stillWaiting(departure.at, context.now, departure.notStarted);
   const minutes = minutesUntil(departure.at, context.now);
   // Left where the rider boards it, on its way to the destination: kept so a rider on it can
   // still pin it.

@@ -1,7 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { Mode, Route, Stop, TrackLeg, TrackResponse } from '../../../shared/api.ts';
-import { atLeast, clock, minutesUntil, walkText } from '../format.ts';
+import { atLeast, clock, minutesUntil, stillWaiting, walkText } from '../format.ts';
 import { useNow, usePoll } from '../hooks.ts';
 import { IconFit, IconFold, IconFullRoute } from '../icons/ui.tsx';
 import { routeColor } from '../lib/color.ts';
@@ -227,14 +227,14 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
           tight={tight}
         />
       )}
-      <Vehicle leg={data} route={route} color={tracked.color}>
+      <Vehicle leg={data} route={route} color={tracked.color} now={now}>
         <LegList leg={data} stops={data.stops} labels={labels} now={now} role={mainRole} notes={notes} name={routeName} />
       </Vehicle>
       {next && nextLabels && (
         // The vehicle the rider changes to, from where it is now to where they board it, and on to
         // where they leave it. Where it is goes under its name, as the first vehicle's does above
         // the map.
-        <Vehicle leg={next} route={nextRoute} color={transfer?.color} where={legStatus(next, data.stops, 'the transfer stop')}>
+        <Vehicle leg={next} route={nextRoute} color={transfer?.color} now={now} where={legStatus(next, data.stops, 'the transfer stop')}>
           <LegList leg={next} stops={data.stops} labels={nextLabels} now={now} role={nextRole} notes={nextNotes} name={nextName} />
         </Vehicle>
       )}
@@ -246,16 +246,20 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
 // One vehicle's part of the sheet: its chip, where it heads, and its status at the stop watched, in
 // the words its row in the results uses, over its stops. A trip the feed predicts none of carries
 // the one Scheduled tag here, so its times and countdowns below stay bare (J, 2026-10-03).
-function Vehicle({ leg, route, color, where, children }: { leg: TrackLeg; route: Route | undefined; color: string | undefined; where?: string; children: ComponentChildren }) {
+function Vehicle({ leg, route, color, where, now, children }: { leg: TrackLeg; route: Route | undefined; color: string | undefined; where?: string; now: number; children: ComponentChildren }) {
   // A server from before the map carried a status knows a canceled trip only by its missing vehicle.
   const canceled = leg.canceled === true || leg.missing === 'canceled';
+  // Yet to leave its first stop only while its time at the stop watched holds it as coming (see
+  // stillWaiting), as its row in the results has it.
+  const watchedAt = leg.targetIndex === null ? null : (leg.path[leg.targetIndex]?.at ?? null);
+  const notStarted = watchedAt === null ? leg.notStarted : stillWaiting(watchedAt, now, leg.notStarted);
   return (
     <section class="tf-track__veh">
       <h3 class="tf-track__veh-head">
         <RouteChip route={route} {...(color ? { color } : {})} />
         <span>toward {leg.headsign}</span>
         {/* An ended trip's delay no longer matters. */}
-        {leg.missing === 'ended' && !canceled ? <span class="tf-track__state">Ended</span> : <StatusTag status={statusOf(leg.delay ?? null, !leg.scheduled, canceled, leg.notStarted)} />}
+        {leg.missing === 'ended' && !canceled ? <span class="tf-track__state">Ended</span> : <StatusTag status={statusOf(leg.delay ?? null, !leg.scheduled, canceled, notStarted)} />}
       </h3>
       {where && <p class="tf-track__veh-where">{where}</p>}
       {children}
@@ -646,7 +650,9 @@ function When({ at, passed, notStarted, now }: { at: number | null; passed: bool
   if (passed) return <span class="tf-track__num tf-track__num--passed">Passed</span>;
   if (at === null) return <span class="tf-track__num" />;
   const minutes = minutesUntil(at, now);
-  if (!notStarted && minutes < 1) {
+  // Past the hold on a vehicle yet to leave (see stillWaiting), it counts as any other.
+  const waiting = stillWaiting(at, now, notStarted);
+  if (!waiting && minutes < 1) {
     return (
       <span class="tf-track__num">
         <span class="tf-track__num-n">Now</span>
@@ -656,7 +662,7 @@ function When({ at, passed, notStarted, now }: { at: number | null; passed: bool
   return (
     <span class="tf-track__num">
       <span class="tf-track__num-n">
-        {notStarted ? (
+        {waiting ? (
           <>
             {atLeast(minutes).slice(0, -1)}
             <Plus />

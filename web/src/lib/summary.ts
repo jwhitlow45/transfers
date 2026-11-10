@@ -1,7 +1,7 @@
 import type { Alert, Route, TripResponse } from '../../../shared/api.ts';
-import { approxMinutes, atLeast, clock, clockOrDay, minutesUntil } from '../format.ts';
+import { approxMinutes, atLeast, clock, clockOrDay, minutesUntil, stillWaiting } from '../format.ts';
 import type { Pin, Search } from '../storage.ts';
-import { type Status, chipLabel, pinLabel, shortStopName, statusOf, vehicleAt, windowText } from '../view.ts';
+import { type Status, chipLabel, pinLabel, shortStopName, statusAt, vehicleAt, windowText } from '../view.ts';
 import { type ConnectionTrack, connectionTrack } from './connection-map.ts';
 import { pinOf } from './pinned.ts';
 import { pageColors, pointId, ridesStraightTo, visibleDepartures } from './results.ts';
@@ -86,14 +86,14 @@ export function summarize(search: Search, data: TripResponse | null, now: number
         soonest = connection.departs;
         const first = data!.routes[connection.route];
         const second = data!.routes[departure.route];
-        const firstStatus = statusOf(connection.departDelay, connection.live, false, connection.notStarted);
-        const secondStatus = statusOf(departure.delay, departure.live, false, departure.notStarted);
+        const firstStatus = statusAt(connection.departs, now, connection.departDelay, connection.live, false, connection.notStarted);
+        const secondStatus = statusAt(departure.at, now, departure.delay, departure.live, false, departure.notStarted);
         // From where the first vehicle lets the rider off to the second reaching them.
         const transferScheduled = !connection.live || Boolean(connection.arrivesScheduled) || !departure.live;
         const map = connectionTrack(connection, departure, { data: data!, alight: group.alight, board: group.board, min: group.window.min, walkMeters: group.walkMeters, secondColor: colorOf!(departure.route), destination: search.dest });
         next = {
           minutes: minutesUntil(connection.departs, now),
-          notStarted: connection.notStarted === true,
+          notStarted: stillWaiting(connection.departs, now, connection.notStarted),
           legs: [
             { route: first, at: connection.departs, status: firstStatus },
             { route: second, at: departure.at, status: secondStatus },
@@ -119,10 +119,10 @@ export function summarize(search: Search, data: TripResponse | null, now: number
       if (!departure || departure.at >= soonest) continue;
       soonest = departure.at;
       const route = data!.routes[departure.route];
-      const status = statusOf(departure.delay, departure.live, false, departure.notStarted);
+      const status = statusAt(departure.at, now, departure.delay, departure.live, false, departure.notStarted);
       next = {
         minutes: minutesUntil(departure.at, now),
-        notStarted: departure.notStarted === true,
+        notStarted: stillWaiting(departure.at, now, departure.notStarted),
         legs: [{ route, at: departure.at, status }],
         transfer: null,
         transferScheduled: false,

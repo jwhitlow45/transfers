@@ -4,7 +4,7 @@ import { connectionTrack } from '../lib/connection-map.ts';
 import { pinOf, sameRun } from '../lib/pinned.ts';
 import { type CardContext, isTight } from '../lib/results.ts';
 import { TimeLink } from '../track.tsx';
-import { shortStopName, spokenRoute, statusOf } from '../view.ts';
+import { shortStopName, spokenRoute, statusAt } from '../view.ts';
 import { Num } from './Countdown.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import { StopLink } from './StopLink.tsx';
@@ -53,7 +53,7 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
   // A vehicle yet to leave the first stop of its trip cannot be arriving now (see atLeast).
   const notStarted = !left && connection.notStarted === true;
   const now = !left && minutes < 1 && !notStarted;
-  const status = statusOf(connection.departDelay, connection.live, false, connection.notStarted);
+  const status = statusAt(connection.departs, context.now, connection.departDelay, connection.live, false, connection.notStarted);
   // Where the rider gets off, and so the transfer, can be the schedule's even on a live vehicle.
   const offScheduled = !connection.live || Boolean(connection.arrivesScheduled);
   const transferScheduled = offScheduled || !departure.live;

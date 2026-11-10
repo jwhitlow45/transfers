@@ -2,7 +2,7 @@ import type { ComponentChildren } from 'preact';
 import type { NearbyArrival, NearbyStop, Route, Stop } from '../../../shared/api.ts';
 import { atLeast, clock, minutesUntil, stillWaiting } from '../format.ts';
 import { TimeLink, type PinAction } from '../track.tsx';
-import { pinLabel, spokenRoute, statusOf, vehicleAt } from '../view.ts';
+import { pinLabel, spokenRoute, statusAt, vehicleAt } from '../view.ts';
 import { PinToggle } from './PinToggle.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import { PinnedTag, StatusTag } from './StatusTag.tsx';
@@ -57,10 +57,10 @@ export function ArrivalItem({ arrival, route, chip, stop, board, now, pin }: {
   pin?: { pinned: boolean; set: (on: boolean) => void };
 }) {
   const action: PinAction | undefined = pin && { ...pin, label: pinLabel([route, arrival.at]) };
-  const status = statusOf(arrival.delay, arrival.live, false, arrival.notStarted);
+  const status = statusAt(arrival.at, now, arrival.delay, arrival.live, false, arrival.notStarted);
   const minutes = minutesUntil(arrival.at, now);
   // A vehicle yet to leave the first stop of its trip cannot be arriving now (see atLeast).
-  const notStarted = arrival.notStarted === true;
+  const notStarted = stillWaiting(arrival.at, now, arrival.notStarted);
   const soon = minutes < 1 && !notStarted;
   const count = Math.max(1, minutes);
   const spoken = `${chip && route ? `${spokenRoute(route)}, ` : ''}${soon ? 'Arriving now' : `In ${notStarted ? 'at least ' : ''}${count} minute${count === 1 ? '' : 's'}`}, ${clock(arrival.at)}, ${status.label.toLowerCase()}.${pin?.pinned ? ' Pinned.' : ''}`;

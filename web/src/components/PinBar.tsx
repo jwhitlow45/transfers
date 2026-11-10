@@ -3,7 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { Alert, PinnedLeg, PinnedStop, StopResponse, TripResponse } from '../../../shared/api.ts';
 import { tripPath } from '../../../shared/paths.ts';
 import { apiUrl } from '../api.ts';
-import { approx, clock, hasLeft, minuteCount, minutesUntil, walkMinutes } from '../format.ts';
+import { approx, clock, hasLeft, minuteCount, minutesUntil, stillWaiting, walkMinutes } from '../format.ts';
 import { useNow, usePinnedTrip, usePoll, useStopPin } from '../hooks.ts';
 import { IconChevron, IconClose, IconFullRoute, IconWarn } from '../icons/ui.tsx';
 import { ScreenActive } from '../layers.ts';
@@ -19,7 +19,7 @@ import { type Page, resultsPath, stopPath } from '../router.ts';
 import { useSettings } from '../settings.tsx';
 import { type Pin, type Search, loadDismissed, loadSaved } from '../storage.ts';
 import { type PinAction, TimeLink } from '../track.tsx';
-import { chipLabel, pinLabel, shortStopName, statusOf, vehicleAt } from '../view.ts';
+import { chipLabel, pinLabel, shortStopName, statusAt, vehicleAt } from '../view.ts';
 import { AppLink } from './AppLink.tsx';
 import { Num } from './Countdown.tsx';
 import { RouteChip } from './RouteChip.tsx';
@@ -353,7 +353,7 @@ function TripFeed({ pin, name: savedName, dismissed, shown, open, onReport, onTo
     const canceledText = canceled ? `The ${label(canceled)} at ${clock(canceled.on?.at ?? canceled.off!.at)} is canceled` : null;
     const countdown = tripCountdown(phase, first, leg2, now);
     const focus = pinFocus(phase, first, leg2);
-    const status = statusOf(focus.stop.delay, focus.leg.live, focus.leg.canceled, focus.leg.notStarted);
+    const status = statusAt(focus.stop.at, now, focus.stop.delay, focus.leg.live, focus.leg.canceled, focus.leg.notStarted);
     const verb = pinVerb(phase, { soon: countdown.num === 'Now', transfers: first !== null, vehicle: vehicleWord(routes[leg2.route]), reaches: Boolean(leg2.off) });
     const ahead = phase === 'wait' || phase === 'ride';
     const where = alertStops(phase, trip);
@@ -405,7 +405,7 @@ function TripFeed({ pin, name: savedName, dismissed, shown, open, onReport, onTo
               {transfer !== null && (missed ? <b class="tf-pinbar__missed">Missed by {transferText(-transfer)}</b> : <b>{transferText(transfer)} transfer</b>)}
             </span>
             <span class="tf-l2">
-              <StatusTag status={statusOf(leg2.on!.delay, leg2.live, leg2.canceled, leg2.notStarted)} plain />
+              <StatusTag status={statusAt(leg2.on!.at, now, leg2.on!.delay, leg2.live, leg2.canceled, leg2.notStarted)} plain />
               {/* The walk there, a step up, names the stop already. */}
               {!walk && ` · at ${stopName(leg2.on!)}`}
             </span>
@@ -510,8 +510,8 @@ function StopFeed({ pin, name: savedName, shown, open, onReport, onToggle, onClo
   const gone = !canceled && data !== null && hasLeft(at, now, arrival?.notStarted);
   const stop = data?.stops[pin.second.board];
   const vehicle = vehicleAt(route, at);
-  const status = arrival && !canceled ? statusOf(arrival.delay, arrival.live, false, arrival.notStarted) : null;
-  const notStarted = arrival?.notStarted === true && !canceled;
+  const status = arrival && !canceled ? statusAt(at, now, arrival.delay, arrival.live, false, arrival.notStarted) : null;
+  const notStarted = stillWaiting(at, now, arrival?.notStarted) && !canceled;
   const countdown = arrivalCountdown(at, now, { canceled, known: data !== null, notStarted });
   const note = !data ? waitingNote(feed === 'offline') : lost ? 'Times for this arrival are not available right now.' : null;
   const name = pinName(pin, savedName);

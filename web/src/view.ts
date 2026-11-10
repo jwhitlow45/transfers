@@ -1,7 +1,7 @@
 import type { AgencyId, Route, Stop } from '../../shared/api.ts';
 
 import { chipLabel } from '../../shared/labels.ts';
-import { clock, PACIFIC } from './format.ts';
+import { clock, PACIFIC, stillWaiting } from './format.ts';
 
 export { chipLabel, shortStopName, stopLabel } from '../../shared/labels.ts';
 
@@ -55,6 +55,12 @@ export function statusOf(delaySeconds: number | null, live = true, canceled = fa
   if (minutes < 0) return { kind: 'early', label: `${-minutes} min early` };
   return { kind: 'ontime', label: 'On time' };
 }
+
+// A vehicle's status beside a countdown to its time at a stop. It says it has not left only while
+// it is held as coming (see stillWaiting). Past that hold its row counts it as gone, and would
+// otherwise say "Not left yet" beside "Left 32 min ago".
+export const statusAt = (unixSeconds: number, nowMs: number, delaySeconds: number | null, live = true, canceled = false, notStarted = false) =>
+  statusOf(delaySeconds, live, canceled, stillWaiting(unixSeconds, nowMs, notStarted));
 
 export function directionText(stop: Stop | undefined, toward: string | undefined) {
   return [stop?.direction, toward && `toward ${toward}`].filter(Boolean).join(', ');
