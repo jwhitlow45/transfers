@@ -394,7 +394,10 @@ export function SearchScreen() {
             </AppLink>
           </>
         }
-        {...(liveStatus ? { feed: liveStatus.feed, secondsSinceUpdate: liveStatus.secondsSinceUpdate, stale: liveStatus.stale, onRefresh: refreshAll } : {})}
+        {...(liveStatus ? { feed: liveStatus.feed, secondsSinceUpdate: liveStatus.secondsSinceUpdate, stale: liveStatus.stale } : {})}
+        // A pull refreshes the live cards and the pins, so it works with either, as a pin can be
+        // of a trip that is not saved.
+        {...(liveStatus || pins.length > 0 ? { onRefresh: refreshAll } : {})}
       />
       <main class={`tf-page tf-page--form${typing ? ' tf-page--typing' : ''}`} id="main">
         <SearchFields
