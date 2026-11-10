@@ -104,8 +104,26 @@ export function DepartureCard({ departure, group, next, alightName, noun, walk, 
     (walk ? (walkPinned ? ' Pinned.' : '') : ` ${count} connecting ${noun[count === 1 ? 0 : 1]}${expanded ? '' : [gone > 0 && `, ${gone} already left`, countdowns.length > 0 && `, leaving in ${spokenCountdowns} minutes`].filter(Boolean).join('')}.`);
   // The spoken summary says everything shown, so screen readers skip the shown text and reach
   // only the links in it.
+  // The countdown's number apart from its "min", which "Now" and "Left" have none of.
+  const [until, counted] = left ? ['Left'] : untilText(minutes, notStarted).split('\u00a0');
   const band = (
     <>
+      {/* The band is the card's header, so its countdown stays on the right (J, 2026-11-09). Read
+          top to bottom: "12 min away", "Now arriving". A vehicle gone says "Left" over how long
+          ago, as a departed row does. It comes first, so the band's lines run beside it and then
+          under it at the band's full width (see .tf-band__end). On a narrow phone "min" drops
+          to the line under its number, so the time beside it keeps to one line (see styles.css). */}
+      <span class="tf-end tf-band__end" aria-hidden="true">
+        <span class="tf-end__n">
+          {until}
+          {counted && <span class="tf-band__min">&nbsp;{counted}</span>}
+        </span>
+        <span class="tf-end__u">
+          {counted && <span class="tf-band__min tf-band__min--under">{counted} </span>}
+          {left ? (ago < 1 ? 'just now' : `${ago}\u00a0min ago`) : counted ? 'away' : 'arriving'}
+        </span>
+        {!walk && <IconFold />}
+      </span>
       <span class="tf-band__main">
         <span class="tf-band__line">
           <RouteChip route={route} size="band" color={color} hidden />
@@ -126,15 +144,11 @@ export function DepartureCard({ departure, group, next, alightName, noun, walk, 
               </TimeLink>
             )}
           </span>
-          {/* The Scheduled tag marks the time, so it sits beside it. Any other status has the line
-              under the time, as in every row. */}
-          {status.kind === 'scheduled' && <StatusTag status={status} hidden />}
         </span>
-        {status.kind !== 'scheduled' && (
-          <span class="tf-band__sub" aria-hidden="true">
-            <StatusTag status={status} hidden />
-          </span>
-        )}
+        {/* Every status, the Scheduled tag too, has the line under the time, as in every row. */}
+        <span class="tf-band__sub" aria-hidden="true">
+          <StatusTag status={status} hidden />
+        </span>
         {toward && (
           <span class="tf-band__sub tf-band__toward" aria-hidden="true">
             {toward}
@@ -151,14 +165,6 @@ export function DepartureCard({ departure, group, next, alightName, noun, walk, 
             <PinnedTag />
           </span>
         )}
-      </span>
-      {/* The band is the card's header, so its countdown stays on the right (J, 2026-11-09). Read
-          top to bottom: "12 min away", "Now arriving". A vehicle gone says "Left" over how long
-          ago, as a departed row does. */}
-      <span class="tf-end tf-band__end" aria-hidden="true">
-        <span class="tf-end__n">{left ? 'Left' : untilText(minutes, notStarted)}</span>
-        <span class="tf-end__u">{left ? (ago < 1 ? 'just now' : `${ago}\u00a0min ago`) : minutes < 1 && !notStarted ? 'arriving' : 'away'}</span>
-        {!walk && <IconFold />}
       </span>
     </>
   );

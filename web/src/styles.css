@@ -246,8 +246,10 @@ button:disabled { opacity: .45; cursor: default; }
    but "On time" is, so it reads as a status among the muted detail beside it. */
 .tf-status--waiting, .tf-status-text--waiting { color: var(--text); font-weight: var(--weight-bold); }
 /* A vehicle's own scheduled time: the one dashed mark in the app, the same in every row and band. */
-.tf-status--scheduled, .tf-status-text--scheduled { padding: 0 var(--s1); color: var(--muted); border: 1px dashed currentColor; font-size: var(--fs-meta); font-weight: var(--weight-bold); line-height: 1.4; white-space: nowrap; }
-.tf-status--canceled { padding: 0 var(--s1); color: var(--late); background: var(--late-tint); font-weight: var(--weight-bold); }
+.tf-status--scheduled, .tf-status-text--scheduled { color: var(--muted); border: 1px dashed currentColor; }
+.tf-status--canceled { color: var(--late); background: var(--late-tint); }
+/* Every status set as a tag is one size, whatever it says. */
+.tf-status--scheduled, .tf-status-text--scheduled, .tf-status--canceled, .tf-tight { padding: 0 var(--s1); font-size: var(--fs-meta); font-weight: var(--weight-bold); line-height: 1.4; white-space: nowrap; }
 /* on the reversed band */
 .tf-band .tf-status--late { color: var(--on-field-late); }
 .tf-band .tf-status--early, .tf-band .tf-status--waiting, .tf-band .tf-status--scheduled { color: var(--on-field); }
@@ -261,7 +263,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-warnline span { min-width: 0; overflow-wrap: anywhere; }
 .tf-warnline--late { color: var(--late); }
 .tf-warnline--caution { color: var(--caution); }
-.tf-tight { display: inline-block; padding: 0 var(--s1); font-size: var(--fs-meta); font-weight: var(--weight-bold); background: var(--late-tint); color: var(--late); }
+.tf-tight { display: inline-block; background: var(--late-tint); color: var(--late); }
 .tf-hidden-tag { font-size: var(--fs-meta); font-weight: var(--weight-bold); color: var(--muted); white-space: nowrap; }
 
 /* ── the row ───────────────────────────────────────── */
@@ -621,16 +623,19 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-outage__where { margin-top: var(--s1); font-weight: var(--weight-bold); }
 
 /* The band: one second-leg departure, reversed, as the card's header. Its countdown stays on the
-   right, as a header's, and every row under it puts its own in the left column. The open and
-   close button lies under the band, whose content lets taps through to it, all but the links.
-   Tapping it leaves the band as it is, with no flash. */
-.tf-band { position: relative; display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0 var(--colgap); padding: var(--s3) var(--pad); background: var(--field); color: var(--on-field); }
+   right, as a header's, and every row under it puts its own in the left column. The countdown
+   floats there, so the band's lines run beside it, and those below it run the band's full width.
+   The open and close button lies under the band, whose content lets taps through to it, all but
+   the links. Tapping it leaves the band as it is, with no flash. */
+.tf-band { position: relative; display: flow-root; padding: var(--s3) var(--pad); background: var(--field); color: var(--on-field); }
 .tf-band__toggle { position: absolute; inset: 0; width: 100%; -webkit-tap-highlight-color: transparent; }
 .tf-band__toggle:focus-visible { outline-color: var(--on-field); outline-offset: -4px; }
 .tf-band__main, .tf-band__end { position: relative; pointer-events: none; }
 .tf-band a, .tf-band .tf-time-link { pointer-events: auto; }
-.tf-band__main { flex: 1 1 9rem; min-width: 0; }
-.tf-band__end { margin-left: auto; }
+.tf-band__main { display: block; }
+.tf-band__end { float: right; margin-left: var(--colgap); }
+/* "min" beside the countdown's number, or under it on a narrow phone (below). */
+.tf-band__min--under { display: none; }
 .tf-band__line { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0 var(--s2); font-size: var(--fs-lead); font-weight: var(--weight-bold); line-height: 1.75rem; }
 .tf-band__sub { display: block; font-size: var(--fs-body); color: var(--on-field); }
 .tf-band__toward { color: var(--on-field-muted); }
@@ -876,6 +881,10 @@ button:disabled { opacity: .45; cursor: default; }
    a size down to fit. */
 @media (max-width: 359px) {
   :root { --numcol: 3.5rem; }
+  /* The band's countdown reads "20+" over "min away", which leaves its vehicle and time one line
+     in every band, whatever the number. */
+  .tf-band__min { display: none; }
+  .tf-band__min.tf-band__min--under { display: inline; }
   /* A nearby stop's three ways on are each as wide as their words need, so "Transfer here" keeps
      to a line. */
   .tf-near__actions { grid-auto-columns: auto; }
@@ -889,6 +898,12 @@ button:disabled { opacity: .45; cursor: default; }
 @media (max-width: 18em) {
   :root { --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --numcol: 3.5rem; }
   :is(.tf-num__n, .tf-track__num-n).tf-num__n--word { font-size: var(--fs-lead); }
+  /* The band's countdown has no room beside its time, so it follows the band's lines, at the
+     right, whole on one line. */
+  .tf-band { display: flex; flex-direction: column; }
+  .tf-band__end { float: none; order: 1; align-self: flex-end; }
+  .tf-band__min { display: inline; }
+  .tf-band__min.tf-band__min--under { display: none; }
   /* A step's clock time takes a line above its text, whole, as a clock reads: "10:47 PM". */
   :is(.tf-steps, .tf-pinbar__steps) > .tf-row { grid-template-columns: minmax(0, 1fr); }
   :is(.tf-steps, .tf-pinbar__steps) .tf-num, :is(.tf-steps, .tf-pinbar__steps) .tf-num > .tf-time-link { flex-direction: row; align-items: baseline; gap: 0.25em; }
