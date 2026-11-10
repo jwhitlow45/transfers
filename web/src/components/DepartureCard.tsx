@@ -152,10 +152,11 @@ export function DepartureCard({ departure, group, next, alightName, noun, walk, 
         )}
       </span>
       {/* The band is the card's header, so its countdown stays on the right (J, 2026-11-09). Read
-          top to bottom: "12 min away", "Now arriving", "Just left", "3 min ago". */}
+          top to bottom: "12 min away", "Now arriving". A vehicle gone says "Left" over how long
+          ago, as a departed row does. */}
       <span class="tf-end tf-band__end" aria-hidden="true">
-        <span class="tf-end__n">{left ? (ago < 1 ? 'Just' : `${ago}\u00a0min`) : untilText(minutes, notStarted)}</span>
-        <span class="tf-end__u">{left ? (ago < 1 ? 'left' : 'ago') : minutes < 1 && !notStarted ? 'arriving' : 'away'}</span>
+        <span class="tf-end__n">{left ? 'Left' : untilText(minutes, notStarted)}</span>
+        <span class="tf-end__u">{left ? (ago < 1 ? 'just now' : `${ago}\u00a0min ago`) : minutes < 1 && !notStarted ? 'arriving' : 'away'}</span>
         {!walk && <IconFold />}
       </span>
     </>
