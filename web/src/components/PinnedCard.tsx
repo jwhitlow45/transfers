@@ -77,7 +77,8 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
 
   // The first vehicle's map watches From until it leaves, then where the rider gets off, with the
   // second vehicle drawn on to the destination. Either vehicle's time opens it. With no first
-  // vehicle, the second's own map watches where it is boarded until it leaves, then the destination.
+  // vehicle, or one the schedule lacks and so has no line to draw, the second's own map watches
+  // where it is boarded until it leaves, then the destination.
   const firstLink = (stop: PinnedStop) => (
     <TimeLink
       trip={first!.trip}
@@ -111,6 +112,7 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
       {clock(stop.at)}
     </TimeLink>
   );
+  const link = first && !first.added ? firstLink : secondLink;
   const vehicle = (leg: PinnedLeg, stop: PinnedStop, link: (stop: PinnedStop) => ComponentChildren) => (
     <>
       <div class="tf-row__line">
@@ -148,7 +150,7 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
         <span class="tf-sr">{spoken}</span>
         <Countdown {...countdown} />
         <div class="tf-row__main">
-          {first && vehicle(first, first.on!, firstLink)}
+          {first && vehicle(first, first.on!, link)}
           {first?.off && (
             <div class="tf-row__off" aria-hidden="true">
               <span class="tf-row__keep">Off {approx(clock(first.off.at), scheduledAt(first, first.off))}</span> at {name(first.off)}
@@ -168,7 +170,7 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
           )}
           <div class={first ? 'tf-pinned__second' : undefined}>
             {/* With a transfer, either vehicle's time opens the map with both (J, 2026-11-09). */}
-            {vehicle(second, second.on, first ? firstLink : secondLink)}
+            {vehicle(second, second.on, link)}
             <div class="tf-row__off" aria-hidden="true">
               at {name(second.on)}
             </div>

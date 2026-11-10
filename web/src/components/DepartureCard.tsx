@@ -1,7 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import type { Departure, Group } from '../../../shared/api.ts';
 import { IconFold, IconPin } from '../icons/ui.tsx';
-import { approx, approxMinutes, atLeast, clock, minutesSince, minutesUntil, untilText } from '../format.ts';
+import { approx, approxMinutes, atLeast, clock, hasLeft, minuteCount, minutesSince, minutesUntil, untilText } from '../format.ts';
 import { pinOf, sameRun } from '../lib/pinned.ts';
 import { type CardContext, hintKey, listedConnections, tripSeconds, tripStart } from '../lib/results.ts';
 import { useSettings } from '../settings.tsx';
@@ -62,7 +62,7 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
   const minutes = minutesUntil(departure.at, context.now);
   // Left where the rider boards it, on its way to the destination: kept so a rider on it can
   // still pin it.
-  const left = departure.at * 1000 < context.now;
+  const left = hasLeft(departure.at, context.now, departure.notStarted);
   const ago = minutesSince(departure.at, context.now);
   const away = left ? (ago < 1 ? 'Just left' : `Left ${ago} min ago`) : null;
   // With no first vehicle, the departure itself is the trip to pin, by tapping its band.
@@ -84,12 +84,14 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
   const toward = departure.toward ? `To ${departure.toward}` : null;
   const count = departure.connections.length;
   // The transfer whose map the band's time opens, with both vehicles on it: the one pinned, or else
-  // the next to leave From, or with all of them gone, the last, which the rider may be on.
+  // the next to leave From that the rider can make, then any next to leave, or with all of them
+  // gone, the last, which the rider may be on.
   const maps = walk ? [] : departure.connections.map((connection) => ({ connection, map: connectionMap(connection, departure, { alight: group.alight, board: group.board, min: group.window.min, secondColor: color, context }) }));
-  const leadMap = (maps.find(({ map }) => map.pin.pinned) ?? maps.find(({ connection }) => connection.departs * 1000 >= context.now) ?? maps.at(-1))?.map;
+  const ahead = maps.filter(({ connection }) => !hasLeft(connection.departs, context.now, connection.notStarted));
+  const leadMap = (maps.find(({ map }) => map.pin.pinned) ?? ahead.find(({ connection }) => !connection.hidden) ?? ahead[0] ?? maps.at(-1))?.map;
   const listed = listedConnections(departure, context.going);
   const countdowns = departure.connections
-    .filter(({ departs }) => departs * 1000 >= context.now)
+    .filter(({ departs, notStarted }) => !hasLeft(departs, context.now, notStarted))
     .map(({ departs, live, notStarted }) => ({ minutes: Math.max(0, minutesUntil(departs, context.now)), scheduled: !live, notStarted: notStarted === true }));
   const gone = count - countdowns.length;
   const shownCountdowns = countdowns.map(({ minutes, scheduled, notStarted }) => (notStarted ? atLeast(minutes) : approxMinutes(minutes, scheduled))).join(', ');
@@ -98,7 +100,7 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
   const spokenDestination = destinationName && departure.destination ? `${destinationName} ${clock(departure.destination)}${destinationScheduled ? ' scheduled' : ''}` : null;
   const spoken =
     `${route ? spokenRoute(route) : 'Departure'} at ${clock(departure.at)}, ${status.label}, ` +
-    `${away ? away.toLowerCase() : notStarted ? `at least ${Math.max(1, minutes)} minutes away` : `${minutes} minutes away`}${toward ? `, ${toward.toLowerCase()}` : ''}${spokenDestination ? `, reaches ${spokenDestination}` : ''}${tripMinutes !== null ? `, a ${tripScheduled ? 'scheduled ' : ''}${tripMinutes} minute trip` : ''}.` +
+    `${away ? away.toLowerCase() : notStarted ? `at least ${minuteCount(Math.max(1, minutes))} away` : `${minuteCount(minutes)} away`}${toward ? `, ${toward.toLowerCase()}` : ''}${spokenDestination ? `, reaches ${spokenDestination}` : ''}${tripMinutes !== null ? `, a ${tripScheduled ? 'scheduled ' : ''}${tripMinutes} minute trip` : ''}.` +
     (walk ? '' : ` ${count} connecting ${noun[count === 1 ? 0 : 1]}${expanded ? '' : [gone > 0 && `, ${gone} already left`, countdowns.length > 0 && `, leaving in ${spokenCountdowns} minutes`].filter(Boolean).join('')}.`);
   // The spoken summary says everything shown, so screen readers skip the shown text and reach
   // only the links in it.
@@ -210,11 +212,11 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
           <>
             <Departed count={gone} place={shortStopName(context.data.stops[context.data.from], context.data.from)}>
               <div role="list" aria-label={`Departed ${noun[gone === 1 ? 0 : 1]}`}>
-                {listed.filter(({ departs }) => departs * 1000 < context.now).map(row)}
+                {listed.filter(({ departs, notStarted }) => hasLeft(departs, context.now, notStarted)).map(row)}
               </div>
             </Departed>
             <div role="list" aria-label={`Connecting ${noun[1]}`}>
-              {listed.filter(({ departs }) => departs * 1000 >= context.now).map(row)}
+              {listed.filter(({ departs, notStarted }) => !hasLeft(departs, context.now, notStarted)).map(row)}
             </div>
           </>
         ) : (
