@@ -22,8 +22,9 @@ export type NextMap = { trip: string; stop: Stop | undefined; title: string; col
 export type Later = { minutes: number; scheduled: boolean; notStarted: boolean };
 
 // Alerts about a stop the rider stands at, not yet dismissed.
-export const countStopAlerts = (alerts: Alert[], stops: ReadonlySet<string>, dismissed: ReadonlySet<string>) =>
-  alerts.filter(({ id, relevance, stops: affected }) => relevance === 'stop' && affected.some((stop) => stops.has(stop)) && !dismissed.has(id)).length;
+export const stopAlerts = (alerts: Alert[], stops: ReadonlySet<string>, dismissed: ReadonlySet<string>) =>
+  alerts.filter(({ id, relevance, stops: affected }) => relevance === 'stop' && affected.some((stop) => stops.has(stop)) && !dismissed.has(id));
+export const countStopAlerts = (alerts: Alert[], stops: ReadonlySet<string>, dismissed: ReadonlySet<string>) => stopAlerts(alerts, stops, dismissed).length;
 
 // Minutes until the next two departures after the soonest, from every time the card could have
 // drawn. One first vehicle often connects to several second vehicles, so repeats are dropped. A
