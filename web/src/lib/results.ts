@@ -1,5 +1,5 @@
 import type { Connection, Departure, Group, TripResponse } from '../../../shared/api.ts';
-import { hasLeft, minutesUntil } from '../format.ts';
+import { hasLeft } from '../format.ts';
 import { chipLabel } from '../view.ts';
 import { resolveRouteColor, routeColor } from './color.ts';
 import type { Pin } from '../storage.ts';
@@ -13,9 +13,6 @@ export const pointId = (group: Group) => group.key ?? `${group.alight}>${group.b
 export type CardContext = {
   data: TripResponse;
   now: number;
-  scaleMinutes: number;
-  // Unix seconds to a position on the shared time scale, 0 to 100.
-  pct: (unixSeconds: number) => number;
   // The search's destination stop key and name, when it has one: the stop in To on its trips tab,
   // or else the one the rider set.
   destination: string | undefined;
@@ -35,9 +32,6 @@ export type CardContext = {
   // Opens what BART says about a station's elevator or escalator outages.
   showOutages: (outages: StationOutages) => void;
 };
-
-// Unix seconds to a place on the shared time scale, 0 to 100, from now to `scaleMinutes` ahead.
-export const timeScale = (now: number, scaleMinutes: number) => (unixSeconds: number) => Math.max(0, Math.min(100, ((unixSeconds * 1000 - now) / 60_000 / scaleMinutes) * 100));
 
 const MAX_DEPARTURES = 3;
 
@@ -133,20 +127,6 @@ export function tripStart(departure: Departure, now: number) {
 export const listedConnections = (departure: Departure, going: boolean) => (going ? [...departure.connections].sort((a, b) => b.departs - a.departs || a.arrives - b.arrives) : departure.connections);
 
 export const isTight = (connection: Connection, min: number) => !connection.hidden && connection.transfer <= min + 1;
-
-// One time scale for every card on the screen, so bars compare: at least an hour, in steps of 15 minutes.
-export function scaleFor(groups: Group[], now: number) {
-  let span = 60;
-  for (const group of groups) {
-    if (group.kind === 'walk') continue;
-    for (const departure of group.departures) {
-      if (departure.canceled) continue;
-      const end = departure.destination ?? departure.at + 8 * 60;
-      span = Math.max(span, minutesUntil(end, now) + 1);
-    }
-  }
-  return Math.ceil(span / 15) * 15;
-}
 
 // Colors for the whole page, so a route keeps one color in every group and the header. First-leg
 // routes keep theirs, and a second-leg route yields if it clashes with any of them. BART never yields.

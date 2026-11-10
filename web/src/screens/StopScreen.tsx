@@ -6,11 +6,10 @@ import { DataCredit } from '../components/DataCredit.tsx';
 import { FeedOutages, LiveBanners } from '../components/Banners.tsx';
 import { ScreenHeader } from '../components/ResultsHeader.tsx';
 import { SkeletonResults } from '../components/SkeletonResults.tsx';
-import { StopPinCard } from '../components/StopPinCard.tsx';
 import { Toast, useToast } from '../components/Toast.tsx';
 import { useSearchRecords } from '../records.ts';
 import { useSwipeBack } from '../gestures.ts';
-import { useNow, usePoll, useStopPin } from '../hooks.ts';
+import { useNow, usePoll } from '../hooks.ts';
 import { viewAlerts } from '../lib/alerts.ts';
 import { routeColor } from '../lib/color.ts';
 import { liveClock } from '../lib/freshness.ts';
@@ -37,7 +36,7 @@ const SHOWN = 3;
 
 // What comes to one stop, with no transfer (J, 2026-10-09): each route and direction boarding
 // there, as Nearby shows them, with its next three arrivals and more on a tap. Each arrival's time
-// opens its map, and a tap anywhere else on it pins it, to Home's top as a pinned trip is. The
+// opens its map, and a tap anywhere else on it pins it, to the app's pin bar as a trip is. The
 // stop saves to Home too, as a card of its arrivals.
 export function StopScreen({ search }: { search: Search }) {
   const { settings } = useSettings();
@@ -45,9 +44,9 @@ export function StopScreen({ search }: { search: Search }) {
   // Whether the stop is saved, the arrival pinned to it, and the notices dismissed, as on results
   // (see useSearchRecords).
   const records = useSearchRecords(search, showToast);
-  const { saved, pin, changePin, dismissedIds, dismiss } = records;
-  // Asked with the pin, its answer stored as the stop's, which Home's cards share, as results do.
-  const { data, error, fetchedAt, feed, settled, answered, refresh } = usePoll<StopResponse>(apiUrl.stop(search.from, settings, pin), 30_000, null, apiUrl.stop(search.from, settings));
+  const { saved, pin, dismissedIds, dismiss } = records;
+  // The pin bar asks after a pinned arrival itself, so the page asks only for the stop's times.
+  const { data, error, fetchedAt, feed, settled, refresh } = usePoll<StopResponse>(apiUrl.stop(search.from, settings));
   const { now, fresh, showStale, secondsSinceUpdate } = liveClock({ data, fetchedAt, settled }, useNow());
   useSwipeBack(() => goBack());
   useEffect(() => {
@@ -56,8 +55,7 @@ export function StopScreen({ search }: { search: Search }) {
 
   // As on results: a stop no longer in the schedule says so plainly.
   const failure = failureOf(error, 'Arrivals');
-  useStopPin(pin, data, answered, search, settings, now, changePin);
-  const pinFromStop = (next: Pin | null) => records.pinWithUndo(next, data?.routes);
+  const pinFromStop = (next: Pin | null) => records.pinByRider(next, data?.routes);
   const allAlerts = data ? viewAlerts(data, new Set([data.stop, ...data.rows.map(({ stop }) => stop)]), { elevators: settings.elevatorOutages, escalators: settings.escalatorOutages }) : [];
   const alerts = allAlerts.filter(({ id }) => !dismissedIds.has(id));
   // An elevator or escalator out at the stop's BART station, for riders who asked, as on results.
@@ -85,7 +83,6 @@ export function StopScreen({ search }: { search: Search }) {
               </AppLink>
             </EmptyState>
           )}
-          {pin && <StopPinCard pin={pin} data={data} now={now} offline={feed === 'offline'} stale={null} onPin={pinFromStop} />}
           {data && outages.length > 0 && (
             <div class="tf-outage-tags tf-outage-tags--lead">
               {outages.map((station) => (

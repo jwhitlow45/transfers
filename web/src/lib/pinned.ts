@@ -80,7 +80,7 @@ export const answers = (asked: PinRequest | undefined, pin: Pin) =>
   asked.first?.at === pin.first?.at;
 
 // The response's pinned trip when it is the one pinned now. Until an answer for a new pin
-// arrives, the results it was pinned from have the same vehicles' times, so the card shows at once.
+// arrives, the results it was pinned from have the same vehicles' times, so the bar shows it at once.
 export function pinnedFor(pin: Pin, data: TripResponse, dest: string | undefined): PinnedTrip | null {
   if (data.pinned && answers(data.pin, pin)) return data.pinned;
   const end = pinnedDestination(pin, data, dest);
@@ -147,12 +147,15 @@ export function pinnedNow(pin: Pin, data: TripResponse | null, dest: string | un
   return { pinned: steadyPinned(fresh, pin.last, pin, pinnedDestination(pin, data!, dest)), fresh: true };
 }
 
-// What pinning says: unpinned, pinned, or pinned in place of the one before, named as its card
-// named it, a trip by its first vehicle and an arrival by its vehicle. A cable car rings its bell.
+// What a toast says after the rider changes a pin, with Undo: that it is unpinned, or pinned in
+// place of the one before, named as its row named it, a trip by its first vehicle and an arrival
+// by its vehicle. Null for a plain pin, which gets no toast, as the pin bar appearing is the
+// feedback (J, 2026-11-09), and for unpinning nothing. A cable car rings its bell.
 export function pinToastText(previous: Pin | null, next: Pin | null, routes: Record<string, Route> | undefined, bell = false) {
-  if (!next) return 'Unpinned';
-  const base = previous && !samePin(previous, next) ? `Pinned in place of ${pinName(previous, routes)}` : 'Pinned to the top';
-  return bell ? `Ding ding! ${base}` : base;
+  if (!next) return previous ? 'Unpinned' : null;
+  if (!previous || samePin(previous, next)) return null;
+  const text = `Pinned in place of ${pinName(previous, routes)}`;
+  return bell ? `Ding ding! ${text}` : text;
 }
 
 function pinName(pin: Pin, routes: Record<string, Route> | undefined) {

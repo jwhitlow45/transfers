@@ -266,8 +266,9 @@ const legWaiting = (leg: PinnedLeg | null | undefined, nowMs: number) => Boolean
 // `known`, what the pin holds), its times are written back (`latest`), and the set time after its
 // `end` it unpins, with that setting on. Only once `answered` (see Polled), so times from long ago
 // cannot unpin a trip that is running late, nor be written over newer ones another screen saved.
-// Only the screen showing changes the pin, and only while it is still the one stored: a screen
-// kept under another may hold one the rider has since replaced there (see main.tsx).
+// The app's pin bar is the one owner of this, so each pin is kept once, wherever the rider is (see
+// PinBar.tsx). It changes the pin only while showing, as on Settings it does not poll, and only
+// while the pin is still the one stored, as the rider may have replaced it since this render.
 function useKeptPin(pin: Pin | null, answered: boolean, search: Search, settings: DeviceSettings, now: number, change: (pin: Pin | null) => void, { seen, known, latest, end, waiting }: { seen: string | number | null; known: string | number | null; latest: () => Pin; end: number | null; waiting: boolean }) {
   const active = useScreenActive();
   const changeOwn = (next: Pin | null) => {

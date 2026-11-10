@@ -1,0 +1,75 @@
+/* The app's pin bar (see PinBar.tsx): one element above every page but Settings. It is the first
+   thing in the app shell, outside the screens' layers, so it neither slides nor scrolls with a
+   page. Its row is the row every page has, on the same alignment lines. */
+.tf-pinbar { position: relative; z-index: 12; flex: none; background: var(--pinned-bg); box-shadow: var(--pinned-edge); border-bottom: var(--border-hair) solid var(--divider); }
+.tf-pinbar__in { display: block; max-width: var(--page-max); margin: 0 auto; }
+
+/* The bar is one button: the line that names it, then one row and the chevron on the edge line. */
+.tf-pinbar__main { display: block; width: 100%; min-height: 3.5rem; padding: var(--s2) var(--edge); text-align: left; -webkit-tap-highlight-color: transparent; }
+/* The bar spans the screen, so a ring outside it would fall off three edges. */
+.tf-pinbar__main:focus-visible { outline: 2px solid var(--accent); outline-offset: -4px; }
+.tf-pinbar__naming { display: block; margin-bottom: var(--s1); font-size: var(--fs-meta); line-height: 1.3; color: var(--muted); overflow-wrap: anywhere; }
+.tf-pinbar__naming b { color: var(--accent-ink); }
+/* As tall waiting for its times as with them (a time's line and a status line), so the bar coming
+   in moves the page once, and the row the rider tapped stays under their finger. */
+.tf-pinbar__line { display: flex; align-items: center; gap: var(--colgap); min-height: calc(1.75rem + 1.4 * var(--fs-body)); }
+.tf-pinbar__line > .tf-row { flex: 1; min-width: 0; padding: 0; }
+.tf-pinbar__chev { flex: none; display: flex; color: var(--muted); }
+.tf-pinbar__main[aria-expanded="true"] .tf-pinbar__chev svg { transform: rotate(180deg); }
+@media (prefers-reduced-motion: no-preference) { :root:not([data-motion="off"]) .tf-pinbar__chev svg { transition: transform 150ms ease; } }
+.tf-pinbar__alerts { display: inline-flex; align-items: center; gap: var(--s1); color: var(--late); font-weight: var(--weight-bold); white-space: nowrap; }
+.tf-pinbar__alerts svg { flex: none; }
+.tf-pinbar__missed { color: var(--late); }
+
+/* Times that are not live: the caution takes a line of the bar, under its row. */
+.tf-pinbar__stale { max-width: var(--page-max); margin: 0 auto; padding: 0 var(--edge) var(--s2); font-size: var(--fs-body); }
+
+/* Two or more pins: one tab each, always in sight under the bar. A pin's name is what tells it
+   apart, so it wraps rather than cuts short, and its countdown drops under it. */
+.tf-pinbar__tabs { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); column-gap: var(--s3); padding: 0 var(--edge); border-top: var(--border-hair) solid var(--divider); }
+.tf-pinbar__tab { position: relative; min-width: 0; min-height: var(--tap); display: flex; flex-wrap: wrap; align-items: center; align-content: center; gap: 0 var(--s2); padding-block: var(--s1); font-size: var(--fs-body); line-height: 1.3; color: var(--muted); text-align: left; }
+.tf-pinbar__tab b { color: var(--text); white-space: nowrap; }
+.tf-pinbar__tabname { min-width: 0; overflow-wrap: anywhere; }
+.tf-pinbar__tab[aria-selected="true"] { color: var(--text); font-weight: var(--weight-bold); }
+/* The underline says which is showing, so color is not the only sign. */
+.tf-pinbar__tab[aria-selected="true"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--text); }
+.tf-pinbar__tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* Open: the panel drops over the page under the bar, and the page does not move. */
+.tf-pinbar__scrim { position: absolute; top: 100%; left: 0; right: 0; height: 100dvh; background: var(--scrim); }
+.tf-pinbar__panel { position: absolute; z-index: 1; top: 100%; left: 0; right: 0; max-height: calc(100dvh - var(--pinbar-h, 3.5rem)); overflow-y: auto; padding-bottom: var(--s4); background: var(--pinned-bg); box-shadow: var(--pinned-edge), 0 8px 16px rgba(0, 0, 0, .2); border-top: var(--border-hair) solid var(--divider); outline: none; }
+.tf-pinbar__name { margin: 0; padding: var(--s3) var(--edge) var(--s1); }
+.tf-pinbar__name b { display: block; font-size: var(--fs-title); line-height: 1.3; overflow-wrap: anywhere; }
+.tf-pinbar__steps > .tf-row, .tf-pinbar__steps > .tf-row + .tf-row { padding: var(--s2) var(--edge); border-top: 0; }
+.tf-pinbar__step { display: block; font-size: var(--fs-title); line-height: 1.75rem; }
+.tf-pinbar__step .tf-chip { vertical-align: middle; }
+.tf-pinbar__steps .tf-warnline { margin-top: var(--s1); font-size: var(--fs-body); }
+.tf-pinbar__panel .tf-pinbar__in > .tf-warnline { padding: var(--s1) var(--edge); }
+.tf-pinbar__note { margin: 0; padding: var(--s1) var(--edge); color: var(--muted); }
+.tf-pinbar__actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: var(--s2); padding: var(--s3) var(--edge) 0; }
+.tf-pinbar__action, .tf-pinbar__actions > .tf-time-link { min-height: var(--tap); display: flex; align-items: center; justify-content: center; gap: var(--s2); padding: var(--s1) var(--s2); background: var(--card); color: var(--text); font-size: var(--fs-body); font-weight: var(--weight-bold); text-align: center; text-decoration: none; }
+.tf-pinbar__actions > .tf-time-link::after { content: none; }
+.tf-pinbar__actions svg { flex: none; }
+.tf-pinbar__actions :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* The app shell around the bar. A sheet starts under what shows of the bar, so the bar stays in
+   sight above a live map, and a screen kept under another lies where its own page was. */
+.tf-app > .tf-sheet, .tf-app > .tf-layer > .tf-sheet { top: var(--pinbar-shown, 0px); }
+.tf-app > :is(.tf-peek, .tf-outgoing) { top: var(--pinbar-h, 0px); }
+
+/* Taller than a quarter of the screen, as with large text or on a short screen, the bar scrolls
+   away with the page (J, 2026-11-09): it lies over the top of the page, which leaves it room, and
+   moves up by as much as the page has scrolled. Focus in it, or its panel open, brings it back. */
+.tf-app[data-pinbar="scrolls"] > .tf-pinbar { position: absolute; top: 0; left: 0; right: 0; transform: translateY(calc(-1 * var(--pinbar-away, 0px))); }
+.tf-app[data-pinbar="scrolls"] > .tf-pinbar:is(:focus-within, [data-open]) { transform: none; }
+/* Room for the bar as a block of the page's own, not padding, which a sticky title row would
+   stick under once the bar has gone. */
+.tf-app[data-pinbar="scrolls"] .tf-scroll::before { content: ""; display: block; height: var(--pinbar-h, 0px); }
+.tf-app[data-pinbar="scrolls"] > :is(.tf-peek, .tf-outgoing) { top: 0; }
+
+/* From about 150% text, the page's title row scrolls away with its page, and only the pin bar
+   stays (J, 2026-11-09), as the two together took half the screen. */
+@media (max-width: 18em) {
+  .tf-app .tf-header { position: static; }
+  .tf-pinbar__actions { grid-template-columns: 1fr; }
+}

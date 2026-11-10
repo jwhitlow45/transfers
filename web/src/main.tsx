@@ -1,6 +1,7 @@
 import { render } from 'preact';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { ENTER_MS, motionOff, usePeeking } from './gestures.ts';
+import { PinBar } from './components/PinBar.tsx';
 import { ScreenActive } from './layers.ts';
 import { type Page, backGoesHome, cameBackTo, currentDepth, forgetLeft, usePage } from './router.ts';
 import { NearbyScreen } from './screens/NearbyScreen.tsx';
@@ -109,6 +110,8 @@ function App() {
   const page = usePage();
   const peeking = usePeeking();
   const { current, under, outgoing, entering, swapping, held, app } = useLayers(page, peeking);
+  // The pin bar's panel, open over the page, which is inert until it shuts.
+  const [pinOpen, setPinOpen] = useState(false);
   // Back on a page left for another and opened afresh, it is scrolled where it was, before it
   // paints. Its own sheet reopens from the same record (see Left in router.ts).
   useLayoutEffect(() => {
@@ -137,10 +140,12 @@ function App() {
     <SettingsProvider>
       <div ref={app} class="tf-app" data-entering={entering ? 'true' : undefined} data-swapping={swapping ? 'true' : undefined} data-held={held ? 'true' : undefined} data-peeking={peeking ? 'true' : undefined}>
         <TrackProvider>
+          {/* Outside the layers, so it stays put as screens slide and scroll under it. */}
+          <PinBar page={page} open={pinOpen} onOpen={setPinOpen} />
           {layers.map((layer) => {
             const showing = layer === current;
             return (
-              <div key={layer.id} class={showing ? 'tf-layer' : layer === outgoing ? 'tf-outgoing' : 'tf-peek'} aria-hidden={showing ? undefined : 'true'} inert={!showing}>
+              <div key={layer.id} class={showing ? 'tf-layer' : layer === outgoing ? 'tf-outgoing' : 'tf-peek'} aria-hidden={showing ? undefined : 'true'} inert={!showing || pinOpen}>
                 <ScreenActive.Provider value={showing}>{screenFor(layer)}</ScreenActive.Provider>
                 {!showing && <div class="tf-peek__dim" />}
               </div>

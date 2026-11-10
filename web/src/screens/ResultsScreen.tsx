@@ -4,7 +4,6 @@ import { apiUrl, takeInitialData } from '../api.ts';
 import { AlertList } from '../components/AlertList.tsx';
 import { FeedOutages, LiveBanners } from '../components/Banners.tsx';
 import { OutageSheet, OutageTag } from '../components/Outages.tsx';
-import { PinnedCard } from '../components/PinnedCard.tsx';
 import { BottomBar } from '../components/BottomBar.tsx';
 import { DataCredit } from '../components/DataCredit.tsx';
 import { DirectionSwitcher, SystemSwitcher } from '../components/DirectionSwitcher.tsx';
@@ -16,14 +15,14 @@ import { useSearchRecords } from '../records.ts';
 import { TransferPointGroup } from '../components/TransferPointGroup.tsx';
 import { type SearchUpdate, TRIP_SETTINGS, TripSettingsSheet } from '../components/TripSettingsSheet.tsx';
 import { useSwipeBack } from '../gestures.ts';
-import { useNow, usePinnedTrip, usePoll } from '../hooks.ts';
+import { useNow, usePoll } from '../hooks.ts';
 import { walkMinutes, weekdayClock } from '../format.ts';
 import { viewAlerts } from '../lib/alerts.ts';
 import { type StationOutages, groupStops, outagesByStation } from '../lib/outages.ts';
 import { ringsBell } from '../lib/eggs.ts';
 import { liveClock } from '../lib/freshness.ts';
 import { IconChevron, IconFilter, IconHidden } from '../icons/ui.tsx';
-import { type CardContext, chooseDirection, directionChoices, nothingCatchable, nothingRuns, orderGroups, pageColors, pointId, scaleFor, timeScale } from '../lib/results.ts';
+import { type CardContext, chooseDirection, directionChoices, nothingCatchable, nothingRuns, orderGroups, pageColors, pointId } from '../lib/results.ts';
 import { summarize } from '../lib/summary.ts';
 import { type ResultsView, cameBackTo, goBack, navigate, resultsPath } from '../router.ts';
 import { matchesServerDefaults, useSettings } from '../settings.tsx';
@@ -63,10 +62,10 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
   // Open again when the rider comes back from a page they left it for, such as Settings.
   const [settingsOpen, setSettingsOpen] = useState(() => cameBackTo()?.sheet === TRIP_SETTINGS);
   const { toast, show: showToast, clear: clearToast } = useToast();
-  // Whether it is saved, the trip pinned to these results, which the results request follows too,
-  // and the notices dismissed (see useSearchRecords).
+  // Whether it is saved, the trip pinned to these results, which their rows mark, and the notices
+  // dismissed (see useSearchRecords).
   const records = useSearchRecords(search, showToast);
-  const { saved, pin, changePin } = records;
+  const { saved, pin } = records;
   // Cards the rider opened or closed, by group and trip. Others start as the device's setting
   // says: all open, each group's soonest open, or all closed. Kept across refreshes, which reuse
   // trip ids.
@@ -74,25 +73,24 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
   const openAtFirst = (first: boolean) => settings.cards === 'expanded' || (settings.cards === 'first' && first);
   const isExpanded = (card: string, first: boolean) => toggled[card] ?? openAtFirst(first);
   const toggleCard = (card: string, first: boolean) => setToggled((current) => ({ ...current, [card]: !(current[card] ?? openAtFirst(first)) }));
-  // Kept with the search as it stands, so Home can show the pin and open these results.
+  // Kept with the search as it stands, so the pin bar opens these results as they are now.
   useEffect(() => {
-    if (pin) changePin(pin);
+    if (pin) records.keepPin(pin);
   }, [tripPath(search)]);
   // A trip pinned on one of a stop's tabs is followed on that tab: the page opens on it, and the
-  // other neither asks after the pin nor shows it, as each tab ends the trip at its own stop.
+  // other does not mark it, as each tab ends the trip at its own stop. The pin bar asks after the
+  // pinned trip itself, so these results ask only for their own (see PinBar.tsx).
   const asked = view ?? pin?.view;
   const pinHere = pin && (!pin.view || !asked || pin.view === asked) ? pin : null;
-  const url = apiUrl.trip(search, settings, showHidden, pinHere, asked);
+  const url = apiUrl.trip(search, settings, showHidden, null, asked);
   // Results the server put in the page answer this request only if nothing differs from its defaults.
   const initial = useMemo(() => {
     const page = initialData;
     initialData = null;
-    // Nor do they follow a pinned trip.
-    const matches = page && page.from === search.from && tripTo(page.to) === search.to && (!asked || page.view === asked) && matchesServerDefaults(settings) && !search.firstRoutes && !search.secondRoutes && !pin;
+    const matches = page && page.from === search.from && tripTo(page.to) === search.to && (!asked || page.view === asked) && matchesServerDefaults(settings) && !search.firstRoutes && !search.secondRoutes;
     return matches ? { data: page, fetchedAt: initialAt } : null;
   }, []);
-  // Stored under the search's own address, so pinning adds no stored copy of its own.
-  const { data, error, fetchedAt, feed, settled, answered, refresh } = usePoll<TripResponse>(url, 30_000, initial, apiUrl.trip(search, settings, showHidden, null, asked));
+  const { data, error, fetchedAt, feed, settled, refresh } = usePoll<TripResponse>(url, 30_000, initial);
   // Every time on the page is the server's, so the clock is too.
   const { now, fresh, showStale, secondsSinceUpdate } = liveClock({ data, fetchedAt, settled }, deviceNow);
   const summary = summarize(search, data, now);
@@ -101,14 +99,10 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
     if (data) rememberRecent(search, summary.via ?? undefined);
   }, [Boolean(data), summary.via]);
 
-  // The pinned trip as its vehicles run now. When it ends moves with them, and with a new
-  // destination, and decides when it unpins itself.
-  const { pinned, unpinAt, expired } = usePinnedTrip(pinHere, data, answered, search, settings, now, changePin);
-  // Pinning says what happened, with Undo.
   const pinFromResults = (next: Pin | null) => {
-    // A stop's tab goes with the pin, so Home follows the trip on the tab it was pinned on.
+    // A stop's tab goes with the pin, so the pin bar follows the trip on the tab it was pinned on.
     const tagged = next && toStop && shown ? { ...next, view: shown } : next;
-    records.pinWithUndo(tagged, data?.routes, tagged !== null && ringsBell(tagged, data));
+    records.pinByRider(tagged, data?.routes, tagged !== null && ringsBell(tagged, data));
   };
   // Notices the rider dismissed stay hidden here and on every other search, until the Notices
   // page puts them back.
@@ -127,7 +121,6 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
   const toggleSaved = () => records.toggleSaved(`${summary.from} to ${summary.to}`, summary.lineColor);
 
   const groups = summary.groups;
-  const scaleMinutes = scaleFor(groups, now);
   const toStop = !search.to.startsWith('route:');
   // The tab showing: the rider's, or the one the server chose, which holds all day (see TripResponse).
   const shown = asked ?? data?.view;
@@ -173,8 +166,6 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
   const context: CardContext = {
     data: data!,
     now,
-    scaleMinutes,
-    pct: timeScale(now, scaleMinutes),
     destinationName: destination ? shortStopName(data?.stops[destination], destinationLabel ?? '') : null,
     toName: data && 'stop' in data.to ? shortStopName(data.stops[data.to.stop]) : null,
     destinationShort: (destination && data?.stops[destination]?.shortName) || null,
@@ -233,9 +224,6 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
                 Search again
               </AppLink>
             </EmptyState>
-          )}
-          {pinHere && data && !expired && (
-            <PinnedCard pin={pinHere} pinned={pinned} data={data} destination={destination} colorOf={context.colorOf} pct={context.pct} now={now} unpinAt={unpinAt} onPin={pinFromResults} />
           )}
           {/* The trips with more changes say their own, at the stops and on the routes they use. */}
           {data && !fallback && untagged.length > 0 && (

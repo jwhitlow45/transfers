@@ -4,43 +4,33 @@ import type { ToastMessage } from './components/Toast.tsx';
 import { useShownAgain } from './layers.ts';
 import type { ViewAlert } from './lib/alerts.ts';
 import { defaultSavedColor } from './lib/color.ts';
-import { pinToastText } from './lib/pinned.ts';
-import { type Pin, type Search, dismissNotice, findSaved, loadDismissed, loadPin, loadSaved, removeSaved, restoreNotice, saveSaved, saveSearch, savePin } from './storage.ts';
+import { changePin, setPin, usePin } from './pins.ts';
+import { type Pin, type Search, dismissNotice, findSaved, loadDismissed, loadSaved, removeSaved, restoreNotice, saveSaved, saveSearch } from './storage.ts';
 
 type Show = (message: Omit<ToastMessage, 'id'>) => void;
 
 // What this device keeps for the search a page shows, which a trip's results and a stop's arrivals
 // read and change alike: whether it is saved, what is pinned to it, and the notices dismissed
-// everywhere. Each change says so with Undo. Kept under a page it opens (see main.tsx), the page
-// reads them again on the way back, for changes made there.
+// everywhere. Saving and dismissing say so with Undo. Kept under a page it opens (see main.tsx),
+// the page reads them again on the way back, for changes made there. The pin is the app's, which
+// its pin bar shows on every page, so it is followed wherever it changes (see pins.ts).
 export function useSearchRecords(search: Search, show: Show) {
   const [saved, setSaved] = useState(() => findSaved(search));
-  const [pin, setPin] = useState(() => loadPin(search));
+  const pin = usePin(search);
   const [dismissed, setDismissed] = useState(loadDismissed);
   useShownAgain(() => {
     setSaved(findSaved(search));
-    setPin(loadPin(search));
     setDismissed(loadDismissed());
   });
-  // Kept with the search as it stands, so Home can show the pin and open its page.
-  const changePin = (next: Pin | null) => {
-    const kept = next && { ...next, search };
-    savePin(search, kept);
-    setPin(kept);
-  };
   return {
     saved,
     pin,
-    changePin,
+    // The pin kept with the search as it stands now.
+    keepPin: (next: Pin) => setPin(search, next),
     dismissedIds: new Set(dismissed.map(({ id }) => id)),
-    // Pinning from a row, a pinned card, or a map's sheet, with Undo putting back whatever was
-    // pinned before. A map's sheet holds this from when it opened, so the pin it replaces is read
-    // as it is now.
-    pinWithUndo: (next: Pin | null, routes: Record<string, Route> | undefined, bell = false) => {
-      const previous = loadPin(search);
-      changePin(next);
-      show({ text: pinToastText(previous, next, routes, bell), about: next ? 'pin' : 'unpin', undo: () => changePin(previous) });
-    },
+    // Pinning from a row or a map's sheet. Unpinning, and pinning in place of another, say so with
+    // Undo (see changePin).
+    pinByRider: (next: Pin | null, routes: Record<string, Route> | undefined, bell = false) => changePin(search, next, routes, bell),
     // Saved by `name`, in the color of its line, or removed with its name, color and settings,
     // which Undo puts back in its place.
     toggleSaved: (name: string, lineColor: string | null) => {

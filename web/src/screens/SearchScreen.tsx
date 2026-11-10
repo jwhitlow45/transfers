@@ -4,46 +4,40 @@ import { apiUrl, getJson } from '../api.ts';
 import { Collapse } from '../components/Collapse.tsx';
 import { DataCredit } from '../components/DataCredit.tsx';
 import { RecentList } from '../components/RecentList.tsx';
-import { PinnedCard, PinnedFrame, waitingNote } from '../components/PinnedCard.tsx';
 import { SavedSearchCard, SavedTripBody } from '../components/SavedSearchCard.tsx';
 import { SearchFields } from '../components/SearchFields.tsx';
 import { type SearchHit, StopResults, hitMeta, hitName, searchCount } from '../components/StopResults.tsx';
 import { Toast, useToast } from '../components/Toast.tsx';
 import { ScreenHeader } from '../components/ResultsHeader.tsx';
 import { approxMinutes, atLeast, clock, minutesUntil, stillWaiting } from '../format.ts';
-import { type Polled, useNow, usePinnedTrip, usePoll, useStopPin } from '../hooks.ts';
+import { type Polled, useNow, usePoll } from '../hooks.ts';
 import { IconFold, IconGear, IconLocation } from '../icons/ui.tsx';
 import { defaultSavedColor } from '../lib/color.ts';
 import { ringsBell } from '../lib/eggs.ts';
-import { pinToastText, samePin } from '../lib/pinned.ts';
+import { samePin } from '../lib/pinned.ts';
+import { changePin, usePins } from '../pins.ts';
 import { homeStatus, liveClock, liveNote, type LiveReport } from '../lib/freshness.ts';
 import { type LocationProblem, type Position, handOver, locate, locationProblemText } from '../lib/location.ts';
-import { pageColors, scaleFor, timeScale } from '../lib/results.ts';
 import { type Later, laterSpoken, laterText, summarize } from '../lib/summary.ts';
 import { tapForGerbils } from '../gerbils.ts';
 import { unsave } from '../records.ts';
 import { motionOff } from '../gestures.ts';
 import { useScreenActive, useShownAgain } from '../layers.ts';
-import { navigate, resultsPath, searchPath, stopPath } from '../router.ts';
-import { StopPinCard } from '../components/StopPinCard.tsx';
+import { navigate, searchPath, stopPath } from '../router.ts';
 import { RouteChip } from '../components/RouteChip.tsx';
 import { useSettings } from '../settings.tsx';
 import {
   type Pin,
   type SavedSearch,
-  type Search,
   isStopSearch,
   loadDismissed,
   loadFields,
-  loadPin,
-  loadPins,
   loadPicked,
   loadRecent,
   loadSaved,
   removeRecent,
   rememberPicked,
   saveFields,
-  savePin,
   saveRecent,
   saveSaved,
   searchId,
@@ -125,8 +119,8 @@ export function SearchScreen() {
   // Which field and text the response answers, as "from|24th".
   const answeredFor = useRef('');
   const [saved, setSaved] = useState(loadSaved);
-  // Pinned trips lead Home, so the one being taken is in sight as soon as the app opens.
-  const [pins, setPins] = useState(loadPins);
+  // What is pinned, which the app's pin bar shows, for a saved card to mark its own.
+  const pins = usePins();
   // How fresh each live card's times are, by card, for the status line under the title.
   const [reports, setReports] = useState<Record<string, LiveReport>>({});
   const report = useCallback((key: string, next: LiveReport | null) => {
@@ -134,19 +128,6 @@ export function SearchScreen() {
   }, []);
   const liveStatus = homeStatus(Object.values(reports), now);
   const { toast, show: showToast, clear: clearToast } = useToast();
-  const updatePin = (search: Search, next: Pin | null) => {
-    savePin(search, next && { ...next, search });
-    setPins(loadPins());
-  };
-  // Pinning from a saved card, unpinning from a pinned card, or either from a map's sheet says so
-  // with Undo, in the words results use (see pinToastText). A map's sheet holds this from when it
-  // opened, so the pin it replaces is read as it is now. A toast of a pin finds its card.
-  // `routes` names the vehicle a pin replaces, from the card's own times.
-  const pinWithUndo = (search: Search, next: Pin | null, routes: Record<string, Route> | undefined, bell = false) => {
-    const previous = loadPin(search);
-    updatePin(search, next);
-    showToast({ text: pinToastText(previous, next, routes, bell), about: next ? 'pin' : 'unpin', ...(next ? { pinned: searchId(search) } : {}), undo: () => updatePin(search, previous) });
-  };
   // A saved search's new name or color, and its removal, which Undo puts back in its place.
   const editSaved = (id: string, change: { name: string; color: string | undefined }) =>
     updateSaved(loadSaved().map((item) => (item.id === id ? { ...item, ...change, renamed: change.name !== item.name ? true : item.renamed } : item)));
@@ -343,7 +324,7 @@ export function SearchScreen() {
     takeFirst(field);
   }, [response]);
   // Kept under the screens it opens (see main.tsx), Home reads storage again on the way back, for
-  // what changed there: a search saved or unsaved, a trip pinned, a notice dismissed, a new recent
+  // what changed there: a search saved or unsaved, a notice dismissed, a new recent
   // search. A location lookup or Enter still waiting from before is dropped.
   useShownAgain(() => {
     pendingEnter.current = null;
@@ -351,7 +332,6 @@ export function SearchScreen() {
     setLocating('idle');
     setNearAsk('idle');
     setSaved(loadSaved());
-    setPins(loadPins());
     setDismissed(dismissedIds());
     setRecentVersion((version) => version + 1);
   });
@@ -412,16 +392,6 @@ export function SearchScreen() {
         {...(liveStatus ? { feed: liveStatus.feed, secondsSinceUpdate: liveStatus.secondsSinceUpdate, stale: liveStatus.stale, onRefresh: () => setPulls((count) => count + 1) } : {})}
       />
       <main class={`tf-page tf-page--form${typing ? ' tf-page--typing' : ''}`} id="main">
-        {pins.map((pin) => (
-          // Marked with its search, for the toast of a trip pinned to find its card.
-          <div key={searchId(pin.search)} class="tf-pin-slot" data-pin={searchId(pin.search)}>
-            {isStopSearch(pin.search) ? (
-              <StopPinHome pin={pin} name={saved.find(({ id }) => id === searchId(pin.search))?.name} now={now} pulls={pulls} onPin={(next, routes) => pinWithUndo(pin.search, next, routes)} onUpdate={(next) => updatePin(pin.search, next)} onReport={report} />
-            ) : (
-              <PinnedHome pin={pin} name={saved.find(({ id }) => id === searchId(pin.search))?.name} now={now} pulls={pulls} onPin={(next, routes) => pinWithUndo(pin.search, next, routes)} onUpdate={(next) => updatePin(pin.search, next)} onReport={report} />
-            )}
-          </div>
-        ))}
         <SearchFields
           from={{ query: from.query, ...(from.picked ? { meta: from.picked.meta } : {}) }}
           to={{ query: to.query, ...(to.picked ? { meta: to.picked.meta } : {}) }}
@@ -557,7 +527,7 @@ export function SearchScreen() {
                     canMoveUp={index > 0}
                     canMoveDown={index < saved.length - 1}
                     pin={pins.find((pin) => searchId(pin.search) === search.id) ?? null}
-                    onPin={(pin, routes, bell) => pinWithUndo(search, pin, routes, bell)}
+                    onPin={(pin, routes, bell) => changePin(search, pin, routes, bell)}
                     onReport={report}
                     onEdit={(change) => editSaved(search.id, change)}
                     onColorless={(lineColor) => {
@@ -633,79 +603,9 @@ function HowItWorks({ open: openAtFirst }: { open: boolean }) {
         <p>
           Settings has your walking speed and longest walk, whether BART's elevator and escalator outages show, and more time to change at stations if you use elevators.
         </p>
-        <p>Tap a connection to pin it to the top, where it stays and updates live until you unpin it. Tap a time to follow its vehicle on a map.</p>
+        <p>Tap a connection or an arrival to pin it. It stays at the top of every page and updates live until you unpin it. Tap a time to follow its vehicle on a map.</p>
       </Collapse>
     </div>
-  );
-}
-
-// An arrival pinned at a stop, on Home with the pinned trips, following the stop's times as a
-// pinned trip follows its results.
-function StopPinHome({ pin, name, now, pulls, onPin, onUpdate, onReport }: {
-  pin: Pin & { search: Search };
-  // The saved stop's name, when the stop is saved.
-  name: string | undefined;
-  now: number;
-  pulls: number;
-  onPin: (pin: Pin | null, routes: Record<string, Route> | undefined) => void;
-  onUpdate: (pin: Pin | null) => void;
-  onReport: Report;
-}) {
-  const { settings } = useSettings();
-  const { search } = pin;
-  const polled = usePoll<StopResponse>(apiUrl.stop(search.from, settings, pin), 30_000, null, apiUrl.stop(search.from, settings));
-  const { data, feed, answered } = polled;
-  const live = useHomeLive(polled, `pin:${searchId(search)}`, pulls, onReport, now);
-  const { expired } = useStopPin(pin, data, answered, search, settings, live.now, onUpdate);
-  if (expired) return null;
-  return <StopPinCard pin={pin} data={data} now={live.now} open={{ label: name ?? search.fromLabel, href: stopPath(search) }} offline={feed === 'offline'} stale={live.note} onPin={(next) => onPin(next, data?.routes)} />;
-}
-
-// A pinned trip, as at the top of its results, polling its own trip like a saved card does.
-function PinnedHome({ pin, name, now, pulls, onPin, onUpdate, onReport }: {
-  pin: Pin & { search: Search };
-  // The saved search's name, when the trip is saved.
-  name: string | undefined;
-  now: number;
-  pulls: number;
-  onPin: (pin: Pin | null, routes: Record<string, Route> | undefined) => void;
-  onUpdate: (pin: Pin | null) => void;
-  onReport: Report;
-}) {
-  const { settings } = useSettings();
-  const { search } = pin;
-  // On the tab it was pinned on (see ResultsScreen).
-  const polled = usePoll<TripResponse>(apiUrl.trip(search, settings, false, pin, pin.view), 30_000, null, apiUrl.trip(search, settings, false, null, pin.view));
-  const { data, feed, answered } = polled;
-  const live = useHomeLive(polled, `pin:${searchId(search)}`, pulls, onReport, now);
-  const serverNow = live.now;
-  const { pinned, unpinAt, expired } = usePinnedTrip(pin, data, answered, search, settings, serverNow, onUpdate);
-  const status = live.note;
-  // A saved trip goes by the name the rider gave it, as its saved card does.
-  const trip = { label: name ?? `${search.fromLabel} to ${search.toLabel}`, href: pin.view ? resultsPath(search, pin.view) : tripPath(search) };
-  if (expired) return null;
-  if (!data) {
-    return (
-      <PinnedFrame label="Pinned trip" open={trip} onUnpin={() => onPin(null, undefined)}>
-        <p class="tf-pinned__note">{waitingNote(feed === 'offline')}</p>
-      </PinnedFrame>
-    );
-  }
-  const { groups } = summarize(search, data, serverNow);
-  return (
-    <PinnedCard
-      pin={pin}
-      pinned={pinned}
-      data={data}
-      destination={search.dest}
-      colorOf={pageColors(groups, data)}
-      pct={timeScale(serverNow, scaleFor(groups, serverNow))}
-      now={serverNow}
-      unpinAt={unpinAt}
-      onPin={(next) => onPin(next, data.routes)}
-      trip={trip}
-      stale={status}
-    />
   );
 }
 

@@ -2,38 +2,24 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { focusInstead } from '../focus.ts';
 import { motionOff } from '../gestures.ts';
 import { IconBookmark, IconInfo, IconPin, IconUnpin } from '../icons/ui.tsx';
-import { topUnderHeader } from '../lib/scroll.ts';
 
-// `about` picks the icon: a trip pinned or unpinned, a search saved or removed from saved, or a
-// notice. `pinned` is the search a pin is for, where a screen shows several pinned trips.
-export type ToastMessage = { id: number; text: string; about: 'pin' | 'unpin' | 'saved' | 'unsaved' | 'notice'; pinned?: string; undo?: () => void };
-
-// A tap on a note of a trip pinned takes the rider to its pinned card, above the screen's sticky
-// header, and marks it for a moment (J, 2026-10-08).
-function showPinned(pinned: string | undefined) {
-  const card = document.querySelector<HTMLElement>(`.tf-layer ${pinned ? `[data-pin="${CSS.escape(pinned)}"] ` : ''}.tf-pinned`);
-  const placed = card && topUnderHeader(card, 12);
-  if (!card || !placed) return;
-  const { scroller, top } = placed;
-  // A frame after the tap, whose own focus change would otherwise stop the scroll, and the mark
-  // a frame after that, as forcing a layout to restart it would stop it too.
-  card.classList.remove('tf-pinned--shown');
-  requestAnimationFrame(() => {
-    scroller.scrollTo({ top, behavior: motionOff() ? 'auto' : 'smooth' });
-    requestAnimationFrame(() => card.classList.add('tf-pinned--shown'));
-  });
-}
+// `about` picks the icon: a pin replaced or unpinned, a search saved or removed from saved, or a
+// notice.
+export type ToastMessage = { id: number; text: string; about: 'pin' | 'unpin' | 'saved' | 'unsaved' | 'notice'; undo?: () => void };
 
 // How long a toast stays, unless the rider is pointing at it or has focus in it.
 const TOAST_MS = 5000;
 // As long as it takes to slide away (tf-toast-out in styles.css).
 const LEAVE_MS = 160;
 
-// A short note at the bottom of the screen after the rider pins or unpins a trip, saves a search or
-// removes it, or dismisses or restores a notice, with Undo for a tap they did not mean. It rises into place and sinks away.
+// A short note at the bottom of the screen after the rider unpins a trip or pins one in place of
+// another, saves a search or removes it, or dismisses or restores a notice, with Undo for a tap
+// they did not mean. It rises into place and sinks away.
 // The region is always there, so screen readers announce what fills it, and it never takes focus.
-// `page` places it on a screen with no bottom bar to sit above.
-export function Toast({ message, page = false, onDone }: { message: ToastMessage | null; page?: boolean; onDone: () => void }) {
+// `page` places it on a screen with no bottom bar to sit above. `above` lifts it that many pixels
+// from the bottom, over a bar it is not inside. `quiet` leaves saying it to its owner, as the pin
+// bar says its toast through its own status line.
+export function Toast({ message, page = false, above = 0, quiet = false, onDone }: { message: ToastMessage | null; page?: boolean; above?: number; quiet?: boolean; onDone: () => void }) {
   const [held, setHeld] = useState(false);
   // The last note stays while it sinks away after `message` clears.
   const [shown, setShown] = useState(message);
@@ -63,7 +49,8 @@ export function Toast({ message, page = false, onDone }: { message: ToastMessage
   return (
     <div
       class={`tf-toast-region${page ? ' tf-toast-region--page' : ''}`}
-      role="status"
+      role={quiet ? undefined : 'status'}
+      style={above > 0 ? { bottom: `calc(${above}px + var(--s2))` } : undefined}
       onMouseEnter={() => setHeld(true)}
       onMouseLeave={() => setHeld(false)}
       onFocusIn={() => setHeld(true)}
@@ -73,17 +60,10 @@ export function Toast({ message, page = false, onDone }: { message: ToastMessage
         // One element whatever it says, so a note replacing another changes in place rather than
         // sinking and rising again.
         <div class={`tf-toast${leaving ? ' tf-toast--leaving' : ''}`}>
-          {shown.about === 'pin' ? (
-            <button type="button" class="tf-toast__text tf-toast__show" onClick={() => showPinned(shown.pinned)}>
-              <span class="tf-toast__icon">{icon[shown.about]}</span>
-              {shown.text}
-            </button>
-          ) : (
-            <span class="tf-toast__text">
-              <span class="tf-toast__icon">{icon[shown.about]}</span>
-              {shown.text}
-            </span>
-          )}
+          <span class="tf-toast__text">
+            <span class="tf-toast__icon">{icon[shown.about]}</span>
+            {shown.text}
+          </span>
           {shown.undo && !leaving && (
             <button
               type="button"

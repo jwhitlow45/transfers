@@ -5,8 +5,8 @@ import { keepInPlace } from '../lib/scroll.ts';
 // band: a tap anywhere but a link pins, and screen readers, keyboards, and switches reach one
 // toggle. `label` names what it pins, such as "BART at 6:11 PM to the 49 at 6:22 PM".
 export function PinToggle({ pinned, label, onToggle }: { pinned: boolean; label: string; onToggle: () => void }) {
-  // Pinning puts the trip above the results and unpinning takes it away, which would move this
-  // row from under the rider's finger. Browsers that hold the page still themselves leave
+  // The first pin brings the pin bar in above the page and unpinning the last takes it away, which
+  // would move this row from under the rider's finger. Browsers that hold the page still themselves leave
   // nothing to correct.
   const toggle = (event: { currentTarget: HTMLButtonElement }) => {
     const button = event.currentTarget;
