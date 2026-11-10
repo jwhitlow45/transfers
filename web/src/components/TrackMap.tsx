@@ -258,9 +258,10 @@ function Vehicle({ leg, route, color, where, now, children }: { leg: TrackLeg; r
     <section class="tf-track__veh">
       <h3 class="tf-track__veh-head">
         <RouteChip route={route} {...(color ? { color } : {})} />
-        <span>toward {leg.headsign}</span>
-        {/* An ended trip's delay no longer matters. */}
-        {leg.missing === 'ended' && !canceled ? <span class="tf-track__state">Ended</span> : <StatusTag status={statusOf(leg.delay ?? null, !leg.scheduled, canceled, notStarted)} />}
+        <span class="tf-track__veh-to">
+          toward {leg.headsign} {/* An ended trip's delay no longer matters. */}
+          {leg.missing === 'ended' && !canceled ? <span class="tf-track__state">Ended</span> : <StatusTag status={statusOf(leg.delay ?? null, !leg.scheduled, canceled, notStarted)} />}
+        </span>
       </h3>
       {where && <p class="tf-track__veh-where">{where}</p>}
       {children}

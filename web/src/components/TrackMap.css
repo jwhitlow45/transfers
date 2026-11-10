@@ -18,7 +18,7 @@
 .tf-track p { margin: 0; }
 .tf-track__where { display: flex; flex-direction: column; }
 .tf-track__toward { color: var(--muted); }
-.tf-track__headline { font-size: var(--tm-title); font-weight: 700; }
+.tf-track__headline { font-size: var(--tm-title); font-weight: 700; text-wrap: balance; }
 .tf-track__warn { color: var(--tm-late); font-weight: 700; }
 
 /* The map, with its buttons over the bottom right corner. */
@@ -27,7 +27,7 @@
 .tf-track__controls { position: absolute; z-index: 1; right: var(--tm-2); bottom: var(--tm-2); display: flex; gap: var(--tm-2); }
 .tf-track__controls .tf-track__fit { min-height: var(--tm-tap); padding: 0 var(--tm-3); gap: var(--tm-2); background: var(--bg); color: var(--text); border: 1px solid var(--line); font-size: var(--tm-body); font-weight: 700; }
 /* On, as every toggle that is on looks. */
-.tf-track__controls .tf-track__fit[aria-pressed="true"] { background: var(--field); color: var(--on-field, #fff); border-color: var(--field); }
+.tf-track__controls .tf-track__fit[aria-pressed="true"] { background: var(--field); color: var(--on-field, #fff); border-color: var(--chosen, var(--field)); }
 .tf-track__controls .tf-track__fit:disabled { color: var(--muted); }
 
 /* Lines in the route's color over a darker casing, so a pale route still shows on the card. */
@@ -74,14 +74,18 @@
 .tf-tripbar--tight .tf-tripbar__gap { border-color: var(--tm-late); background: var(--late-tint, var(--bg)); }
 .tf-tripbar__tight { color: var(--tm-late); font-weight: 700; }
 /* Minutes from now along the same scale, each label hanging from its mark. */
-.tf-tripbar__ticks { position: relative; height: 1.1rem; font-size: .75rem; color: var(--muted); }
+.tf-tripbar__ticks { position: relative; height: 1.1rem; font-size: var(--tm-meta); color: var(--muted); }
 .tf-tripbar__tick { position: absolute; top: 0; padding-left: var(--tm-1); border-left: 1px solid var(--line); line-height: 1.1rem; white-space: nowrap; }
 .tf-tripbar__legend { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--tm-1) var(--tm-3); font-size: var(--tm-meta); color: var(--muted); }
 
 /* One vehicle: its chip, where it heads and how sure its times are, then its stops. */
 .tf-track__veh { display: flex; flex-direction: column; gap: var(--tm-2); }
-.tf-track .tf-track__veh-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--tm-2); margin: 0; font-size: var(--tm-title); font-weight: 700; line-height: 1.75rem; }
-.tf-track__veh-head .tf-chip { align-self: center; }
+/* The chip keeps to the first line, with where the vehicle heads beside it, whose later lines
+   step as a title's do (see .tf-l1 in styles.css). Its status follows as the next words. */
+.tf-track .tf-track__veh-head { display: flex; align-items: flex-start; gap: 0 var(--tm-2); margin: 0; font-size: var(--tm-title); font-weight: 700; line-height: 1.3; }
+.tf-track__veh-head > .tf-chip { margin-block: calc((1.75rem - 1.5em) / 2); }
+.tf-track__veh-to { min-width: 0; padding-block: calc((1.75rem - 1.3em) / 2); overflow-wrap: anywhere; }
+.tf-track__veh-to > :last-child { margin-left: var(--tm-1); }
 .tf-track__state { font-size: var(--tm-body); font-weight: 700; }
 .tf-track__veh-where { color: var(--muted); margin-top: calc(-1 * var(--tm-1)); }
 
