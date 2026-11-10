@@ -187,7 +187,7 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
   const hide = search.hide ?? settings.hide;
   // The header chip takes the same color its group gives it, which may have stepped away from a clash.
   const toColor = summary.toRoute && data ? context.colorOf(summary.toRoute.key) : undefined;
-  const toChip = summary.toRoute ? <RouteChip route={summary.toRoute} size="sm" {...(toColor ? { color: toColor } : {})} /> : <Cut text={summary.to} />;
+  const toChip = summary.toRoute ? <RouteChip route={summary.toRoute} size="sm" {...(toColor ? { color: toColor } : {})} /> : <Cut text={summary.to} within=".tf-chain" />;
   const destinationsUrl = going ? null : apiUrl.destinations(url);
 
   return (

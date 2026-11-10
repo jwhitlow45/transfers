@@ -218,12 +218,19 @@ export function TripChain({ from, via, to }: { from: string; via: string | null;
   // take the first line alone and the rest the second, trimmed to fit, so the header never grows
   // past two. Measured before paint, and again when the header's width changes.
   const first = useRef<HTMLSpanElement>(null);
-  const [stacked, setStacked] = useState(false);
+  // 'stacked' is From over the rest on one line. Where that would cut a name to a few letters, as
+  // at large text, 'lines' gives each step a line of its own, cut only if it is wider than that.
+  const [layout, setLayout] = useState<'wrap' | 'stacked' | 'lines'>('wrap');
+  const stacked = layout !== 'wrap';
+  const setStacked = (on: boolean) => setLayout(on ? 'stacked' : 'wrap');
   // A new trip or place to get off is laid out afresh.
   useLayoutEffect(() => setStacked(false), [from, via]);
+  // After the names are cut to fit (see Cut), whose effects run before this one.
   useLayoutEffect(() => {
+    const title = first.current?.parentElement;
+    if (layout === 'stacked' && title?.querySelector('.tf-chain__rest [data-short]')) return setLayout('lines');
     if (stacked) return;
-    const items = [first.current, ...(first.current?.parentElement?.querySelectorAll<HTMLElement>('.tf-chain__step') ?? [])];
+    const items = [first.current, ...(title?.querySelectorAll<HTMLElement>('.tf-chain__step') ?? [])];
     const lines = new Set(items.map((item) => Math.round(item?.getBoundingClientRect().top ?? 0))).size;
     if (lines > 2) setStacked(true);
   });
@@ -241,14 +248,14 @@ export function TripChain({ from, via, to }: { from: string; via: string | null;
   }, []);
   return (
     <>
-      <Cut class="tf-chain__from" text={from} box={first} />
-      <span class={`tf-chain__rest${stacked ? ' tf-chain__rest--stacked' : ''}`}>
+      <Cut class="tf-chain__from" text={from} box={first} within=".tf-chain" />
+      <span class={`tf-chain__rest${stacked ? ' tf-chain__rest--stacked' : ''}${layout === 'lines' ? ' tf-chain__rest--lines' : ''}`}>
         {via && (
           <span class="tf-chain__step tf-chain__step--via">
             <span class="tf-chain__arrow" aria-hidden="true">
               →
             </span>
-            <Cut class="tf-chain__derived" title="Transfer point worked out by Transfers" text={via} after={<span class="tf-sr"> (transfer point found for you)</span>} />
+            <Cut class="tf-chain__derived" title="Transfer point worked out by Transfers" within=".tf-chain" text={via} after={<span class="tf-sr"> (transfer point found for you)</span>} />
           </span>
         )}
         <span class="tf-chain__step">
