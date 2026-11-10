@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import type { Route } from '../../shared/api.ts';
 import { pinToastText } from './lib/pinned.ts';
 import { type Pin, type Search, loadPin, loadPins, onPinsChange, savePin, searchId } from './storage.ts';
@@ -34,6 +34,20 @@ export const usePin = (search: Search) => useStoredPins(() => loadPin(search));
 export const setPin = (search: Search, pin: Pin | null) => savePin(search, pin && { ...pin, search });
 
 export const pinId = (pin: { search: Search }) => searchId(pin.search);
+
+// Home's pull to refresh reaches the pins too. Each polls in the app's pin bar, apart from the
+// page (see PinBar.tsx), so the page asks through here, and every pin's poll answers.
+const refreshers = new Set<() => void>();
+export const refreshPins = () => refreshers.forEach((refresh) => refresh());
+export function usePinRefresh(refresh: () => void) {
+  const latest = useRef(refresh);
+  latest.current = refresh;
+  useEffect(() => {
+    const run = () => latest.current();
+    refreshers.add(run);
+    return () => void refreshers.delete(run);
+  }, []);
+}
 
 // A pin the rider changed, for the app's one pin toast: what it says, and Undo.
 export type PinToast = { text: string; about: 'pin' | 'unpin'; undo: () => void };

@@ -14,7 +14,7 @@ import { pinnedDestination, pinnedPhase, pinnedTransfer, scheduledAt } from '../
 import { pageColors } from '../lib/results.ts';
 import { arrivalCountdown, pinnedArrival } from '../lib/stop-pins.ts';
 import { stopAlerts, summarize } from '../lib/summary.ts';
-import { changePin, onPinToast, pinId, setPin, usePins } from '../pins.ts';
+import { changePin, onPinToast, pinId, setPin, usePinRefresh, usePins } from '../pins.ts';
 import { type Page, resultsPath, stopPath } from '../router.ts';
 import { useSettings } from '../settings.tsx';
 import { type Pin, type Search, loadDismissed, loadSaved } from '../storage.ts';
@@ -43,7 +43,8 @@ const tabId = (id: string) => `pin-tab-${id.replace(/[^\w-]/g, '_')}`;
 // the shape every row has, counting down to what the rider does next. Open, a panel drops over the
 // page with the rest of the trip, and opening the pin's page, its live map, and Unpin. With several
 // pins, a tab each sits under the bar, which shows the most urgent until the rider taps one.
-// Each pin polls here, once, wherever the rider is, and the bar alone keeps a pin's times and
+// Each pin polls here, once, wherever the rider is, and again on Home's pull to refresh (see
+// usePinRefresh), and the bar alone keeps a pin's times and
 // unpins it once it has ended (see useKeptPin in hooks.ts).
 // `open` is the panel showing, which the app holds so it can make the page behind inert.
 export function PinBar({ page, open, onOpen }: { page: Page; open: boolean; onOpen: (open: boolean) => void }) {
@@ -296,6 +297,7 @@ function TripFeed({ pin, name: savedName, dismissed, shown, open, onReport, onTo
   const id = pinId(pin);
   // On the tab it was pinned on, its answer stored as the search's own, which its results share.
   const polled = usePoll<TripResponse>(apiUrl.trip(search, settings, false, pin, pin.view), 30_000, null, apiUrl.trip(search, settings, false, null, pin.view));
+  usePinRefresh(polled.refresh);
   const { data, feed, answered } = polled;
   const live = liveClock(polled, deviceNow);
   const now = live.now;
@@ -499,6 +501,7 @@ function StopFeed({ pin, name: savedName, shown, open, onReport, onToggle, onClo
   const id = pinId(pin);
   // Asked with the pin, its answer stored as the stop's, which its page and its saved card share.
   const polled = usePoll<StopResponse>(apiUrl.stop(search.from, settings, pin), 30_000, null, apiUrl.stop(search.from, settings));
+  usePinRefresh(polled.refresh);
   const { data, feed, answered } = polled;
   const live = liveClock(polled, deviceNow);
   const now = live.now;

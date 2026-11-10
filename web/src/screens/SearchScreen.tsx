@@ -15,7 +15,7 @@ import { IconFold, IconGear, IconLocation } from '../icons/ui.tsx';
 import { defaultSavedColor } from '../lib/color.ts';
 import { ringsBell } from '../lib/eggs.ts';
 import { samePin } from '../lib/pinned.ts';
-import { changePin, usePins } from '../pins.ts';
+import { changePin, refreshPins, usePins } from '../pins.ts';
 import { homeStatus, liveClock, liveNote, type LiveReport } from '../lib/freshness.ts';
 import { type LocationProblem, type Position, handOver, locate, locationProblemText } from '../lib/location.ts';
 import { type Later, laterSpoken, laterText, summarize } from '../lib/summary.ts';
@@ -82,6 +82,11 @@ export function SearchScreen() {
   const [focus, setFocus] = useState<'from' | 'to' | null>(null);
   // Each pull to refresh, which every live card answers by refreshing (J, 2026-10-08).
   const [pulls, setPulls] = useState(0);
+  // The pins too, which poll in the app's pin bar, not in a card here.
+  const refreshAll = () => {
+    setPulls((count) => count + 1);
+    refreshPins();
+  };
   // Both fields go up under the header when one is tapped, so the matches and recent stops below
   // them have the room the keyboard leaves (J, 2026-10-08). Once the page has redrawn with the room
   // below to scroll that far (tf-page--typing). iOS also shifts the whole page up as its keyboard
@@ -389,7 +394,7 @@ export function SearchScreen() {
             </AppLink>
           </>
         }
-        {...(liveStatus ? { feed: liveStatus.feed, secondsSinceUpdate: liveStatus.secondsSinceUpdate, stale: liveStatus.stale, onRefresh: () => setPulls((count) => count + 1) } : {})}
+        {...(liveStatus ? { feed: liveStatus.feed, secondsSinceUpdate: liveStatus.secondsSinceUpdate, stale: liveStatus.stale, onRefresh: refreshAll } : {})}
       />
       <main class={`tf-page tf-page--form${typing ? ' tf-page--typing' : ''}`} id="main">
         <SearchFields
