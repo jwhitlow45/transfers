@@ -1,4 +1,4 @@
-import type { NearbyArrival, NearbyStop, StopResponse } from '../../../shared/api.ts';
+import type { Alert, NearbyArrival, NearbyStop, StopResponse } from '../../../shared/api.ts';
 import type { Pin, Search } from '../storage.ts';
 import { answers, sameRun } from './pinned.ts';
 import { countdownTo, stillWaiting } from '../format.ts';
@@ -15,6 +15,12 @@ export function stopPinOf(arrival: NearbyArrival, row: NearbyStop, search: Searc
     arrival: { route: arrival.route, headsign: row.headsign },
   };
 }
+
+// The alerts a pinned arrival counts in the pin bar, as a pinned trip counts those where the rider
+// boards: the ones about the stop it is boarded at, and the ones about its route, less any the
+// rider dismissed. A stop's answer has alerts for every route there, most of them not this one's.
+export const arrivalAlerts = (alerts: Alert[], route: string | undefined, stop: string, dismissed: ReadonlySet<string>) =>
+  alerts.filter(({ id, relevance, routes, stops }) => !dismissed.has(id) && ((relevance === 'stop' && stops.includes(stop)) || (relevance === 'route' && route !== undefined && routes.includes(route))));
 
 // A pinned arrival's countdown column: to its vehicle coming, then that it came, or for a canceled
 // one, once it was due, that it is canceled, rather than that it is arriving. A vehicle yet to leave

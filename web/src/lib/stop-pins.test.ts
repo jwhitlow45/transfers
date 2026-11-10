@@ -1,8 +1,8 @@
 import { deepStrictEqual, strictEqual } from 'node:assert/strict';
 import { test } from 'node:test';
-import type { StopResponse } from '../../../shared/api.ts';
+import type { Alert, StopResponse } from '../../../shared/api.ts';
 import { stopSearch } from '../storage.ts';
-import { arrivalCountdown, pinnedArrival, stopPinOf } from './stop-pins.ts';
+import { arrivalAlerts, arrivalCountdown, pinnedArrival, stopPinOf } from './stop-pins.ts';
 
 const row = { stop: 'SF:13477', routes: ['SF:48'], direction: 1, headsign: '22nd St + Iowa St', meters: 0, arrivals: [{ trip: 'SF:t1', route: 'SF:48', at: 1_000, delay: 120, live: true }] };
 const data = { generatedAt: 0, dataAt: null, stop: 'SF:13477', rows: [row], routes: {}, stops: {}, alerts: [], feeds: [] } as StopResponse;
@@ -44,4 +44,20 @@ test('a pinned arrival counts down, then says it came, or once it was due, that 
   deepStrictEqual(arrivalCountdown(at, (at + 60) * 1000, { canceled: false, known: true, notStarted: true }), { lead: 'Arrives in', num: '1+', unit: 'min' });
   // Before the stop's times come, it says nothing has come yet.
   deepStrictEqual(arrivalCountdown(at, (at + 60) * 1000, { canceled: false, known: false }), { lead: 'Arriving', num: 'Now', unit: null });
+});
+
+test("a pinned arrival counts the alerts about its stop or its route, unless dismissed", () => {
+  const alert = (id: string, relevance: string, routes: string[], stops: string[]) => ({ id, relevance, routes, stops }) as unknown as Alert;
+  const alerts = [
+    alert('here', 'stop', [], ['SF:13477']),
+    alert('elsewhere', 'stop', ['SF:48'], ['SF:1']),
+    alert('route', 'route', ['SF:48'], []),
+    alert('other-route', 'route', ['SF:14'], []),
+    alert('agency', 'agency', [], []),
+    alert('dismissed', 'route', ['SF:48'], []),
+  ];
+  const ids = (route: string | undefined) => arrivalAlerts(alerts, route, 'SF:13477', new Set(['dismissed'])).map(({ id }) => id);
+  deepStrictEqual(ids('SF:48'), ['here', 'route']);
+  // With its route not known, only the stop's own.
+  deepStrictEqual(ids(undefined), ['here']);
 });

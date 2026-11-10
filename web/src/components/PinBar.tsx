@@ -13,7 +13,7 @@ import { liveClock, liveNote } from '../lib/freshness.ts';
 import { type PinMap, type RankedPin, alertStops, pinFocus, pinMap, pinVerb, restOfTrip, shownPin, tripCountdown, tripMinutes, tripMinutesText, tripStatusText, vehicleWord } from '../lib/pin-bar.ts';
 import { pinnedDestination, pinnedPhase, pinnedTransfer, scheduledAt } from '../lib/pinned.ts';
 import { pageColors } from '../lib/results.ts';
-import { arrivalCountdown, pinnedArrival } from '../lib/stop-pins.ts';
+import { arrivalAlerts, arrivalCountdown, pinnedArrival } from '../lib/stop-pins.ts';
 import { stopAlerts, summarize } from '../lib/summary.ts';
 import { changePin, onPinToast, pinId, setPin, usePinRefresh, usePins } from '../pins.ts';
 import { type Page, resultsPath, stopPath } from '../router.ts';
@@ -495,7 +495,7 @@ function TripFeed({ pin, name: savedName, dismissed, shown, open, onReport, onTo
 // An arrival pinned at a stop, following the stop's times: the countdown to its vehicle coming, its
 // live time and status, and where it is going. Until the stop's times arrive, or once the vehicle
 // has gone by, it says so with what the pin kept.
-function StopFeed({ pin, name: savedName, shown, open, onReport, onToggle, onClose }: FeedProps) {
+function StopFeed({ pin, name: savedName, dismissed, shown, open, onReport, onToggle, onClose }: FeedProps) {
   const { settings } = useSettings();
   const deviceNow = useNow();
   const { search } = pin;
@@ -543,10 +543,15 @@ function StopFeed({ pin, name: savedName, shown, open, onReport, onToggle, onClo
   };
   if (note) return <BarView {...frame} spoken={`Pinned arrival at ${name}. ${note}`} verb={null} num={null} unit={null} l2={note} />;
   const sheetPin: PinAction = { pinned: true, label: pinLabel([route, at]), set: (on) => changePin(search, on ? pin : null, data?.routes) };
+  // Alerts about its stop or its route, counted and said as a pinned trip's are. Not once it has
+  // gone or is canceled, when they no longer matter to the rider.
+  const alerts = data && !ended && !canceled ? arrivalAlerts(data.alerts, arrival?.route ?? pin.arrival?.route, pin.second.board, dismissed) : [];
+  const alertCount = alerts.length;
+  const alertsWhere = alerts.every(({ relevance }) => relevance === 'stop') ? 'where you board' : 'on its route or where you board';
   return (
     <BarView
       {...frame}
-      spoken={`Pinned arrival at ${name}. ${says}`}
+      spoken={`Pinned arrival at ${name}. ${says}${alertCount > 0 ? ` ${alertCount} alert${alertCount === 1 ? '' : 's'} ${alertsWhere}.` : ''}`}
       verb={canceled ? 'canceled' : gone ? 'arrived' : countdown.unit ? 'arrives in' : 'arriving'}
       num={countdown.num}
       unit={countdown.unit}
@@ -560,10 +565,27 @@ function StopFeed({ pin, name: savedName, shown, open, onReport, onToggle, onClo
         <>
           {canceled ? <span class="tf-tight">Canceled</span> : status && <StatusTag status={status} plain />}
           {headsign && ` · → ${headsign}`}
+          {alertCount > 0 && (
+            <>
+              {' · '}
+              <span class="tf-pinbar__alerts">
+                <IconWarn size={14} /> {alertCount} alert{alertCount === 1 ? '' : 's'}
+              </span>
+            </>
+          )}
         </>
       }
       map={data ? { trip: pin.second.trip, stop: pin.second.board, title: vehicle, marks: [{ stop: pin.second.board, kind: 'yours' }], pin: sheetPin, stops: data.stops } : undefined}
-      panel={ended && unpinAt !== null ? <p class="tf-pinbar__note">Unpins at {clock(unpinAt / 1000)}</p> : undefined}
+      panel={
+        <>
+          {alerts.map((alert) => (
+            <Warnline key={alert.id} tone="late">
+              {titleAndBody(alert.header, alert.description).title}
+            </Warnline>
+          ))}
+          {ended && unpinAt !== null && <p class="tf-pinbar__note">Unpins at {clock(unpinAt / 1000)}</p>}
+        </>
+      }
     />
   );
 }
