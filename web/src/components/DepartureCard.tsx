@@ -15,7 +15,7 @@ import { Dots } from './Dots.tsx';
 import { PinToggle } from './PinToggle.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import { Approx, PinnedTag, StatusTag } from './StatusTag.tsx';
-import { Name } from './Whole.tsx';
+import { Name, Whole } from './Whole.tsx';
 
 // One second-leg departure: a reversed band, then every first vehicle that makes it. The band
 // opens and closes the card. Closed, it keeps one line of countdowns for those vehicles.
@@ -156,10 +156,7 @@ export function DepartureCard({ departure, group, next, alightName, noun, walk, 
           </span>
         )}
         {destination && (
-          <ArrivalLine
-            full={arrivalText(destination, tripMinutes, tripScheduled)}
-            short={destinationShort && destinationAt ? arrivalText(`${destinationShort} ${destinationAt}`, tripMinutes, tripScheduled) : null}
-          />
+          <ArrivalLine name={destinationName!} short={destinationShort} at={destinationAt!} trip={tripMinutes !== null ? `${approx(String(tripMinutes), tripScheduled)}\u00a0min` : null} />
         )}
         {walkPinned && (
           <span class="tf-band__sub" aria-hidden="true">
@@ -237,12 +234,13 @@ export function DepartureCard({ departure, group, next, alightName, noun, walk, 
   );
 }
 
-const arrivalText = (destination: string, tripMinutes: number | null, scheduled: boolean) => (tripMinutes !== null ? `${destination} · ${approx(String(tripMinutes), scheduled)}\u00a0min` : destination);
-
 // When a departure arrives, and how long the trip takes. Where the line would wrap, a corner's
 // short name stands in for its full one (J, 2026-10-13). Laid out full and measured before paint,
 // and again whenever its room may have changed.
-function ArrivalLine({ full, short }: { full: string; short: string | null }) {
+// The name is one part and its time another (see Whole), so a long name wraps by itself and the
+// time stays whole after its last word.
+function ArrivalLine({ name, short, at, trip }: { name: string; short: string | null; at: string; trip: string | null }) {
+  const full = `${name} ${at} ${trip}`;
   const line = useRef<HTMLSpanElement>(null);
   const [wraps, setWraps] = useState(false);
   // Counts changes to the line's room: its width, and the size of what comes before it in the
@@ -278,7 +276,14 @@ function ArrivalLine({ full, short }: { full: string; short: string | null }) {
   }, [short !== null]);
   return (
     <span class="tf-band__sub tf-band__dest" aria-hidden="true" ref={line}>
-      <Dots parts={[wraps && short ? short : full]} />
+      <Dots
+        parts={[
+          <>
+            <Name text={wraps && short ? short : name} /> <Whole>{at}</Whole>
+          </>,
+          trip,
+        ]}
+      />
     </span>
   );
 }

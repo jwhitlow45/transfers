@@ -1,14 +1,19 @@
 import type { ComponentChildren } from 'preact';
 import { IconPin, IconWarn } from '../icons/ui.tsx';
+import { joinPairs } from '../lib/wrap.ts';
 import type { Status } from '../view.ts';
+import { Whole } from './Whole.tsx';
 
 // Lateness tag. Every arrival shows one, and it is never hidden to save space. `hidden` keeps it
 // from screen readers where a row's spoken summary already says it.
 export function StatusTag({ status, plain = false, hidden = false }: { status: Status; plain?: boolean; hidden?: boolean }) {
   return (
-    <span class={plain ? `tf-status-text tf-status-text--${status.kind}` : `tf-status tf-status--${status.kind}`} aria-hidden={hidden || undefined}>
-      {status.label}
-    </span>
+    // Whole while it fits its line, wherever it is shown (see Whole).
+    <Whole>
+      <span class={plain ? `tf-status-text tf-status-text--${status.kind}` : `tf-status tf-status--${status.kind}`} aria-hidden={hidden || undefined}>
+        {status.label}
+      </span>
+    </Whole>
   );
 }
 
@@ -48,7 +53,7 @@ export function Warnline({ tone, children }: { tone: 'late' | 'caution'; childre
   return (
     <p class={`tf-warnline tf-warnline--${tone}`}>
       <IconWarn size={16} />
-      <span>{children}</span>
+      <span>{typeof children === 'string' ? joinPairs(children) : children}</span>
     </p>
   );
 }

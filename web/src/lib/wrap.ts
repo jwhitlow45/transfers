@@ -1,28 +1,31 @@
-// How a name or a phrase splits into the groups of words a line may break between (see Whole.tsx).
+// The pairs of words a line never breaks between, joined with a no-break space where text is
+// shown (see Whole.tsx). Each pair is short, so none can be wider than a line.
 
-// A mark that joins two words, which stays with the word before it: a line may end "25th St &",
-// and none starts with "&" or "+".
-const JOINS = new Set(['&', '+', '-', '–', '/']);
+const NB = '\u00a0';
+// A street's kind, which stays with its name: "22nd St", "Potrero Ave".
+const SUFFIXES = new Set(['St', 'Ave', 'Blvd', 'Dr', 'Rd', 'Way', 'Ln', 'Ct', 'Pl', 'Hwy', 'Pkwy']);
+// What the app counts, which stays with its number: "2 min", "1 stop", "40 m".
+const UNITS = new Set(['min', 'm', 's', 'stop', 'stops', 'alert', 'alerts', 'change', 'changes', 'way', 'ways', 'more', 'departed']);
+// A number as the app writes one: "2", "~17", "19+", "3–20".
+const NUMBER = /^~?\d[\d–]*\+?$/;
+// What may follow a word without being part of it: "St," and "Ave)".
+const bare = (word: string) => word.replace(/[,.;:)]+$/, '');
 
-// The groups of a name: each word, with a joining mark kept on the word before it, and the last
-// two words kept together, so no line holds a short last word alone ("…Dakota / St"). Words are
-// split at plain spaces only, so what a no-break space joins, "11:57 PM", is one word.
-export function nameGroups(text: string): string[] {
-  const groups: string[] = [];
-  for (const word of text.split(' ')) {
-    if (!word) continue;
-    if (JOINS.has(word) && groups.length > 0) groups[groups.length - 1] += ` ${word}`;
-    else groups.push(word);
-  }
-  if (groups.length > 1) {
-    const last = groups.pop()!;
-    groups[groups.length - 1] += ` ${last}`;
-  }
-  return groups;
+// Text with its short pairs joined: a street's kind to its name, "&" and "+" to the word before
+// them, so a line may end "25th St &" and none starts with one, and a number to its unit. Words
+// are split at plain spaces only, so what is joined already stays so.
+export function joinPairs(text: string): string {
+  const words = text.split(' ');
+  return words.reduce((joined, word, index) => {
+    if (index === 0) return word;
+    const before = words[index - 1]!;
+    const pair = before !== '' && (SUFFIXES.has(bare(word)) || word === '&' || word === '+' || (NUMBER.test(before) && UNITS.has(bare(word))));
+    return `${joined}${pair ? NB : ' '}${word}`;
+  }, '');
 }
 
 // The steps of a chain written with arrows, "Montgomery St → Daly City → 120": each arrow goes
 // with the step after it, joined to that step's first word, so no line ends with one.
 export function chainSteps(text: string): string[] {
-  return text.split(' → ').map((step, index) => (index === 0 ? step : `→ ${step}`));
+  return text.split(' → ').map((step, index) => (index === 0 ? step : `→${NB}${step}`));
 }

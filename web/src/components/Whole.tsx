@@ -1,6 +1,6 @@
 import { type ComponentChildren, Fragment } from 'preact';
 import { useEffect, useLayoutEffect, useRef } from 'preact/hooks';
-import { chainSteps, nameGroups } from '../lib/wrap.ts';
+import { chainSteps, joinPairs } from '../lib/wrap.ts';
 
 const FITS = 'tf-whole--fits';
 
@@ -66,25 +66,10 @@ export function Whole({ class: name, children }: { class?: string; children: Com
   );
 }
 
-// Words in the groups a line may break between (see nameGroups), each kept whole while it fits.
-export const Groups = ({ text }: { text: string }) => (
-  <>
-    {nameGroups(text).map((group, index) => (
-      <Fragment key={index}>
-        {index > 0 && ' '}
-        <span class="tf-keep">{group}</span>
-      </Fragment>
-    ))}
-  </>
-);
-
 // A stop's name, a headsign, or a name the rider gave: whole while it fits a line. Wider than
-// one, it wraps with its last two words together and no line starting with "&" or "+".
-export const Name = ({ text }: { text: string }) => (
-  <Whole class="tf-name">
-    <Groups text={text} />
-  </Whole>
-);
+// one, it wraps as text does, with its short pairs joined (see joinPairs), and the browser keeps
+// a last word from standing alone (text-wrap in styles.css).
+export const Name = ({ text }: { text: string }) => <Whole class="tf-name">{joinPairs(text)}</Whole>;
 
 // "→ Airport": where something heads, the arrow joined to the name's first word, so it never
 // ends a line, and a long name's later lines starting under that word, not under the arrow (see
@@ -98,7 +83,7 @@ export const Toward = ({ text, spoken }: { text: string; spoken?: string }) => (
       {spoken && <span class="tf-sr">{spoken}</span>}
       {/* A word joiner: no line breaks between the arrow and the word after it. */}
       {'\u2060'}
-      <Groups text={text} />
+      {joinPairs(text)}
     </Whole>
   </span>
 );

@@ -1,5 +1,6 @@
 import { type ComponentChildren, Fragment } from 'preact';
-import { Groups, Whole } from './Whole.tsx';
+import { joinPairs } from '../lib/wrap.ts';
+import { Whole } from './Whole.tsx';
 
 // Parts of one line, with a middle dot between them. They run on as words do. A part that fits a
 // line never splits, and one too long for a line wraps inside itself, with the parts after it on
@@ -15,7 +16,7 @@ export function Dots({ parts, class: name, tag: Tag = 'span', hidden }: { parts:
         <Fragment key={index}>
           {/* The room between two parts is a space, which a line break takes with it. */}
           {index > 0 && <span class="tf-dots__gap"> </span>}
-          <Whole class={index > 0 ? 'tf-dots__part tf-dots__part--next' : 'tf-dots__part'}>{typeof part === 'string' ? <Groups text={part} /> : part}</Whole>
+          <Whole class={index > 0 ? 'tf-dots__part tf-dots__part--next' : 'tf-dots__part'}>{typeof part === 'string' ? joinPairs(part) : part}</Whole>
         </Fragment>
       ))}
     </Tag>

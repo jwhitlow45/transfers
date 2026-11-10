@@ -95,7 +95,7 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
         <span class="tf-walk-gerbil" aria-hidden="true">
           <IconGerbil />
         </span>
-        {walkTime}&nbsp;min walk to {boardLink}
+        <span class="tf-nowrap">{walkTime}&nbsp;min walk to</span> {boardLink}
       </>,
     ]
   );
