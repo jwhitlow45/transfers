@@ -143,6 +143,7 @@
   .tf-track__row { grid-template-columns: minmax(0, 1fr); }
   .tf-track__num { flex-direction: row; align-items: baseline; gap: var(--tm-2); }
   .tf-track .tf-track__veh-head { flex-wrap: wrap; }
+  .tf-track__more { grid-template-columns: auto minmax(0, 1fr); }
   /* The time bar has room for every other label. */
   .tf-tripbar__tick:nth-child(even) { display: none; }
 }
