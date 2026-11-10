@@ -247,16 +247,16 @@ function gone(schedule: Schedule, trip: RtTrip, pattern: PatternRow, position: n
 // Whether a trip the feed lists has yet to leave its first stop. The feed drops each stop once the
 // vehicle leaves it, so before then the first one it lists is the trip's first. Its times past
 // there assume the vehicle leaves on time, which at the end of a route it often does not. Where
-// the rider boards at the first stop the feed lists, the trip has left its first stop already, or
-// that stop is where the rider boards, and its time there is when it leaves. The first update on
-// the trip's pattern is matched to a visit as predictedTimes in track.ts matches it, by its stop
-// sequence, or else by the scheduled time nearest its own, so results and pins agree, even on a
-// loop that comes back to its first stop or a feed that numbers its sequences from 0.
+// the rider boards at the first stop on its pattern the feed lists, the trip has left its first
+// stop already, or that stop is where the rider boards, and its time there is when it leaves. The
+// first update on the pattern is matched to a visit as predictedTimes in track.ts matches it, by
+// its stop sequence, or else by the scheduled time nearest its own, so results and pins agree, even
+// on a loop that comes back to its first stop or a feed that numbers its sequences from 0.
 function notStarted(context: VehicleContext, trip: RtTrip, index: number, staticTrip: { row: number } | undefined, pattern: PatternRow | undefined) {
-  if (!pattern || !staticTrip || index === 0) return false;
+  if (!pattern || !staticTrip) return false;
   const stops = pattern.stops.map((id) => context.schedule.stop(id).stopId);
   const first = trip.stops.find(({ stopId }) => stops.includes(stopId));
-  if (!first || first.stopId !== stops[0]) return false;
+  if (!first || first === trip.stops[index] || first.stopId !== stops[0]) return false;
   const visits = stops.flatMap((stopId, position) => (stopId === first.stopId ? [position] : []));
   if (visits.length === 1) return true;
   if (first.sequence !== undefined && visits.includes(first.sequence - 1)) return first.sequence === 1;
