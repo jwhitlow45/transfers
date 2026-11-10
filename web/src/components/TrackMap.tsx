@@ -572,7 +572,9 @@ function LegList({ leg, stops, labels, now, role, notes, name }: {
     else rows.push(plain ? [index] : index);
   }
   // A live vehicle yet to leave its first stop comes then at the soonest (see atLeast).
-  // The feed says so of a vehicle that reports where it is too, parked at its first stop.
+  // The feed says so of a vehicle that reports where it is too, parked at its first stop. Not at
+  // that first stop itself, where its time is when it leaves (J, 2026-11-09), as in the heading and
+  // the results (see item).
   const notStarted = !leg.scheduled && (leg.notStarted === true || leg.missing === 'not-started');
   // By position, since a loop's path can hold one stop twice.
   const item = (index: number) => {
@@ -584,7 +586,7 @@ function LegList({ leg, stops, labels, now, role, notes, name }: {
     return (
       <li key={index} class={`tf-track__row${kind ? ` tf-track__row--mark tf-track__row--${kind}` : ''}${passed ? ' tf-track__row--passed' : ''}`}>
         {/* A canceled trip comes with no times. */}
-        <When at={leg.path[index]!.at ?? null} passed={passed} notStarted={notStarted} now={now} />
+        <When at={leg.path[index]!.at ?? null} passed={passed} notStarted={notStarted && leg.span[0] + index > 0} now={now} />
         <span class="tf-track__row-main">
           <span class="tf-track__stop-name">{shortStopName(stops[leg.path[index]!.stop], leg.path[index]!.stop)}</span>
           {second.length > 0 && (
