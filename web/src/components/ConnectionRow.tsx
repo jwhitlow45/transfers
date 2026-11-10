@@ -19,6 +19,35 @@ const HIDDEN = {
   soon: { tag: 'Too soon', spoken: 'leaves before you can reach it' },
 };
 
+// The map either vehicle of a transfer opens: the first, with where the rider gets on and where they
+// get off to transfer marked, and the second drawn on the same map, on to the destination. Its
+// departure's band opens it too, so on the results either vehicle's time shows both (J,
+// 2026-11-09). Its sheet pins this transfer.
+export function connectionMap(connection: Connection, departure: Departure, { alight, board, min, secondColor, context }: { alight: string; board: string; min: number; secondColor: string; context: CardContext }) {
+  const { data, pin } = context;
+  const route = data.routes[connection.route];
+  const offStop = connection.alight ?? alight;
+  const transferScheduled = !connection.live || Boolean(connection.arrivesScheduled) || !departure.live;
+  const destination = departure.destination !== undefined ? context.destination : undefined;
+  // The same vehicles, stops, and run: trip ids repeat every day.
+  const pinned = pin?.first?.trip === connection.trip && pin.first.alight === offStop && pin.second.trip === departure.trip && pin.second.board === board && sameRun(pin.at, departure.at);
+  return {
+    trip: connection.trip,
+    stop: (connection.board ? data.stops[connection.board] : undefined) ?? data.stops[data.from],
+    title: vehicleAt(route, connection.departs),
+    marks: [
+      { stop: connection.board ?? data.from, kind: 'yours' as const },
+      { stop: offStop, kind: 'transfer' as const },
+    ],
+    transfer: { trip: departure.trip, stop: board, color: secondColor, minutes: connection.transfer, scheduled: transferScheduled, ...(connection.hidden ? {} : { min }), ...(destination ? { destination } : {}) },
+    pin: {
+      pinned,
+      label: pinLabel([route, connection.departs], [data.routes[departure.route], departure.at]),
+      set: (on: boolean) => context.onPin(on ? pinOf(departure, board, { connection, alight: offStop }) : null),
+    },
+  };
+}
+
 // One first vehicle under a departure. The countdown leads: when it reaches the From stop.
 export function ConnectionRow({ connection, departure, alightName, alight, board, min, walkMeters, secondColor, context }: {
   connection: Connection;
@@ -66,23 +95,8 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
     `${route ? spokenRoute(route) : 'Vehicle'}, ${left ? (ago < 1 ? 'just left' : `left ${ago} minute${ago === 1 ? '' : 's'} ago`) : now ? 'arriving now' : notStarted ? `arrives in at least ${Math.max(1, minutes)} minutes` : `arrives in ${minutes} minute${minutes === 1 ? '' : 's'}`}, ${clock(connection.departs)}, ${status.label}. ` +
     `${boardAt ? `${boardAt}. ` : ''}Off at ${offAt ?? alightName} ${clock(connection.arrives)}${offScheduled ? ', scheduled' : ''}.${walk ? ` ${walk}.` : ''} ${transferScheduled ? 'Scheduled ' : ''}${connection.transfer} minute transfer${tight ? ', tight' : ''}${hidden ? `, hidden because it is ${hidden.spoken}` : ''}.`;
   const secondEnd = departure.destination ?? departure.at + 8 * 60;
-  // The vehicle's time opens its map with where the rider gets on and where they get off to
-  // transfer marked.
-  const offStop = connection.alight ?? alight;
-  const marks = [
-    { stop: connection.board ?? context.data.from, kind: 'yours' as const },
-    { stop: offStop, kind: 'transfer' as const },
-  ];
-  // The second vehicle this one connects to, drawn on the same map, on to the destination.
-  const destination = departure.destination !== undefined ? context.destination : undefined;
-  const transfer = { trip: departure.trip, stop: board, color: secondColor, minutes: connection.transfer, scheduled: transferScheduled, ...(hidden ? {} : { min }), ...(destination ? { destination } : {}) };
-  const { pin } = context;
-  // The same vehicles, stops, and run: trip ids repeat every day.
-  const pinned = pin?.first?.trip === connection.trip && pin.first.alight === offStop && pin.second.trip === departure.trip && pin.second.board === board && sameRun(pin.at, departure.at);
-  const setPinned = (on: boolean) =>
-    context.onPin(on ? pinOf(departure, board, { connection, alight: offStop }) : null);
-  const secondRoute = context.data.routes[departure.route];
-  const label = pinLabel([route, connection.departs], [secondRoute, departure.at]);
+  const map = connectionMap(connection, departure, { alight, board, min, secondColor, context });
+  const { pinned, label, set: setPinned } = map.pin;
   return (
     <div role="listitem" class={`tf-row${tight ? ' tf-row--tight' : ''}${hidden ? ' tf-row--hidden' : ''}${pinned ? ' tf-row--pinned' : ''}${left ? ' tf-row--left' : ''}`}>
       <span class="tf-sr">{spoken}</span>
@@ -112,16 +126,7 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
       <div class="tf-row__main">
         <div class="tf-row__line">
           <RouteChip route={route} hidden />
-          <TimeLink
-            trip={connection.trip}
-            stop={boardStop ?? fromStop}
-            title={vehicleAt(route, connection.departs)}
-            marks={marks}
-            transfer={transfer}
-            pin={{ pinned, label, set: setPinned }}
-          >
-            {clock(connection.departs)}
-          </TimeLink>
+          <TimeLink {...map}>{clock(connection.departs)}</TimeLink>
         </div>
         <StatusTag status={status} plain hidden />
         {boardAt && (

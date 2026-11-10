@@ -76,8 +76,8 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
   const sheetPin = { pinned: true, label: pinLabel(...(first ? [[data.routes[first.route], first.on!.at] as const] : []), [data.routes[second.route], second.on!.at]), set: (on: boolean) => onPin(on ? pin : null) };
 
   // The first vehicle's map watches From until it leaves, then where the rider gets off, with the
-  // second vehicle drawn on to the destination. The second's watches where it is boarded until
-  // it leaves, then the destination.
+  // second vehicle drawn on to the destination. Either vehicle's time opens it. With no first
+  // vehicle, the second's own map watches where it is boarded until it leaves, then the destination.
   const firstLink = (stop: PinnedStop) => (
     <TimeLink
       trip={first!.trip}
@@ -98,7 +98,7 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
       {clock(stop.at)}
     </TimeLink>
   );
-  const secondMarks: Mark[] = [{ stop: second.on.stop, kind: first ? 'transfer' : 'yours' }, ...(second.off ? [{ stop: second.off.stop, kind: 'destination' as const }] : [])];
+  const secondMarks: Mark[] = [{ stop: second.on.stop, kind: 'yours' }, ...(second.off ? [{ stop: second.off.stop, kind: 'destination' as const }] : [])];
   const secondLink = (stop: PinnedStop) => (
     <TimeLink
       trip={second.trip}
@@ -167,7 +167,8 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
             </div>
           )}
           <div class={first ? 'tf-pinned__second' : undefined}>
-            {vehicle(second, second.on, secondLink)}
+            {/* With a transfer, either vehicle's time opens the map with both (J, 2026-11-09). */}
+            {vehicle(second, second.on, first ? firstLink : secondLink)}
             <div class="tf-row__off" aria-hidden="true">
               at {name(second.on)}
             </div>

@@ -9,7 +9,7 @@ import { walkSeconds } from '../../../shared/walk.ts';
 import { TimeLink } from '../track.tsx';
 import { chipLabel, pinLabel, shortStopName, spokenRoute, statusOf, vehicleAt } from '../view.ts';
 import { Collapse } from './Collapse.tsx';
-import { ConnectionRow } from './ConnectionRow.tsx';
+import { ConnectionRow, connectionMap } from './ConnectionRow.tsx';
 import { Departed } from './Departed.tsx';
 import { PinToggle } from './PinToggle.tsx';
 import { RouteChip } from './RouteChip.tsx';
@@ -83,6 +83,10 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
   const tripScheduled = destinationScheduled || (!walk && tripStart(departure, context.now)?.live === false);
   const toward = departure.toward ? `To ${departure.toward}` : null;
   const count = departure.connections.length;
+  // The transfer whose map the band's time opens, with both vehicles on it: the one pinned, or else
+  // the next to leave From, or with all of them gone, the last, which the rider may be on.
+  const maps = walk ? [] : departure.connections.map((connection) => ({ connection, map: connectionMap(connection, departure, { alight: group.alight, board: group.board, min: group.window.min, secondColor: color, context }) }));
+  const leadMap = (maps.find(({ map }) => map.pin.pinned) ?? maps.find(({ connection }) => connection.departs * 1000 >= context.now) ?? maps.at(-1))?.map;
   const listed = listedConnections(departure, context.going);
   const countdowns = departure.connections
     .filter(({ departs }) => departs * 1000 >= context.now)
@@ -123,19 +127,21 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
         <span class="tf-band__line">
           <RouteChip route={route} size="band" color={color} hidden />
           <span class="tf-band__time">
-            <TimeLink
-              trip={departure.trip}
-              stop={context.data.stops[group.board]}
-              title={vehicleAt(route, departure.at)}
-              color={color}
-              // A route already at From is boarded there. Otherwise the rider boards it where they
-              // transfer, and From shows only if this route passes it too.
-              marks={walk ? [{ stop: group.board, kind: 'yours' }] : [{ stop: context.data.from, kind: 'yours' }, { stop: group.board, kind: 'transfer' }]}
-              // A band with rows under it pins no one trip, so only a walk card's map can pin.
-              {...(walk ? { pin: { pinned: walkPinned, label: walkPinLabel, set: setWalkPinned } } : {})}
-            >
-              {clock(departure.at)}
-            </TimeLink>
+            {leadMap ? (
+              <TimeLink {...leadMap}>{clock(departure.at)}</TimeLink>
+            ) : (
+              <TimeLink
+                trip={departure.trip}
+                stop={context.data.stops[group.board]}
+                title={vehicleAt(route, departure.at)}
+                color={color}
+                // A route already at From is boarded there.
+                marks={[{ stop: group.board, kind: 'yours' }]}
+                {...(walk ? { pin: { pinned: walkPinned, label: walkPinLabel, set: setWalkPinned } } : {})}
+              >
+                {clock(departure.at)}
+              </TimeLink>
+            )}
           </span>
           <StatusTag status={status} hidden />
         </span>
