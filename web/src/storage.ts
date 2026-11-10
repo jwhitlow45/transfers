@@ -128,10 +128,10 @@ export const isStopSearch = (search: Pick<Search, 'to'>) => search.to === '';
 // lack it, and their `at` is when the second was due, predictions included. `ends` is when the trip
 // ends by the latest times seen: arriving at the destination, or with none set, boarding the second
 // vehicle.
-// `search` is the search it is pinned to as it stands now, so Home can show the pin and open its
+// `search` is the search it is pinned to as it stands now, so the pin bar can show the pin and open its
 // results. Pins saved before it was kept lack it. `last` is the trip's times as last seen.
 // An arrival pinned at a stop, with no transfer, has no first vehicle, and `arrival` keeps what its
-// card says while the stop's times are away: the route and where it is going.
+// bar says while the stop's times are away: the route and where it is going.
 // `view` is the tab of a stop's results it was pinned on, which the results follow it by.
 export type Pin = PinRequest & { ends: number; search?: Search; last?: PinnedTrip; arrival?: { route: string; headsign: string }; view?: 'trips' | 'transfers' };
 
@@ -139,14 +139,27 @@ export function loadPin(search: Search): Pin | null {
   return readStored<Record<string, Pin>>('pins', {})[searchId(search)] ?? null;
 }
 
-// Every pin Home can show, with its search.
+// Every pin the pin bar can show, with its search.
 export function loadPins(): (Pin & { search: Search })[] {
   return Object.values(readStored<Record<string, Pin>>('pins', {})).filter((pin): pin is Pin & { search: Search } => pin.search !== undefined);
 }
 
 export function savePin(search: Search, pin: Pin | null) {
-  const { [searchId(search)]: _old, ...others } = readStored<Record<string, Pin>>('pins', {});
-  writeStored('pins', pin ? { ...others, [searchId(search)]: pin } : others);
+  const id = searchId(search);
+  const all = readStored<Record<string, Pin>>('pins', {});
+  const { [id]: _old, ...others } = all;
+  // A pin written again, as its times move, keeps its place among the pins, so the pin bar's tabs
+  // stay in the order the rider pinned them.
+  writeStored('pins', !pin ? others : id in all ? Object.fromEntries(Object.entries(all).map(([key, kept]) => [key, key === id ? pin : kept])) : { ...others, [id]: pin });
+  for (const listener of pinListeners) listener();
+}
+
+// Told of every change to the pins: the app's pin bar, and each page that marks what is pinned,
+// follow them wherever they are changed from. Returns how to stop being told.
+const pinListeners = new Set<() => void>();
+export function onPinsChange(listener: () => void) {
+  pinListeners.add(listener);
+  return () => void pinListeners.delete(listener);
 }
 
 // A notice the rider dismissed, kept as it read then, so the Notices page can show it and put it

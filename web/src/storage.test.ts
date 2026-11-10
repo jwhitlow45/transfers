@@ -6,7 +6,7 @@ const stored = new Map<string, string>();
 Object.assign(globalThis, {
   localStorage: { getItem: (key: string) => stored.get(key) ?? null, setItem: (key: string, value: string) => void stored.set(key, value), removeItem: (key: string) => void stored.delete(key) },
 });
-const { DEFAULT_SETTINGS, dismissNotice, loadDismissed, loadSettings, saveSettings } = await import('./storage.ts');
+const { DEFAULT_SETTINGS, dismissNotice, loadDismissed, loadPins, loadSettings, onPinsChange, savePin, saveSettings } = await import('./storage.ts');
 
 const notice = (id: string) => ({ id, kicker: 'Notice · Muni', title: id, body: null, meta: 'Muni' });
 
@@ -44,4 +44,22 @@ test('outages show by default, and settings saved before that show them, until t
     stored.set('transfers:settings', value);
     deepStrictEqual([loadSettings().elevatorOutages, loadSettings().escalatorOutages, loadSettings().walkSpeed], [true, true, DEFAULT_SETTINGS.walkSpeed]);
   }
+});
+
+test('a pin written again keeps its place among the pins, and every change to them is told', () => {
+  const search = (from: string) => ({ from, to: 'b', fromLabel: from, toLabel: 'B' });
+  const pin = (from: string, ends: number) => ({ second: { trip: 't', board: 's' }, at: 100, ends, search: search(from) });
+  let told = 0;
+  const stop = onPinsChange(() => told++);
+  savePin(search('first'), pin('first', 1));
+  savePin(search('second'), pin('second', 1));
+  // The first pin's times move: it stays first, as the pin bar's tabs keep their order.
+  savePin(search('first'), pin('first', 2));
+  deepStrictEqual(loadPins().map(({ search: { from }, ends }) => [from, ends]), [['first', 2], ['second', 1]]);
+  savePin(search('first'), null);
+  deepStrictEqual(loadPins().map(({ search: { from } }) => from), ['second']);
+  deepStrictEqual(told, 4);
+  stop();
+  savePin(search('second'), null);
+  deepStrictEqual([told, loadPins()], [4, []]);
 });
