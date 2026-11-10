@@ -133,6 +133,11 @@
 @media (max-width: 18em) {
   .tf-track { --tm-1: 4px; --tm-2: 8px; --tm-3: 12px; --tm-4: 16px; --tm-5: 24px; }
 }
+/* On a narrow phone the three captions cannot share a line, so each takes its own, in order,
+   and none is left alone on a second row. */
+@container (max-width: 19rem) {
+  .tf-tripbar__legend { flex-direction: column; flex-wrap: nowrap; }
+}
 /* On a narrow phone the number column gives a little of its width to the stop names. */
 @container (max-width: 19rem) {
   .tf-track > * { --tm-numcol: 3.25rem; }

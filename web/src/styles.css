@@ -880,6 +880,8 @@ button:disabled { opacity: .45; cursor: default; }
   .tf-near__actions .tf-btn-secondary + .tf-btn-secondary { border-left: 0; border-top: var(--border-hair) solid var(--divider); }
   .tf-result__top { flex-wrap: wrap; }
   .tf-nowrap { white-space: normal; }
+  /* The live map's hint says only "Pinch", to clear Full and Fit, as on the narrowest phones. */
+  .tf-track__frame .tf-map-hint__more { display: none; }
   /* The bottom bar's three buttons share a narrow row: the window keeps its numbers, smaller, and
      gives up its icon. */
   .tf-bottombar__icon { width: var(--tap-min); }
