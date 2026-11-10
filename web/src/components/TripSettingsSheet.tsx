@@ -208,7 +208,7 @@ export function TripSettingsSheet({ search, data, window, savedName, chain, dest
         </div>
       )}
       {groups.length > 1 && (
-        <div class="tf-setting tf-setting--last">
+        <div class="tf-setting">
           <div class="tf-setting__label">Routes on the second leg</div>
           <div class="tf-filters">
             {groups.map((group) => {

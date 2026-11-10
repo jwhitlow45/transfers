@@ -186,7 +186,7 @@ export function SettingsScreen() {
               </Toggle>
             </div>
           </div>
-          <div class="tf-setting tf-setting--last">
+          <div class="tf-setting">
             <div class="tf-setting__label">Time for elevators</div>
             <div class="tf-setting__help">Allows 3 more minutes to change at BART and Muni Metro stations, for waiting for and riding elevators, unless you set your own minimum.</div>
             <div class="tf-filters">
