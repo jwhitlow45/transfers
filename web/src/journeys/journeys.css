@@ -1,0 +1,19 @@
+/* Trips with any number of changes, loaded with their list (see LazyJourneyResults). Each is a
+   card: a row of the shape every page shares, then its steps, each a row with its clock time in
+   the number column. */
+.tf-journeys { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s3); }
+/* The row opens the steps: a button stretched under it, as a departure card's band is. */
+.tf-journey__band { position: relative; }
+.tf-journey__toggle { position: absolute; inset: 0; width: 100%; -webkit-tap-highlight-color: transparent; }
+.tf-journey__toggle:focus-visible { outline-offset: -3px; }
+.tf-journey__toggle[aria-expanded="true"] ~ .tf-row .tf-chev { transform: rotate(180deg); }
+@media (hover: hover) { .tf-journey__band:has(> .tf-journey__toggle:hover) { background-color: color-mix(in srgb, var(--text) 4%, transparent); } }
+.tf-journey__sep { color: var(--muted); }
+.tf-journey__walk { font-size: var(--fs-body); color: var(--muted); white-space: nowrap; }
+.tf-steps { list-style: none; margin: 0; padding: var(--s1) 0; border-top: var(--border-hair) solid var(--divider); }
+/* Steps read as one list, so no line parts them, and they sit closer than a card's rows. */
+.tf-steps > .tf-row { padding-block: var(--s2); border-top: 0; }
+/* As tall as the clock time beside it, so the two share a line. */
+.tf-step__t { display: block; line-height: 1.75rem; }
+/* At large text (see styles.css) a step wraps onto several lines, which then sit as text does. */
+@media (max-width: 18em) { .tf-step__t { line-height: 1.4; } }

@@ -1,11 +1,12 @@
+import { Fragment } from 'preact';
 import { useId, useState } from 'preact/hooks';
 import type { Journey, JourneyLeg, JourneysResponse, RideLeg } from '../../../shared/journeys.ts';
 import { Collapse } from '../components/Collapse.tsx';
-import { Countdown } from '../components/Countdown.tsx';
+import { Num } from '../components/Countdown.tsx';
 import { EmptyState } from '../components/EmptyState.tsx';
 import { RouteChip } from '../components/RouteChip.tsx';
 import { Approx, StatusTag } from '../components/StatusTag.tsx';
-import { approx, clock, countdownTo, minutesUntil, stillWaiting } from '../format.ts';
+import { approx, approxMinutes, atLeast, clock, minutesUntil, stillWaiting } from '../format.ts';
 import { IconFold, IconGerbil } from '../icons/ui.tsx';
 import { TimeLink } from '../track.tsx';
 import { shortStopName, spokenRoute, statusOf, vehicleAt } from '../view.ts';
@@ -84,52 +85,68 @@ function JourneyCard({ journey, data, now, toLabel, open, onToggle }: {
     `${leaveIn < 1 ? 'Leave now' : `Leave in ${leavesNotStarted ? 'at least ' : ''}${leaveIn} minute${leaveIn === 1 ? '' : 's'}`}, at ${clock(journey.leaves)}${scheduledWord(leavesScheduled)}, arrive ${clock(journey.arrives)}${scheduledWord(arrivesScheduled)}, ${length} minutes${scheduledWord(lengthScheduled)}, ${kind.toLowerCase()}` +
     (rides.length > 0 ? `, by ${rides.map((ride) => (data.routes[ride.route] ? spokenRoute(data.routes[ride.route]!) : 'vehicle')).join(', then ')}` : '') +
     '.';
+  // When each step starts: a ride when its vehicle leaves, and a walk when the rider sets off, or
+  // gets off the vehicle before it. A walk's time is the schedule's when that vehicle's is.
+  const steps = journey.legs.map((leg, index) => {
+    if (leg.kind === 'ride') return { leg, at: leg.departs, scheduled: !leg.live };
+    const before = journey.legs.slice(0, index).findLast((earlier): earlier is RideLeg => earlier.kind === 'ride');
+    return before ? { leg, at: before.arrives, scheduled: !before.live } : { leg, at: journey.leaves, scheduled: leavesScheduled };
+  });
+  const shownLegs = journey.legs.filter((leg) => leg.kind === 'ride' || leg.seconds >= STEP_SECONDS || rides.length === 0);
   return (
-    <li class="tf-journey">
+    <li class="tf-card tf-journey">
       <div class="tf-journey__band">
-        {/* The whole band opens the steps, as a departure card's band does. */}
+        {/* The whole row opens the steps, as a departure card's band does. */}
         <button type="button" class="tf-journey__toggle" aria-expanded={open} aria-controls={panel} onClick={onToggle}>
           <span class="tf-sr">{spoken}</span>
         </button>
-        <div class="tf-row tf-journey__row" aria-hidden="true">
-          <Countdown {...countdownTo(journey.leaves, now, 'Leave in', 'Leave now', leavesScheduled ? 'scheduled' : leavesNotStarted ? 'notStarted' : null)} />
-          <div class="tf-row__main">
-            <div class="tf-row__line">
-              {approx(clock(journey.leaves), leavesScheduled)} – {approx(clock(journey.arrives), arrivesScheduled)}
-            </div>
-            <div class="tf-journey__legs">
-              {journey.legs.filter((leg) => leg.kind === 'ride' || leg.seconds >= STEP_SECONDS || rides.length === 0).map((leg, index) => (
-                <span key={index} class="tf-journey__leg">
-                  {index > 0 && <span class="tf-journey__sep">›</span>}
-                  {leg.kind === 'walk' ? (
-                    <span class="tf-journey__walk">
-                      <span class="tf-walk-gerbil">
-                        <IconGerbil />
+        <div class="tf-row" aria-hidden="true">
+          <Num n={leaveIn < 1 ? 'Now' : leavesNotStarted ? atLeast(leaveIn) : approxMinutes(leaveIn, leavesScheduled)} unit={leaveIn < 1 ? null : 'min'} />
+          <div class="tf-rb">
+            <div class="tf-rb__main">
+              <div class="tf-l1">
+                {approx(clock(journey.leaves), leavesScheduled)} – {approx(clock(journey.arrives), arrivesScheduled)}
+              </div>
+              <div class="tf-l1 tf-journey__legs">
+                {shownLegs.map((leg, index) => (
+                  <Fragment key={index}>
+                    {index > 0 && <span class="tf-journey__sep">›</span>}
+                    {leg.kind === 'walk' ? (
+                      <span class="tf-journey__walk">
+                        <span class="tf-walk-gerbil">
+                          <IconGerbil />
+                        </span>
+                        Walk {minutesOf(leg.seconds)}
                       </span>
-                      Walk {minutesOf(leg.seconds)}
-                    </span>
-                  ) : (
-                    <RouteChip route={data.routes[leg.route]} size="sm" />
-                  )}
-                </span>
-              ))}
+                    ) : (
+                      <RouteChip route={data.routes[leg.route]} />
+                    )}
+                  </Fragment>
+                ))}
+              </div>
+              <div class="tf-l2">
+                {approx(String(length), lengthScheduled)}&nbsp;min · {kind}
+              </div>
             </div>
-            <div class="tf-row__off">
-              {approx(String(length), lengthScheduled)}&nbsp;min · {kind}
-            </div>
+            <span class="tf-end">
+              <IconFold />
+            </span>
           </div>
-          <IconFold />
         </div>
       </div>
       <Collapse open={open} id={panel}>
-        <ol class="tf-journey__steps">
-          {journey.legs.map((leg, index) => (
-            <Step key={index} leg={leg} data={data} lastRide={leg === rides.at(-1)} />
+        <ol class="tf-steps">
+          {steps.map(({ leg, at, scheduled }, index) => (
+            <Step key={index} leg={leg} at={at} scheduled={scheduled} data={data} lastRide={leg === rides.at(-1)} />
           ))}
-          <li class="tf-journey__step tf-journey__step--end">
-            <span class="tf-journey__dot" aria-hidden="true" />
-            <span>
-              Arrive at <strong>{toLabel}</strong> <Approx scheduled={arrivesScheduled}>{clock(journey.arrives)}</Approx>
+          <li class="tf-row">
+            <span class="tf-num">
+              <span class="tf-num__clock">
+                <Approx scheduled={arrivesScheduled}>{clock(journey.arrives)}</Approx>
+              </span>
+            </span>
+            <span class="tf-step__t">
+              Arrive <strong>{toLabel}</strong>
             </span>
           </li>
         </ol>
@@ -138,42 +155,50 @@ function JourneyCard({ journey, data, now, toLabel, open, onToggle }: {
   );
 }
 
-// A step of a way: a walk, between stops or from or to where the trip starts or ends, or a ride,
-// whose time opens its live map with where the rider boards and gets off marked.
-function Step({ leg, data, lastRide }: { leg: JourneyLeg; data: JourneysResponse; lastRide: boolean }) {
+// A step of a way, as a row with its clock time in the number column: a walk, between stops or
+// from or to where the trip starts or ends, or a ride, whose time opens its live map with where
+// the rider boards and gets off marked.
+function Step({ leg, at, scheduled, data, lastRide }: { leg: JourneyLeg; at: number; scheduled: boolean; data: JourneysResponse; lastRide: boolean }) {
   const name = (key: string) => shortStopName(data.stops[key], key);
   if (leg.kind === 'walk') {
     return (
-      <li class="tf-journey__step tf-journey__step--walk">
-        <span class="tf-journey__dot" aria-hidden="true" />
-        <span>
+      <li class="tf-row">
+        <span class="tf-num">
+          <span class="tf-num__clock">
+            <Approx scheduled={scheduled}>{clock(at)}</Approx>
+          </span>
+        </span>
+        <span class="tf-step__t">
           <span class="tf-walk-gerbil" aria-hidden="true">
             <IconGerbil />
           </span>
-          Walk {minutesOf(leg.seconds)}&nbsp;min to {name(leg.to)}
+          Walk {minutesOf(leg.seconds)}&nbsp;min to <strong>{name(leg.to)}</strong>
         </span>
       </li>
     );
   }
   const route = data.routes[leg.route];
   return (
-    <li class="tf-journey__step tf-journey__step--ride">
-      <span class="tf-journey__dot" aria-hidden="true" />
-      <span class="tf-journey__ride">
-        <span class="tf-journey__ride-line">
-          <RouteChip route={route} size="sm" />
+    <li class="tf-row">
+      <span class="tf-num">
+        <span class="tf-num__clock">
           <TimeLink trip={leg.trip} stop={data.stops[leg.from]} title={vehicleAt(route, leg.departs)} marks={[{ stop: leg.from, kind: 'yours' }, { stop: leg.to, kind: lastRide ? 'destination' : 'transfer' }]}>
             {clock(leg.departs)}
           </TimeLink>
-          <span class="tf-journey__from">from {name(leg.from)}</span>
-        </span>
-        <span class="tf-journey__ride-sub">
-          Toward {leg.toward} · <StatusTag status={statusOf(leg.departDelay, leg.live, false, leg.notStarted)} plain />
-        </span>
-        <span class="tf-journey__ride-sub">
-          {leg.stops} stop{leg.stops === 1 ? '' : 's'} · off at {name(leg.to)} <Approx scheduled={!leg.live}>{clock(leg.arrives)}</Approx>
         </span>
       </span>
+      <div>
+        <span class="tf-step__t">
+          <RouteChip route={route} /> from {name(leg.from)}
+        </span>
+        <span class="tf-l2">Toward {leg.toward}</span>
+        <span class="tf-l2">
+          <StatusTag status={statusOf(leg.departDelay, leg.live, false, leg.notStarted)} plain />
+        </span>
+        <span class="tf-l2">
+          {leg.stops} stop{leg.stops === 1 ? '' : 's'} · off at {name(leg.to)} <Approx scheduled={!leg.live}>{clock(leg.arrives)}</Approx>
+        </span>
+      </div>
     </li>
   );
 }
