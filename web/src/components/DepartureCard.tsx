@@ -84,7 +84,7 @@ export function DepartureCard({ departure, group, next, alightName, noun, walk, 
   // The transfer whose map the band's time opens, with both vehicles on it: the one pinned, or else
   // the next to leave From that the rider can make, then any next to leave, or with all of them
   // gone, the last, which the rider may be on.
-  const maps = walk ? [] : departure.connections.map((connection) => ({ connection, map: connectionMap(connection, departure, { alight: group.alight, board: group.board, min: group.window.min, secondColor: color, context }) }));
+  const maps = walk ? [] : departure.connections.map((connection) => ({ connection, map: connectionMap(connection, departure, { alight: group.alight, board: group.board, min: group.window.min, walkMeters: group.walkMeters, secondColor: color, context }) }));
   const ahead = maps.filter(({ connection }) => !hasLeft(connection.departs, context.now, connection.notStarted));
   const leadMap = (maps.find(({ map }) => map.pin.pinned) ?? ahead.find(({ connection }) => !connection.hidden) ?? ahead[0] ?? maps.at(-1))?.map;
   const listed = listedConnections(departure, context.going);

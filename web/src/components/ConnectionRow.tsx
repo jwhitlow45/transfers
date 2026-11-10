@@ -3,7 +3,7 @@ import { approx, atLeast, clock, hasLeft, minuteCount, minutesSince, minutesUnti
 import { pinOf, sameRun } from '../lib/pinned.ts';
 import { type CardContext, isTight } from '../lib/results.ts';
 import { TimeLink } from '../track.tsx';
-import { pinLabel, shortStopName, spokenRoute, statusOf, vehicleAt } from '../view.ts';
+import { chipLabel, pinLabel, shortStopName, spokenRoute, statusOf, vehicleAt } from '../view.ts';
 import { Num } from './Countdown.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import { StopLink } from './StopLink.tsx';
@@ -22,9 +22,12 @@ const HIDDEN = {
 // departure's band opens it too, so on the results either vehicle's time shows both (J,
 // 2026-11-09). Its sheet pins this transfer. A first vehicle the schedule lacks has no line to
 // draw, so the map follows the second alone, to where the rider boards it.
-export function connectionMap(connection: Connection, departure: Departure, { alight, board, min, secondColor, context }: { alight: string; board: string; min: number; secondColor: string; context: CardContext }) {
+// `walkMeters` is the group's walk between its stops, which a vehicle letting the rider off
+// elsewhere has its own of.
+export function connectionMap(connection: Connection, departure: Departure, { alight, board, min, walkMeters, secondColor, context }: { alight: string; board: string; min: number; walkMeters: number; secondColor: string; context: CardContext }) {
   const { data, pin } = context;
   const route = data.routes[connection.route];
+  const secondRoute = data.routes[departure.route];
   const offStop = connection.alight ?? alight;
   const transferScheduled = !connection.live || Boolean(connection.arrivesScheduled) || !departure.live;
   const destination = departure.destination !== undefined ? context.destination : undefined;
@@ -32,14 +35,14 @@ export function connectionMap(connection: Connection, departure: Departure, { al
   const pinned = pin?.first?.trip === connection.trip && pin.first.alight === offStop && pin.second.trip === departure.trip && pin.second.board === board && sameRun(pin.at, departure.at);
   const pinAction = {
     pinned,
-    label: pinLabel([route, connection.departs], [data.routes[departure.route], departure.at]),
+    label: pinLabel([route, connection.departs], [secondRoute, departure.at]),
     set: (on: boolean) => context.onPin(on ? pinOf(departure, board, { connection, alight: offStop }) : null),
   };
   if (connection.added) {
     return {
       trip: departure.trip,
       stop: data.stops[board],
-      title: vehicleAt(data.routes[departure.route], departure.at),
+      title: vehicleAt(secondRoute, departure.at),
       color: secondColor,
       marks: [{ stop: board, kind: 'transfer' as const }],
       pin: pinAction,
@@ -48,12 +51,13 @@ export function connectionMap(connection: Connection, departure: Departure, { al
   return {
     trip: connection.trip,
     stop: (connection.board ? data.stops[connection.board] : undefined) ?? data.stops[data.from],
-    title: vehicleAt(route, connection.departs),
+    // Both vehicles are on the map, so the sheet names both.
+    title: `${route ? chipLabel(route) : 'Vehicle'}, then the ${secondRoute ? chipLabel(secondRoute) : 'next vehicle'}`,
     marks: [
       { stop: connection.board ?? data.from, kind: 'yours' as const },
       { stop: offStop, kind: 'transfer' as const },
     ],
-    transfer: { trip: departure.trip, stop: board, color: secondColor, minutes: connection.transfer, scheduled: transferScheduled, ...(connection.hidden ? {} : { min }), ...(destination ? { destination } : {}) },
+    transfer: { trip: departure.trip, stop: board, color: secondColor, minutes: connection.transfer, scheduled: transferScheduled, ...(connection.hidden ? {} : { min }), ...(destination ? { destination } : {}), walkMeters: connection.walkMeters ?? walkMeters },
     pin: pinAction,
   };
 }
@@ -102,7 +106,7 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
       : `Board at ${shortStopName(boardStop, '')}`;
   // The walk to the second vehicle, said where the rider gets off (J, 2026-10-08). None at its stop.
   const walk = walkText(connection.walkMeters ?? walkMeters, useSettings().settings.walkSpeed);
-  const map = connectionMap(connection, departure, { alight, board, min, secondColor, context });
+  const map = connectionMap(connection, departure, { alight, board, min, walkMeters, secondColor, context });
   const { pinned, label, set: setPinned } = map.pin;
   const spoken =
     `${route ? spokenRoute(route) : 'Vehicle'}, ${left ? (ago < 1 ? 'just left' : `left ${ago} minute${ago === 1 ? '' : 's'} ago`) : now ? 'arriving now' : notStarted ? `arrives in at least ${minuteCount(Math.max(1, minutes))}` : `arrives in ${minutes} minute${minutes === 1 ? '' : 's'}`}, ${clock(connection.departs)}, ${status.label}. ` +
