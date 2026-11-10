@@ -38,7 +38,7 @@ function pinnedLeg(schedule: Schedule, snapshot: TripSnapshot | null, trip: stri
   const pattern = row ? schedule.patterns.get(row.pattern) : undefined;
   if (!row || !pattern) return rt ? addedLeg(schedule, rt, trip, onStop, offStops, tables) : null;
   const stops = pattern.stops.map((id) => schedule.stop(id));
-  const { times, scheduled, reported, timed } = expectedTimes(schedule, row.row, stops, rt, now, near);
+  const { times, scheduled, reported, timed, ahead } = expectedTimes(schedule, row.row, stops, rt, now, near);
   const onVisits = visitsTo(schedule, pattern.stops, onStop);
   const offVisits = offStops.flatMap((stop) => visitsTo(schedule, pattern.stops, stop)).sort((a, b) => a - b);
   const offStopAt = (index: number) => offStops.find((stop) => visitsTo(schedule, pattern.stops, stop).includes(index))!;
@@ -69,6 +69,8 @@ function pinnedLeg(schedule: Schedule, snapshot: TripSnapshot | null, trip: stri
     off: onAt !== null && offAt !== null && offAt > onAt ? at(offAt, offStopAt(offAt)) : null,
     live: timed,
     ...(rt?.canceled ? { canceled: true } : {}),
+    // As in the results: the feed still lists the trip's first stop, and the rider boards past it.
+    ...(timed && ahead === 0 && onAt !== null && onAt > 0 ? { notStarted: true as const } : {}),
   };
 }
 

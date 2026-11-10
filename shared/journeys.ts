@@ -22,6 +22,8 @@ export type RideLeg = {
   departDelay: number | null;
   arriveDelay: number | null;
   live: boolean;
+  // As a Connection's: a live vehicle yet to leave the first stop of its trip.
+  notStarted?: true;
   stops: number;
 };
 

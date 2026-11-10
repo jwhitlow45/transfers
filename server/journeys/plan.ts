@@ -290,6 +290,8 @@ function journeyOf(schedule: Schedule, network: LiveNetwork, path: Path): Journe
       departDelay: delay(leg.board, leg.departs, times[leg.trip * width + leg.board * 2 + 1]!),
       arriveDelay: delay(leg.alight, leg.arrives, times[leg.trip * width + leg.alight * 2]!),
       live: Boolean(live?.timed),
+      // As in the results: the feed still lists the trip's first stop, and the rider boards past it.
+      ...(live?.timed && live.ahead === 0 && leg.board > 0 ? { notStarted: true as const } : {}),
       stops: leg.alight - leg.board,
     });
   }

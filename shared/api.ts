@@ -90,6 +90,9 @@ export type Connection = {
   // gave no delay to carry to where the rider gets off, so it is the schedule's time.
   live: boolean;
   arrivesScheduled?: true;
+  // A live vehicle that has yet to leave the first stop of its trip, whose times assume it leaves
+  // there on time (see notStarted in server/engine/vehicles.ts).
+  notStarted?: true;
   // Whole minutes from arriving to the second vehicle reaching the boarding stop, rounded down.
   transfer: number;
   // Where this vehicle lets the rider off, when it is not the group's alight stop. A group pools
@@ -113,6 +116,8 @@ export type Departure = {
   delay: number | null;
   live: boolean;
   canceled?: boolean;
+  // As a Connection's: a live vehicle yet to leave the first stop of its trip.
+  notStarted?: true;
   // When it reaches the rider's destination stop, if they set one: from the feed when `live`,
   // unless `destinationScheduled` says the feed gave no delay to carry there.
   destination?: number;
@@ -203,7 +208,8 @@ export type PinnedStop = { stop: string; at: number; delay: number | null; sched
 // One vehicle of a pinned trip, where the rider gets on and where they get off. `off` is null for
 // the last vehicle when no destination is set or the trip does not reach it. A stop is null when
 // the trip skips it, or for a trip the schedule lacks (`added`), once the feed no longer lists it.
-export type PinnedLeg = { trip: string; route: string; on: PinnedStop | null; off: PinnedStop | null; live: boolean; canceled?: boolean; added?: boolean };
+// `notStarted`, as a Connection's: a live vehicle yet to leave the first stop of its trip.
+export type PinnedLeg = { trip: string; route: string; on: PinnedStop | null; off: PinnedStop | null; live: boolean; canceled?: boolean; added?: boolean; notStarted?: true };
 
 // A trip the rider pinned to follow until they unpin it, as its vehicles run now. `first` is
 // absent for a route already at From, and a leg is null when neither the schedule nor the feed
@@ -244,7 +250,8 @@ export type TripResponse = {
   feeds: FeedStatus[];
 };
 
-export type NearbyArrival = { trip: string; route: string; at: number; delay: number | null; live: boolean };
+// `notStarted`, as a Connection's: a live vehicle yet to leave the first stop of its trip.
+export type NearbyArrival = { trip: string; route: string; at: number; delay: number | null; live: boolean; notStarted?: true };
 
 export type NearbyStop = {
   stop: string;

@@ -316,6 +316,34 @@ test("a train that has left From, which the feed lists only as skipping a later 
   deepStrictEqual([b2.live, b2.arrivesScheduled, b2.arrives], [true, true, DAY + 7.5 * 3600 + 2 * 600 + 480]);
 });
 
+test('a bus the feed still lists at the first stop of its trip is marked as yet to leave it, wherever its times are shown', () => {
+  const busAt = (n: number) => DAY + 7.5 * 3600 + 120 + n * 900;
+  // m3 is still at 24th & Valencia, where the 48 starts. m4 (see realtime) has left it.
+  const waiting = [
+    {
+      id: 'm3',
+      tripUpdate: {
+        trip: { tripId: 'SF:m3', routeId: 'SF:48' },
+        stopTimeUpdate: [
+          { stopSequence: 1, stopId: '13486', departure: { time: busAt(3) - 120, delay: 0 } },
+          { stopSequence: 2, stopId: '13477', arrival: { time: busAt(3), delay: 0 } },
+        ],
+      },
+    },
+  ];
+  const live = realtime(waiting);
+  const { departures } = planTrip(schedule, live, { from: 'BA:901209', to: 'SF:13477' }, NOW).groups[0]!;
+  const marks = Object.fromEntries(departures.filter(({ live }) => live).map(({ trip, notStarted }) => [trip, notStarted ?? false]));
+  deepStrictEqual(marks, { 'SF:m3': true, 'SF:m4': false, 'SF:m5': false });
+  const arrivals = (stop: string) => stopArrivals(schedule, live, stop, NOW).rows[0]!.arrivals.find(({ trip }) => trip === 'SF:m3')!;
+  strictEqual(arrivals('SF:13477').notStarted, true);
+  // Where the trip starts, its time is when it leaves.
+  strictEqual(arrivals('SF:13486').notStarted, undefined);
+  const m3 = departures.find(({ trip }) => trip === 'SF:m3')!;
+  const pin = { first: { trip: m3.connections[0]!.trip, alight: 'BA:901609' }, second: { trip: 'SF:m3', board: 'SF:13477' }, at: m3.at };
+  strictEqual(planTrip(schedule, live, { from: 'BA:901209', to: 'SF:13477', pin }, NOW).pinned!.second!.notStarted, true);
+});
+
 test('names the alert on the boarding stop', () => {
   const response = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477' }, NOW);
   deepStrictEqual(response.alerts.map(({ relevance, header }) => [relevance, header]), [['stop', '48 STOP TEMP. MOVED Board at 24th & Capp']]);

@@ -80,7 +80,7 @@ export function arrivalsFor(context: { schedule: Schedule; snapshot: RealtimeVie
     .filter(({ at, canceled }) => !canceled && at >= now - 30)
     .sort((a, b) => a.at - b.at)
     .slice(0, count)
-    .map(({ trip, route, at, delay, live }) => ({ trip, route: tables.route(schedule.routesByKey.get(route)!), at, delay, live }));
+    .map(({ trip, route, at, delay, live, notStarted }) => ({ trip, route: tables.route(schedule.routesByKey.get(route)!), at, delay, live, ...(notStarted ? { notStarted } : {}) }));
 }
 
 export function nearby(schedule: Schedule, realtime: RealtimeView, center: Point, radius: number, now: number): NearbyResponse {

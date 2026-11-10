@@ -61,6 +61,7 @@ export function firstLegs(context: VehicleContext, link: Link, routeFilter: Set<
           }
         }
         if (!departs || !arrives || arrives.at < departs.at) continue;
+        const waiting = notStarted(schedule, trip, index, pattern);
         legs.set(tripKey(trip.agency, trip.tripId), {
           trip: tripKey(trip.agency, trip.tripId),
           route: routeKeyOf(schedule.route(routeId)),
@@ -72,6 +73,7 @@ export function firstLegs(context: VehicleContext, link: Link, routeFilter: Set<
           arriveDelay: arrives.delay,
           live: true,
           ...(arrives.scheduled ? { arrivesScheduled: true } : {}),
+          ...(waiting ? { notStarted: true } : {}),
           canceled: false,
         });
       }
@@ -161,6 +163,7 @@ export function secondLegs(context: VehicleContext, link: Link, destinationStops
         live: true,
         canceled: trip.canceled,
       };
+      if (notStarted(schedule, trip, index, pattern)) leg.notStarted = true;
       const reaches = destinationStops.flatMap((stop) => timeAfter(context, trip, index, staticTrip, pattern, stop) ?? []).sort((a, b) => a.at - b.at)[0];
       if (reaches) {
         leg.destination = reaches.at;
@@ -238,6 +241,17 @@ function gone(schedule: Schedule, trip: RtTrip, pattern: PatternRow, position: n
     if (at !== -1) return at > position;
   }
   return false;
+}
+
+// Whether a trip the feed lists has yet to leave its first stop. The feed drops each stop once the
+// vehicle leaves it, so before then the first one it lists is the trip's first. Its times past
+// there assume the vehicle leaves on time, which at the end of a route it often does not. Where
+// the rider boards at the first stop the feed lists, the trip has left its first stop already, or
+// that stop is where the rider boards, and its time there is when it leaves.
+function notStarted(schedule: Schedule, trip: RtTrip, index: number, pattern: PatternRow | undefined) {
+  const first = trip.stops[0];
+  if (!pattern || !first || index === 0) return false;
+  return first.stopId === schedule.stop(pattern.stops[0]!).stopId && (first.sequence === undefined || first.sequence === 1);
 }
 
 function skips(schedule: Schedule, trip: RtTrip, pattern: PatternRow, position: number) {
