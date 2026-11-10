@@ -1,4 +1,3 @@
-import { Fragment } from 'preact';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import type { Route, SearchResponse, StopResponse, TripResponse } from '../../../shared/api.ts';
 import { apiUrl, getJson } from '../api.ts';
@@ -11,7 +10,7 @@ import { SearchFields } from '../components/SearchFields.tsx';
 import { type SearchHit, StopResults, hitMeta, hitName, searchCount } from '../components/StopResults.tsx';
 import { Toast, useToast } from '../components/Toast.tsx';
 import { ScreenHeader } from '../components/ResultsHeader.tsx';
-import { clock, minutesUntil, stillWaiting } from '../format.ts';
+import { approxMinutes, atLeast, clock, minutesUntil, stillWaiting } from '../format.ts';
 import { type Polled, useNow, usePinnedTrip, usePoll, useStopPin } from '../hooks.ts';
 import { IconFold, IconGear, IconLocation } from '../icons/ui.tsx';
 import { defaultSavedColor } from '../lib/color.ts';
@@ -20,7 +19,7 @@ import { pinToastText, samePin } from '../lib/pinned.ts';
 import { homeStatus, liveClock, liveNote, type LiveReport } from '../lib/freshness.ts';
 import { type LocationProblem, type Position, handOver, locate, locationProblemText } from '../lib/location.ts';
 import { pageColors, scaleFor, timeScale } from '../lib/results.ts';
-import { summarize } from '../lib/summary.ts';
+import { type Later, laterSpoken, laterText, summarize } from '../lib/summary.ts';
 import { tapForGerbils } from '../gerbils.ts';
 import { unsave } from '../records.ts';
 import { motionOff } from '../gestures.ts';
@@ -53,7 +52,8 @@ import { chipLabel, dayLabel, stopLabel } from '../view.ts';
 import { AppLink } from '../components/AppLink.tsx';
 import { topUnderHeader } from '../lib/scroll.ts';
 import { tripPath } from '../../../shared/paths.ts';
-import { Approx, Flag, Plus } from '../components/StatusTag.tsx';
+import { Warnline } from '../components/StatusTag.tsx';
+import { Num } from '../components/Countdown.tsx';
 import { rowKey } from '../components/RouteCard.tsx';
 
 // A picked stop or route. `short` is what headers and lists call it.
@@ -172,6 +172,12 @@ export function SearchScreen() {
     [all[from], all[to]] = [all[to]!, all[from]!];
     updateSaved(all);
   };
+  // Whether the saved cards show their editing: one Edit on the Saved heading turns it on for all
+  // of them, in place of a pencil on each. With the last card removed, there is nothing to edit.
+  const [editingSaved, setEditingSaved] = useState(false);
+  useEffect(() => {
+    if (saved.length === 0) setEditingSaved(false);
+  }, [saved.length]);
   // Bumped when a recent search is removed, so the list reads storage again.
   const [, setRecentVersion] = useState(0);
   // Notices dismissed on results leave the saved cards' counts.
@@ -396,12 +402,12 @@ export function SearchScreen() {
           </span>
         }
         end={
-          <span class="tf-header__end">
-            <span class="tf-muted">{clock(now / 1000)}</span>
+          <>
+            <span>{clock(now / 1000)}</span>
             <AppLink class="tf-btn-icon tf-muted" href="/settings" label="Settings">
               <IconGear />
             </AppLink>
-          </span>
+          </>
         }
         {...(liveStatus ? { feed: liveStatus.feed, secondsSinceUpdate: liveStatus.secondsSinceUpdate, stale: liveStatus.stale, onRefresh: () => setPulls((count) => count + 1) } : {})}
       />
@@ -505,9 +511,9 @@ export function SearchScreen() {
         {/* Hidden rather than unmounted under the suggestions, so the saved cards keep their times
             and the status line above the fields stays put while the rider types. */}
         <div class="tf-home-rest" hidden={showingResults}>
-          <button type="button" class="tf-btn-outline tf-btn-secondary tf-nearby-button" onClick={findNearby} disabled={locating === 'asking'}>
+          <button type="button" class="tf-textbtn tf-nearby-button" onClick={findNearby} disabled={locating === 'asking'}>
             <IconLocation />
-            {locating === 'asking' ? 'Finding you…' : 'Show nearby routes'}
+            {locating === 'asking' ? 'Finding you…' : 'Nearby routes'}
           </button>
           {(locating === 'denied' || locating === 'unavailable') && (
             <div class="tf-near__problem" role="alert">
@@ -516,8 +522,14 @@ export function SearchScreen() {
           )}
           {saved.length > 0 && (
             <section class="tf-section" aria-labelledby="saved-heading">
-              <h2 id="saved-heading">Saved</h2>
-              <div class="tf-saved-grid">
+              {/* One Edit for every card: each then shows its name, color, order and removal. */}
+              <div class="tf-section__head">
+                <h2 id="saved-heading">Saved</h2>
+                <button type="button" class="tf-textbtn" onClick={() => setEditingSaved(!editingSaved)}>
+                  {editingSaved ? 'Done' : 'Edit'}
+                </button>
+              </div>
+              <div class="tf-saved-grid" onKeyDown={(event) => event.key === 'Escape' && setEditingSaved(false)}>
                 {saved.map((search, index) =>
                   isStopSearch(search) ? (
                     <SavedStop
@@ -525,6 +537,7 @@ export function SearchScreen() {
                       search={search}
                       now={now}
                       pulls={pulls}
+                      editing={editingSaved}
                       onMove={(step) => moveSaved(search.id, step)}
                       canMoveUp={index > 0}
                       canMoveDown={index < saved.length - 1}
@@ -539,6 +552,7 @@ export function SearchScreen() {
                     now={now}
                     dismissed={dismissed}
                     pulls={pulls}
+                    editing={editingSaved}
                     onMove={(step) => moveSaved(search.id, step)}
                     canMoveUp={index > 0}
                     canMoveDown={index < saved.length - 1}
@@ -590,8 +604,8 @@ function HowItWorks({ open: openAtFirst }: { open: boolean }) {
   const [open, setOpen] = useState(openAtFirst);
   return (
     <div class="tf-about">
-      <button type="button" class="tf-about__toggle" aria-expanded={open} aria-controls="how-it-works" onClick={() => setOpen(!open)}>
-        How Transfers works
+      <button type="button" class="tf-fold tf-fold--bare" aria-expanded={open} aria-controls="how-it-works" onClick={() => setOpen(!open)}>
+        <span>How Transfers works</span>
         <IconFold />
       </button>
       <Collapse open={open} id="how-it-works">
@@ -619,7 +633,7 @@ function HowItWorks({ open: openAtFirst }: { open: boolean }) {
         <p>
           Settings has your walking speed and longest walk, whether BART's elevator and escalator outages show, and more time to change at stations if you use elevators.
         </p>
-        <p>Tap a connection to pin it to the top of its results, where it stays and updates live until you unpin it.</p>
+        <p>Tap a connection to pin it to the top, where it stays and updates live until you unpin it. Tap a time to follow its vehicle on a map.</p>
       </Collapse>
     </div>
   );
@@ -696,12 +710,13 @@ function PinnedHome({ pin, name, now, pulls, onPin, onUpdate, onReport }: {
 }
 
 // Polls its own trip, so the card counts down live and opening it shows cached results at once.
-function SavedTrip({ search, now, dismissed, pulls, onMove, canMoveUp, canMoveDown, pin, onPin, onReport, onEdit, onColorless, onRemove }: {
+function SavedTrip({ search, now, dismissed, pulls, editing, onMove, canMoveUp, canMoveDown, pin, onPin, onReport, onEdit, onColorless, onRemove }: {
   search: SavedSearch;
   now: number;
   // Ids of the notices the rider dismissed.
   dismissed: Set<string>;
   pulls: number;
+  editing: boolean;
   onMove: (step: -1 | 1) => void;
   canMoveUp: boolean;
   canMoveDown: boolean;
@@ -732,10 +747,12 @@ function SavedTrip({ search, now, dismissed, pulls, onMove, canMoveUp, canMoveDo
         onMove={onMove}
         canMoveUp={canMoveUp}
         canMoveDown={canMoveDown}
+        editing={editing}
+        openLabel={`Open ${search.name}`}
         pin={{
           pinned,
           ready: next !== null,
-          label: `Pin the next connection for ${search.name}`,
+          what: `the next connection for ${search.name}`,
           toggle: () => next && onPin(pinned ? null : next.pin, data?.routes, !pinned && ringsBell(next.pin, data)),
         }}
         href={tripPath(search)}
@@ -763,10 +780,11 @@ function SavedTrip({ search, now, dismissed, pulls, onMove, canMoveUp, canMoveDo
 
 // A saved stop: its routes with something coming soonest, each with its next few arrivals, as many
 // as a glance takes in. It opens the stop's arrivals.
-function SavedStop({ search, now, pulls, onMove, canMoveUp, canMoveDown, onReport, onEdit, onRemove }: {
+function SavedStop({ search, now, pulls, editing, onMove, canMoveUp, canMoveDown, onReport, onEdit, onRemove }: {
   search: SavedSearch;
   now: number;
   pulls: number;
+  editing: boolean;
   onMove: (step: -1 | 1) => void;
   canMoveUp: boolean;
   canMoveDown: boolean;
@@ -792,49 +810,66 @@ function SavedStop({ search, now, pulls, onMove, canMoveUp, canMoveDown, onRepor
         onMove={onMove}
         canMoveUp={canMoveUp}
         canMoveDown={canMoveDown}
+        editing={editing}
+        // A stop saved under a name of the rider's says which stop it is too.
+        openLabel={`Arrivals at ${search.name === search.fromLabel ? search.name : `${search.name}, ${search.fromLabel}`}`}
         href={stopPath(search)}
         onOpen={() => navigate(stopPath(search))}
         onEdit={onEdit}
         onRemove={onRemove}
       >
-        <span class="tf-saved-stop">
-          {rows.map(({ row, times }) => {
-            // BART's lines through one platform go by one chip, as their rider takes whichever comes.
-            const routes = row.routes.map((key) => data!.routes[key]).filter((route) => route !== undefined);
-            const chips = routes.filter((route, index) => routes.findIndex((other) => chipLabel(other) === chipLabel(route)) === index);
-            return (
-              <span key={rowKey(row)} class="tf-saved-stop__row">
-                <span class="tf-saved-stop__routes">
-                  {chips.map((route) => (
-                    <RouteChip key={route.key} route={route} size="sm" />
-                  ))}
-                </span>
-                <span class="tf-saved-stop__to">
-                  <span aria-hidden="true">→ </span>
-                  <span class="tf-sr">toward </span>
-                  {row.headsign}
-                </span>
-                <span class="tf-saved-stop__in">
-                  {times.map(({ minutes, scheduled, notStarted }, index) => (
-                    <Fragment key={index}>
-                      {index > 0 && ', '}
-                      <Approx scheduled={scheduled}>{scheduled || notStarted ? Math.max(1, minutes) : minutes < 1 ? 'Now' : minutes}</Approx>
-                      {notStarted && <Plus />}
-                    </Fragment>
-                  ))}
-                  {(times.at(-1)!.scheduled || times.at(-1)!.notStarted || times.at(-1)!.minutes >= 1) && ' min'}
-                </span>
-              </span>
-            );
-          })}
-          {!data && feed === 'loading' && <span class="tf-saved-stop__row tf-skeleton__text" style={{ width: '14em' }} />}
-          {!data && feed === 'offline' && <span class="tf-muted">Times can’t load right now</span>}
-          {data && rows.length === 0 && <span class="tf-muted">Nothing coming soon</span>}
-        </span>
+        {/* One row for each route and direction: its next arrival in the number column, where it
+            goes in full, and its later ones under that. */}
+        {rows.map(({ row, times }) => {
+          // BART's lines through one platform go by one chip, as their rider takes whichever comes.
+          const routes = row.routes.map((key) => data!.routes[key]).filter((route) => route !== undefined);
+          const chips = routes.filter((route, index) => routes.findIndex((other) => chipLabel(other) === chipLabel(route)) === index);
+          const [first, ...later] = times as [Later, ...Later[]];
+          const now = first.minutes < 1 && !first.scheduled && !first.notStarted;
+          const count = Math.max(1, first.minutes);
+          const spoken = `${chips.map(chipLabel).join(', ')} toward ${row.headsign}, ${now ? 'arriving now' : `in ${first.scheduled ? 'a scheduled ' : first.notStarted ? 'at least ' : ''}${count} minute${count === 1 ? '' : 's'}`}.${laterSpoken(later)}`;
+          return (
+            <div key={rowKey(row)} class="tf-row">
+              <span class="tf-sr">{spoken}</span>
+              <Num n={now ? 'Now' : first.notStarted ? atLeast(first.minutes) : approxMinutes(first.minutes, first.scheduled)} unit={now ? null : 'min'} />
+              <div class="tf-rb" aria-hidden="true">
+                <div class="tf-rb__main">
+                  <div class="tf-l1">
+                    {chips.map((route) => (
+                      <RouteChip key={route.key} route={route} />
+                    ))}
+                    <span>→ {row.headsign}</span>
+                  </div>
+                  {later.length > 0 && <div class="tf-l2">{laterText(later)}</div>}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        {!data && feed === 'loading' && (
+          <div class="tf-row">
+            <span class="tf-sr">Getting live predictions…</span>
+            <span class="tf-num" aria-hidden="true">
+              <span class="tf-num__n tf-skeleton__text" style={{ width: '1.5em', height: '1em' }} />
+              <span class="tf-num__u tf-skeleton__text" style={{ width: '2em' }} />
+            </span>
+            <div class="tf-rb" aria-hidden="true">
+              <div class="tf-rb__main">
+                <span class="tf-l1 tf-skeleton__text" style={{ width: '10em' }} />
+                <span class="tf-l2 tf-skeleton__text" style={{ width: '7em' }} />
+              </div>
+            </div>
+          </div>
+        )}
+        {((!data && feed === 'offline') || (data && rows.length === 0)) && (
+          <div class="tf-row tf-row--note">
+            <div class="tf-l2">{data ? 'Nothing coming soon' : 'Times can’t load right now'}</div>
+          </div>
+        )}
         {live.note && data && (
-          <Flag tone="caution" class="tf-saved__stale">
-            {live.note}
-          </Flag>
+          <div class="tf-card__foot">
+            <Warnline tone="caution">{live.note}</Warnline>
+          </div>
         )}
       </SavedSearchCard>
     </div>

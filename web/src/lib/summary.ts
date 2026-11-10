@@ -1,7 +1,8 @@
-import type { Alert, Route, TripResponse } from '../../../shared/api.ts';
-import { clock, clockOrDay, minutesUntil } from '../format.ts';
+import type { Alert, Route, Stop, TripResponse } from '../../../shared/api.ts';
+import { approxMinutes, atLeast, clock, clockOrDay, minutesUntil } from '../format.ts';
 import type { Pin, Search } from '../storage.ts';
-import { type Status, chipLabel, shortStopName, statusOf, windowText } from '../view.ts';
+import type { Mark, Transfer } from '../track.tsx';
+import { type Status, chipLabel, shortStopName, statusOf, vehicleAt, windowText } from '../view.ts';
 import { pinOf } from './pinned.ts';
 import { pageColors, pointId, ridesStraightTo, visibleDepartures } from './results.ts';
 
@@ -12,7 +13,10 @@ export type Leg = { route: Route | undefined; at: number; status: Status };
 // the schedule alone, and the same in one line for screen readers. `pin` is the trip pinned from
 // the card, built as results build it. `notStarted`: the soonest vehicle has yet to leave the first
 // stop of its trip.
-export type NextConnection = { minutes: number; notStarted: boolean; legs: Leg[]; transfer: number | null; transferScheduled: boolean; line: string; later: Later[]; pin: Pin };
+// `track` is the live map either vehicle's time opens, with both vehicles on it, as on the results
+// (see connectionMap), less the pin, which a saved card has its own button for.
+export type NextConnection = { minutes: number; notStarted: boolean; legs: Leg[]; transfer: number | null; transferScheduled: boolean; line: string; later: Later[]; pin: Pin; track: NextMap };
+export type NextMap = { trip: string; stop: Stop | undefined; title: string; color?: string; marks: Mark[]; transfer?: Transfer };
 // Minutes until a later departure, whether its time is the schedule's alone, and whether its
 // vehicle has yet to leave the first stop of its trip.
 export type Later = { minutes: number; scheduled: boolean; notStarted: boolean };
@@ -34,6 +38,14 @@ export function laterMinutes(departs: { at: number; live: boolean; notStarted?: 
   }
   return [...later.values()].slice(0, 2);
 }
+
+// Minutes to a later vehicle as a row shows them, and as its spoken summary says them.
+const shownLater = ({ minutes, scheduled, notStarted }: Later) => (notStarted ? atLeast(minutes) : approxMinutes(minutes, scheduled));
+const spokenLater = ({ minutes, scheduled, notStarted }: Later) => (scheduled ? `a scheduled ${Math.max(1, minutes)}` : notStarted ? `at least ${Math.max(1, minutes)}` : String(minutes));
+
+// The vehicles after a row's first, as "then 8, ~23 min", and for its spoken summary.
+export const laterText = (later: Later[]) => `then ${later.map(shownLater).join(', ')}\u00a0min`;
+export const laterSpoken = (later: Later[]) => (later.length > 0 ? ` Then in ${later.map(spokenLater).join(' and ')} minutes.` : '');
 
 // The parts of a trip that headers, saved cards, and recent searches all describe.
 // `dismissed` are the ids of notices the rider dismissed, which alert counts leave out.
@@ -61,6 +73,7 @@ export function summarize(search: Search, data: TripResponse | null, now: number
   const window = lead ? { min: search.min ?? lead.window.min, max: search.max ?? lead.window.max } : null;
 
   // The soonest first vehicle that makes a connection, with both legs and their lateness.
+  const colorOf = data ? pageColors(groups, data) : null;
   let next: NextConnection | null = null;
   let soonest = Infinity;
   const leaves: { at: number; live: boolean; notStarted?: boolean }[] = [];
@@ -88,6 +101,24 @@ export function summarize(search: Search, data: TripResponse | null, now: number
           transferScheduled,
           later: [],
           pin: pinOf(departure, group.board, { connection, alight: connection.alight ?? group.alight }),
+          track: {
+            trip: connection.trip,
+            stop: data!.stops[connection.board ?? data!.from],
+            title: vehicleAt(first, connection.departs),
+            marks: [
+              { stop: connection.board ?? data!.from, kind: 'yours' },
+              { stop: connection.alight ?? group.alight, kind: 'transfer' },
+            ],
+            transfer: {
+              trip: departure.trip,
+              stop: group.board,
+              color: colorOf!(departure.route),
+              minutes: connection.transfer,
+              scheduled: transferScheduled,
+              ...(connection.hidden ? {} : { min: group.window.min }),
+              ...(search.dest && departure.destination !== undefined ? { destination: search.dest } : {}),
+            },
+          },
           line: `${first ? chipLabel(first) : ''} ${clock(connection.departs)} (${firstStatus.label.toLowerCase()}), ${transferScheduled ? 'scheduled ' : ''}${connection.transfer} minute transfer, ${second ? chipLabel(second) : ''} ${clock(departure.at)} (${secondStatus.label.toLowerCase()})`,
         };
       }
@@ -112,6 +143,7 @@ export function summarize(search: Search, data: TripResponse | null, now: number
         transferScheduled: false,
         later: [],
         pin: pinOf(departure, group.board),
+        track: { trip: departure.trip, stop: data!.stops[group.board], title: vehicleAt(route, departure.at), color: colorOf!(departure.route), marks: [{ stop: group.board, kind: 'yours' }] },
         line: `${route ? chipLabel(route) : ''} ${clock(departure.at)} (${status.label.toLowerCase()}) · no transfer needed`,
       };
     }

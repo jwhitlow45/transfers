@@ -1,7 +1,7 @@
 import { deepStrictEqual, strictEqual } from 'node:assert/strict';
 import { test } from 'node:test';
-import type { Alert } from '../../../shared/api.ts';
-import { countStopAlerts, laterMinutes } from './summary.ts';
+import type { Alert, TripResponse } from '../../../shared/api.ts';
+import { countStopAlerts, laterMinutes, laterSpoken, laterText, summarize } from './summary.ts';
 
 const now = 1_000_000 * 1000;
 const at = (minutes: number, live = true) => ({ at: 1_000_000 + minutes * 60, live });
@@ -29,4 +29,37 @@ const alert = (id: string, relevance: string, stops: string[]) => ({ id, relevan
 test('stop alerts count at any stop the rider stands at, unless dismissed', () => {
   const alerts = [alert('a', 'stop', ['BA:board']), alert('b', 'stop', ['BA:transfer']), alert('c', 'route', ['BA:transfer']), alert('d', 'stop', ['BA:transfer']), alert('e', 'stop', ['BA:elsewhere'])];
   strictEqual(countStopAlerts(alerts, new Set(['BA:board', 'BA:transfer']), new Set(['d'])), 2);
+});
+
+test('later vehicles read "then 8, ~23 min", with a scheduled one and one yet to start marked', () => {
+  const later = [live(8), { minutes: 23, scheduled: true, notStarted: false }, { minutes: 0, scheduled: false, notStarted: true }];
+  strictEqual(laterText(later), 'then 8, ~23, 1+\u00a0min');
+  strictEqual(laterSpoken(later), ' Then in 8 and a scheduled 23 and at least 1 minutes.');
+  strictEqual(laterSpoken([]), '');
+});
+
+test('the next connection opens one map from either time: the first vehicle, with the second on it', () => {
+  const route = (key: string) => ({ key, agency: key.slice(0, 2), name: key.slice(3), longName: '', mode: 'bus', color: '00858a' });
+  const stop = (key: string) => ({ key, agency: key.slice(0, 2), code: null, name: key, direction: null, mode: 'bus' });
+  const seconds = (minutes: number) => now / 1000 + minutes * 60;
+  const data = {
+    view: 'transfers',
+    from: 'BA:from',
+    to: { stop: 'SM:board' },
+    routes: { 'BA:1': route('BA:1'), 'SM:2': route('SM:2') },
+    stops: { 'BA:from': stop('BA:from'), 'BA:off': stop('BA:off'), 'SM:board': stop('SM:board') },
+    alerts: [],
+    groups: [
+      {
+        alight: 'BA:off', board: 'SM:board', routes: ['SM:2'], firstRoutes: ['BA:1'], direction: 0, headsign: 'Colma', walkMeters: 100, window: { min: 3, max: 20 },
+        departures: [{ trip: 'SM:b', route: 'SM:2', at: seconds(20), delay: 0, live: true, destination: seconds(30), connections: [{ trip: 'BA:a', route: 'BA:1', departs: seconds(2), departDelay: 0, arrives: seconds(15), arriveDelay: 0, live: true, transfer: 5 }] }],
+      },
+    ],
+  } as unknown as TripResponse;
+  const search = { from: 'BA:from', to: 'SM:board', fromLabel: 'From', toLabel: 'Board', dest: 'SM:dest' };
+  const track = summarize(search, data, now).next!.track;
+  strictEqual(track.trip, 'BA:a');
+  strictEqual(track.stop?.key, 'BA:from');
+  deepStrictEqual(track.marks, [{ stop: 'BA:from', kind: 'yours' }, { stop: 'BA:off', kind: 'transfer' }]);
+  deepStrictEqual({ ...track.transfer, color: undefined }, { trip: 'SM:b', stop: 'SM:board', color: undefined, minutes: 5, scheduled: false, min: 3, destination: 'SM:dest' });
 });

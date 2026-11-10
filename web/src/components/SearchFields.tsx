@@ -19,7 +19,7 @@ function Field({ id, label, value, placeholder, enterKeyHint, onChange, onFocus,
   const input = useRef<HTMLInputElement>(null);
   return (
     <label class="tf-field">
-      <span class="tf-kicker tf-field__label">{label}</span>
+      <span class="tf-field__label">{label}</span>
       <span class="tf-field__row">
         <input
           ref={input}
