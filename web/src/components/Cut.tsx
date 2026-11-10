@@ -1,36 +1,31 @@
 import type { ComponentChildren, RefObject } from 'preact';
 import { useEffect, useLayoutEffect, useRef } from 'preact/hooks';
+import { joinPairs } from '../lib/wrap.ts';
 
 // Fewer letters than this before the ellipsis no longer say which name it is (see data-short).
 const FEWEST = 8;
 
-// How often each line was fitted: once for all its names, however many of them ask in one pass.
-let pass = 0;
-const fitted = new WeakMap<Element, number>();
-
 // Fits every name on one line together. Each is laid out whole first, so the line shares its
 // room between them as it would uncut, and then each is cut to the room it got. Cut one at a
 // time, a name would take the room another had left, and squeeze that one's box onto its text.
-function fitLine(line: Element, again = false) {
-  if (!again && fitted.get(line) === pass) return;
-  fitted.set(line, pass);
-  // The next pass starts once this one's layout work is done.
-  queueMicrotask(() => pass++);
+function fitLine(line: Element) {
   const cuts = [...line.querySelectorAll<HTMLElement>('.tf-cut')].flatMap((box) => {
     const shown = box.firstElementChild;
     const node = shown?.firstChild;
     return shown && node instanceof Text ? [{ box, shown, node, text: box.dataset.text ?? '' }] : [];
   });
   for (const { node, text } of cuts) node.data = text;
-  const rooms = cuts.map(({ box }) => {
+  // A name let wrap, as at large text, is shown whole.
+  const cut = cuts.filter(({ box }) => getComputedStyle(box).whiteSpace === 'nowrap');
+  for (const { box } of cuts) delete box.dataset.short;
+  const rooms = cut.map(({ box }) => {
     const style = getComputedStyle(box);
     // The box's room for text is less its padding, which a box of italic text makes wide enough
     // for the lean of its last letter (see .tf-chain__derived).
     return box.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) + 0.5;
   });
-  cuts.forEach(({ box, shown, node, text }, index) => {
+  cut.forEach(({ box, shown, node, text }, index) => {
     const fits = () => shown.getBoundingClientRect().width <= rooms[index]!;
-    delete box.dataset.short;
     if (fits()) return;
     let low = 0;
     let high = text.length - 1;
@@ -58,27 +53,24 @@ export function Cut({ text, class: name, title, after, box, within }: { text: st
   const own = useRef<HTMLSpanElement>(null);
   const outer = box ?? own;
   const line = () => (within ? outer.current?.closest(within) : null) ?? outer.current?.parentElement ?? null;
-  // Before paint on every render, as the text beside it may have changed, and again when the
-  // room around it does.
+  // The line's last name fits them all, once each time they render, after every one of them is
+  // in the page.
   useLayoutEffect(() => {
     const around = line();
-    if (around) fitLine(around);
+    if (around && [...around.querySelectorAll('.tf-cut')].at(-1) === outer.current) fitLine(around);
   });
+  // And whenever the room they share changes: the line's own size, or that of what stands beside
+  // it, as the header's live status does beside its title.
   useEffect(() => {
     const around = line();
     if (!around || typeof ResizeObserver === 'undefined') return;
-    let width = around.clientWidth;
-    const observer = new ResizeObserver(() => {
-      if (around.clientWidth === width) return;
-      width = around.clientWidth;
-      fitLine(around, true);
-    });
-    observer.observe(around);
+    const observer = new ResizeObserver(() => fitLine(around));
+    for (const element of [around, ...(around.parentElement?.children ?? [])]) observer.observe(element);
     return () => observer.disconnect();
   }, [within]);
   return (
-    <span class={`tf-cut${name ? ` ${name}` : ''}`} title={title} ref={outer} data-text={text}>
-      <span aria-hidden="true">{text}</span>
+    <span class={`tf-cut${name ? ` ${name}` : ''}`} title={title} ref={outer} data-text={joinPairs(text)}>
+      <span aria-hidden="true">{joinPairs(text)}</span>
       <span class="tf-sr">{text}</span>
       {after}
     </span>
