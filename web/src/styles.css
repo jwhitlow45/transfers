@@ -603,9 +603,12 @@ button:disabled { opacity: .45; cursor: default; }
 /* A closed card's one line: how many connect, and when they leave. */
 .tf-card__summary { padding: var(--s3) var(--pad); color: var(--muted); }
 /* Vehicles that have left, folded at the top of the rows or cards they left from. */
-.tf-departed__toggle { border-bottom: var(--border-hair) solid var(--divider); }
+/* A line under the fold, open or shut, parts it from the rows still coming. Open, another parts
+   its button from the rows that left. */
+.tf-departed { border-bottom: var(--border-hair) solid var(--divider); }
+.tf-departed__toggle[aria-expanded="true"] { border-bottom: var(--border-hair) solid var(--divider); }
 /* Cards folded at the top of a group sit on a quieter fill, apart from each other. */
-.tf-group > .tf-departed { background: var(--surface); }
+.tf-group > .tf-departed { background: var(--surface); border-bottom: 0; }
 .tf-group > .tf-departed .tf-departed__toggle { border-bottom: 0; }
 .tf-group > .tf-departed .tf-departed__list { display: flex; flex-direction: column; gap: var(--s3); padding: 0 var(--pad) var(--pad); }
 .tf-canceled { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s2); padding: var(--s3) var(--pad); background: var(--card); }
