@@ -31,10 +31,12 @@ export function RouteCard({ routes, headsign, marker, meta, children }: { routes
           {routes.map((route) => (
             <RouteChip key={route.key} route={route} iconSize={18} label={routes.length > 1 && route.agency === 'BA' ? route.name : undefined} />
           ))}
-          <span>
-            <span aria-hidden="true">→ </span>
-            <span class="tf-sr">toward </span>
-            {headsign}
+          <span class="tf-to">
+            <span aria-hidden="true">→</span>
+            <span>
+              <span class="tf-sr">toward </span>
+              {headsign}
+            </span>
           </span>
         </h2>
         {meta && <div class="tf-group__meta">{meta}</div>}

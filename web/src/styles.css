@@ -286,7 +286,16 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-rb__main { flex: 1 1 6rem; min-width: 0; }
 .tf-rb > .tf-end { margin-left: auto; }
 /* A row's first line, with its vehicle and time, and the quieter lines under it. */
-.tf-l1 { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s2); font-size: var(--fs-title); font-weight: var(--weight-bold); line-height: 1.75rem; }
+.tf-l1 { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0 var(--s2); font-size: var(--fs-title); font-weight: var(--weight-bold); line-height: 1.3; }
+/* A title line (.tf-l1, a group's title, the band's first line) is as tall as the number beside
+   it, 1.75rem, so each part is set in the middle of that much: text by padding and a chip by
+   margin, not by the line's height. A long name's later lines then step as a title's do, and a
+   chip stays on the first of them. */
+:is(.tf-l1, .tf-group__title) > :not(.tf-chip, .tf-stop-letter) { padding-block: calc((1.75rem - 1.3em) / 2); }
+:is(.tf-l1, .tf-group__title, .tf-band__line) > :is(.tf-chip, .tf-stop-letter) { margin-block: calc((1.75rem - 1.5em) / 2); }
+/* "→ Airport": a long name's later lines start under its first word, not under the arrow. */
+.tf-to { display: flex; gap: 0.3em; min-width: 0; }
+.tf-to > :first-child { flex: none; }
 .tf-l2 { display: block; font-size: var(--fs-body); line-height: 1.4; color: var(--muted); }
 .tf-l2 strong { color: var(--text); }
 .tf-end { display: flex; flex-direction: column; align-items: flex-end; text-align: right; }
@@ -578,7 +587,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--group-min)), 1fr)); gap: var(--s5) var(--s6); align-items: start; }
 .tf-groups > .tf-fold--bare { grid-column: 1 / -1; }
 .tf-group { display: flex; flex-direction: column; gap: var(--s3); }
-.tf-group__title { margin: 0; font-size: var(--fs-title); font-weight: var(--weight-bold); line-height: 1.75rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s2); }
+.tf-group__title { margin: 0; font-size: var(--fs-title); font-weight: var(--weight-bold); line-height: 1.3; display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0 var(--s2); }
 /* Between what the rider boards at From and what they change to. */
 .tf-group__then { color: var(--muted); }
 /* Where to change, said once for every card under it, and a nearby stop's own line. */
@@ -615,7 +624,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-band a, .tf-band .tf-time-link { pointer-events: auto; }
 .tf-band__main { flex: 1 1 9rem; min-width: 0; }
 .tf-band__end { margin-left: auto; }
-.tf-band__line { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s2); font-size: var(--fs-lead); font-weight: var(--weight-bold); line-height: 1.75rem; }
+.tf-band__line { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0 var(--s2); font-size: var(--fs-lead); font-weight: var(--weight-bold); line-height: 1.75rem; }
 .tf-band__sub { display: block; font-size: var(--fs-body); color: var(--on-field); }
 .tf-band__toward { color: var(--on-field-muted); }
 .tf-band .tf-end__n { font-size: var(--fs-lead); }

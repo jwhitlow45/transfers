@@ -135,10 +135,12 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
               direction, and each departure says where it goes. Catching a route, the direction is
               the choice (J, 2026-10-12). */}
           {!context.going && (
-            <span>
-              <span aria-hidden="true">→ </span>
-              <span class="tf-sr">{destinationName ? 'to ' : 'toward '}</span>
-              {destinationName ?? group.headsign}
+            <span class="tf-to">
+              <span aria-hidden="true">→</span>
+              <span>
+                <span class="tf-sr">{destinationName ? 'to ' : 'toward '}</span>
+                {destinationName ?? group.headsign}
+              </span>
             </span>
           )}
         </h2>

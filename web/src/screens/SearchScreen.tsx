@@ -749,7 +749,10 @@ function SavedStop({ search, now, pulls, editing, onMove, canMoveUp, canMoveDown
                     {chips.map((route) => (
                       <RouteChip key={route.key} route={route} />
                     ))}
-                    <span>→ {row.headsign}</span>
+                    <span class="tf-to">
+                      <span>→</span>
+                      <span>{row.headsign}</span>
+                    </span>
                   </div>
                   {later.length > 0 && <div class="tf-l2">{laterText(later)}</div>}
                 </div>

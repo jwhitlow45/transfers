@@ -240,7 +240,9 @@ export function SavedTripBody({ chain, named, windowText, next, trackPin, loadin
       ) : (
         <div class="tf-row tf-row--note">
           <div>
-            <div class="tf-l1">{unavailable ? 'Offline' : 'No connection'}</div>
+            <div class="tf-l1">
+              <span>{unavailable ? 'Offline' : 'No connection'}</span>
+            </div>
             <div class="tf-l2">{unavailable ? 'Times can’t load right now' : nextService ? `Next service ${nextService}` : 'Open to widen the window'}</div>
           </div>
         </div>
