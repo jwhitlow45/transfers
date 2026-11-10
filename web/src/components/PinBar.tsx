@@ -395,7 +395,9 @@ function TripFeed({ pin, name: savedName, dismissed, shown, open, onReport, onTo
         return (
           <Step key={step} at={first!.off!.at} scheduled={scheduledAt(first!, first!.off!)}>
             <span class="tf-pinbar__step">
-              Get off at <b>{stopName(first!.off!)}</b>
+              <span>
+                Get off at <b>{stopName(first!.off!)}</b>
+              </span>
             </span>
             {walk && <span class="tf-l2">{walk}</span>}
           </Step>
@@ -405,14 +407,13 @@ function TripFeed({ pin, name: savedName, dismissed, shown, open, onReport, onTo
         return (
           <Step key={step} at={leg2.on!.at} scheduled={false}>
             <span class="tf-pinbar__step">
-              Board <RouteChip route={routes[leg2.route]} {...(colorOf ? { color: colorOf(leg2.route) } : {})} />{' '}
-              {transfer !== null && (missed ? <b class="tf-pinbar__missed">Missed by {transferText(-transfer)}</b> : <b>{transferText(transfer)} transfer</b>)}
+              <span>
+                Board <RouteChip route={routes[leg2.route]} {...(colorOf ? { color: colorOf(leg2.route) } : {})} />{' '}
+                {transfer !== null && (missed ? <b class="tf-pinbar__missed tf-nowrap">Missed by {transferText(-transfer)}</b> : <b class="tf-nowrap">{transferText(transfer)} transfer</b>)}
+              </span>
             </span>
-            <span class="tf-l2">
-              <StatusTag status={statusAt(leg2.on!.at, now, leg2.on!.delay, leg2.live, leg2.canceled, leg2.notStarted)} plain />
-              {/* The walk there, a step up, names the stop already. */}
-              {!walk && ` · at ${stopName(leg2.on!)}`}
-            </span>
+            {/* The walk there, a step up, names the stop already. */}
+            <Dots class="tf-l2" parts={[<StatusTag status={statusAt(leg2.on!.at, now, leg2.on!.delay, leg2.live, leg2.canceled, leg2.notStarted)} plain />, !walk && `at ${stopName(leg2.on!)}`]} />
             {alertLines(alertsAt(where.changing))}
           </Step>
         );
@@ -420,7 +421,9 @@ function TripFeed({ pin, name: savedName, dismissed, shown, open, onReport, onTo
       return (
         <Step key={step} at={leg2.off!.at} scheduled={scheduledAt(leg2, leg2.off!)}>
           <span class="tf-pinbar__step">
-            {phase === 'done' ? 'Arrived at' : 'Arrive'} <b>{stopName(leg2.off!)}</b>
+            <span>
+              {phase === 'done' ? 'Arrived at' : 'Arrive'} <b>{stopName(leg2.off!)}</b>
+            </span>
           </span>
           {total && <span class="tf-l2">{tripMinutesText(total)}</span>}
         </Step>
@@ -572,6 +575,7 @@ const AlertCount = ({ count }: { count: number }) => (
 );
 
 // One step of the trip in the open panel: its time where a row has its number, then what to do.
+// What to do is one run of text inside its .tf-pinbar__step, which centers a single line on the time.
 function Step({ at, scheduled, children }: { at: number; scheduled: boolean; children: ComponentChildren }) {
   return (
     <div class="tf-row" role="listitem">

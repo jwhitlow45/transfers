@@ -8,7 +8,12 @@
 .tf-pinbar__main { display: block; width: 100%; min-height: 3.5rem; padding: var(--s2) var(--edge); text-align: left; -webkit-tap-highlight-color: transparent; }
 /* The bar spans the screen, so a ring outside it would fall off three edges. */
 .tf-pinbar__main:focus-visible { outline: 2px solid var(--accent); outline-offset: -4px; }
-.tf-pinbar__naming { display: block; margin-bottom: var(--s1); font-size: var(--fs-meta); line-height: 1.3; color: var(--muted); overflow-wrap: anywhere; }
+/* One line: a name too long for it ends in an ellipsis, between "Pinned" and what the countdown
+   counts to, which stay whole. The bar's spoken name, its tab and its panel have all of it. */
+.tf-pinbar__naming { margin-bottom: var(--s1); font-size: var(--fs-meta); line-height: 1.3; color: var(--muted); }
+.tf-pinbar .tf-pinbar__naming { flex-wrap: nowrap; }
+.tf-pinbar__naming > span { flex: none; white-space: nowrap; }
+.tf-pinbar__naming > span:has(> .tf-pinbar__named) { flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; }
 .tf-pinbar__naming b { color: var(--accent-ink); }
 /* As tall waiting for its times as with them (a time's line and a status line), so the bar coming
    in moves the page once, and the row the rider tapped stays under their finger. */
@@ -29,7 +34,9 @@
 .tf-pinbar__tabs { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); column-gap: var(--s3); padding: 0 var(--edge); border-top: var(--border-hair) solid var(--divider); }
 .tf-pinbar__tab { position: relative; min-width: 0; min-height: var(--tap); display: flex; flex-wrap: wrap; align-items: center; align-content: center; gap: 0 var(--s2); padding-block: var(--s1); font-size: var(--fs-body); line-height: 1.3; color: var(--muted); text-align: left; }
 .tf-pinbar__tab b { color: var(--text); white-space: nowrap; }
-.tf-pinbar__tabname { min-width: 0; overflow-wrap: anywhere; }
+/* Two lines of a long name are enough to tell two pins apart, and keep the tabs from growing
+   taller than the bar they sit under. */
+.tf-pinbar__tabname { min-width: 0; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .tf-pinbar__tab[aria-selected="true"] { color: var(--text); font-weight: var(--weight-bold); }
 /* The underline says which is showing, so color is not the only sign. */
 .tf-pinbar__tab[aria-selected="true"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--text); }
@@ -41,7 +48,8 @@
 .tf-pinbar__name { margin: 0; padding: var(--s3) var(--edge) var(--s1); }
 .tf-pinbar__name b { display: block; font-size: var(--fs-title); line-height: 1.3; overflow-wrap: anywhere; }
 .tf-pinbar__steps > .tf-row, .tf-pinbar__steps > .tf-row + .tf-row { padding: var(--s2) var(--edge); border-top: 0; }
-.tf-pinbar__step { display: block; font-size: var(--fs-title); line-height: 1.75rem; }
+/* One line of a step is as tall as its clock time, and a long one's lines sit as a title's do. */
+.tf-pinbar__step { display: flex; align-items: center; min-height: 1.75rem; font-size: var(--fs-title); line-height: 1.3; }
 .tf-pinbar__step .tf-chip { vertical-align: middle; }
 .tf-pinbar__steps .tf-warnline { margin-top: var(--s1); font-size: var(--fs-body); }
 .tf-pinbar__panel .tf-pinbar__in > .tf-warnline { padding: var(--s1) var(--edge); }
@@ -72,4 +80,19 @@
 @media (max-width: 18em) {
   .tf-app .tf-header { position: static; }
   .tf-pinbar__actions { grid-template-columns: 1fr; }
+  /* With room for a few words a line, the bar's name wraps whole, as its tab's does. */
+  .tf-pinbar .tf-pinbar__naming { flex-wrap: wrap; }
+  .tf-pinbar__naming > span:has(> .tf-pinbar__named) { white-space: normal; overflow-wrap: anywhere; }
+  .tf-pinbar__tabname { display: block; }
+  /* The chevron goes up beside the line that names the bar, and leaves its room to the row. */
+  .tf-pinbar__in { position: relative; }
+  .tf-pinbar__chev { position: absolute; top: 0; right: 0; }
+  .tf-pinbar .tf-pinbar__naming { margin-right: var(--s6); }
+}
+/* On a narrow phone three equal buttons cannot hold "Open trip" and "Live map" on a line each. Each
+   is as wide as its words need, and the words stand without their icons. */
+@media (max-width: 359px) and (min-width: 18.01em) {
+  .tf-pinbar__actions { display: flex; }
+  .tf-pinbar__action, .tf-pinbar__actions > .tf-time-link { flex: 1 1 auto; white-space: nowrap; }
+  .tf-pinbar__actions svg { display: none; }
 }
