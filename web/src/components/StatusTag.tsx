@@ -52,14 +52,3 @@ export function Warnline({ tone, children }: { tone: 'late' | 'caution'; childre
     </p>
   );
 }
-
-// A short warning on a tint of its tone, such as a pinned card's old
-// times. `class` places it.
-export function Flag({ tone, class: className, children }: { tone: 'late' | 'caution'; class: string; children: ComponentChildren }) {
-  return (
-    <span class={`tf-flag tf-flag--${tone} ${className}`}>
-      <IconWarn size={14} />
-      {children}
-    </span>
-  );
-}

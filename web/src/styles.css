@@ -55,16 +55,6 @@
      home indicator, which reports no inset. */
   --bottom-inset: calc(env(safe-area-inset-bottom) + min(env(safe-area-inset-bottom), 10px));
   --corner-inset: min(env(safe-area-inset-bottom), 8px);
-
-  /* Names from before the scale above, which the pinned cards and the live map still use until
-     the pin bar and the map sheet replace them. Nothing new should use these. */
-  --text-xs: var(--fs-meta); --text-sm: var(--fs-meta); --text-base: var(--fs-body); --text-md: var(--fs-body);
-  --text-lg: var(--fs-title); --text-xl: var(--fs-title); --text-2xl: var(--fs-lead); --text-num: var(--fs-num);
-  --weight-semibold: var(--weight-bold); --weight-heavy: var(--weight-bold); --weight-label: var(--weight-bold);
-  --tracking-kicker: 0;
-  --space-1: var(--s1); --space-2: var(--s2); --space-3: var(--s3); --space-4: var(--s3);
-  --space-5: var(--s4); --space-6: var(--s5); --space-7: var(--s6);
-  --countdown-col: var(--numcol);
 }
 
 :root, [data-theme="light"] {
@@ -250,10 +240,6 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-warnline svg { flex: none; margin-top: 0.15em; }
 .tf-warnline--late { color: var(--late); }
 .tf-warnline--caution { color: var(--caution); }
-/* A short warning on a tint of its tone (see Flag). */
-.tf-flag { display: inline-flex; align-items: center; gap: var(--s2); padding: var(--s1) var(--s2); font-size: var(--fs-meta); font-weight: var(--weight-bold); }
-.tf-flag--late { background: var(--late-tint); color: var(--late); }
-.tf-flag--caution { background: var(--caution-tint); color: var(--caution); }
 .tf-tight { display: inline-block; padding: 0 var(--s1); font-size: var(--fs-meta); font-weight: var(--weight-bold); background: var(--late-tint); color: var(--late); }
 .tf-hidden-tag { font-size: var(--fs-meta); font-weight: var(--weight-bold); color: var(--muted); white-space: nowrap; }
 
@@ -301,34 +287,6 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-row--pinned { background-color: var(--pinned-bg); box-shadow: var(--pinned-edge); }
 .tf-band--pinned { box-shadow: var(--pinned-edge); }
 
-/* The row as the pinned cards still draw it, until the pin bar replaces them: a label over the
-   number, and the transfer in a third column. */
-.tf-pinned__row { grid-template-columns: minmax(var(--numcol), auto) minmax(0, 1fr) auto; }
-.tf-row__lead { font-size: var(--fs-meta); font-weight: var(--weight-bold); white-space: nowrap; color: var(--muted); }
-.tf-row--pinned .tf-row__lead { display: flex; align-items: center; gap: var(--s1); color: var(--accent-ink); }
-.tf-row__num { font-size: var(--fs-num); font-weight: var(--weight-bold); line-height: 1; letter-spacing: -0.01em; }
-/* As tall as a full-size number, so the column keeps its height. */
-.tf-row__num--long { font-size: calc(var(--fs-num) * 0.78); line-height: var(--fs-num); }
-.tf-row__unit { font-size: var(--fs-meta); color: var(--muted); }
-.tf-row__main { min-width: 0; }
-.tf-row__line { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s2); font-size: var(--fs-title); font-weight: var(--weight-bold); line-height: 1.75rem; }
-.tf-row__off { font-size: var(--fs-body); color: var(--muted); }
-/* Parts of a row's line that wrap whole, such as "Off 9:21 PM" and "Walk 1 min". */
-.tf-row__keep { white-space: nowrap; }
-.tf-row__xfer { text-align: right; }
-.tf-row__xfer-min { font-size: var(--fs-title); font-weight: var(--weight-bold); line-height: 1.75rem; }
-.tf-row--tight .tf-row__xfer-min { color: var(--late); }
-.tf-row__xfer-label { font-size: var(--fs-meta); color: var(--muted); }
-/* The time bar and its tick scale. Rows no longer carry them: the map sheet draws the bar. */
-.tf-ticks { position: relative; height: 18px; margin: var(--s2) var(--pad) 0 calc(var(--pad) + var(--numcol) + var(--colgap)); font-size: var(--fs-meta); color: var(--muted); }
-.tf-tick { position: absolute; top: 0; padding-left: 3px; border-left: 1px solid var(--divider); height: 14px; line-height: 14px; }
-.tf-timebar { grid-column: 2 / -1; position: relative; height: 12px; margin-top: var(--s1); }
-.tf-timebar__track { position: absolute; left: 0; right: 0; top: 50%; border-top: 1px dotted var(--line); }
-.tf-timebar__seg { position: absolute; top: 0; height: 12px; }
-.tf-timebar__ride { background: var(--text); }
-.tf-timebar__gap { border: 2px solid var(--text); }
-.tf-row--tight .tf-timebar__gap { border-color: var(--late); background: var(--late-tint); }
-.tf-row--hidden .tf-timebar__gap { border-style: dashed; }
 
 /* ── cards ─────────────────────────────────────────── */
 /* A card is a fill on the page, with no outline. */
@@ -734,48 +692,10 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-toast { display: flex; align-items: center; gap: var(--s2); min-height: var(--tap); padding: 0 var(--s1) 0 var(--s3); border: 1px solid var(--line); background: var(--field); color: var(--on-field); font-size: 15px; font-weight: var(--weight-bold); pointer-events: auto; animation: tf-toast-in 200ms var(--ease-settle); }
 .tf-toast--leaving { animation: tf-toast-out 160ms ease-in forwards; pointer-events: none; }
 .tf-toast__text { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
-/* A note of a trip pinned shows the trip when tapped: the whole note but Undo. */
-.tf-toast__show { align-self: stretch; text-align: left; }
-.tf-pinned--shown { animation: tf-pinned-shown 1.2s ease-out; }
-@keyframes tf-pinned-shown { from { outline: 3px solid var(--accent); outline-offset: 2px; } to { outline: 3px solid transparent; outline-offset: 2px; } }
-:root[data-motion="off"] .tf-pinned--shown { animation: none; }
 .tf-toast__undo { min-height: var(--tap-min); padding: 0 var(--s3); color: var(--on-field); font-weight: var(--weight-bold); text-decoration: underline; text-underline-offset: 3px; }
 .tf-toast__icon { flex: none; display: inline-flex; }
 .tf-sheet__pin { padding: 0 var(--s3); }
 
-/* The pinned trip, above the results, drawn as its row is once pinned: the same tint and accent
-   bar, under a line naming it pinned with the way to unpin. */
-.tf-pinned { border: var(--border-strong) solid var(--line); background-color: var(--pinned-bg); box-shadow: var(--pinned-edge); }
-.tf-pinned__head { display: flex; align-items: center; gap: var(--s2); padding: 2px var(--s3) 0; }
-.tf-pinned__head .tf-tight { margin-top: 0; }
-.tf-pinned__kicker { display: inline-flex; align-items: center; gap: 3px; color: var(--accent-ink); }
-/* On Home, the trip it is pinned to, opening its results. */
-.tf-pinned__trip { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-meta); font-weight: var(--weight-bold); color: var(--accent-ink); }
-/* On Home the whole card opens its results: a link lies under it, and only the card's own links
-   and buttons, such as its times and Unpin, take taps above it. */
-.tf-pinned--opens { position: relative; }
-.tf-pin-slot { display: contents; }
-.tf-pinned__open { position: absolute; inset: 0; -webkit-tap-highlight-color: transparent; }
-.tf-pinned__open:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
-.tf-pinned--opens > :not(.tf-pinned__open) { position: relative; pointer-events: none; }
-.tf-pinned--opens :is(a, button):not(.tf-pinned__open) { pointer-events: auto; }
-@media (hover: hover) { .tf-pinned--opens:has(> .tf-pinned__open:hover) { background-color: color-mix(in srgb, var(--accent-tint) 70%, var(--bg)); } }
-.tf-pinned__unpin { display: inline-flex; align-items: center; gap: 4px; min-height: var(--tap-min); margin: 0 calc(-1 * var(--s2)) 0 auto; padding: 0 var(--s2); font-size: var(--fs-meta); font-weight: var(--weight-bold); color: var(--muted); }
-.tf-pinned__row { border-top: 0; padding-top: var(--s1); }
-.tf-pinned__second { margin-top: var(--s2); }
-.tf-pinned__arrive { font-weight: var(--weight-bold); color: var(--text); }
-.tf-pinned__missed { color: var(--late); }
-.tf-pinned__note { margin: 0; padding: 0 var(--s3) var(--s3); font-size: var(--fs-meta); color: var(--muted); }
-/* On the narrowest phones the transfer leaves its column for a line between the vehicles, which
-   gives them the room to keep each time on one line. */
-.tf-pinned__xfer { display: none; }
-@media (max-width: 359px) {
-  .tf-pinned__row { grid-template-columns: var(--numcol) minmax(0, 1fr); }
-  .tf-pinned__row > .tf-row__xfer { display: none; }
-  .tf-pinned__xfer { display: block; margin-top: var(--s1); font-size: var(--fs-body); font-weight: var(--weight-bold); white-space: nowrap; }
-}
-/* On Home, times no longer live, as a saved card says. */
-.tf-pinned__stale { display: flex; width: fit-content; margin: 0 var(--s3) var(--s1); }
 
 /* ── nearby & a stop's arrivals ────────────────────── */
 .tf-schematic { margin: 0; border: var(--border-strong) solid var(--line); max-width: var(--form-max); }

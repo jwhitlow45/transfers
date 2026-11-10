@@ -40,7 +40,7 @@ export const approx = (text: string, scheduled: boolean) => (scheduled ? `~${tex
 export const approxMinutes = (minutes: number, scheduled: boolean) => (scheduled ? approx(String(Math.max(1, minutes)), true) : String(minutes));
 
 // A countdown column's words for a time to come: `soon` over "Now" within a minute, or `lead` over
-// its minutes (see Countdown), which a time from the schedule alone, or a vehicle yet to leave the
+// its minutes (see Num), which a time from the schedule alone, or a vehicle yet to leave the
 // first stop of its trip, marks as such.
 export function countdownTo(at: number, nowMs: number, lead: string, soon: string, mark: 'scheduled' | 'notStarted' | null = null) {
   const minutes = minutesUntil(at, nowMs);
