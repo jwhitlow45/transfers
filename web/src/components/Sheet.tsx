@@ -1,6 +1,7 @@
 import { type ComponentChildren, createContext } from 'preact';
 import { useContext, useEffect, useLayoutEffect, useRef } from 'preact/hooks';
 import { SLIDE_MS, motionOff, useDrag } from '../gestures.ts';
+import { AppSheets } from '../layers.ts';
 import { cameBackTo, closeSheetEntry, currentKey, currentUnder, isSheetEntry, openSheetEntry } from '../router.ts';
 import { IconClose } from '../icons/ui.tsx';
 
@@ -15,8 +16,10 @@ const CLOSE_FLING = 0.4;
 const LeaveOpen = createContext<(then: () => void) => void>((then) => then());
 export const useLeaveOpen = () => useContext(LeaveOpen);
 
-// Modal bottom sheet: focus moves in on open, Tab stays inside, Escape and the scrim close it,
-// and focus returns to the button that opened it. Dragging down closes it too. Its top, the
+// Bottom sheet: focus moves in on open, Escape and the scrim close it, and focus returns to the
+// button that opened it. It is a dialog but not a modal one: the page behind it is inert, and the
+// app's pin bar, which stays in view above it, is not, so Tab reaches the bar and then the sheet,
+// with a keyboard and a screen reader alike. Dragging down closes it too. Its top, the
 // handle and title, stays put while the settings under it scroll, and a drag down from there
 // closes the sheet however far it is scrolled, like the comments on YouTube Shorts. In the
 // settings, a drag down closes it only from the top of their scroll, so scrolling back up never
@@ -34,7 +37,23 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
   const panel = useRef<HTMLDivElement>(null);
   const body = useRef<HTMLDivElement>(null);
   const scrim = useRef<HTMLDivElement>(null);
+  const root = useRef<HTMLDivElement>(null);
   const step = useRef('');
+  const app = useContext(AppSheets);
+  // The page behind is inert while the sheet is open. Over the whole app, the app makes its pages
+  // so (see main.tsx). Inside a screen, that is everything else in the screen, which nothing else
+  // makes inert. The pin bar is outside both.
+  useLayoutEffect(() => {
+    const sheet = root.current;
+    const parent = sheet?.parentElement;
+    if (!sheet || !parent) return;
+    if (parent.classList.contains('tf-app')) return app.hold();
+    const behind = ([...parent.children] as HTMLElement[]).filter((element) => element !== sheet && !element.classList.contains('tf-sheet') && !element.inert);
+    for (const element of behind) element.inert = true;
+    return () => {
+      for (const element of behind) element.inert = false;
+    };
+  }, []);
   // Opened again on the rider's way back to the page, it is scrolled where they left it. Read at
   // once, before the page clears what it left behind (see Left in router.ts).
   const returning = useRef(cameBackTo());
@@ -50,7 +69,7 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
   const sliding = useRef(false);
   // Left open for a page coming up over it, it is gone with its page.
   const kept = useRef(false);
-  const slid = useRef<(then: () => void) => void>(() => {});
+  const slid = useRef<(then?: () => void) => void>(() => {});
   useEffect(() => {
     step.current = openSheetEntry(title);
     const pageKey = currentUnder();
@@ -109,30 +128,23 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
     requestAnimationFrame(() => panel.current?.focus({ preventScroll: true }));
     return () => requestAnimationFrame(() => opener?.isConnected && opener.focus());
   }, []);
-  const onKeyDown = (event: KeyboardEvent) => {
-    if (event.key === 'Escape') {
+  // Escape closes it from wherever focus is, the pin bar included, unless something nearer took
+  // the key, as the bar's open panel does. Only the sheet on top, in a page that is showing.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      const open = [...document.querySelectorAll('.tf-sheet')].filter((sheet) => !sheet.closest('[inert]'));
+      if (open.at(-1) !== root.current) return;
       event.preventDefault();
-      slideAway();
-      return;
-    }
-    if (event.key !== 'Tab' || !panel.current) return;
-    const focusable = [...panel.current.querySelectorAll<HTMLElement>('button:not([disabled]),select,input,[href]')];
-    const first = focusable[0];
-    const last = focusable.at(-1);
-    if (!first || !last) return;
-    const active = document.activeElement;
-    if (event.shiftKey && (active === first || active === panel.current)) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && active === last) {
-      event.preventDefault();
-      first.focus();
-    }
-  };
+      slid.current();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, []);
   return (
-    <div class={`tf-sheet${returning.current?.sheet === title ? ' tf-sheet--returning' : ''}`}>
+    <div ref={root} class={`tf-sheet${returning.current?.sheet === title ? ' tf-sheet--returning' : ''}`} inert={app.covered}>
       <div ref={scrim} class="tf-sheet__scrim" aria-hidden="true" onClick={() => slideAway()} />
-      <div ref={panel} class="tf-sheet__panel" role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} onKeyDown={onKeyDown}>
+      <div ref={panel} class="tf-sheet__panel" role="dialog" aria-label={title} tabIndex={-1}>
         <div class="tf-sheet__top">
           <div class="tf-grabber" aria-hidden="true" />
           <div class="tf-sheet__inner">

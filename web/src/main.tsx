@@ -1,8 +1,8 @@
 import { render } from 'preact';
-import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { ENTER_MS, motionOff, usePeeking } from './gestures.ts';
 import { PinBar } from './components/PinBar.tsx';
-import { ScreenActive } from './layers.ts';
+import { AppSheets, ScreenActive } from './layers.ts';
 import { type Page, backGoesHome, cameBackTo, currentDepth, forgetLeft, usePage } from './router.ts';
 import { NearbyScreen } from './screens/NearbyScreen.tsx';
 import { NoticesScreen } from './screens/NoticesScreen.tsx';
@@ -112,6 +112,14 @@ function App() {
   const { current, under, outgoing, entering, swapping, held, app } = useLayers(page, peeking);
   // The pin bar's panel, open over the page, which is inert until it shuts.
   const [pinOpen, setPinOpen] = useState(false);
+  // Sheets open over the whole app, as a live map's is. The pages behind one are inert, and the pin
+  // bar above it is not, so the bar and the sheet are both in reach (see Sheet.tsx).
+  const [sheets, setSheets] = useState(0);
+  const hold = useCallback(() => {
+    setSheets((count) => count + 1);
+    return () => setSheets((count) => count - 1);
+  }, []);
+  const appSheets = useMemo(() => ({ hold, covered: pinOpen }), [hold, pinOpen]);
   // Back on a page left for another and opened afresh, it is scrolled where it was, before it
   // paints. Its own sheet reopens from the same record (see Left in router.ts).
   useLayoutEffect(() => {
@@ -139,19 +147,21 @@ function App() {
   return (
     <SettingsProvider>
       <div ref={app} class="tf-app" data-entering={entering ? 'true' : undefined} data-swapping={swapping ? 'true' : undefined} data-held={held ? 'true' : undefined} data-peeking={peeking ? 'true' : undefined}>
+        <AppSheets.Provider value={appSheets}>
         <TrackProvider>
           {/* Outside the layers, so it stays put as screens slide and scroll under it. */}
           <PinBar page={page} open={pinOpen} onOpen={setPinOpen} />
           {layers.map((layer) => {
             const showing = layer === current;
             return (
-              <div key={layer.id} class={showing ? 'tf-layer' : layer === outgoing ? 'tf-outgoing' : 'tf-peek'} aria-hidden={showing ? undefined : 'true'} inert={!showing || pinOpen}>
+              <div key={layer.id} class={showing ? 'tf-layer' : layer === outgoing ? 'tf-outgoing' : 'tf-peek'} aria-hidden={showing ? undefined : 'true'} inert={!showing || pinOpen || sheets > 0}>
                 <ScreenActive.Provider value={showing}>{screenFor(layer)}</ScreenActive.Provider>
                 {!showing && <div class="tf-peek__dim" />}
               </div>
             );
           })}
         </TrackProvider>
+        </AppSheets.Provider>
       </div>
     </SettingsProvider>
   );

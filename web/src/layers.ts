@@ -6,6 +6,11 @@ import { useContext, useLayoutEffect, useRef } from 'preact/hooks';
 export const ScreenActive = createContext(true);
 export const useScreenActive = () => useContext(ScreenActive);
 
+// What a sheet over the whole app, such as a live map's, asks of the app: `hold` makes every page
+// behind it inert until the function it returns is called, and `covered` says the pin bar's panel
+// is open over the sheet, which is then inert as the pages are (see Sheet.tsx).
+export const AppSheets = createContext<{ hold: () => () => void; covered: boolean }>({ hold: () => () => {}, covered: false });
+
 // Runs when a screen kept under another shows again, to read what the screen it was under may have
 // changed in storage, such as a search saved or a trip pinned there. Before paint, so the old state
 // never shows.
