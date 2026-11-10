@@ -1,6 +1,7 @@
 import { deepStrictEqual, strictEqual } from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Alert, TripResponse } from '../../../shared/api.ts';
+import { clock } from '../format.ts';
 import { countStopAlerts, laterMinutes, laterSpoken, laterText, summarize } from './summary.ts';
 
 const now = 1_000_000 * 1000;
@@ -57,9 +58,19 @@ test('the next connection opens one map from either time: the first vehicle, wit
     ],
   } as unknown as TripResponse;
   const search = { from: 'BA:from', to: 'SM:board', fromLabel: 'From', toLabel: 'Board', dest: 'SM:dest' };
-  const track = summarize(search, data, now).next!.track;
+  const next = summarize(search, data, now).next!;
+  const track = next.track;
+  // As the results' map has them: both routes in the title, and the walk where the rider gets off.
+  strictEqual(track.title, 'BART, then the 2');
+  strictEqual(next.pinLabel, `the BART at ${clock(seconds(2))} to the 2 at ${clock(seconds(20))}`);
   strictEqual(track.trip, 'BA:a');
   strictEqual(track.stop?.key, 'BA:from');
   deepStrictEqual(track.marks, [{ stop: 'BA:from', kind: 'yours' }, { stop: 'BA:off', kind: 'transfer' }]);
-  deepStrictEqual({ ...track.transfer, color: undefined }, { trip: 'SM:b', stop: 'SM:board', color: undefined, minutes: 5, scheduled: false, min: 3, destination: 'SM:dest' });
+  deepStrictEqual({ ...track.transfer, color: undefined }, { trip: 'SM:b', stop: 'SM:board', color: undefined, minutes: 5, scheduled: false, min: 3, destination: 'SM:dest', walkMeters: 100 });
+
+  // A first vehicle the schedule lacks has no line to draw, so the map follows the second alone.
+  const added = structuredClone(data);
+  added.groups[0]!.departures[0]!.connections[0]!.added = true;
+  const alone = summarize(search, added, now).next!.track;
+  deepStrictEqual([alone.trip, alone.stop?.key, alone.title, alone.marks, alone.transfer], ['SM:b', 'SM:board', `2 at ${clock(seconds(20))}`, [{ stop: 'SM:board', kind: 'transfer' }], undefined]);
 });

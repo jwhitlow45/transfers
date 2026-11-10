@@ -1,9 +1,10 @@
 import type { Connection, Departure } from '../../../shared/api.ts';
 import { approx, atLeast, clock, hasLeft, minuteCount, minutesSince, minutesUntil, walkText } from '../format.ts';
+import { connectionTrack } from '../lib/connection-map.ts';
 import { pinOf, sameRun } from '../lib/pinned.ts';
 import { type CardContext, isTight } from '../lib/results.ts';
 import { TimeLink } from '../track.tsx';
-import { chipLabel, pinLabel, shortStopName, spokenRoute, statusOf, vehicleAt } from '../view.ts';
+import { shortStopName, spokenRoute, statusOf } from '../view.ts';
 import { Num } from './Countdown.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import { StopLink } from './StopLink.tsx';
@@ -17,49 +18,15 @@ const HIDDEN = {
   soon: { tag: 'Too soon', spoken: 'leaves before you can reach it' },
 };
 
-// The map either vehicle of a transfer opens: the first, with where the rider gets on and where they
-// get off to transfer marked, and the second drawn on the same map, on to the destination. Its
-// departure's band opens it too, so on the results either vehicle's time shows both (J,
-// 2026-11-09). Its sheet pins this transfer. A first vehicle the schedule lacks has no line to
-// draw, so the map follows the second alone, to where the rider boards it.
-// `walkMeters` is the group's walk between its stops, which a vehicle letting the rider off
-// elsewhere has its own of.
+// The map either vehicle of a transfer opens (see connectionTrack). Its departure's band opens it
+// too, so on the results either vehicle's time shows both (J, 2026-11-09). Its sheet pins this
+// transfer.
 export function connectionMap(connection: Connection, departure: Departure, { alight, board, min, walkMeters, secondColor, context }: { alight: string; board: string; min: number; walkMeters: number; secondColor: string; context: CardContext }) {
   const { data, pin } = context;
-  const route = data.routes[connection.route];
-  const secondRoute = data.routes[departure.route];
-  const offStop = connection.alight ?? alight;
-  const transferScheduled = !connection.live || Boolean(connection.arrivesScheduled) || !departure.live;
-  const destination = departure.destination !== undefined ? context.destination : undefined;
+  const { track, label, offStop } = connectionTrack(connection, departure, { data, alight, board, min, walkMeters, secondColor, destination: context.destination });
   // The same vehicles, stops, and run: trip ids repeat every day.
   const pinned = pin?.first?.trip === connection.trip && pin.first.alight === offStop && pin.second.trip === departure.trip && pin.second.board === board && sameRun(pin.at, departure.at);
-  const pinAction = {
-    pinned,
-    label: pinLabel([route, connection.departs], [secondRoute, departure.at]),
-    set: (on: boolean) => context.onPin(on ? pinOf(departure, board, { connection, alight: offStop }) : null),
-  };
-  if (connection.added) {
-    return {
-      trip: departure.trip,
-      stop: data.stops[board],
-      title: vehicleAt(secondRoute, departure.at),
-      color: secondColor,
-      marks: [{ stop: board, kind: 'transfer' as const }],
-      pin: pinAction,
-    };
-  }
-  return {
-    trip: connection.trip,
-    stop: (connection.board ? data.stops[connection.board] : undefined) ?? data.stops[data.from],
-    // Both vehicles are on the map, so the sheet names both.
-    title: `${route ? chipLabel(route) : 'Vehicle'}, then the ${secondRoute ? chipLabel(secondRoute) : 'next vehicle'}`,
-    marks: [
-      { stop: connection.board ?? data.from, kind: 'yours' as const },
-      { stop: offStop, kind: 'transfer' as const },
-    ],
-    transfer: { trip: departure.trip, stop: board, color: secondColor, minutes: connection.transfer, scheduled: transferScheduled, ...(connection.hidden ? {} : { min }), ...(destination ? { destination } : {}), walkMeters: connection.walkMeters ?? walkMeters },
-    pin: pinAction,
-  };
+  return { ...track, pin: { pinned, label, set: (on: boolean) => context.onPin(on ? pinOf(departure, board, { connection, alight: offStop }) : null) } };
 }
 
 // One first vehicle under a departure. The countdown leads, in the number column every row

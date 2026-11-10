@@ -4,7 +4,7 @@ import { approx, atLeast, clock } from '../format.ts';
 import { IconPin, IconTransfer } from '../icons/ui.tsx';
 import { SAVED_COLORS } from '../lib/color.ts';
 import { type NextConnection, laterSpoken, laterText } from '../lib/summary.ts';
-import { TimeLink } from '../track.tsx';
+import { type PinAction, TimeLink } from '../track.tsx';
 import { Num } from './Countdown.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import { StatusTag, Warnline } from './StatusTag.tsx';
@@ -141,13 +141,15 @@ export function SavedSearchCard({ name, color, href, openLabel, onOpen, editing,
 // connection as a row of the shared shape, with its countdown in the number column, each vehicle
 // with its time and status, the transfer at the row's end, and the later connections under them.
 // With no connection, it says what is wrong instead.
-export function SavedTripBody({ chain, named, windowText, next, loading, severeAlerts, nextService, staleText, unavailable = false }: {
+export function SavedTripBody({ chain, named, windowText, next, trackPin, loading, severeAlerts, nextService, staleText, unavailable = false }: {
   chain: string;
   // Whether to show the trip under the name: when the rider renamed the search, or when the trip
   // names a stop to get off at that the default name leaves out.
   named: boolean;
   windowText: string | null;
   next: NextConnection | null;
+  // Pins the next connection from its map's sheet, as the results' map does (J, 2026-11-09).
+  trackPin?: PinAction | undefined;
   loading: boolean;
   severeAlerts: number;
   // When the routes start again, if the answer is that none is running (summarize's nextService).
@@ -188,7 +190,9 @@ export function SavedTripBody({ chain, named, windowText, next, loading, severeA
                 <Fragment key={index}>
                   <div class="tf-l1">
                     <RouteChip route={leg.route} hidden />
-                    {next.track ? <TimeLink {...next.track}>{clock(leg.at)}</TimeLink> : <span aria-hidden="true">{clock(leg.at)}</span>}
+                    <TimeLink {...next.track} {...(trackPin ? { pin: trackPin } : {})}>
+                      {clock(leg.at)}
+                    </TimeLink>
                   </div>
                   <div class="tf-l2" aria-hidden="true">
                     <StatusTag status={leg.status} plain />

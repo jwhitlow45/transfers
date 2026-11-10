@@ -636,6 +636,7 @@ function SavedTrip({ search, now, dismissed, pulls, editing, onMove, canMoveUp, 
   const summary = summarize(search, data, live.now, dismissed);
   const next = summary.next;
   const pinned = pin !== null && next !== null && samePin(pin, next.pin);
+  const togglePin = (on: boolean) => next && onPin(on ? next.pin : null, data?.routes, on && ringsBell(next.pin, data));
   useEffect(() => {
     if (!search.color && data) onColorless(summary.lineColor);
   }, [Boolean(data), search.color]);
@@ -653,7 +654,7 @@ function SavedTrip({ search, now, dismissed, pulls, editing, onMove, canMoveUp, 
           pinned,
           ready: next !== null,
           what: `the next connection for ${search.name}`,
-          toggle: () => next && onPin(pinned ? null : next.pin, data?.routes, !pinned && ringsBell(next.pin, data)),
+          toggle: () => togglePin(!pinned),
         }}
         href={tripPath(search)}
         onOpen={() => navigate(tripPath(search))}
@@ -667,6 +668,7 @@ function SavedTrip({ search, now, dismissed, pulls, editing, onMove, canMoveUp, 
           named={(search.renamed ?? search.name !== `${summary.from} to ${summary.to}`) || summary.via !== null}
           windowText={summary.windowText}
           next={next}
+          trackPin={next ? { pinned, label: next.pinLabel, set: togglePin } : undefined}
           loading={!data && feed === 'loading'}
           severeAlerts={summary.severeAlerts}
           nextService={summary.nextService}
