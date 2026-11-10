@@ -17,8 +17,8 @@ Agencies: Muni (bus, electric trolley bus, Muni Metro light rail, historic stree
 1. **Home**
    - Two fields, From and To, plus a swap button.
    - Each field searches by stop name or stop code (the number on the pole, such as 13477). Many stops share a name (24th St & Mission St has four), so each result shows the stop name, the stop code, the agency, the direction (such as "Eastbound, toward 22nd St & Iowa St"), a mode icon, and chips for the routes that stop there. The To field also offers routes as results (such as "22 Fillmore, Muni").
-   - A "Show nearby" button. Location is asked for only when it is tapped, never on page load.
-   - Saved searches and recent searches, each one tap away. Saved searches are the main way people use the app day to day, so make them prominent. A saved search can be renamed (such as "Work to home"), reordered, and deleted. They are stored on the device for now. Accounts may come later, so leave a natural place for a sign-in without designing one.
+   - A "Nearby routes" text button under the fields. Location is asked for only when it is tapped, never on page load.
+   - Saved searches and recent searches, each one tap away. Saved searches are the main way people use the app day to day, so make them prominent. A saved search can be renamed (such as "Work to home"), recolored, reordered, and deleted, all under one Edit button on the Saved heading. They are stored on the device for now. Accounts may come later, so leave a natural place for a sign-in without designing one.
 
 2. **Nearby** (after the rider taps Show nearby and grants location)
    - A small schematic map at the top, drawn as SVG: the rider's position, nearby stops as dots with mode icons, and the route lines through them. No streets, no map tiles, so it appears instantly and works offline.
@@ -28,10 +28,10 @@ Agencies: Muni (bus, electric trolley bus, Muni Metro light rail, historic stree
    - A clear state for location denied or unavailable, with a way to search by name instead.
 
 3. **Results**
-   - Header: the trip as a short chain, for example "Montgomery → 24th St Mission → 48". The second step comes from the app, not the rider, so style it as worked out for them.
-   - Live status: "Updated 12 s ago", refreshing every 30 seconds. When the connection drops, keep showing the last results with a clear "Offline, updated 3 min ago" state. Countdowns keep ticking on the device.
-   - Transfer window control: minimum and maximum transfer minutes (defaults such as 3 to 12) adjustable in place with steppers or a compact sheet. Show the current window in the header.
-   - Service alerts that touch any stop or route in the trip, such as "48 STOP TEMP. MOVED, board at 24th & Capp" or "Elevator out of service at 24th St Mission". Show them inline, collapsible, and visually distinct by severity. An alert on the exact stop the rider is boarding matters most.
+   - Header: one row. The trip as a short chain, for example "Montgomery → 24th St Mission → 48", then the live status at its end. The second step comes from the app, not the rider, so style it as worked out for them.
+   - Live status: the age of the times, such as "12s", with the full sentence on a tap, refreshing every 30 seconds. When the connection drops, keep showing the last results with a clear "Offline, updated 3 min ago" state. Countdowns keep ticking on the device.
+   - Transfer window control: minimum and maximum transfer minutes (defaults such as 3 to 12) adjustable in place with steppers or a compact sheet. Show the current window on the bottom bar.
+   - Service alerts that touch any stop or route in the trip, such as "48 STOP TEMP. MOVED, board at 24th & Capp" or "Elevator out of service at 24th St Mission". Show them inline, one row each, and visually distinct by severity. An alert on the exact stop the rider is boarding matters most: it is tinted and shows its whole title. Any other shows two lines. A tap opens the body, the agency, and Dismiss.
    - One group per connecting route (or per transfer point when the To is a route). Each group holds up to 3 cards, one per departure of the second route.
    - **Each card (one second-route departure)** shows: mode icon, route name, its arrival time at the transfer stop, minutes until it arrives, and whether it is late, early, on time, or has no delay data. Optionally, the time it reaches the rider's destination stop.
    - **Under each card, every first vehicle that makes it**, in order: mode icon, the first route name, its departure time from the From stop, minutes until it leaves, its own lateness, its arrival time where the rider gets off, and the transfer length in minutes. Mark a transfer at exactly the minimum as tight.
@@ -41,6 +41,19 @@ Agencies: Muni (bus, electric trolley bus, Muni Metro light rail, historic stree
 4. **Trip settings** (sheet or panel from the results screen, saved with the search): minimum and maximum transfer minutes, "hide departures leaving in less than N minutes" (time to reach the From stop, default 0), an optional destination stop on the second route, and filters for which routes count on each leg.
 
 5. **Device settings** (stored on the device, applies to every search unless a search overrides it): walking speed, the longest walk that counts as a transfer, the default transfer window, the default for hiding departures, and theme (system, light, dark). Leave a section for accessibility options. A step-free mode (elevator routes, longer transfers, elevator outages first) is planned, so the layout should make room for it.
+
+## Visual language
+
+Calm, with one row shape everywhere. The stylesheet's tokens (`web/src/styles.css`) hold the values.
+
+- **Type:** five sizes (13, 15, 17, 22, and 28 px, in rem) and two weights (400 and 700). Labels and headings are in sentence case, never capitals.
+- **Spacing:** one scale: 4, 8, 12, 16, 24, and 32 px, in rem. From about 150% text it holds at those px values, so the text gets the extra width.
+- **Alignment lines:** a 16 px page gutter, 12 px from a card's edge to its content, a number column 64 px wide, and 12 px from it to the text column. A row's trailing item ends on the card's content line.
+- **The row:** the number the rider acts on (a countdown, or a step's clock time) in the left column, then the text, with the vehicle and its time on the first line and its status on the line under it, then one trailing item, such as the transfer minutes. Results, saved cards, a stop's arrivals, Nearby, and the trip planner all use it. The dark band of a departure is a card's header, so its countdown stays on the right.
+- **Fills, not outlines:** cards, fields, and buttons are fills on the page. The only dashed marks are the Scheduled tag and the transfer point the app worked out. A field keeps a line under it.
+- **Status:** always in words. "On time" is muted. Late and early are colored and bold. Pinned says "Pinned" beside its tint.
+- **Kept:** the palette, route chips, square corners, saved colors, the dark band, and the live dot.
+- The time bar is on the live map's sheet, not in each row.
 
 ## Mode icons
 
