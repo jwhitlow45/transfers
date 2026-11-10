@@ -542,7 +542,7 @@ function StopFeed({ pin, name: savedName, dismissed, shown, open, onReport, onTo
     onUnpin: () => changePin(search, null, data?.routes),
   };
   if (note) return <BarView {...frame} spoken={`Pinned arrival at ${name}. ${note}`} verb={null} num={null} unit={null} l2={note} />;
-  const sheetPin: PinAction = { pinned: true, label: pinLabel([route, at]), set: (on) => changePin(search, on ? pin : null, data?.routes) };
+  const sheetPin: PinAction = { pinned: true, label: pinLabel([route, at]), set: (on) => changePin(search, on ? pin : null, data?.routes, on && ringsBell(pin, data)) };
   // Alerts about its stop or its route, counted and said as a pinned trip's are. Not once it has
   // gone or is canceled, when they no longer matter to the rider.
   const alerts = data && !ended && !canceled ? arrivalAlerts(data.alerts, arrival?.route ?? pin.arrival?.route, pin.second.board, dismissed) : [];

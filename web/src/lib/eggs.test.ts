@@ -42,3 +42,11 @@ test('a pinned trip on other vehicles, or with no results, stays quiet', () => {
 test('a cable car the pin does not ride stays quiet', () => {
   strictEqual(ringsBell({ ...pin, second: { trip: 'other', board: 'SF:2' }, first: undefined }, data('cable-car', 'bus')), false);
 });
+
+test('an arrival pinned at a stop rings the bell by its own route, with a stop\'s answer', () => {
+  const arrival = (key: string): Pin => ({ second: { trip: 'SF:x', board: 'SF:2' }, at: 100, ends: 100, arrival: { route: key, headsign: 'Downtown' } });
+  const stopData = { routes: { 'SF:A': route('SF:A', 'cable-car'), 'SF:B': route('SF:B', 'bus') } };
+  strictEqual(ringsBell(arrival('SF:A'), stopData), true);
+  strictEqual(ringsBell(arrival('SF:B'), stopData), false);
+  strictEqual(ringsBell(arrival('SF:A'), null), false);
+});
