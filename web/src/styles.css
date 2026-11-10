@@ -250,6 +250,7 @@ button:disabled { opacity: .45; cursor: default; }
 /* A line of warning under a card's rows (see Warnline). */
 .tf-warnline { display: flex; align-items: flex-start; gap: var(--s2); margin: 0; font-weight: var(--weight-bold); }
 .tf-warnline svg { flex: none; margin-top: 0.15em; }
+.tf-warnline span { min-width: 0; overflow-wrap: anywhere; }
 .tf-warnline--late { color: var(--late); }
 .tf-warnline--caution { color: var(--caution); }
 .tf-tight { display: inline-block; padding: 0 var(--s1); font-size: var(--fs-meta); font-weight: var(--weight-bold); background: var(--late-tint); color: var(--late); }
@@ -446,6 +447,11 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-chain__step { flex: none; display: inline-flex; align-items: center; gap: var(--s1); min-width: 0; max-width: 100%; white-space: nowrap; }
 .tf-chain__step > :last-child:not(.tf-chip) { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .tf-chain__step > .tf-chip { flex: none; }
+/* What a derived stop adds for screen readers stays inside its box, which cuts it off, so it adds
+   no width to the page. */
+.tf-chain__derived { position: relative; }
+/* A stop's own page names it in full, on as many lines as that takes. */
+.tf-chain__whole { min-width: 0; overflow-wrap: anywhere; }
 /* Where wrapping would take three lines: the rest on the second line, both names trimmed in
    proportion to their length, so each keeps as much as the other. */
 .tf-chain__rest--stacked { display: flex; flex-basis: 100%; align-items: center; gap: var(--s1); min-width: 0; white-space: nowrap; }
@@ -531,7 +537,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-alert--severe .tf-alert__title { font-weight: var(--weight-bold); hyphens: auto; }
 .tf-alert__chev { display: flex; color: var(--muted); }
 /* Under the title, on its text line: past the icon and its gap. */
-.tf-alert__body { padding: 0 var(--pad) var(--s3) calc(var(--pad) + 20px + var(--s3)); text-wrap: pretty; }
+.tf-alert__body { padding: 0 var(--pad) var(--s3) calc(var(--pad) + 20px + var(--s3)); text-wrap: pretty; overflow-wrap: anywhere; }
 .tf-alert__body p { margin: 0 0 var(--s2); }
 .tf-alert__foot { display: flex; align-items: center; gap: var(--s2); }
 /* The agency's line, then its link, each on its own line beside Dismiss. */
@@ -550,8 +556,8 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-notice--warning .tf-notice__icon { color: var(--caution); }
 .tf-notice--severe { background: var(--late-tint); }
 .tf-notice--severe .tf-notice__icon, .tf-notice--severe .tf-kicker { color: var(--late); }
-.tf-notice__title { margin-top: var(--s1); font-weight: var(--weight-bold); }
-.tf-notice__body { margin: var(--s1) 0 0; text-wrap: pretty; }
+.tf-notice__title { margin-top: var(--s1); font-weight: var(--weight-bold); overflow-wrap: anywhere; }
+.tf-notice__body { margin: var(--s1) 0 0; text-wrap: pretty; overflow-wrap: anywhere; }
 /* Restore stays at the right, and a long line beside it wraps within its own room. */
 .tf-notice__foot { display: flex; align-items: center; gap: var(--s3); margin-top: var(--s2); }
 /* The agency's line, its link, then when it was dismissed, each on its own line. */

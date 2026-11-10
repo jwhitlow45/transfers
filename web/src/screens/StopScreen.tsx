@@ -73,7 +73,7 @@ export function StopScreen({ search }: { search: Search }) {
   return (
     <>
       <div class="tf-scroll">
-        <ScreenHeader title={<span class="tf-chain__step">{search.fromLabel}</span>} feed={feed} secondsSinceUpdate={secondsSinceUpdate} stale={showStale} failed={failure} onRefresh={refresh} />
+        <ScreenHeader title={<span class="tf-chain__whole">{search.fromLabel}</span>} feed={feed} secondsSinceUpdate={secondsSinceUpdate} stale={showStale} failed={failure} onRefresh={refresh} />
         <main class="tf-page" id="main">
           <LiveBanners feed={feed} fresh={fresh} showStale={showStale} secondsSinceUpdate={secondsSinceUpdate} />
           {data && <FeedOutages feeds={data.feeds} routeKeys={data.rows.flatMap(({ routes }) => routes)} routes={data.routes} />}

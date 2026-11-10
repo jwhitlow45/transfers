@@ -106,7 +106,9 @@ function JourneyCard({ journey, data, now, toLabel, open, onToggle }: {
           <div class="tf-rb">
             <div class="tf-rb__main">
               <div class="tf-l1">
-                {approx(clock(journey.leaves), leavesScheduled)} – {approx(clock(journey.arrives), arrivesScheduled)}
+                {/* Two parts, so a line too narrow for both breaks after the dash. */}
+                <span>{approx(clock(journey.leaves), leavesScheduled)} –</span>
+                <span>{approx(clock(journey.arrives), arrivesScheduled)}</span>
               </div>
               <div class="tf-l1 tf-journey__legs">
                 {shownLegs.map((leg, index) => (
