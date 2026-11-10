@@ -277,6 +277,9 @@ button:disabled { opacity: .45; cursor: default; }
    more as the widest time needs, "~12:59 PM", so none runs into its step's text. */
 :is(.tf-steps, .tf-pinbar__steps) { display: grid; grid-template-columns: minmax(var(--numcol), max-content) minmax(0, 1fr); column-gap: var(--colgap); }
 :is(.tf-steps, .tf-pinbar__steps) > .tf-row { grid-column: 1 / -1; grid-template-columns: subgrid; }
+/* The list, not each row, keeps the content line's padding, so the shared column starts on it. */
+.tf-pinbar__steps { padding-inline: var(--edge); }
+:is(.tf-steps, .tf-pinbar__steps) > .tf-row, .tf-pinbar__steps > .tf-row + .tf-row { padding-inline: 0; }
 /* The text, then the trailing item. At large text the trailing item drops under the text. */
 .tf-rb { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0 var(--colgap); min-width: 0; }
 .tf-rb__main { flex: 1 1 6rem; min-width: 0; }
