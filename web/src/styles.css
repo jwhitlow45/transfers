@@ -121,7 +121,11 @@ body {
   font: var(--weight-regular) var(--fs-body)/1.4 var(--font);
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
+  /* No last word alone on a line, where the browser can help it. */
+  text-wrap: pretty;
 }
+/* Names, headings and labels of a few words share them evenly between their lines. */
+:is(.tf-l1, .tf-group__title, .tf-card__name, .tf-chain__whole, .tf-section h2, .tf-setting__label, .tf-recent__label, .tf-pinbar__name b, .tf-toast, .tf-sheet__saved, .tf-result__name) { text-wrap: balance; }
 a { color: var(--accent-ink); text-underline-offset: 3px; }
 a:hover { color: var(--text); }
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
@@ -143,14 +147,18 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-kicker { font-size: var(--fs-meta); font-weight: var(--weight-bold); color: var(--muted); }
 .tf-muted { color: var(--muted); }
 .tf-nowrap { white-space: nowrap; }
-/* Parts of one line with a middle dot between them (see Dots). Every part carries its dot in the
-   room before it, and the line is cut off at its own left edge, so a part that starts a line shows
-   none: no line ends or starts with a dot. The cut stops a few px short of the text, to leave a
-   focused link its ring. Named with its tag, to outweigh the display and margin of whichever line
-   it also is (.tf-l2, .tf-group__how). */
-:is(span, div, p).tf-dots { --dot: 0.8em; display: flex; flex-wrap: wrap; margin-left: calc(-1 * var(--dot)); clip-path: inset(-100vh -100vw -100vh calc(var(--dot) - 3px)); }
-.tf-dots > span { position: relative; min-width: 0; padding-left: var(--dot); }
-.tf-dots > span::before { content: "·" / ""; position: absolute; left: 0.25em; }
+/* Parts of one line with a middle dot between them (see Dots). The parts run on as words do. The
+   room between two is a space made as wide as a dot needs, which a line break takes with it, and
+   each part after the first hangs its dot in that room. The line is cut off at its own left edge,
+   so a part that starts a line shows none: no line ends or starts with a dot. The cut stops a few
+   px short of the text, to leave a focused link its ring. Named with its tag, to outweigh the
+   display of whichever line it also is (.tf-l2, .tf-group__how). */
+:is(span, div, p).tf-dots { --dot: 0.8em; display: block; clip-path: inset(-100vh -100vw -100vh -3px); }
+.tf-dots__gap { word-spacing: calc(var(--dot) - 0.25em); }
+.tf-dots__part { position: relative; }
+.tf-dots__part--next::before { content: "·" / ""; position: absolute; left: calc(-1 * var(--dot)); width: var(--dot); text-align: center; }
+/* A name cut short to fit its line (see Cut): a block that may shrink, on one line. */
+.tf-cut { display: block; min-width: 0; overflow: hidden; white-space: nowrap; }
 
 /* ── app shell ─────────────────────────────────────── */
 .tf-app { position: relative; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
@@ -250,7 +258,7 @@ button:disabled { opacity: .45; cursor: default; }
 /* A line of warning under a card's rows (see Warnline). */
 .tf-warnline { display: flex; align-items: flex-start; gap: var(--s2); margin: 0; font-weight: var(--weight-bold); }
 .tf-warnline svg { flex: none; margin-top: 0.15em; }
-.tf-warnline span { min-width: 0; overflow-wrap: anywhere; hyphens: auto; }
+.tf-warnline span { min-width: 0; overflow-wrap: anywhere; }
 .tf-warnline--late { color: var(--late); }
 .tf-warnline--caution { color: var(--caution); }
 .tf-tight { display: inline-block; padding: 0 var(--s1); font-size: var(--fs-meta); font-weight: var(--weight-bold); background: var(--late-tint); color: var(--late); }
@@ -416,7 +424,7 @@ button:disabled { opacity: .45; cursor: default; }
 /* Editing, under the Saved heading's Edit: each card shows its name, color, order and removal. */
 .tf-saved__edit { display: flex; flex-direction: column; gap: var(--s3); padding: var(--s3) var(--pad); }
 .tf-saved__name-field { display: block; }
-.tf-saved__name-input { display: block; width: 100%; min-height: var(--tap-min); font: inherit; font-size: var(--fs-title); font-weight: var(--weight-bold); color: var(--text); background: transparent; border: 0; border-bottom: var(--border-hair) solid var(--line); padding: 0; }
+.tf-saved__name-input { display: block; width: 100%; min-height: var(--tap-min); font: inherit; font-size: var(--fs-title); font-weight: var(--weight-bold); color: var(--text); background: transparent; border: 0; border-bottom: var(--border-hair) solid var(--line); padding: 0; text-overflow: ellipsis; }
 .tf-saved__name-input:focus-visible { outline: none; box-shadow: 0 2px var(--accent); }
 .tf-saved__swatches { display: flex; flex-wrap: wrap; gap: var(--s2); }
 .tf-swatch { width: var(--tap-min); height: var(--tap-min); border: 2px solid transparent; outline-offset: 2px; }
@@ -456,12 +464,12 @@ button:disabled { opacity: .45; cursor: default; }
 /* Its border takes from its line height, so the line is as tall with it as without it. */
 .tf-chain__derived { border: 1px dashed var(--accent); color: var(--accent-ink); padding: 0 var(--s1); line-height: calc(1.3em - 2px); font-style: italic; }
 /* The trip's title (TripChain): From, then the rest on one line. A line too long for the screen
-   ends in an ellipsis: the place to get off first, down to a few letters, then the name after it. */
-.tf-chain__from { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+   ends in an ellipsis (see Cut): the place to get off first, down to a few letters, then the name
+   after it. */
+.tf-chain__from { max-width: 100%; }
 /* Each step wraps on its own (see TripChain), an arrow never apart from its name. */
 .tf-chain__rest { display: contents; }
 .tf-chain__step { flex: none; display: inline-flex; align-items: center; gap: var(--s1); min-width: 0; max-width: 100%; white-space: nowrap; }
-.tf-chain__step > :last-child:not(.tf-chip) { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .tf-chain__step > .tf-chip { flex: none; }
 /* What a derived stop adds for screen readers stays inside its box, which cuts it off, so it adds
    no width to the page. */
@@ -552,7 +560,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-alert:not(.tf-alert--severe)[data-open="false"] .tf-alert__kicker { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .tf-alert__title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; text-wrap: pretty; }
 .tf-alert--severe .tf-alert__title, .tf-alert[data-open="true"] .tf-alert__title { display: block; overflow: visible; }
-.tf-alert--severe .tf-alert__title { font-weight: var(--weight-bold); hyphens: auto; }
+.tf-alert--severe .tf-alert__title { font-weight: var(--weight-bold); }
 .tf-alert__chev { display: flex; color: var(--muted); }
 /* Under the title, on its text line: past the icon and its gap. */
 .tf-alert__body { padding: 0 var(--pad) var(--s3) calc(var(--pad) + 20px + var(--s3)); text-wrap: pretty; overflow-wrap: anywhere; }
@@ -716,7 +724,7 @@ button:disabled { opacity: .45; cursor: default; }
    the theme tokens set, including a theme the rider picked in Settings. */
 .tf-select-wrap { position: relative; display: block; margin-top: var(--s2); }
 .tf-select-wrap > svg { position: absolute; right: var(--s3); top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
-.tf-select { width: 100%; min-height: var(--tap); font: inherit; font-size: var(--fs-title); color: var(--text); background: var(--card); border: 0; border-bottom: var(--border-hair) solid var(--line); appearance: none; -webkit-appearance: none; border-radius: var(--radius-none); padding: 0 calc(var(--s3) + 28px) 0 var(--s3); cursor: pointer; }
+.tf-select { width: 100%; min-height: var(--tap); font: inherit; font-size: var(--fs-title); color: var(--text); background: var(--card); border: 0; border-bottom: var(--border-hair) solid var(--line); appearance: none; -webkit-appearance: none; border-radius: var(--radius-none); padding: 0 calc(var(--s3) + 28px) 0 var(--s3); cursor: pointer; text-overflow: ellipsis; }
 @media (hover: hover) { .tf-select:hover { background: color-mix(in srgb, var(--text) 5%, var(--card)); } }
 .tf-select option, .tf-select optgroup { background: var(--bg); color: var(--text); }
 

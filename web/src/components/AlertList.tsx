@@ -5,6 +5,7 @@ import { IconChevronRight, IconFold, IconInfo, IconWarn } from '../icons/ui.tsx'
 import type { ViewAlert } from '../lib/alerts.ts';
 import { Collapse } from './Collapse.tsx';
 import { AppLink } from './AppLink.tsx';
+import { Breakable } from './Breakable.tsx';
 import { Dots } from './Dots.tsx';
 
 // Inline, ordered by importance, one row each, since riders often have a notice from each agency
@@ -51,7 +52,9 @@ export function AlertList({ alerts, dismissed, onDismiss }: { alerts: ViewAlert[
                   {/* Folded, only the boarding alert shows its kind. Screen readers hear it on each. */}
                   <Dots class="tf-alert__kicker" parts={[alert.kicker]} />
                   <span class="tf-sr">: </span>
-                  <span class="tf-alert__title">{alert.title}</span>
+                  <span class="tf-alert__title">
+                    <Breakable text={alert.title} />
+                  </span>
                 </span>
                 <span class="tf-alert__chev">
                   <IconFold />
@@ -59,7 +62,11 @@ export function AlertList({ alerts, dismissed, onDismiss }: { alerts: ViewAlert[
               </button>
               <Collapse open={isOpen} id={panel}>
                 <div class="tf-alert__body">
-                  {alert.body && <p>{alert.body}</p>}
+                  {alert.body && (
+                    <p>
+                      <Breakable text={alert.body} />
+                    </p>
+                  )}
                   <div class="tf-alert__foot">
                     <div class="tf-alert__meta">
                       <Dots parts={[alert.meta]} />

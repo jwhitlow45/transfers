@@ -9,6 +9,7 @@ import { goBack } from '../router.ts';
 import { DISMISSED_DAYS, type DismissedNotice, dismissNotice, loadDismissed, restoreAllNotices, restoreNotice } from '../storage.ts';
 import { dayLabel } from '../view.ts';
 import { EmptyState } from '../components/EmptyState.tsx';
+import { Breakable } from '../components/Breakable.tsx';
 import { Dots } from '../components/Dots.tsx';
 
 // Notices the rider dismissed from results, newest first, as they read then, each with a way to
@@ -65,8 +66,14 @@ export function NoticesScreen() {
                       <span class="tf-notice__icon">{(notice.severity ?? 'info') === 'info' ? <IconInfo size={18} /> : <IconWarn size={18} />}</span>
                       <Dots class="tf-kicker" parts={[notice.kicker]} />
                     </div>
-                    <div class="tf-notice__title">{notice.title}</div>
-                    {notice.body && <p class="tf-notice__body">{notice.body}</p>}
+                    <div class="tf-notice__title">
+                      <Breakable text={notice.title} />
+                    </div>
+                    {notice.body && (
+                      <p class="tf-notice__body">
+                        <Breakable text={notice.body} />
+                      </p>
+                    )}
                     <div class="tf-notice__foot">
                       <span class="tf-notice__meta">
                         <Dots parts={[notice.meta]} />

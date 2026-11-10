@@ -11,9 +11,10 @@
 /* One line: a name too long for it ends in an ellipsis, between "Pinned" and what the countdown
    counts to, which stay whole. The bar's spoken name, its tab and its panel have all of it. */
 .tf-pinbar__naming { margin-bottom: var(--s1); font-size: var(--fs-meta); line-height: 1.3; color: var(--muted); }
-.tf-pinbar .tf-pinbar__naming { flex-wrap: nowrap; }
-.tf-pinbar__naming > span { flex: none; white-space: nowrap; }
-.tf-pinbar__naming > span:has(> .tf-pinbar__named) { flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; }
+.tf-pinbar .tf-pinbar__naming { display: flex; column-gap: var(--dot); }
+.tf-pinbar__naming > .tf-dots__gap { display: none; }
+.tf-pinbar__naming > .tf-dots__part { flex: none; white-space: nowrap; }
+.tf-pinbar__naming > .tf-dots__part:has(> .tf-pinbar__named) { flex: 0 1 auto; min-width: 0; }
 .tf-pinbar__naming b { color: var(--accent-ink); }
 /* As tall waiting for its times as with them (a time's line and a status line), so the bar coming
    in moves the page once, and the row the rider tapped stays under their finger. */
@@ -84,7 +85,7 @@
   .tf-pinbar__actions { grid-template-columns: 1fr; }
   /* With room for a few words a line, the bar's name wraps whole, as its tab's does. */
   .tf-pinbar .tf-pinbar__naming { flex-wrap: wrap; }
-  .tf-pinbar__naming > span:has(> .tf-pinbar__named) { white-space: normal; overflow-wrap: anywhere; }
+  .tf-pinbar__naming .tf-pinbar__named { white-space: normal; overflow-wrap: anywhere; }
   .tf-pinbar__tabname { display: block; }
   /* The chevron goes up beside the line that names the bar, and leaves its room to the row. */
   .tf-pinbar__in { position: relative; }

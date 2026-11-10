@@ -37,6 +37,9 @@ export function stopPage(stop: Stop | undefined) {
 export type StatusKind = 'late' | 'early' | 'ontime' | 'nodata' | 'scheduled' | 'canceled' | 'waiting';
 export type Status = { kind: StatusKind; label: string };
 
+// "3 min late" stays on one line, so a status too long for its line breaks after "Not left,".
+const NB = '\u00a0';
+
 // The feed's delay rounded to the nearest minute. A vehicle yet to leave the first stop of its trip
 // is on time only by the feed's assumption, so it says it has not left (J, 2026-11-09), and how late
 // or early the feed has it, as neither is ever hidden.
@@ -45,14 +48,14 @@ export function statusOf(delaySeconds: number | null, live = true, canceled = fa
   if (!live) return { kind: 'scheduled', label: 'Scheduled' };
   if (notStarted) {
     const minutes = delaySeconds === null ? 0 : Math.round(delaySeconds / 60);
-    if (minutes > 0) return { kind: 'late', label: `Not left, ${minutes} min late` };
-    if (minutes < 0) return { kind: 'early', label: `Not left, ${-minutes} min early` };
+    if (minutes > 0) return { kind: 'late', label: `Not left, ${minutes}${NB}min${NB}late` };
+    if (minutes < 0) return { kind: 'early', label: `Not left, ${-minutes}${NB}min${NB}early` };
     return { kind: 'waiting', label: 'Not left yet' };
   }
   if (delaySeconds === null) return { kind: 'nodata', label: 'No delay data' };
   const minutes = Math.round(delaySeconds / 60);
-  if (minutes > 0) return { kind: 'late', label: `${minutes} min late` };
-  if (minutes < 0) return { kind: 'early', label: `${-minutes} min early` };
+  if (minutes > 0) return { kind: 'late', label: `${minutes}${NB}min${NB}late` };
+  if (minutes < 0) return { kind: 'early', label: `${-minutes}${NB}min${NB}early` };
   return { kind: 'ontime', label: 'On time' };
 }
 

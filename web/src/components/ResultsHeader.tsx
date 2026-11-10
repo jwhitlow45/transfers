@@ -5,6 +5,7 @@ import { ageShort } from '../lib/freshness.ts';
 import { GerbilShape, IconBack, IconNewVersion } from '../icons/ui.tsx';
 import { forceRefresh, useUpdateAvailable } from '../update.ts';
 import { motionOff } from '../gestures.ts';
+import { Cut } from './Cut.tsx';
 import { PullToRefresh } from './PullToRefresh.tsx';
 
 // secondsSinceUpdate counts from when the server got the data from 511, not when this page
@@ -240,19 +241,14 @@ export function TripChain({ from, via, to }: { from: string; via: string | null;
   }, []);
   return (
     <>
-      <span class="tf-chain__from" ref={first}>
-        {from}
-      </span>
+      <Cut class="tf-chain__from" text={from} box={first} />
       <span class={`tf-chain__rest${stacked ? ' tf-chain__rest--stacked' : ''}`}>
         {via && (
           <span class="tf-chain__step tf-chain__step--via">
             <span class="tf-chain__arrow" aria-hidden="true">
               →
             </span>
-            <span class="tf-chain__derived" title="Transfer point worked out by Transfers">
-              {via}
-              <span class="tf-sr"> (transfer point found for you)</span>
-            </span>
+            <Cut class="tf-chain__derived" title="Transfer point worked out by Transfers" text={via} after={<span class="tf-sr"> (transfer point found for you)</span>} />
           </span>
         )}
         <span class="tf-chain__step">

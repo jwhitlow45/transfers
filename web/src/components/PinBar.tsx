@@ -23,6 +23,8 @@ import { type PinAction, TimeLink } from '../track.tsx';
 import { chipLabel, pinLabel, shortStopName, statusAt, vehicleAt } from '../view.ts';
 import { AppLink } from './AppLink.tsx';
 import { Clock, Num } from './Countdown.tsx';
+import { Cut } from './Cut.tsx';
+import { Breakable } from './Breakable.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import { StatusTag, Warnline } from './StatusTag.tsx';
 import { Dots } from './Dots.tsx';
@@ -366,7 +368,7 @@ function TripFeed({ pin, name: savedName, dismissed, shown, open, onReport, onTo
     const alertLines = (alerts: Alert[]) =>
       alerts.map((alert) => (
         <Warnline key={alert.id} tone="late">
-          {titleAndBody(alert.header, alert.description).title}
+          <Breakable text={titleAndBody(alert.header, alert.description).title} />
         </Warnline>
       ));
     const statusText = tripStatusText(phase, first, leg2, stopName, label, now);
@@ -557,7 +559,7 @@ function StopFeed({ pin, name: savedName, dismissed, shown, open, onReport, onTo
         <>
           {alerts.map((alert) => (
             <Warnline key={alert.id} tone="late">
-              {titleAndBody(alert.header, alert.description).title}
+              <Breakable text={titleAndBody(alert.header, alert.description).title} />
             </Warnline>
           ))}
           {ended && unpinAt !== null && <p class="tf-pinbar__note">Unpins at {clock(unpinAt / 1000)}</p>}
@@ -621,7 +623,7 @@ function BarView({ kind, name, sub, href, open, onToggle, onClose, onUnpin, spok
     <>
       <button type="button" class="tf-pinbar__main" aria-expanded={open} aria-controls={PANEL} aria-label={spoken} onClick={onToggle}>
         <span class="tf-pinbar__in">
-          <Dots class="tf-pinbar__naming" parts={[<b>Pinned</b>, <span class="tf-pinbar__named">{name}</span>, verb]} />
+          <Dots class="tf-pinbar__naming" parts={[<b>Pinned</b>, <Cut class="tf-pinbar__named" text={name} />, verb]} />
           <span class="tf-pinbar__line">
             <span class="tf-row">
               <Num n={num} unit={unit} />
