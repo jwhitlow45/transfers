@@ -76,9 +76,10 @@
 .tf-app[data-pinbar="scrolls"] > :is(.tf-peek, .tf-outgoing) { top: 0; }
 
 /* From about 150% text, the page's title row scrolls away with its page, and only the pin bar
-   stays (J, 2026-11-09), as the two together took half the screen. */
+   stays (J, 2026-11-09), as the two together took half the screen. It stays the box its stripe and
+   loading bar hang from. */
 @media (max-width: 18em) {
-  .tf-app .tf-header { position: static; }
+  .tf-app .tf-header { position: relative; }
   .tf-pinbar__actions { grid-template-columns: 1fr; }
   /* With room for a few words a line, the bar's name wraps whole, as its tab's does. */
   .tf-pinbar .tf-pinbar__naming { flex-wrap: wrap; }
