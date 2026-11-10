@@ -25,6 +25,15 @@ export function Approx({ scheduled, children }: { scheduled: boolean; children: 
   );
 }
 
+// The "+" `atLeast` gives a vehicle yet to leave the first stop of its trip, for text a screen
+// reader reads as shown, which then hears "or more" after the minutes.
+export const Plus = () => (
+  <>
+    <span aria-hidden="true">+</span>
+    <span class="tf-sr"> or more</span>
+  </>
+);
+
 // What a pinned row or card says under its status, in words, so the tint is never the only sign.
 export const PinnedTag = () => (
   <span class="tf-tag-pinned">
