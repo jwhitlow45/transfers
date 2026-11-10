@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact';
-import { IconWarn } from '../icons/ui.tsx';
+import { IconPin, IconWarn } from '../icons/ui.tsx';
 import type { Status } from '../view.ts';
 
 // Lateness tag. Every arrival shows one, and it is never hidden to save space. `hidden` keeps it
@@ -25,16 +25,26 @@ export function Approx({ scheduled, children }: { scheduled: boolean; children: 
   );
 }
 
-// The "+" `atLeast` gives a vehicle yet to leave the first stop of its trip, for text a screen
-// reader reads as shown, which then hears "or more" after the minutes.
-export const Plus = () => (
-  <>
-    <span aria-hidden="true">+</span>
-    <span class="tf-sr"> or more</span>
-  </>
+// What a pinned row or card says under its status, in words, so the tint is never the only sign.
+export const PinnedTag = () => (
+  <span class="tf-tag-pinned">
+    <IconPin filled size={14} />
+    Pinned
+  </span>
 );
 
-// A short warning on a tint of its tone, such as a saved trip's alerts or a pinned card's old
+// A line of warning under a card's rows, such as a saved trip's alerts or times no longer live: an
+// icon and words in the tone's color, with no fill of its own.
+export function Warnline({ tone, children }: { tone: 'late' | 'caution'; children: ComponentChildren }) {
+  return (
+    <p class={`tf-warnline tf-warnline--${tone}`}>
+      <IconWarn size={16} />
+      <span>{children}</span>
+    </p>
+  );
+}
+
+// A short warning on a tint of its tone, such as a pinned card's old
 // times. `class` places it.
 export function Flag({ tone, class: className, children }: { tone: 'late' | 'caution'; class: string; children: ComponentChildren }) {
   return (

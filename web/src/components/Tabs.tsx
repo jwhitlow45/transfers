@@ -1,5 +1,5 @@
-// Views of one page, such as a stop-to-stop search's trips and its transfers, drawn as the app's
-// other two-way choices are (see Segmented). As tabs are, it is one stop for Tab, the arrow keys,
+// Views of one page, such as a stop-to-stop search's trips and its transfers, drawn as
+// tabs: the one showing is darker and underlined. As tabs are, it is one stop for Tab, the arrow keys,
 // Home and End choose among them, and each names `panel`, which shows the one chosen (see
 // tabPanel). Choosing is showing, so focus moving to a tab chooses it.
 export function Tabs<K extends string>({ label, options, selected, panel, onChoose }: {
@@ -21,14 +21,14 @@ export function Tabs<K extends string>({ label, options, selected, panel, onChoo
     document.getElementById(tabId(panel, key))?.focus();
   };
   return (
-    <div class="tf-tabs tf-seg__options" role="tablist" aria-label={label} style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }} onKeyDown={move}>
+    <div class="tf-tabs" role="tablist" aria-label={label} style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }} onKeyDown={move}>
       {options.map(({ key, text }) => (
         <button
           key={key}
           id={tabId(panel, key)}
           type="button"
           role="tab"
-          class="tf-seg__option"
+          class="tf-tab"
           aria-selected={selected === key}
           aria-controls={panel}
           tabIndex={selected === key ? 0 : -1}
