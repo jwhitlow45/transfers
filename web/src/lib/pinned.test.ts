@@ -182,7 +182,9 @@ test('pinning says so, and in place of what was pinned before, a trip by its fir
   const arrival = { second: { trip: 'SF:m4', board: 'SF:13477' }, at: 900, ends: 960, arrival: { route: 'SF:48', headsign: 'Potrero' } };
   // A plain pin has no toast: the pin bar appearing is the feedback.
   strictEqual(pinToastText(null, pinnedTrip, routes), null);
-  strictEqual(pinToastText(null, pinnedTrip, routes, true), null);
+  // A cable car's bell is the one thing a plain pin says.
+  strictEqual(pinToastText(null, pinnedTrip, routes, true), 'Ding ding!');
+  strictEqual(pinToastText(pinnedTrip, pinnedTrip, routes, true), null);
   strictEqual(pinToastText(pinnedTrip, pinnedTrip, routes), null);
   strictEqual(pinToastText(pinnedTrip, null, routes), 'Unpinned');
   strictEqual(pinToastText(null, null, routes), null);

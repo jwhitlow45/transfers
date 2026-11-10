@@ -8,6 +8,7 @@ import { useNow, usePinnedTrip, usePoll, useStopPin } from '../hooks.ts';
 import { IconChevron, IconClose, IconFullRoute, IconWarn } from '../icons/ui.tsx';
 import { ScreenActive } from '../layers.ts';
 import { titleAndBody } from '../lib/alerts.ts';
+import { ringsBell } from '../lib/eggs.ts';
 import { liveClock, liveNote } from '../lib/freshness.ts';
 import { type PinMap, type RankedPin, alertStops, pinFocus, pinMap, pinVerb, restOfTrip, shownPin, tripCountdown, tripMinutes, tripMinutesText, tripStatusText, vehicleWord } from '../lib/pin-bar.ts';
 import { pinnedDestination, pinnedPhase, pinnedTransfer, scheduledAt } from '../lib/pinned.ts';
@@ -380,7 +381,7 @@ function TripFeed({ pin, name: savedName, dismissed, shown, open, onReport, onTo
       .join(' ');
 
     // The map's sheet can unpin the trip, and pin it again.
-    const sheetPin: PinAction = { pinned: true, label: pinLabel(...(first ? [[routes[first.route], first.on!.at] as const] : []), [routes[leg2.route], leg2.on!.at]), set: (on) => changePin(search, on ? pin : null, routes) };
+    const sheetPin: PinAction = { pinned: true, label: pinLabel(...(first ? [[routes[first.route], first.on!.at] as const] : []), [routes[leg2.route], leg2.on!.at]), set: (on) => changePin(search, on ? pin : null, routes, on && ringsBell(pin, data)) };
     const map = pinMap(phase, trip, {
       routes,
       ...(colorOf ? { colorOf } : {}),

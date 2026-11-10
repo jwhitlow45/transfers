@@ -150,12 +150,15 @@ export function pinnedNow(pin: Pin, data: TripResponse | null, dest: string | un
 // What a toast says after the rider changes a pin, with Undo: that it is unpinned, or pinned in
 // place of the one before, named as its row named it, a trip by its first vehicle and an arrival
 // by its vehicle. Null for a plain pin, which gets no toast, as the pin bar appearing is the
-// feedback (J, 2026-11-09), and for unpinning nothing. A cable car rings its bell.
+// feedback (J, 2026-11-09), and for unpinning nothing. A cable car rings its bell, which on a plain
+// pin is all the toast says, with nothing to undo.
+export const BELL = 'Ding ding!';
 export function pinToastText(previous: Pin | null, next: Pin | null, routes: Record<string, Route> | undefined, bell = false) {
   if (!next) return previous ? 'Unpinned' : null;
-  if (!previous || samePin(previous, next)) return null;
+  if (!previous) return bell ? BELL : null;
+  if (samePin(previous, next)) return null;
   const text = `Pinned in place of ${pinName(previous, routes)}`;
-  return bell ? `Ding ding! ${text}` : text;
+  return bell ? `${BELL} ${text}` : text;
 }
 
 function pinName(pin: Pin, routes: Record<string, Route> | undefined) {

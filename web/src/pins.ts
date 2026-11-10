@@ -50,7 +50,7 @@ export function usePinRefresh(refresh: () => void) {
 }
 
 // A pin the rider changed, for the app's one pin toast: what it says, and Undo.
-export type PinToast = { text: string; about: 'pin' | 'unpin'; undo: () => void };
+export type PinToast = { text: string; about: 'pin' | 'unpin'; undo?: () => void };
 let toastListener: ((toast: PinToast) => void) | null = null;
 // The pin bar shows the toast, wherever the pin was changed from. Returns how to stop.
 export function onPinToast(listener: (toast: PinToast) => void) {
@@ -62,11 +62,12 @@ export function onPinToast(listener: (toast: PinToast) => void) {
 
 // The rider pins or unpins, from a row, a saved card, a map's sheet, or the pin bar. Unpinning, and
 // pinning in place of another, say so in a toast with Undo, which puts back whatever was pinned
-// before (see pinToastText). A map's sheet holds this from when it opened, so the pin it replaces
+// before (see pinToastText). A plain pin says nothing, but for a cable car's bell (`bell`, see
+// lib/eggs.ts), which has nothing to undo. A map's sheet holds this from when it opened, so the pin it replaces
 // is read as it is now. `routes` names the vehicle a pin replaces.
 export function changePin(search: Search, next: Pin | null, routes?: Record<string, Route>, bell = false) {
   const previous = loadPin(search);
   setPin(search, next);
   const text = pinToastText(previous, next, routes, bell);
-  if (text) toastListener?.({ text, about: next ? 'pin' : 'unpin', undo: () => setPin(search, previous) });
+  if (text) toastListener?.({ text, about: next ? 'pin' : 'unpin', ...(previous ? { undo: () => setPin(search, previous) } : {}) });
 }
