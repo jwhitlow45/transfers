@@ -120,7 +120,7 @@ export function StopScreen({ search }: { search: Search }) {
                 return (
                   <RouteCard key={rowKey(row)} routes={routes} headsign={row.headsign}>
                     {arrivals.length > 0 ? (
-                      <ul class="tf-near__times tf-near__times--pins" aria-label="Next arrivals">
+                      <ul class="tf-near__times" aria-label="Next arrivals">
                         {arrivals.slice(0, SHOWN).map(arrival)}
                       </ul>
                     ) : (
@@ -130,7 +130,7 @@ export function StopScreen({ search }: { search: Search }) {
                         link, which here goes somewhere or does one thing. */}
                     {more.length > 0 && (
                       <Fold class="tf-near__more" label={`${more.length} more ${more.length === 1 ? 'time' : 'times'}`}>
-                        <ul class="tf-near__times tf-near__times--pins" aria-label="Later arrivals">
+                        <ul class="tf-near__times" aria-label="Later arrivals">
                           {more.map(arrival)}
                         </ul>
                       </Fold>
