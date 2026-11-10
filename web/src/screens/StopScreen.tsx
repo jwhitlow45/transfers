@@ -57,7 +57,7 @@ export function StopScreen({ search }: { search: Search }) {
 
   // As on results: a stop no longer in the schedule says so plainly.
   const failure = failureOf(error, 'Arrivals');
-  const pinFromStop = (next: Pin | null) => records.pinByRider(next, data?.routes, next !== null && ringsBell(next, data));
+  const pinFromStop = (next: Pin | null) => records.pinByRider(next, next !== null && ringsBell(next, data));
   const allAlerts = data ? viewAlerts(data, new Set([data.stop, ...data.rows.map(({ stop }) => stop)]), { elevators: settings.elevatorOutages, escalators: settings.escalatorOutages }) : [];
   const alerts = allAlerts.filter(({ id }) => !dismissedIds.has(id));
   // An elevator or escalator out at the stop's BART station, for riders who asked, as on results.

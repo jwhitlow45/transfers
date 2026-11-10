@@ -45,15 +45,12 @@ export function DepartureCard({ departure, group, next, alightName, noun, walk, 
         <RouteChip route={route} color={color} />
         <span class="tf-canceled__time">{clock(departure.at)}</span>
         <StatusTag status={statusOf(null, true, true)} />
-        <span class="tf-canceled__note">
-          Not counted.
-          {next && (
-            <>
-              {` Next ${route ? chipLabel(route) : ''} toward ${group.headsign} at `}
-              <Approx scheduled={!next.live}>{clock(next.at)}</Approx>.
-            </>
-          )}
-        </span>
+        {next && (
+          <span class="tf-canceled__note">
+            {`Next ${route ? chipLabel(route) : ''} toward ${group.headsign} at `}
+            <Approx scheduled={!next.live}>{clock(next.at)}</Approx>.
+          </span>
+        )}
       </div>
     );
   }

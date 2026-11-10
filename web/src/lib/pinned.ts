@@ -1,6 +1,5 @@
-import type { Connection, Departure, PinRequest, PinnedLeg, PinnedStop, PinnedTrip, Route, TripResponse } from '../../../shared/api.ts';
+import type { Connection, Departure, PinRequest, PinnedLeg, PinnedStop, PinnedTrip, TripResponse } from '../../../shared/api.ts';
 import { stillWaiting } from '../format.ts';
-import { pinLabel } from '../view.ts';
 import type { Pin } from '../storage.ts';
 
 // When a pinned trip ends: arriving at the destination, or with none set, boarding the second
@@ -147,24 +146,16 @@ export function pinnedNow(pin: Pin, data: TripResponse | null, dest: string | un
   return { pinned: steadyPinned(fresh, pin.last, pin, pinnedDestination(pin, data!, dest)), fresh: true };
 }
 
-// What a toast says after the rider changes a pin, with Undo: that it is unpinned, or pinned in
-// place of the one before, named as its row named it, a trip by its first vehicle and an arrival
-// by its vehicle. Null for a plain pin, which gets no toast, as the pin bar appearing is the
-// feedback (J, 2026-11-09), and for unpinning nothing. A cable car rings its bell, which on a plain
-// pin is all the toast says, with nothing to undo.
+// What a toast says after the rider changes a pin, with Undo: that it is unpinned, or that it
+// replaced the pin before, by kind alone, as a toast is read at a glance (J, 2026-11-10). Null for a
+// plain pin, which gets no toast, as the pin bar appearing is the feedback (J, 2026-11-09), and for
+// unpinning nothing. A cable car rings its bell, which on a plain pin is all the toast says, with
+// nothing to undo.
 export const BELL = 'Ding ding!';
-export function pinToastText(previous: Pin | null, next: Pin | null, routes: Record<string, Route> | undefined, bell = false) {
+export function pinToastText(previous: Pin | null, next: Pin | null, bell = false) {
   if (!next) return previous ? 'Unpinned' : null;
   if (!previous) return bell ? BELL : null;
   if (samePin(previous, next)) return null;
-  const text = `Pinned in place of ${pinName(previous, routes)}`;
+  const text = previous.arrival ? 'Replaced pinned arrival' : 'Replaced pinned trip';
   return bell ? `${BELL} ${text}` : text;
-}
-
-function pinName(pin: Pin, routes: Record<string, Route> | undefined) {
-  const leg = pin.last?.first ?? pin.last?.second;
-  const route = routes?.[pin.arrival?.route ?? leg?.route ?? ''];
-  const at = pin.arrival ? pin.ends : leg?.on?.at;
-  if (route && at !== undefined) return pinLabel([route, at]);
-  return pin.arrival ? 'the arrival pinned before' : 'the trip pinned before';
 }

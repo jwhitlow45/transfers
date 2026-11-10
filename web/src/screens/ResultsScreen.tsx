@@ -103,7 +103,7 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
   const pinFromResults = (next: Pin | null) => {
     // A stop's tab goes with the pin, so the pin bar follows the trip on the tab it was pinned on.
     const tagged = next && toStop && shown ? { ...next, view: shown } : next;
-    records.pinByRider(tagged, data?.routes, tagged !== null && ringsBell(tagged, data));
+    records.pinByRider(tagged, tagged !== null && ringsBell(tagged, data));
   };
   // Notices the rider dismissed stay hidden here and on every other search, until the Notices
   // page puts them back.
@@ -204,7 +204,7 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
           items={[
             ...(hide > 0 ? [{ key: 'hide', icon: <IconHidden />, short: `<${hide}m`, full: `Hiding departures that leave in under ${hide} minutes` }] : []),
             ...(filtering
-              ? [{ key: 'routes', icon: <IconFilter />, short: 'Filtered', full: `${filterText}. Trip settings has the rest` }]
+              ? [{ key: 'routes', icon: <IconFilter />, short: 'Filtered', full: `${filterText}. Change this in Trip settings` }]
               : []),
             // A destination is named by each group's heading and each departure's arrival line.
           ]}
@@ -343,7 +343,7 @@ function EmptyTrip({ data, search, summary, going, noWays, walk, update, more }:
   const toName = route ? (route.agency === 'BA' ? `the ${route.name} line` : `the ${summary.to}`) : summary.to;
   const again = (next: number | null, place: string) => (next ? `${place} starts again ${weekdayClock(next)}.` : `${place} does not run in the next few days.`);
   // Going to a stop, ways with nothing running on them now are none.
-  if (noWays) return <EmptyState {...heading} title={`No way to ${summary.to} with one transfer or none right now`} />;
+  if (noWays) return <EmptyState {...heading} title={`No way to ${summary.to} with at most one transfer right now`} />;
   if (notice?.kind === 'idle' && notice.side === 'to') {
     return (
       <EmptyState {...heading} title={route ? `${capitalize(toName)} isn't running now` : going ? `Nothing that goes to ${summary.to} is running now` : `Nothing boards at ${summary.to} right now`}>
@@ -390,7 +390,7 @@ function EmptyTrip({ data, search, summary, going, noWays, walk, update, more }:
     );
   }
   // Going to a stop, the trips with more changes follow.
-  if (going) return <EmptyState {...heading} title={`No way to ${summary.to} with one transfer or none`} />;
+  if (going) return <EmptyState {...heading} title={`No way to ${summary.to} with at most one transfer`} />;
   return (
     <EmptyState title={`Nothing from ${summary.from} gets within a short walk of ${toName}`}>
       <div class="tf-muted">{walk.maxWalk < 650 ? 'A longer walk between stops, in Settings, may find one.' : 'Try a stop or route closer to where you start.'}</div>

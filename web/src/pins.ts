@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import type { Route } from '../../shared/api.ts';
 import { pinToastText } from './lib/pinned.ts';
 import { type Pin, type Search, loadPin, loadPins, onPinsChange, savePin, searchId } from './storage.ts';
 
@@ -72,10 +71,10 @@ export function onPinToast(listener: (toast: PinToast) => void) {
 // pinning in place of another, say so in a toast with Undo, which puts back whatever was pinned
 // before (see pinToastText). A plain pin says nothing, but for a cable car's bell (`bell`, see
 // lib/eggs.ts), which has nothing to undo. A map's sheet holds this from when it opened, so the pin it replaces
-// is read as it is now. `routes` names the vehicle a pin replaces.
-export function changePin(search: Search, next: Pin | null, routes?: Record<string, Route>, bell = false) {
+// is read as it is now.
+export function changePin(search: Search, next: Pin | null, bell = false) {
   const previous = loadPin(search);
   setPin(search, next);
-  const text = pinToastText(previous, next, routes, bell);
+  const text = pinToastText(previous, next, bell);
   if (text) toastListener?.({ text, about: next ? 'pin' : 'unpin', ...(previous ? { undo: () => setPin(search, previous) } : {}) });
 }

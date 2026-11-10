@@ -14,8 +14,8 @@ import { PinnedTag, StatusTag } from './StatusTag.tsx';
 import { useSettings } from '../settings.tsx';
 
 const HIDDEN = {
-  short: { tag: 'Under min', spoken: 'shorter than your minimum' },
-  long: { tag: 'Over max', spoken: 'longer than your maximum' },
+  short: { tag: 'Too short', spoken: 'shorter than your minimum' },
+  long: { tag: 'Too long', spoken: 'longer than your maximum' },
   soon: { tag: 'Too soon', spoken: 'leaves before you can reach it' },
 };
 

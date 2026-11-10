@@ -1,5 +1,4 @@
 import { useState } from 'preact/hooks';
-import type { Route } from '../../shared/api.ts';
 import type { ToastMessage } from './components/Toast.tsx';
 import { useShownAgain } from './layers.ts';
 import type { ViewAlert } from './lib/alerts.ts';
@@ -30,7 +29,7 @@ export function useSearchRecords(search: Search, show: Show) {
     dismissedIds: new Set(dismissed.map(({ id }) => id)),
     // Pinning from a row or a map's sheet. Unpinning, and pinning in place of another, say so with
     // Undo (see changePin).
-    pinByRider: (next: Pin | null, routes: Record<string, Route> | undefined, bell = false) => changePin(search, next, routes, bell),
+    pinByRider: (next: Pin | null, bell = false) => changePin(search, next, bell),
     // Saved by `name`, in the color of its line, or removed with its name, color and settings,
     // which Undo puts back in its place.
     toggleSaved: (name: string, lineColor: string | null) => {

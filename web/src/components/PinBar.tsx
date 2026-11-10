@@ -320,7 +320,7 @@ function TripFeed({ pin, name: savedName, dismissed, shown, open, onReport, onTo
     open,
     onToggle,
     onClose,
-    onUnpin: () => changePin(search, null, data?.routes),
+    onUnpin: () => changePin(search, null),
   };
   const stale = data ? liveNote(feed, live.fresh, polled.settled) : null;
   const second = pinned?.second;
@@ -388,7 +388,7 @@ function TripFeed({ pin, name: savedName, dismissed, shown, open, onReport, onTo
       .join(' ');
 
     // The map's sheet can unpin the trip, and pin it again.
-    const sheetPin: PinAction = { pinned: true, label: pinLabel(...(first ? [[routes[first.route], first.on!.at] as const] : []), [routes[leg2.route], leg2.on!.at]), set: (on) => changePin(search, on ? pin : null, routes, on && ringsBell(pin, data)) };
+    const sheetPin: PinAction = { pinned: true, label: pinLabel(...(first ? [[routes[first.route], first.on!.at] as const] : []), [routes[leg2.route], leg2.on!.at]), set: (on) => changePin(search, on ? pin : null, on && ringsBell(pin, data)) };
     const map = pinMap(phase, trip, {
       routes,
       ...(colorOf ? { colorOf } : {}),
@@ -420,10 +420,14 @@ function TripFeed({ pin, name: savedName, dismissed, shown, open, onReport, onTo
         return (
           <Step key={step} at={leg2.on!.at} scheduled={false}>
             <span class="tf-pinbar__step">
-              <span>
-                Board <RouteChip route={routes[leg2.route]} {...(colorOf ? { color: colorOf(leg2.route) } : {})} />{' '}
-                {transfer !== null && (missed ? <b class="tf-pinbar__missed tf-nowrap">Missed by {transferText(-transfer)}</b> : <b class="tf-nowrap">{transferText(transfer)} transfer</b>)}
-              </span>
+              <Dots
+                parts={[
+                  <>
+                    Board <RouteChip route={routes[leg2.route]} {...(colorOf ? { color: colorOf(leg2.route) } : {})} />
+                  </>,
+                  transfer !== null && (missed ? <b class="tf-pinbar__missed">Missed by {transferText(-transfer)}</b> : <b>{transferText(transfer)} transfer</b>),
+                ]}
+              />
             </span>
             {/* The walk there, a step up, names the stop already. */}
             <Dots class="tf-l2" parts={[<StatusTag status={statusAt(leg2.on!.at, now, leg2.on!.delay, leg2.live, leg2.canceled, leg2.notStarted)} plain />, !walk && `at ${stopName(leg2.on!)}`]} />
@@ -545,10 +549,10 @@ function StopFeed({ pin, name: savedName, dismissed, shown, open, onReport, onTo
     open,
     onToggle,
     onClose,
-    onUnpin: () => changePin(search, null, data?.routes),
+    onUnpin: () => changePin(search, null),
   };
   if (note) return <BarView {...frame} spoken={`Pinned arrival at ${name}. ${note}`} verb={null} num={null} unit={null} l2={[note]} />;
-  const sheetPin: PinAction = { pinned: true, label: pinLabel([route, at]), set: (on) => changePin(search, on ? pin : null, data?.routes, on && ringsBell(pin, data)) };
+  const sheetPin: PinAction = { pinned: true, label: pinLabel([route, at]), set: (on) => changePin(search, on ? pin : null, on && ringsBell(pin, data)) };
   // Alerts about its stop or its route, counted and said as a pinned trip's are. Not once it has
   // gone or is canceled, when they no longer matter to the rider.
   const alerts = data && !ended && !canceled ? arrivalAlerts(data.alerts, arrival?.route ?? pin.arrival?.route, pin.second.board, dismissed) : [];

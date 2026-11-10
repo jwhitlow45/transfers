@@ -29,7 +29,7 @@ export function JourneyList({ data, now, toLabel }: JourneyListProps) {
   if (ahead.length === 0) {
     return (
       <EmptyState title="No way there in the next few hours">
-        <div class="tf-muted">Nothing these agencies run gets there with up to three changes.</div>
+        <div class="tf-muted">Nothing gets there with three changes or fewer.</div>
       </EmptyState>
     );
   }
@@ -73,7 +73,7 @@ function JourneyCard({ journey, data, now, toLabel, open, onToggle }: {
   const rides = journey.legs.filter((leg): leg is RideLeg => leg.kind === 'ride');
   const changes = Math.max(0, rides.length - 1);
   const length = Math.round((journey.arrives - journey.leaves) / 60);
-  const kind = rides.length === 0 ? 'Walk all the way' : changes === 0 ? 'No changes' : `${changes} change${changes === 1 ? '' : 's'}`;
+  const kind = rides.length === 0 ? 'walk all the way' : changes === 0 ? 'no changes' : `${changes} change${changes === 1 ? '' : 's'}`;
   // When to set off follows the first vehicle, and arriving the last. The band has no Scheduled
   // tag, so either from the schedule alone is marked here (see approx), and never says "now".
   const leavesScheduled = rides[0]?.live === false;
@@ -84,7 +84,7 @@ function JourneyCard({ journey, data, now, toLabel, open, onToggle }: {
   const leaveIn = leavesScheduled || leavesNotStarted ? Math.max(1, minutesUntil(journey.leaves, now)) : minutesUntil(journey.leaves, now);
   const scheduledWord = (scheduled: boolean) => (scheduled ? ', scheduled' : '');
   const spoken =
-    `${leaveIn < 1 ? 'Leave now' : `Leave in ${leavesNotStarted ? 'at least ' : ''}${leaveIn} minute${leaveIn === 1 ? '' : 's'}`}, at ${clock(journey.leaves)}${scheduledWord(leavesScheduled)}, arrive ${clock(journey.arrives)}${scheduledWord(arrivesScheduled)}, ${length} minutes${scheduledWord(lengthScheduled)}, ${kind.toLowerCase()}` +
+    `${leaveIn < 1 ? 'Leave now' : `Leave in ${leavesNotStarted ? 'at least ' : ''}${leaveIn} minute${leaveIn === 1 ? '' : 's'}`}, at ${clock(journey.leaves)}${scheduledWord(leavesScheduled)}, arrive ${clock(journey.arrives)}${scheduledWord(arrivesScheduled)}, ${length} minutes${scheduledWord(lengthScheduled)}, ${kind}` +
     (rides.length > 0 ? `, by ${rides.map((ride) => (data.routes[ride.route] ? spokenRoute(data.routes[ride.route]!) : 'vehicle')).join(', then ')}` : '') +
     '.';
   // When each step starts: a ride when its vehicle leaves, and a walk when the rider sets off, or

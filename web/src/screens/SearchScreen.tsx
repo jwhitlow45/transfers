@@ -1,6 +1,6 @@
 import { Toward } from '../components/Whole.tsx';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import type { Route, SearchResponse, StopResponse, TripResponse } from '../../../shared/api.ts';
+import type { SearchResponse, StopResponse, TripResponse } from '../../../shared/api.ts';
 import { apiUrl, getJson } from '../api.ts';
 import { Collapse } from '../components/Collapse.tsx';
 import { DataCredit } from '../components/DataCredit.tsx';
@@ -537,7 +537,7 @@ export function SearchScreen() {
                     canMoveUp={index > 0}
                     canMoveDown={index < saved.length - 1}
                     pin={pins.find((pin) => searchId(pin.search) === search.id) ?? null}
-                    onPin={(pin, routes, bell) => changePin(search, pin, routes, bell)}
+                    onPin={(pin, bell) => changePin(search, pin, bell)}
                     onReport={report}
                     onEdit={(change) => editSaved(search.id, change)}
                     onColorless={(lineColor) => {
@@ -593,8 +593,8 @@ function HowItWorks({ open: openAtFirst }: { open: boolean }) {
           Pick the stop where you start, then the route you want to catch or the stop you are going to. With nothing typed, From lists the stops near you.
         </p>
         <p>
-          Catching a route, Transfers shows its next few departures you can make, and under each one every vehicle from your stop that gets you there in time, with how long
-          each transfer is. A stop has two tabs. Trips shows the ways to get there: the routes that go straight there, or when none does, every way there with one transfer,
+          For a route, Transfers shows its next few departures you can make. Under each is every vehicle from your stop that gets you there in time, and how long each
+          transfer is. For a stop there are two tabs. Trips shows the ways to get there: the routes that go straight there, or when none does, every way there with one transfer,
           soonest there first, and trips with more changes when nothing simpler works. Transfers shows what you can catch at that stop. The page opens on Transfers when a route
           already takes you there, and on Trips otherwise.
         </p>
@@ -632,7 +632,7 @@ function SavedTrip({ search, now, dismissed, pulls, editing, onMove, canMoveUp, 
   canMoveDown: boolean;
   // The trip pinned for this search, if any.
   pin: Pin | null;
-  onPin: (pin: Pin | null, routes: Record<string, Route> | undefined, bell: boolean) => void;
+  onPin: (pin: Pin | null, bell: boolean) => void;
   onReport: Report;
   onEdit: (change: { name: string; color: string | undefined }) => void;
   onColorless: (lineColor: string | null) => void;
@@ -646,7 +646,7 @@ function SavedTrip({ search, now, dismissed, pulls, editing, onMove, canMoveUp, 
   const summary = summarize(search, data, live.now, dismissed);
   const next = summary.next;
   const pinned = pin !== null && next !== null && samePin(pin, next.pin);
-  const togglePin = (on: boolean) => next && onPin(on ? next.pin : null, data?.routes, on && ringsBell(next.pin, data));
+  const togglePin = (on: boolean) => next && onPin(on ? next.pin : null, on && ringsBell(next.pin, data));
   useEffect(() => {
     if (!search.color && data) onColorless(summary.lineColor);
   }, [Boolean(data), search.color]);

@@ -1,6 +1,5 @@
 import { deepStrictEqual, strictEqual } from 'node:assert/strict';
 import { test } from 'node:test';
-import { clock } from '../format.ts';
 import type { Connection, Departure, PinnedTrip, TripResponse } from '../../../shared/api.ts';
 import { pinOf, pinToastText, pinnedDestination, pinnedEnd, pinnedFor, pinnedNow, pinnedPhase, pinnedTransfer, samePin, scheduledAt, steadyPinned, unpinTiming } from './pinned.ts';
 
@@ -176,23 +175,19 @@ test("a trip pinned from the results before the server's first answer keeps thos
   deepStrictEqual(pinnedNow({ ...pin, last }, data, undefined).pinned?.second?.on, last.second.on);
 });
 
-test('pinning says so, and in place of what was pinned before, a trip by its first vehicle and an arrival by its own', () => {
-  const routes = { 'BA:Yellow': { key: 'BA:Yellow', agency: 'BA', name: 'Yellow' }, 'SF:48': { key: 'SF:48', agency: 'SF', name: '48' } } as unknown as TripResponse['routes'];
+test('pinning says so, and that it replaced what was pinned before, by kind', () => {
   const pinnedTrip = { second: { trip: 'SF:m3', board: 'SF:13477' }, at: 817, ends: 827, last: trip };
   const arrival = { second: { trip: 'SF:m4', board: 'SF:13477' }, at: 900, ends: 960, arrival: { route: 'SF:48', headsign: 'Potrero' } };
   // A plain pin has no toast: the pin bar appearing is the feedback.
-  strictEqual(pinToastText(null, pinnedTrip, routes), null);
+  strictEqual(pinToastText(null, pinnedTrip), null);
   // A cable car's bell is the one thing a plain pin says.
-  strictEqual(pinToastText(null, pinnedTrip, routes, true), 'Ding ding!');
-  strictEqual(pinToastText(pinnedTrip, pinnedTrip, routes, true), null);
-  strictEqual(pinToastText(pinnedTrip, pinnedTrip, routes), null);
-  strictEqual(pinToastText(pinnedTrip, null, routes), 'Unpinned');
-  strictEqual(pinToastText(null, null, routes), null);
-  strictEqual(pinToastText(pinnedTrip, arrival, routes, true), `Ding ding! Pinned in place of the BART at ${clock(800)}`);
-  strictEqual(pinToastText(arrival, pinnedTrip, routes), `Pinned in place of the 48 at ${clock(960)}`);
-  // Without the routes, it says what kind of pin it was.
-  strictEqual(pinToastText(arrival, pinnedTrip, undefined), 'Pinned in place of the arrival pinned before');
-  strictEqual(pinToastText(pinnedTrip, arrival, undefined), 'Pinned in place of the trip pinned before');
+  strictEqual(pinToastText(null, pinnedTrip, true), 'Ding ding!');
+  strictEqual(pinToastText(pinnedTrip, pinnedTrip, true), null);
+  strictEqual(pinToastText(pinnedTrip, pinnedTrip), null);
+  strictEqual(pinToastText(pinnedTrip, null), 'Unpinned');
+  strictEqual(pinToastText(null, null), null);
+  strictEqual(pinToastText(pinnedTrip, arrival, true), 'Ding ding! Replaced pinned trip');
+  strictEqual(pinToastText(arrival, pinnedTrip), 'Replaced pinned arrival');
 });
 
 test("a trip pinned on a stop's trips tab ends at the stop, whatever destination was sent along", () => {

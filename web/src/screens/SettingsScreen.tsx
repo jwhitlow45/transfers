@@ -129,7 +129,7 @@ export function SettingsScreen() {
           {settings.autoUnpin && (
             <MinutesSlider
               label="Unpin this long after it ends"
-              help="Until then the trip stays at the top of its results"
+              help="Until then it stays at the top of every page"
               value={settings.unpinAfter}
               max={MAX_UNPIN_MINUTES}
               step={5}
@@ -170,7 +170,7 @@ export function SettingsScreen() {
           {/* Plain names for what each shows (J, 2026-10-13), the same words the outage sheets use. */}
           <div class="tf-setting">
             <div class="tf-setting__label">Elevator outages</div>
-            <div class="tf-setting__help">Marks elevators out of service at BART stations on your trip and at a station whose arrivals you open, each opening what BART says about it. Muni's outages come from its service alerts, with the other notices.</div>
+            <div class="tf-setting__help">Marks elevators out of service at BART stations on your trip, or at a station whose arrivals you open. Tap one to see what BART says. Muni's outages show with its other service alerts.</div>
             <div class="tf-filters">
               <Toggle pressed={settings.elevatorOutages} onToggle={() => update({ elevatorOutages: !settings.elevatorOutages })}>
                 Show elevator outages
@@ -179,7 +179,7 @@ export function SettingsScreen() {
           </div>
           <div class="tf-setting">
             <div class="tf-setting__label">Escalator outages</div>
-            <div class="tf-setting__help">Marks escalators out of service at BART stations on your trip and at a station whose arrivals you open, each opening what BART says about it.</div>
+            <div class="tf-setting__help">Marks escalators out of service at BART stations on your trip, or at a station whose arrivals you open. Tap one to see what BART says.</div>
             <div class="tf-filters">
               <Toggle pressed={settings.escalatorOutages} onToggle={() => update({ escalatorOutages: !settings.escalatorOutages })}>
                 Show escalator outages
@@ -188,7 +188,7 @@ export function SettingsScreen() {
           </div>
           <div class="tf-setting">
             <div class="tf-setting__label">Time for elevators</div>
-            <div class="tf-setting__help">Allows 3 more minutes to change at BART and Muni Metro stations, for waiting for and riding elevators, unless you set your own minimum.</div>
+            <div class="tf-setting__help">Adds 3 minutes to each change at BART and Muni Metro stations, for waiting for and riding elevators, unless you set your own minimum.</div>
             <div class="tf-filters">
               <Toggle pressed={settings.stepFree} onToggle={() => update({ stepFree: !settings.stepFree })}>
                 Add 3 minutes at stations
