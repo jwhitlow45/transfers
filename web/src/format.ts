@@ -12,8 +12,14 @@ export const minutesUntil = (unixSeconds: number, nowMs: number) => Math.floor((
 // Whole minutes since a time gone by, rounded down as well.
 export const minutesSince = (unixSeconds: number, nowMs: number) => Math.floor((nowMs - unixSeconds * 1000) / 60_000);
 
-// "Now" within a minute, or the minutes, kept on one line with their unit.
-export const untilText = (minutes: number) => (minutes < 1 ? 'Now' : `${minutes}\u00a0min`);
+// "Now" within a minute, or the minutes, kept on one line with their unit. A vehicle yet to leave
+// the first stop of its trip reads "19+ min" (see atLeast).
+export const untilText = (minutes: number, notStarted = false) => (notStarted ? `${atLeast(minutes)}\u00a0min` : minutes < 1 ? 'Now' : `${minutes}\u00a0min`);
+
+// Minutes to a vehicle yet to leave the first stop of its trip, as "19+": the feed times it as if
+// it leaves there on time, so it comes then at the soonest, and often later (J, 2026-11-09). At
+// least one, as it cannot be arriving now.
+export const atLeast = (minutes: number) => `${Math.max(1, minutes)}+`;
 
 // A value worked out from the schedule alone, with no live prediction in it, reads "~38" (J,
 // 2026-10-14). Where a Scheduled tag already sits beside a vehicle's time, its time and countdown
@@ -23,10 +29,12 @@ export const approx = (text: string, scheduled: boolean) => (scheduled ? `~${tex
 export const approxMinutes = (minutes: number, scheduled: boolean) => (scheduled ? approx(String(Math.max(1, minutes)), true) : String(minutes));
 
 // A countdown column's words for a time to come: `soon` over "Now" within a minute, or `lead` over
-// its minutes (see Countdown), which a time from the schedule alone marks as such.
-export function countdownTo(at: number, nowMs: number, lead: string, soon: string, scheduled = false) {
+// its minutes (see Countdown), which a time from the schedule alone, or a vehicle yet to leave the
+// first stop of its trip, marks as such.
+export function countdownTo(at: number, nowMs: number, lead: string, soon: string, mark: 'scheduled' | 'notStarted' | null = null) {
   const minutes = minutesUntil(at, nowMs);
-  if (scheduled) return { lead, num: approxMinutes(minutes, true), unit: 'min' };
+  if (mark === 'scheduled') return { lead, num: approxMinutes(minutes, true), unit: 'min' };
+  if (mark === 'notStarted') return { lead, num: atLeast(minutes), unit: 'min' };
   return minutes < 1 ? { lead: soon, num: 'Now', unit: null } : { lead, num: String(minutes), unit: 'min' };
 }
 

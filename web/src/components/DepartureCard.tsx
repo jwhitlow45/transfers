@@ -1,7 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import type { Departure, Group } from '../../../shared/api.ts';
 import { IconFold, IconPin } from '../icons/ui.tsx';
-import { approx, approxMinutes, clock, minutesSince, minutesUntil, untilText } from '../format.ts';
+import { approx, approxMinutes, atLeast, clock, minutesSince, minutesUntil, untilText } from '../format.ts';
 import { pinOf, sameRun } from '../lib/pinned.ts';
 import { type CardContext, hintKey, listedConnections, tripSeconds, tripStart } from '../lib/results.ts';
 import { useSettings } from '../settings.tsx';
@@ -57,7 +57,8 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
       </div>
     );
   }
-  const status = statusOf(departure.delay, departure.live);
+  const status = statusOf(departure.delay, departure.live, false, departure.notStarted);
+  const notStarted = departure.notStarted === true;
   const minutes = minutesUntil(departure.at, context.now);
   // Left where the rider boards it, on its way to the destination: kept so a rider on it can
   // still pin it.
@@ -85,15 +86,15 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
   const listed = listedConnections(departure, context.going);
   const countdowns = departure.connections
     .filter(({ departs }) => departs * 1000 >= context.now)
-    .map(({ departs, live }) => ({ minutes: Math.max(0, minutesUntil(departs, context.now)), scheduled: !live }));
+    .map(({ departs, live, notStarted }) => ({ minutes: Math.max(0, minutesUntil(departs, context.now)), scheduled: !live, notStarted: notStarted === true }));
   const gone = count - countdowns.length;
-  const shownCountdowns = countdowns.map(({ minutes, scheduled }) => approxMinutes(minutes, scheduled)).join(', ');
-  const spokenCountdowns = countdowns.map(({ minutes, scheduled }) => (scheduled ? `scheduled ${Math.max(1, minutes)}` : minutes)).join(', ');
+  const shownCountdowns = countdowns.map(({ minutes, scheduled, notStarted }) => (notStarted ? atLeast(minutes) : approxMinutes(minutes, scheduled))).join(', ');
+  const spokenCountdowns = countdowns.map(({ minutes, scheduled, notStarted }) => (scheduled ? `scheduled ${Math.max(1, minutes)}` : notStarted ? `at least ${Math.max(1, minutes)}` : minutes)).join(', ');
   const summary = [`${count} ${noun[count === 1 ? 0 : 1]}`, gone > 0 && `${gone} departed`, countdowns.length > 0 && `in ${shownCountdowns}\u00a0min`].filter(Boolean).join(' · ');
   const spokenDestination = destinationName && departure.destination ? `${destinationName} ${clock(departure.destination)}${destinationScheduled ? ' scheduled' : ''}` : null;
   const spoken =
     `${route ? spokenRoute(route) : 'Departure'} at ${clock(departure.at)}, ${status.label}, ` +
-    `${away ? away.toLowerCase() : `${minutes} minutes away`}${toward ? `, ${toward.toLowerCase()}` : ''}${spokenDestination ? `, reaches ${spokenDestination}` : ''}${tripMinutes !== null ? `, a ${tripScheduled ? 'scheduled ' : ''}${tripMinutes} minute trip` : ''}.` +
+    `${away ? away.toLowerCase() : notStarted ? `at least ${Math.max(1, minutes)} minutes away` : `${minutes} minutes away`}${toward ? `, ${toward.toLowerCase()}` : ''}${spokenDestination ? `, reaches ${spokenDestination}` : ''}${tripMinutes !== null ? `, a ${tripScheduled ? 'scheduled ' : ''}${tripMinutes} minute trip` : ''}.` +
     (walk ? '' : ` ${count} connecting ${noun[count === 1 ? 0 : 1]}${expanded ? '' : [gone > 0 && `, ${gone} already left`, countdowns.length > 0 && `, leaving in ${spokenCountdowns} minutes`].filter(Boolean).join('')}.`);
   // The spoken summary says everything shown, so screen readers skip the shown text and reach
   // only the links in it.
@@ -104,14 +105,14 @@ export function DepartureCard({ departure, group, next, boardName, alightName, n
             arrival line usually needs on a phone. */}
         <span class="tf-band__right" aria-hidden="true">
           {/* Read top to bottom: "12 min away", "Now arriving", "Just left", "3 min ago". */}
-          <span class="tf-band__in">{left ? (ago < 1 ? 'Just' : `${ago}\u00a0min`) : untilText(minutes)}</span>
+          <span class="tf-band__in">{left ? (ago < 1 ? 'Just' : `${ago}\u00a0min`) : untilText(minutes, notStarted)}</span>
           {walkPinned ? (
             <span class="tf-band__inlabel tf-band__inlabel--pinned">
               <IconPin filled size={13} />
               Pinned
             </span>
           ) : (
-            <span class="tf-band__inlabel">{left ? (ago < 1 ? 'left' : 'ago') : minutes < 1 ? 'arriving' : 'away'}</span>
+            <span class="tf-band__inlabel">{left ? (ago < 1 ? 'left' : 'ago') : minutes < 1 && !notStarted ? 'arriving' : 'away'}</span>
           )}
           {!walk && (
             <span class="tf-band__chev">

@@ -93,6 +93,7 @@ export function pinnedFor(pin: Pin, data: TripResponse, dest: string | undefined
       off: end && departure.destination !== undefined ? { stop: end, at: departure.destination, delay: null, ...(departure.destinationScheduled ? { scheduled: true } : {}) } : null,
       live: departure.live,
       ...(departure.canceled ? { canceled: true } : {}),
+      ...(departure.notStarted ? { notStarted: true } : {}),
     };
     if (!pin.first) return { second };
     const connection = departure.connections.find(({ trip, alight }) => trip === pin.first!.trip && (alight ?? group.alight) === pin.first!.alight);
@@ -104,6 +105,7 @@ export function pinnedFor(pin: Pin, data: TripResponse, dest: string | undefined
       on: { stop: connection.board ?? data.from, at: connection.departs, delay: connection.departDelay },
       off: { stop: pin.first.alight, at: connection.arrives, delay: connection.arriveDelay, ...(connection.arrivesScheduled ? { scheduled: true } : {}) },
       live: connection.live,
+      ...(connection.notStarted ? { notStarted: true } : {}),
     };
     return { first, second };
   }

@@ -1,6 +1,6 @@
 import { deepStrictEqual, strictEqual } from 'node:assert/strict';
 import { test } from 'node:test';
-import { approx, approxMinutes, clockOrDay, countdownTo, isOwlHour, isOwlRoute, untilText, walkMinutes } from './format.ts';
+import { approx, approxMinutes, atLeast, clockOrDay, countdownTo, isOwlHour, isOwlRoute, untilText, walkMinutes } from './format.ts';
 
 // Wednesday 2026-10-07 10:00 PM Pacific.
 const now = Date.parse('2026-10-08T05:00:00Z');
@@ -37,8 +37,13 @@ test('a countdown says its word over Now within a minute, and its minutes after'
 test('a value from the schedule alone reads "~", and its minutes never say less than one', () => {
   deepStrictEqual([approx('6:40\u00a0PM', true), approx('6:40\u00a0PM', false)], ['~6:40\u00a0PM', '6:40\u00a0PM']);
   deepStrictEqual([approxMinutes(0, true), approxMinutes(12, true), approxMinutes(0, false)], ['~1', '~12', '0']);
-  deepStrictEqual(countdownTo(now / 1000 + 20, now, 'Off in', 'Getting off', true), { lead: 'Off in', num: '~1', unit: 'min' });
+  deepStrictEqual(countdownTo(now / 1000 + 20, now, 'Off in', 'Getting off', 'scheduled'), { lead: 'Off in', num: '~1', unit: 'min' });
   deepStrictEqual(countdownTo(now / 1000 + 20, now, 'Off in', 'Getting off'), { lead: 'Getting off', num: 'Now', unit: null });
+});
+
+test('minutes to a vehicle yet to leave the first stop of its trip read "19+", and never "Now"', () => {
+  deepStrictEqual([atLeast(19), atLeast(0), untilText(19, true), untilText(0, true)], ['19+', '1+', '19+\u00a0min', '1+\u00a0min']);
+  deepStrictEqual(countdownTo(now / 1000 + 20, now, 'Board in', 'Boarding', 'notStarted'), { lead: 'Board in', num: '1+', unit: 'min' });
 });
 
 test("a walk takes the rider's own speed, and at least a minute", () => {

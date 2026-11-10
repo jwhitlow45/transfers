@@ -53,7 +53,7 @@ import { chipLabel, dayLabel, stopLabel } from '../view.ts';
 import { AppLink } from '../components/AppLink.tsx';
 import { topUnderHeader } from '../lib/scroll.ts';
 import { tripPath } from '../../../shared/paths.ts';
-import { Approx, Flag } from '../components/StatusTag.tsx';
+import { Approx, Flag, Plus } from '../components/StatusTag.tsx';
 import { rowKey } from '../components/RouteCard.tsx';
 
 // A picked stop or route. `short` is what headers and lists call it.
@@ -781,7 +781,7 @@ function SavedStop({ search, now, pulls, onMove, canMoveUp, canMoveDown, onRepor
   const live = useHomeLive(polled, `saved:${search.id}`, pulls, onReport, now);
   const serverNow = live.now;
   const rows = (data?.rows ?? [])
-    .map((row) => ({ row, times: row.arrivals.map(({ at, live }) => ({ minutes: minutesUntil(at, serverNow), scheduled: !live })).filter(({ minutes }) => minutes >= 0).slice(0, 3) }))
+    .map((row) => ({ row, times: row.arrivals.map(({ at, live, notStarted }) => ({ minutes: minutesUntil(at, serverNow), scheduled: !live, notStarted: notStarted === true })).filter(({ minutes }) => minutes >= 0).slice(0, 3) }))
     .filter(({ times }) => times.length > 0)
     .slice(0, 3);
   return (
@@ -815,13 +815,14 @@ function SavedStop({ search, now, pulls, onMove, canMoveUp, canMoveDown, onRepor
                   {row.headsign}
                 </span>
                 <span class="tf-saved-stop__in">
-                  {times.map(({ minutes, scheduled }, index) => (
+                  {times.map(({ minutes, scheduled, notStarted }, index) => (
                     <Fragment key={index}>
                       {index > 0 && ', '}
-                      <Approx scheduled={scheduled}>{scheduled ? Math.max(1, minutes) : minutes < 1 ? 'Now' : minutes}</Approx>
+                      <Approx scheduled={scheduled}>{scheduled || notStarted ? Math.max(1, minutes) : minutes < 1 ? 'Now' : minutes}</Approx>
+                      {notStarted && <Plus />}
                     </Fragment>
                   ))}
-                  {(times.at(-1)!.scheduled || times.at(-1)!.minutes >= 1) && ' min'}
+                  {(times.at(-1)!.scheduled || times.at(-1)!.notStarted || times.at(-1)!.minutes >= 1) && ' min'}
                 </span>
               </span>
             );

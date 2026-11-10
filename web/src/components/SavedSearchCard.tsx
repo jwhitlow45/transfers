@@ -5,7 +5,7 @@ import { IconPencil, IconPin, IconTransfer } from '../icons/ui.tsx';
 import { SAVED_COLORS } from '../lib/color.ts';
 import type { NextConnection } from '../lib/summary.ts';
 import { RouteChip } from './RouteChip.tsx';
-import { Approx, Flag, StatusTag } from './StatusTag.tsx';
+import { Approx, Flag, Plus, StatusTag } from './StatusTag.tsx';
 import { typeWithoutUndo } from '../typing.ts';
 import { keepInPlace } from '../lib/scroll.ts';
 
@@ -164,7 +164,8 @@ export function SavedTripBody({ chain, named, windowText, next, loading, severeA
   // No times to show, as the phone is offline and has none stored.
   unavailable?: boolean;
 }) {
-  const now = next !== null && next.minutes < 1;
+  // A vehicle yet to leave the first stop of its trip cannot be arriving now (see atLeast).
+  const now = next !== null && next.minutes < 1 && !next.notStarted;
   return (
     <>
       {(named || windowText || loading) && (
@@ -188,7 +189,10 @@ export function SavedTripBody({ chain, named, windowText, next, loading, severeA
           <span class="tf-row__lead">{!next ? (loading ? 'Checking' : unavailable ? 'Offline' : 'No connection') : now ? 'Arriving' : 'Arrives in'}</span>
           {next && (
             <span class="tf-saved__amount">
-              <span class="tf-row__num">{now ? 'Now' : next.minutes}</span>
+              <span class="tf-row__num">
+                {now ? 'Now' : next.notStarted ? Math.max(1, next.minutes) : next.minutes}
+                {next.notStarted && <Plus />}
+              </span>
               {!now && <span class="tf-row__unit">min</span>}
             </span>
           )}
@@ -200,10 +204,11 @@ export function SavedTripBody({ chain, named, windowText, next, loading, severeA
           {next && next.later.length > 0 && (
             <span class="tf-saved__then">
               then{' '}
-              {next.later.map(({ minutes, scheduled }, index) => (
+              {next.later.map(({ minutes, scheduled, notStarted }, index) => (
                 <Fragment key={index}>
                   {index > 0 && ', '}
-                  <Approx scheduled={scheduled}>{scheduled ? Math.max(1, minutes) : minutes}</Approx>
+                  <Approx scheduled={scheduled}>{scheduled || notStarted ? Math.max(1, minutes) : minutes}</Approx>
+                  {notStarted && <Plus />}
                 </Fragment>
               ))}
               <span class="tf-sr"> min</span>

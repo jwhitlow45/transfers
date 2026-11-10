@@ -1,5 +1,5 @@
 import type { Connection, Departure } from '../../../shared/api.ts';
-import { approx, clock, minutesSince, minutesUntil, walkText } from '../format.ts';
+import { approx, atLeast, clock, minutesSince, minutesUntil, walkText } from '../format.ts';
 import { pinOf, sameRun } from '../lib/pinned.ts';
 import { type CardContext, isTight } from '../lib/results.ts';
 import { IconPin } from '../icons/ui.tsx';
@@ -39,8 +39,10 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
   // Left From already: kept so a rider on it can still pin it.
   const left = connection.departs * 1000 < context.now;
   const ago = minutesSince(connection.departs, context.now);
-  const now = !left && minutes < 1;
-  const status = statusOf(connection.departDelay, connection.live);
+  // A vehicle yet to leave the first stop of its trip cannot be arriving now (see atLeast).
+  const notStarted = !left && connection.notStarted === true;
+  const now = !left && minutes < 1 && !notStarted;
+  const status = statusOf(connection.departDelay, connection.live, false, connection.notStarted);
   // Where the rider gets off, and so the transfer, can be the schedule's even on a live vehicle.
   const offScheduled = !connection.live || Boolean(connection.arrivesScheduled);
   const transferScheduled = offScheduled || !departure.live;
@@ -61,7 +63,7 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
   // The walk to the second vehicle, said where the rider gets off (J, 2026-10-08). None at its stop.
   const walk = walkText(connection.walkMeters ?? walkMeters, useSettings().settings.walkSpeed);
   const spoken =
-    `${route ? spokenRoute(route) : 'Vehicle'}, ${left ? (ago < 1 ? 'just left' : `left ${ago} minute${ago === 1 ? '' : 's'} ago`) : now ? 'arriving now' : `arrives in ${minutes} minute${minutes === 1 ? '' : 's'}`}, ${clock(connection.departs)}, ${status.label}. ` +
+    `${route ? spokenRoute(route) : 'Vehicle'}, ${left ? (ago < 1 ? 'just left' : `left ${ago} minute${ago === 1 ? '' : 's'} ago`) : now ? 'arriving now' : notStarted ? `arrives in at least ${Math.max(1, minutes)} minutes` : `arrives in ${minutes} minute${minutes === 1 ? '' : 's'}`}, ${clock(connection.departs)}, ${status.label}. ` +
     `${boardAt ? `${boardAt}. ` : ''}Off at ${offAt ?? alightName} ${clock(connection.arrives)}${offScheduled ? ', scheduled' : ''}.${walk ? ` ${walk}.` : ''} ${transferScheduled ? 'Scheduled ' : ''}${connection.transfer} minute transfer${tight ? ', tight' : ''}${hidden ? `, hidden because it is ${hidden.spoken}` : ''}.`;
   const secondEnd = departure.destination ?? departure.at + 8 * 60;
   // The vehicle's time opens its map with where the rider gets on and where they get off to
@@ -102,7 +104,7 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
             'Arrives in'
           )
         }
-        num={left ? (ago < 1 ? 'Now' : ago) : now ? 'Now' : minutes}
+        num={left ? (ago < 1 ? 'Now' : ago) : now ? 'Now' : notStarted ? atLeast(minutes) : minutes}
         unit={left ? (ago >= 1 ? 'min ago' : null) : now ? null : 'min'}
       />
       {/* The spoken summary says everything shown, so screen readers skip the shown text and

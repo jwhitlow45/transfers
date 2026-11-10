@@ -204,6 +204,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-status--nodata { color: var(--muted); }
 .tf-status--scheduled { color: var(--muted); border-style: dashed; border-color: var(--muted); }
 .tf-status--canceled { color: var(--late); background: var(--late-tint); }
+.tf-status--waiting { color: var(--text); }
 /* plain-text variant used inside connection rows */
 .tf-status-text { font-size: var(--text-base); font-weight: var(--weight-label); }
 .tf-status-text--late { color: var(--late); } .tf-status-text--early { color: var(--early); }
@@ -212,11 +213,13 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-flag--late { background: var(--late-tint); color: var(--late); }
 .tf-flag--caution { background: var(--caution-tint); color: var(--caution); }
 .tf-status-text--ontime { color: var(--ok); } .tf-status-text--nodata { color: var(--muted); }
+.tf-status-text--waiting { color: var(--text); }
 /* Drawn as the band's Scheduled chip, so it reads as the same mark in every row. */
 .tf-status-text--scheduled { padding: 0 5px; color: var(--muted); border: 1px dashed currentColor; }
 /* on the reversed band */
 .tf-band .tf-status--ontime { color: var(--on-field); }
 .tf-band .tf-status--nodata { color: var(--on-field-muted); }
+.tf-band .tf-status--waiting { color: var(--on-field); }
 .tf-band .tf-status--scheduled { color: var(--on-field); border-color: var(--on-field); }
 
 /* ── search ────────────────────────────────────────── */

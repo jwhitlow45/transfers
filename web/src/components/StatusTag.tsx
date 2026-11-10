@@ -25,6 +25,15 @@ export function Approx({ scheduled, children }: { scheduled: boolean; children: 
   );
 }
 
+// The "+" `atLeast` gives a vehicle yet to leave the first stop of its trip, for text a screen
+// reader reads as shown, which then hears "or more" after the minutes.
+export const Plus = () => (
+  <>
+    <span aria-hidden="true">+</span>
+    <span class="tf-sr"> or more</span>
+  </>
+);
+
 // A short warning on a tint of its tone, such as a saved trip's alerts or a pinned card's old
 // times. `class` places it.
 export function Flag({ tone, class: className, children }: { tone: 'late' | 'caution'; class: string; children: ComponentChildren }) {

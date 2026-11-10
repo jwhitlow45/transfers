@@ -32,12 +32,13 @@ export function StopPinCard({ pin, data, now, open, offline, stale, onPin }: {
   const gone = !canceled && data !== null && now / 1000 > at;
   const stop = data?.stops[pin.second.board];
   const name = vehicleAt(route, at);
-  const status = arrival && !canceled ? statusOf(arrival.delay, arrival.live) : null;
-  const countdown = arrivalCountdown(at, now, { canceled, known: data !== null });
+  const status = arrival && !canceled ? statusOf(arrival.delay, arrival.live, false, arrival.notStarted) : null;
+  const notStarted = arrival?.notStarted === true && !canceled;
+  const countdown = arrivalCountdown(at, now, { canceled, known: data !== null, notStarted });
   // As a pinned trip's card says when the answer for it cannot place its vehicles.
   const note = !data ? waitingNote(offline) : lost ? 'Times for this arrival are not available right now.' : null;
   const label = open?.label ?? shortStopName(stop, pin.search?.fromLabel ?? '');
-  const spoken = [`Pinned arrival at ${label}.`, canceled ? `The ${name} is canceled.` : gone ? `The ${name} has come.` : `The ${name}, ${countdown.unit ? `in ${minutes} minutes` : 'arriving now'}.`, status && `${status.label}.`, pin.arrival && `Toward ${pin.arrival.headsign}.`]
+  const spoken = [`Pinned arrival at ${label}.`, canceled ? `The ${name} is canceled.` : gone ? `The ${name} has come.` : `The ${name}, ${notStarted ? `in at least ${Math.max(1, minutes)} minutes` : countdown.unit ? `in ${minutes} minutes` : 'arriving now'}.`, status && `${status.label}.`, pin.arrival && `Toward ${pin.arrival.headsign}.`]
     .filter(Boolean)
     .join(' ');
   return (

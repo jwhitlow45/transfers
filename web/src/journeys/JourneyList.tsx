@@ -75,10 +75,12 @@ function JourneyCard({ journey, data, now, toLabel, open, onToggle }: {
   const leavesScheduled = rides[0]?.live === false;
   const arrivesScheduled = rides.at(-1)?.live === false;
   const lengthScheduled = leavesScheduled || arrivesScheduled;
-  const leaveIn = leavesScheduled ? Math.max(1, minutesUntil(journey.leaves, now)) : minutesUntil(journey.leaves, now);
+  // Setting off for a first vehicle yet to leave the first stop of its trip is then at the soonest.
+  const leavesNotStarted = rides[0]?.notStarted === true;
+  const leaveIn = leavesScheduled || leavesNotStarted ? Math.max(1, minutesUntil(journey.leaves, now)) : minutesUntil(journey.leaves, now);
   const scheduledWord = (scheduled: boolean) => (scheduled ? ', scheduled' : '');
   const spoken =
-    `${leaveIn < 1 ? 'Leave now' : `Leave in ${leaveIn} minute${leaveIn === 1 ? '' : 's'}`}, at ${clock(journey.leaves)}${scheduledWord(leavesScheduled)}, arrive ${clock(journey.arrives)}${scheduledWord(arrivesScheduled)}, ${length} minutes${scheduledWord(lengthScheduled)}, ${kind.toLowerCase()}` +
+    `${leaveIn < 1 ? 'Leave now' : `Leave in ${leavesNotStarted ? 'at least ' : ''}${leaveIn} minute${leaveIn === 1 ? '' : 's'}`}, at ${clock(journey.leaves)}${scheduledWord(leavesScheduled)}, arrive ${clock(journey.arrives)}${scheduledWord(arrivesScheduled)}, ${length} minutes${scheduledWord(lengthScheduled)}, ${kind.toLowerCase()}` +
     (rides.length > 0 ? `, by ${rides.map((ride) => (data.routes[ride.route] ? spokenRoute(data.routes[ride.route]!) : 'vehicle')).join(', then ')}` : '') +
     '.';
   return (
@@ -89,7 +91,7 @@ function JourneyCard({ journey, data, now, toLabel, open, onToggle }: {
           <span class="tf-sr">{spoken}</span>
         </button>
         <div class="tf-row tf-journey__row" aria-hidden="true">
-          <Countdown {...countdownTo(journey.leaves, now, 'Leave in', 'Leave now', leavesScheduled)} />
+          <Countdown {...countdownTo(journey.leaves, now, 'Leave in', 'Leave now', leavesScheduled ? 'scheduled' : leavesNotStarted ? 'notStarted' : null)} />
           <div class="tf-row__main">
             <div class="tf-row__line">
               {approx(clock(journey.leaves), leavesScheduled)} – {approx(clock(journey.arrives), arrivesScheduled)}
@@ -165,7 +167,7 @@ function Step({ leg, data, lastRide }: { leg: JourneyLeg; data: JourneysResponse
           <span class="tf-journey__from">from {name(leg.from)}</span>
         </span>
         <span class="tf-journey__ride-sub">
-          Toward {leg.toward} · <StatusTag status={statusOf(leg.departDelay, leg.live)} plain />
+          Toward {leg.toward} · <StatusTag status={statusOf(leg.departDelay, leg.live, false, leg.notStarted)} plain />
         </span>
         <span class="tf-journey__ride-sub">
           {leg.stops} stop{leg.stops === 1 ? '' : 's'} · off at {name(leg.to)} <Approx scheduled={!leg.live}>{clock(leg.arrives)}</Approx>

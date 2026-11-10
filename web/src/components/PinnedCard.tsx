@@ -117,16 +117,16 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
         <RouteChip route={data.routes[leg.route]} color={colorOf(leg.route)} hidden />
         {link(stop)}
       </div>
-      <StatusTag status={statusOf(stop.delay, leg.live, leg.canceled)} plain hidden />
+      <StatusTag status={statusOf(stop.delay, leg.live, leg.canceled, leg.notStarted)} plain hidden />
     </>
   );
   // Everything shown, in one sentence for screen readers, who then reach only the links.
   const spoken = [
     `Pinned trip. ${status}.`,
-    first && `${label(first)} at ${clock(first.on!.at)}, ${statusOf(first.on!.delay, first.live, first.canceled).label}.`,
+    first && `${label(first)} at ${clock(first.on!.at)}, ${statusOf(first.on!.delay, first.live, first.canceled, first.notStarted).label}.`,
     first?.off && `Off at ${name(first.off)} ${clock(first.off.at)}${scheduledAt(first, first.off) ? ', scheduled' : ''}.${walk ? ` ${walk}.` : ''}`,
     transfer !== null && (missed ? `Transfer missed by ${-transfer} minutes${transferScheduled ? ', scheduled' : ''}.` : `${transferScheduled ? 'Scheduled ' : ''}${transfer} minute transfer.`),
-    `${label(second)} at ${clock(second.on.at)} from ${name(second.on)}, ${statusOf(second.on.delay, second.live, second.canceled).label}.`,
+    `${label(second)} at ${clock(second.on.at)} from ${name(second.on)}, ${statusOf(second.on.delay, second.live, second.canceled, second.notStarted).label}.`,
     second.off && `Arrives at ${name(second.off)} ${clock(second.off.at)}${scheduledAt(second, second.off) ? ', scheduled' : ''}.`,
   ]
     .filter(Boolean)
@@ -217,26 +217,32 @@ export function PinnedCard({ pin, pinned, data, destination, colorOf, pct, now, 
 // Getting off and arriving are marked when they come from the schedule alone (see approx), as a
 // vehicle's tag speaks only for when it is boarded.
 function countdownOf(phase: PinnedPhase, first: PinnedLeg | null, second: PinnedLeg, now: number) {
-  const until = (stop: PinnedStop, lead: string, soon: string, scheduled = false) => countdownTo(stop.at, now, lead, soon, scheduled);
+  const until = (stop: PinnedStop, lead: string, soon: string, mark: 'scheduled' | 'notStarted' | null = null) => countdownTo(stop.at, now, lead, soon, mark);
+  // Boarding a vehicle yet to leave the first stop of its trip comes then at the soonest (see atLeast).
+  const boarding = (leg: PinnedLeg) => (leg.notStarted ? 'notStarted' : null);
+  const getting = (leg: PinnedLeg, stop: PinnedStop) => (scheduledAt(leg, stop) ? 'scheduled' : null);
   switch (phase) {
     case 'wait':
-      return until(first!.on!, 'Leaves in', 'Leaving');
+      return until(first!.on!, 'Leaves in', 'Leaving', boarding(first!));
     case 'ride':
-      return until(first!.off!, 'Off in', 'Getting off', scheduledAt(first!, first!.off!));
+      return until(first!.off!, 'Off in', 'Getting off', getting(first!, first!.off!));
     case 'change':
-      return until(second.on!, 'Board in', 'Boarding');
+      return until(second.on!, 'Board in', 'Boarding', boarding(second));
     case 'ride-second':
-      return until(second.off!, 'Arrive in', 'Arriving', scheduledAt(second, second.off!));
+      return until(second.off!, 'Arrive in', 'Arriving', getting(second, second.off!));
     case 'done':
       return { lead: 'Done', num: '✓', unit: null };
   }
 }
 
 function statusText(phase: PinnedPhase, first: PinnedLeg | null, second: PinnedLeg, name: (stop: PinnedStop) => string, label: (leg: PinnedLeg) => string, now: number) {
-  // A time from the schedule alone is never "now", as its countdown shows "~1 min" (see approx).
-  const due = (stop: PinnedStop, scheduled = false) => {
+  // A time from the schedule alone is never "now", as its countdown shows "~1 min" (see approx), nor
+  // is a vehicle yet to leave the first stop of its trip (see atLeast).
+  const due = (stop: PinnedStop, scheduled = false, notStarted = false) => {
     const minutes = minutesUntil(stop.at, now);
-    return scheduled ? `in ${Math.max(1, minutes)} min, scheduled` : minutes < 1 ? 'now' : `in ${minutes} min`;
+    if (scheduled) return `in ${Math.max(1, minutes)} min, scheduled`;
+    if (notStarted) return `in at least ${Math.max(1, minutes)} min, as it has not left the start of its route`;
+    return minutes < 1 ? 'now' : `in ${minutes} min`;
   };
   // A trip left pinned past its day says which day it was.
   const when = (stop: PinnedStop) => {
@@ -245,11 +251,11 @@ function statusText(phase: PinnedPhase, first: PinnedLeg | null, second: PinnedL
   };
   switch (phase) {
     case 'wait':
-      return `${label(first!)} leaves ${name(first!.on!)} ${due(first!.on!)}`;
+      return `${label(first!)} leaves ${name(first!.on!)} ${due(first!.on!, false, first!.notStarted)}`;
     case 'ride':
       return `Off at ${name(first!.off!)} ${due(first!.off!, scheduledAt(first!, first!.off!))}`;
     case 'change':
-      return `${label(second)} leaves ${name(second.on!)} ${due(second.on!)}`;
+      return `${label(second)} leaves ${name(second.on!)} ${due(second.on!, false, second.notStarted)}`;
     case 'ride-second':
       return `At ${name(second.off!)} ${due(second.off!, scheduledAt(second, second.off!))}`;
     case 'done':

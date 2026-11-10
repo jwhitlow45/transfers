@@ -5,7 +5,7 @@ import { TimeLink, type PinAction } from '../track.tsx';
 import { pinLabel, statusOf, vehicleAt } from '../view.ts';
 import { PinToggle } from './PinToggle.tsx';
 import { RouteChip } from './RouteChip.tsx';
-import { StatusTag } from './StatusTag.tsx';
+import { Plus, StatusTag } from './StatusTag.tsx';
 
 // Nearby's rows and a stop's page share these: a card for each route and direction boarding at a
 // stop, and a line for each arrival.
@@ -62,8 +62,18 @@ export function ArrivalItem({ arrival, route, chip, stop, board, now, pin }: {
           {clock(arrival.at)}
         </TimeLink>
       </span>
-      <StatusTag status={statusOf(arrival.delay, arrival.live)} plain />
-      <span class="tf-near__in">{untilText(minutesUntil(arrival.at, now))}</span>
+      <StatusTag status={statusOf(arrival.delay, arrival.live, false, arrival.notStarted)} plain />
+      <span class="tf-near__in">
+        {arrival.notStarted ? (
+          <>
+            {Math.max(1, minutesUntil(arrival.at, now))}
+            <Plus />
+            &nbsp;min
+          </>
+        ) : (
+          untilText(minutesUntil(arrival.at, now))
+        )}
+      </span>
     </li>
   );
 }

@@ -83,7 +83,8 @@ test("until the answer comes, a live vehicle's time from the schedule alone stay
             live: true,
             destination: 827,
             destinationScheduled: true,
-            connections: [{ trip: 'BA:b3', route: 'BA:Yellow', departs: 800, departDelay: 0, arrives: 808, arriveDelay: null, live: true, arrivesScheduled: true, transfer: 9 }],
+            notStarted: true,
+            connections: [{ trip: 'BA:b3', route: 'BA:Yellow', departs: 800, departDelay: 0, arrives: 808, arriveDelay: null, live: true, arrivesScheduled: true, notStarted: true, transfer: 9 }],
           },
         ],
       },
@@ -95,6 +96,8 @@ test("until the answer comes, a live vehicle's time from the schedule alone stay
     { stop: 'SF:13500', at: 827, delay: null, scheduled: true },
   ]);
   deepStrictEqual([scheduledAt(pinned.first!, pinned.first!.on!), scheduledAt(pinned.first!, pinned.first!.off!), scheduledAt({ ...pinned.second!, live: false }, pinned.second!.on!)], [false, true, true]);
+  // As does a vehicle yet to leave the first stop of its trip.
+  deepStrictEqual([pinned.first!.notStarted, pinned.second!.notStarted], [true, true]);
 });
 
 test("an answer for the same vehicles on another day's run, or at another stop, is not this pin's, however little of the trip it knows", () => {
