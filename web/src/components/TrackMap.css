@@ -136,6 +136,16 @@
   .tf-track__frame .tf-map-hint--touch { display: none; }
   .tf-track__frame .tf-map-hint--keys { bottom: calc(var(--map-inset, 0px) + var(--tm-2) + var(--tm-tap) + var(--tm-2)); }
 }
+/* On a narrow phone at about 200% text, a row has no room for a number beside a name: the number
+   and its unit take a line of their own above the row's text, as on the pages (see styles.css),
+   and where a vehicle heads goes under its chip. */
+@container (max-width: 11rem) {
+  .tf-track__row { grid-template-columns: minmax(0, 1fr); }
+  .tf-track__num { flex-direction: row; align-items: baseline; gap: var(--tm-2); }
+  .tf-track .tf-track__veh-head { flex-wrap: wrap; }
+  /* The time bar has room for every other label. */
+  .tf-tripbar__tick:nth-child(even) { display: none; }
+}
 /* The sheet's own gaps hold at their 100% size too, as the pages' do at large text (see
    styles.css). By the screen's width, as a container cannot be styled by its own query. */
 @media (max-width: 18em) {
