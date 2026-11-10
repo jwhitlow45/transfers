@@ -22,9 +22,9 @@ import { type Pin, type Search, loadDismissed, loadSaved } from '../storage.ts';
 import { type PinAction, TimeLink } from '../track.tsx';
 import { chipLabel, pinLabel, shortStopName, statusAt, vehicleAt } from '../view.ts';
 import { AppLink } from './AppLink.tsx';
-import { Num } from './Countdown.tsx';
+import { Clock, Num } from './Countdown.tsx';
 import { RouteChip } from './RouteChip.tsx';
-import { Approx, StatusTag, Warnline } from './StatusTag.tsx';
+import { StatusTag, Warnline } from './StatusTag.tsx';
 import { Dots } from './Dots.tsx';
 import { Toast, useToast } from './Toast.tsx';
 import './PinBar.css';
@@ -575,14 +575,11 @@ const AlertCount = ({ count }: { count: number }) => (
 );
 
 // One step of the trip in the open panel: its time where a row has its number, then what to do.
-// What to do is one run of text inside its .tf-pinbar__step, which centers a single line on the time.
 function Step({ at, scheduled, children }: { at: number; scheduled: boolean; children: ComponentChildren }) {
   return (
     <div class="tf-row" role="listitem">
       <span class="tf-num">
-        <span class="tf-num__clock">
-          <Approx scheduled={scheduled}>{clock(at)}</Approx>
-        </span>
+        <Clock at={at} scheduled={scheduled} />
       </span>
       <span class="tf-rb">
         <span class="tf-rb__main">{children}</span>

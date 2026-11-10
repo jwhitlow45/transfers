@@ -592,13 +592,15 @@ function LegList({ leg, stops, labels, now, role, notes, name }: {
       <li key={index} class={`tf-track__row${kind ? ` tf-track__row--mark tf-track__row--${kind}` : ''}${passed ? ' tf-track__row--passed' : ''}`}>
         {/* A canceled trip comes with no times. */}
         <When at={leg.path[index]!.at ?? null} passed={passed} notStarted={notStarted && leg.span[0] + index > 0} now={now} />
-        <span class="tf-track__row-main">
-          <span class="tf-track__stop-name">{shortStopName(stops[leg.path[index]!.stop], leg.path[index]!.stop)}</span>
-          {second.length > 0 && (
-            <Dots class="tf-track__row-note" parts={second} />
-          )}
+        <span class="tf-track__rb">
+          <span class="tf-track__row-main">
+            <span class="tf-track__stop-name">{shortStopName(stops[leg.path[index]!.stop], leg.path[index]!.stop)}</span>
+            {second.length > 0 && (
+              <Dots class="tf-track__row-note" parts={second} />
+            )}
+          </span>
+          <Clock at={leg.path[index]!.at ?? null} passed={passed} now={now} />
         </span>
-        <Clock at={leg.path[index]!.at ?? null} passed={passed} now={now} />
       </li>
     );
   };

@@ -2,7 +2,7 @@ import { Fragment } from 'preact';
 import { useId, useState } from 'preact/hooks';
 import type { Journey, JourneyLeg, JourneysResponse, RideLeg } from '../../../shared/journeys.ts';
 import { Collapse } from '../components/Collapse.tsx';
-import { Num } from '../components/Countdown.tsx';
+import { Clock, Num } from '../components/Countdown.tsx';
 import { EmptyState } from '../components/EmptyState.tsx';
 import { Dots } from '../components/Dots.tsx';
 import { RouteChip } from '../components/RouteChip.tsx';
@@ -144,9 +144,7 @@ function JourneyCard({ journey, data, now, toLabel, open, onToggle }: {
           ))}
           <li class="tf-row">
             <span class="tf-num">
-              <span class="tf-num__clock">
-                <Approx scheduled={arrivesScheduled}>{clock(journey.arrives)}</Approx>
-              </span>
+              <Clock at={journey.arrives} scheduled={arrivesScheduled} />
             </span>
             <span class="tf-step__t">
               <span>
@@ -169,9 +167,7 @@ function Step({ leg, at, scheduled, data, lastRide }: { leg: JourneyLeg; at: num
     return (
       <li class="tf-row">
         <span class="tf-num">
-          <span class="tf-num__clock">
-            <Approx scheduled={scheduled}>{clock(at)}</Approx>
-          </span>
+          <Clock at={at} scheduled={scheduled} />
         </span>
         <span class="tf-step__t">
           <span>
@@ -188,11 +184,9 @@ function Step({ leg, at, scheduled, data, lastRide }: { leg: JourneyLeg; at: num
   return (
     <li class="tf-row">
       <span class="tf-num">
-        <span class="tf-num__clock">
-          <TimeLink trip={leg.trip} stop={data.stops[leg.from]} title={vehicleAt(route, leg.departs)} marks={[{ stop: leg.from, kind: 'yours' }, { stop: leg.to, kind: lastRide ? 'destination' : 'transfer' }]}>
-            {clock(leg.departs)}
-          </TimeLink>
-        </span>
+        <TimeLink trip={leg.trip} stop={data.stops[leg.from]} title={vehicleAt(route, leg.departs)} marks={[{ stop: leg.from, kind: 'yours' }, { stop: leg.to, kind: lastRide ? 'destination' : 'transfer' }]}>
+          <Clock at={leg.departs} />
+        </TimeLink>
       </span>
       <div>
         <span class="tf-step__t">

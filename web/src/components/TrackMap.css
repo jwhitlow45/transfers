@@ -88,18 +88,24 @@
 .tf-track__stops { list-style: none; margin: 0; padding: 0; background: var(--tm-card); }
 .tf-track__stops > li + li { border-top: 1px solid var(--divider); }
 /* The row every list in the app shares: the number the rider acts on in the left column, then
-   the text, then the trailing time. */
-.tf-track__row { display: grid; grid-template-columns: var(--tm-numcol) minmax(0, 1fr) auto; column-gap: var(--tm-3); align-items: center; padding: var(--tm-3); }
+   the text, then the trailing time, each starting on the row's first line. */
+.tf-track__row { display: grid; grid-template-columns: var(--tm-numcol) minmax(0, 1fr); column-gap: var(--tm-3); align-items: start; padding: var(--tm-3); }
 .tf-track__num { display: flex; flex-direction: column; }
 .tf-track__num-n { font-size: var(--tm-num); font-weight: 700; line-height: 1.75rem; letter-spacing: -.01em; white-space: nowrap; }
+/* The rows of one list share one size of number, as the pages' do (see styles.css). */
+.tf-track__stops:has(.tf-num__n--long) .tf-track__num-n { font-size: var(--fs-lead, 1.375rem); }
 .tf-track__num-u { font-size: var(--tm-meta); line-height: 1.3; color: var(--muted); }
-.tf-track__num--passed { font-size: var(--tm-meta); font-weight: 700; color: var(--muted); }
-.tf-track__row-main { display: flex; flex-direction: column; min-width: 0; }
-.tf-track__stop-name { overflow-wrap: anywhere; }
-/* One line of it is as tall as the number beside it, and a long name's lines sit as a title's do. */
-.tf-track__row--mark .tf-track__stop-name { display: flex; align-items: center; min-height: 1.75rem; font-size: var(--tm-title); font-weight: 700; line-height: 1.3; }
+.tf-track__num--passed { font-size: var(--tm-meta); font-weight: 700; line-height: 1.75rem; color: var(--muted); }
+/* The text, then the trailing time, which drops under the text where the two cannot share a
+   line, as a page row's trailing item does. */
+.tf-track__rb { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0 var(--tm-3); min-width: 0; }
+.tf-track__row-main { flex: 1 1 8rem; display: flex; flex-direction: column; min-width: 0; }
+/* One line of a name is as tall as the number beside it, and a long name's lines sit as its own
+   text's do, so a row is as tall whether or not it is one of the rider's stops. */
+.tf-track__stop-name { padding-block: calc((1.75rem - 1.4em) / 2); overflow-wrap: anywhere; text-wrap: pretty; }
+.tf-track__row--mark .tf-track__stop-name { padding-block: calc((1.75rem - 1.3em) / 2); font-size: var(--tm-title); font-weight: 700; line-height: 1.3; }
 .tf-track__row-note { color: var(--muted); }
-.tf-track__time { color: var(--muted); white-space: nowrap; }
+.tf-track__time { margin-left: auto; padding-block: calc((1.75rem - 1.4em) / 2); color: var(--muted); white-space: nowrap; }
 /* Where the rider gets on is the row they look for, so it sits on the tint a pinned row has, with
    an accent edge. Once the vehicle has left it, the tint goes and the edge turns gray: still the
    rider's stop, but no longer one to catch it at. */
@@ -114,19 +120,10 @@
 .tf-track__more-text { display: inline-flex; align-items: center; gap: var(--tm-2); }
 .tf-track__stops--between { border-top: 1px solid var(--divider); }
 
-/* At about 150% text and up (the sheet under 16rem across), the fixed number column would squeeze each row's text into a narrow
-   strip. It shrinks to fit its number, and spacing stays at its 100% size, so the text gets the
-   width. */
+/* At about 150% text and up (the sheet under 16rem across), spacing stays at its 100% size, as
+   the pages' does (see styles.css). */
 @container (max-width: 16rem) {
   .tf-track > * { --tm-1: 4px; --tm-2: 8px; --tm-3: 12px; --tm-4: 16px; --tm-5: 24px; }
-  .tf-track__row { grid-template-columns: auto minmax(0, 1fr); }
-  .tf-track__num { min-width: 1.5em; }
-  /* Rows of one list share the column their widest number needs, as the pages' rows do. */
-  .tf-track__stops { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--tm-3); }
-  .tf-track__stops > li { grid-column: 1 / -1; }
-  .tf-track__stops > .tf-track__row { grid-template-columns: subgrid; }
-  .tf-track__time { grid-column: 2; }
-  .tf-track__more { grid-template-columns: auto minmax(0, 1fr); }
 }
 /* The sheet's own gaps hold at their 100% size too, as the pages' do at large text (see
    styles.css). By the screen's width, as a container cannot be styled by its own query. */
@@ -138,7 +135,8 @@
 @container (max-width: 19rem) {
   .tf-tripbar__legend { flex-direction: column; flex-wrap: nowrap; }
 }
-/* On a narrow phone the number column gives a little of its width to the stop names. */
+/* On a narrow phone, and at large text, the number column gives a little of its width to the stop
+   names: as wide as its widest number, as on the pages (see --numcol in styles.css). */
 @container (max-width: 19rem) {
-  .tf-track > * { --tm-numcol: 3.25rem; }
+  .tf-track > * { --tm-numcol: 3.5rem; }
 }

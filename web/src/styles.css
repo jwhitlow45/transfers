@@ -267,20 +267,19 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-num { display: flex; flex-direction: column; min-width: 0; }
 .tf-num__n { font-size: var(--fs-num); font-weight: var(--weight-bold); line-height: 1.75rem; letter-spacing: -0.01em; white-space: nowrap; }
 /* Four characters or more, "100+" and "~125", are wider than the column at full size, so they are
-   set a size down, on the same line. A word, "Now" and "Left", is too on a narrow phone (below). */
-:is(.tf-num__n, .tf-track__num-n).tf-num__n--long { font-size: var(--fs-lead); }
-/* Kept whole: "32 min ago" may reach a few px into the room before the text column. */
+   set a size down, on the same line, and with them every number of their list, so the rows of one
+   list share one size. A word, "Now" and "Left", is too where the column is narrower (below). */
+:is(.tf-num__n, .tf-track__num-n).tf-num__n--long, :has(> .tf-row > .tf-num > .tf-num__n--long) > .tf-row > .tf-num > .tf-num__n { font-size: var(--fs-lead); }
 .tf-num__u { font-size: var(--fs-meta); line-height: 1.3; color: var(--muted); white-space: nowrap; }
-/* A clock time in the number column, where a step has no countdown. */
-.tf-num__clock { font-size: var(--fs-meta); font-weight: var(--weight-bold); line-height: 1.75rem; white-space: nowrap; }
-/* A list of steps shares one column for its clock times, the number column's width, so a step's
-   text starts where the text of the row above the list does. On a narrow phone (below) the column
-   is as much wider as the widest time needs, "~12:59 PM", so none runs into its step's text. */
-:is(.tf-steps, .tf-pinbar__steps) { display: grid; grid-template-columns: var(--numcol) minmax(0, 1fr); column-gap: var(--colgap); }
-:is(.tf-steps, .tf-pinbar__steps) > .tf-row { grid-column: 1 / -1; grid-template-columns: subgrid; }
-/* The list, not each row, keeps the content line's padding, so the shared column starts on it. */
-.tf-pinbar__steps { padding-inline: var(--edge); }
-:is(.tf-steps, .tf-pinbar__steps) > .tf-row, .tf-pinbar__steps > .tf-row + .tf-row { padding-inline: 0; }
+/* A clock time in the number column, where a step has no countdown (see Clock): the time where a
+   row has its number, over "AM" or "PM" where it has its unit. At this size the widest, "~12:59",
+   fits the column on every phone, so a step's text starts where a row's does. */
+.tf-num__clock { font-size: var(--fs-body); font-weight: var(--weight-bold); line-height: 1.75rem; white-space: nowrap; }
+/* A time that opens a map keeps the two lines, and underlines the time alone. */
+.tf-num > .tf-time-link { display: flex; flex-direction: column; align-items: flex-start; text-decoration: none; }
+.tf-num > .tf-time-link > .tf-num__clock { text-decoration: inherit; text-decoration-line: underline; }
+/* A step's clock time and its first line of text share a baseline, however long the text. */
+:is(.tf-steps, .tf-pinbar__steps) > .tf-row { align-items: baseline; }
 /* The text, then the trailing item. At large text the trailing item drops under the text. */
 .tf-rb { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0 var(--colgap); min-width: 0; }
 .tf-rb__main { flex: 1 1 6rem; min-width: 0; }
@@ -864,12 +863,11 @@ button:disabled { opacity: .45; cursor: default; }
 
 /* ── narrow phones ─────────────────────────────────── */
 /* Under 360 px across, the number column gives a little of its width to the text beside it, on
-   every page, in the pin bar and in the live map's lists alike (see TrackMap.css). A word in it,
-   "Now" and "Left", is set a size down to fit, and under "Left" the unit drops its "ago". */
+   every page, in the pin bar and in the live map's lists alike (see TrackMap.css): as wide as the
+   widest number, "100+" a size down or "125" at full size. A word in it, "Now" and "Left", is set
+   a size down to fit. */
 @media (max-width: 359px) {
-  :root { --numcol: 3.25rem; }
-  .tf-num__ago { display: none; }
-  :is(.tf-steps, .tf-pinbar__steps) { grid-template-columns: minmax(var(--numcol), max-content) minmax(0, 1fr); }
+  :root { --numcol: 3.5rem; }
   /* A nearby stop's three ways on are each as wide as their words need, so "Transfer here" keeps
      to a line. */
   .tf-near__actions { grid-auto-columns: auto; }
@@ -877,18 +875,16 @@ button:disabled { opacity: .45; cursor: default; }
 }
 
 /* ── large text ────────────────────────────────────── */
-/* From about 150% text (under 18em across the screen), the fixed number column would squeeze
-   every row's text into a narrow strip. Spacing holds at its 100% size, and the column shrinks to
-   fit its number, so rows keep their shape and their text gets the width. */
+/* From about 150% text (under 18em across the screen), spacing holds at its 100% size, and the
+   number column is the narrow phone's, as wide as its widest number, so every list on a page, and
+   the pin bar over it, starts its text on one line, and that text gets the rest of the width. */
 @media (max-width: 18em) {
-  :root { --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; }
-  .tf-row { grid-template-columns: auto minmax(0, 1fr); }
-  .tf-num { min-width: 1.5em; }
-  /* Rows of one list share the column their widest number needs, so their text still starts on
-     one line down the list. */
-  :is([role="list"], .tf-near__times, .tf-steps, .tf-pinbar__steps):has(> .tf-row) { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--colgap); }
-  :is([role="list"], .tf-near__times, .tf-steps, .tf-pinbar__steps):has(> .tf-row) > * { grid-column: 1 / -1; }
-  :is([role="list"], .tf-near__times, .tf-steps, .tf-pinbar__steps) > .tf-row { grid-template-columns: subgrid; }
+  :root { --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --numcol: 3.5rem; }
+  :is(.tf-num__n, .tf-track__num-n).tf-num__n--word { font-size: var(--fs-lead); }
+  /* A step's clock time takes a line above its text, whole, as a clock reads: "10:47 PM". */
+  :is(.tf-steps, .tf-pinbar__steps) > .tf-row { grid-template-columns: minmax(0, 1fr); }
+  :is(.tf-steps, .tf-pinbar__steps) .tf-num, :is(.tf-steps, .tf-pinbar__steps) .tf-num > .tf-time-link { flex-direction: row; align-items: baseline; gap: 0.25em; }
+  :is(.tf-steps, .tf-pinbar__steps) .tf-num__u { font-size: var(--fs-body); font-weight: var(--weight-bold); line-height: 1.75rem; color: inherit; }
   /* A nearby stop's three ways on, and a suggestion's name and stop number, stack. */
   .tf-near__actions { grid-auto-flow: row; }
   .tf-near__actions .tf-btn-secondary + .tf-btn-secondary { border-left: 0; border-top: var(--border-hair) solid var(--divider); }
@@ -906,6 +902,6 @@ button:disabled { opacity: .45; cursor: default; }
 /* A narrow phone at about 200% text has no room for a number beside a time: the number and its
    unit take a line of their own above the row's text. */
 @media (max-width: 11em) {
-  .tf-row, :is([role="list"], .tf-near__times, .tf-steps, .tf-pinbar__steps) > .tf-row { grid-template-columns: minmax(0, 1fr); }
+  .tf-row { grid-template-columns: minmax(0, 1fr); }
   .tf-num { flex-direction: row; align-items: baseline; gap: var(--s2); }
 }

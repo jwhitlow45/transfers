@@ -84,24 +84,9 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
       <span class="tf-sr">{spoken}</span>
       {/* First, so what follows lies over it and takes no taps but its links' (see styles.css). */}
       <PinToggle pinned={pinned} label={label} onToggle={() => setPinned(!pinned)} />
-      {/* A vehicle gone says so in a word, "Left", over how long ago (J, 2026-11-09). */}
-      {/* On a narrow phone the column holds "32 min", and "ago" is left to "Left" above it. */}
-      <Num
-        n={left ? 'Left' : now ? 'Now' : notStarted ? atLeast(minutes) : minutes}
-        unit={
-          left ? (
-            ago < 1 ? (
-              'just now'
-            ) : (
-              <>
-                {ago}&nbsp;min<span class="tf-num__ago"> ago</span>
-              </>
-            )
-          ) : now ? null : (
-            'min'
-          )
-        }
-      />
+      {/* A vehicle gone says so in a word, "Left", over how long ago (J, 2026-11-09): "32 min",
+          which fits the column, as "Left" above it says it is past. */}
+      <Num n={left ? 'Left' : now ? 'Now' : notStarted ? atLeast(minutes) : minutes} unit={left ? (ago < 1 ? 'just now' : `${ago}\u00a0min`) : now ? null : 'min'} />
       {/* The spoken summary says everything shown, so screen readers skip the shown text and
           reach only the links in it. */}
       <div class="tf-rb">

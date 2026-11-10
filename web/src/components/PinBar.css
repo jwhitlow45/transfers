@@ -47,9 +47,10 @@
 .tf-pinbar__panel { position: absolute; z-index: 1; top: 100%; left: 0; right: 0; max-height: calc(100dvh - var(--pinbar-h, 3.5rem)); overflow-y: auto; padding-bottom: var(--s4); background: var(--pinned-bg); box-shadow: var(--pinned-edge), 0 8px 16px rgba(0, 0, 0, .2); border-top: var(--border-hair) solid var(--divider); outline: none; }
 .tf-pinbar__name { margin: 0; padding: var(--s3) var(--edge) var(--s1); }
 .tf-pinbar__name b { display: block; font-size: var(--fs-title); line-height: 1.3; overflow-wrap: anywhere; }
+/* Steps read as one list, so no line parts them, and they sit closer than a card's rows. */
 .tf-pinbar__steps > .tf-row, .tf-pinbar__steps > .tf-row + .tf-row { padding: var(--s2) var(--edge); border-top: 0; }
 /* One line of a step is as tall as its clock time, and a long one's lines sit as a title's do. */
-.tf-pinbar__step { display: flex; align-items: center; min-height: 1.75rem; font-size: var(--fs-title); line-height: 1.3; }
+.tf-pinbar__step { display: block; padding-block: calc((1.75rem - 1.3em) / 2); font-size: var(--fs-title); line-height: 1.3; }
 .tf-pinbar__step .tf-chip { vertical-align: middle; }
 .tf-pinbar__steps .tf-warnline { margin-top: var(--s1); font-size: var(--fs-body); }
 .tf-pinbar__panel .tf-pinbar__in > .tf-warnline { padding: var(--s1) var(--edge); }
