@@ -184,6 +184,10 @@ function drawLeg(schedule: Schedule, leg: Leg, project: (point: Point) => [numbe
   }
   const final = stretch.at(-1);
   if (final && line.at(-1) !== final) line.push(final);
+  // How late the vehicle is at the stop watched, as the results and pins count it: the feed's own
+  // delay where it gives one, or else its time there less the schedule's.
+  const [due, planned] = [expected.times[targetAt] ?? null, expected.scheduled[targetAt] ?? null];
+  const delay = !expected.timed || rt?.canceled ? null : (expected.reported[targetAt] ?? (due === null || planned === null ? null : due - planned));
   return {
     route: tables.route(schedule.route(pattern.route)),
     headsign: headingOf(schedule, pattern, trip.headsign || pattern.headsign),
@@ -209,6 +213,11 @@ function drawLeg(schedule: Schedule, leg: Leg, project: (point: Point) => [numbe
     ...(expected.timed ? {} : { scheduled: true as const }),
     stopsAway: coming ? targetAt - vehicleAt : null,
     passed: vehicleAt > targetAt,
+    delay,
+    ...(rt?.canceled ? { canceled: true as const } : {}),
+    // As in the results and pins: the feed still lists the trip's first stop, and the stop watched
+    // is past it. At the first stop itself, the time is when the vehicle leaves.
+    ...(expected.timed && expected.ahead === 0 && targetAt > 0 ? { notStarted: true as const } : {}),
   };
 }
 

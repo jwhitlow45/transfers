@@ -362,4 +362,12 @@ export type TrackLeg = {
   // position, or once it has gone past.
   stopsAway: number | null;
   passed: boolean;
+  // Seconds late at the stop watched, negative when early, as a result's row counts it. Null when
+  // the feed times none of the trip, or cancels it.
+  delay: number | null;
+  // The feed cancels the trip, whether or not the vehicle still reports where it is.
+  canceled?: true;
+  // The feed has the trip yet to leave its first stop, with the stop watched past it, so its times
+  // assume it leaves on time (see notStarted in server/engine/vehicles.ts).
+  notStarted?: true;
 };

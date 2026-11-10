@@ -352,3 +352,43 @@ test('opened from the boarding time, a map fitted after boarding follows the rid
     deepStrictEqual([pinned.span, lost.span, lost.targetIndex, beyond.span, beyond.targetIndex], [[3, 5], [3, 5], null, [3, 5], null]);
   }
 });
+
+test('each vehicle carries its delay at the stop watched, as the feed gives it or as its time implies', () => {
+  const track = (trips: TripSnapshot | null, stop = 'SF:104') => trackVehicle(schedule, { vehicles: null, trips }, { trip: 'SF:t1', stop }, EIGHT + 150);
+  // Two minutes late from stop 3 on, which carries to stop 4.
+  strictEqual(track(feed({ stops: [update('103', { delay: 120 })] })).delay, 120);
+  // The feed's own delay at the stop wins over its time less the schedule, as on a result's row.
+  strictEqual(track(feed({ stops: [update('104', { time: EIGHT + 240 + 95, delay: 60 })] })).delay, 60);
+  // A time alone gives the delay it implies, early here.
+  strictEqual(track(feed({ stops: [update('104', { time: EIGHT + 180 })] })).delay, -60);
+  strictEqual(track(feed({ stops: [update('103', { delay: 0 })] })).delay, 0);
+  // No delay without a time from the feed: no feed, a trip it only skips a stop of, or a canceled one.
+  deepStrictEqual([track(null).delay, track(feed({ stops: [update('105', { skipped: true })] })).delay], [null, null]);
+  const canceled = track(feed({ canceled: true, stops: [update('103', { delay: 120 })] }));
+  deepStrictEqual([canceled.delay, canceled.canceled], [null, true]);
+  strictEqual(track(feed({ stops: [update('103', { delay: 120 })] })).canceled, undefined);
+});
+
+test('a trip the feed has yet to leave its first stop says so, unless the rider watches that stop or the feed times nothing', () => {
+  const track = (trips: TripSnapshot | null, stop = 'SF:104') => trackVehicle(schedule, { vehicles: null, trips }, { trip: 'SF:t1', stop }, EIGHT - 300);
+  // The feed still lists stop 0, the trip's first, two minutes late.
+  const waiting = feed({ stops: [update('100', { delay: 120 }), update('104', { delay: 120 })] });
+  deepStrictEqual([track(waiting).notStarted, track(waiting).delay], [true, 120]);
+  // At the first stop itself the time is when it leaves.
+  strictEqual(track(waiting, 'SF:100').notStarted, undefined);
+  // It has left once the feed drops its first stop.
+  strictEqual(track(feed({ stops: [update('101', { delay: 120 })] })).notStarted, undefined);
+  // From the schedule alone, or listed with no time, nothing says whether it has left.
+  deepStrictEqual([track(null).notStarted, track(feed({ stops: [update('100', { skipped: true })] })).notStarted], [undefined, undefined]);
+  // A vehicle that reports where it is, still listed at its first stop, has not left either.
+  const parked = trackVehicle(schedule, { ...at({ lon: lon(0), stopId: '100' }), trips: waiting }, { trip: 'SF:t1', stop: 'SF:104' }, EIGHT - 300);
+  deepStrictEqual([parked.notStarted, parked.missing], [true, undefined]);
+});
+
+test('the vehicle the rider transfers to carries its own delay and whether it has left, at where they board it', () => {
+  const request = { trip: 'SF:t1', stop: 'SF:101', marks: ['SF:101', 'SF:102'], transfer: { trip: 'SF:l1', stop: 'SF:102' } };
+  const trips = feed({ stops: [update('100', { delay: 0 }), update('102', { delay: 180 })] }, 'SF:l1');
+  const response = trackVehicle(schedule, { ...at({ lon: lon(0.5), stopId: '101' }), trips }, request, EIGHT + 30);
+  deepStrictEqual([response.delay, response.notStarted], [null, undefined]);
+  deepStrictEqual([response.transfer!.delay, response.transfer!.notStarted], [180, true]);
+});
