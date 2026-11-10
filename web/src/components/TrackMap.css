@@ -86,7 +86,7 @@
 .tf-track__veh { display: flex; flex-direction: column; gap: var(--tm-2); }
 /* The chip keeps to the first line, with where the vehicle heads beside it, whose later lines
    step as a title's do (see .tf-l1 in styles.css). Its status follows as the next words. */
-.tf-track .tf-track__veh-head { display: flex; align-items: flex-start; gap: 0 var(--tm-2); margin: 0; font-size: var(--tm-title); font-weight: 700; line-height: 1.3; }
+.tf-track .tf-track__veh-head { display: flex; align-items: flex-start; gap: 0 var(--tm-2); margin: 0; font-size: var(--tm-title); font-weight: 700; line-height: 1.3; text-wrap: balance; }
 .tf-track__veh-head > .tf-chip { margin-block: calc((1.75rem - 1.5em) / 2); }
 .tf-track__veh-to { min-width: 0; padding-block: calc((1.75rem - 1.3em) / 2); overflow-wrap: break-word; }
 .tf-track__state { font-size: var(--tm-body); font-weight: 700; }
@@ -109,7 +109,7 @@
 .tf-track__row-main { flex: 1 1 8rem; display: flex; flex-direction: column; min-width: 0; }
 /* One line of a name is as tall as the number beside it, and a long name's lines sit as its own
    text's do, so a row is as tall whether or not it is one of the rider's stops. */
-.tf-track__stop-name { padding-block: calc((1.75rem - 1.4em) / 2); overflow-wrap: break-word; text-wrap: pretty; }
+.tf-track__stop-name { padding-block: calc((1.75rem - 1.4em) / 2); overflow-wrap: break-word; text-wrap: balance; }
 .tf-track__row--mark .tf-track__stop-name { padding-block: calc((1.75rem - 1.3em) / 2); font-size: var(--tm-title); font-weight: 700; line-height: 1.3; }
 .tf-track__row-note { color: var(--muted); }
 .tf-track__time { margin-left: auto; padding-block: calc((1.75rem - 1.4em) / 2); color: var(--muted); white-space: nowrap; }

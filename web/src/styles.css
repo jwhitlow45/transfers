@@ -126,7 +126,7 @@ body {
   text-wrap: pretty;
 }
 /* Names, headings and labels of a few words share them evenly between their lines. */
-:is(.tf-l1, .tf-group__title, .tf-card__name, .tf-chain__whole, .tf-section h2, .tf-setting__label, .tf-recent__label, .tf-pinbar__name b, .tf-toast__text, .tf-sheet__saved, .tf-result__name) { text-wrap: balance; }
+:is(.tf-l1, .tf-group__title, .tf-card__name, .tf-chain__whole, .tf-section h2, .tf-setting__label, .tf-recent__label, .tf-pinbar__name b, .tf-pinbar__tabname, .tf-pinbar__naming, .tf-field__shown, .tf-toast__text, .tf-sheet__saved, .tf-result__name, .tf-credit) { text-wrap: balance; }
 a { color: var(--accent-ink); text-underline-offset: 3px; }
 a:hover { color: var(--text); }
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
@@ -160,20 +160,18 @@ button:disabled { opacity: .45; cursor: default; }
 /* A phrase kept whole while it fits its line, and wrapped only when wider than one, so it never
    runs past the screen, at any text size. */
 /* Set by its top, so one that does wrap keeps its first line, not its last, on the line it is in. */
-.tf-nowrap, .tf-keep { display: inline-block; max-width: 100%; vertical-align: top; }
+.tf-nowrap { display: inline-block; max-width: 100%; vertical-align: top; text-indent: 0; }
 /* A part, a step or a name, once it is measured to fit its line, keeps to one (see Whole). What
    it holds is then as wide as its words, so the measure is of them. */
 .tf-whole--fits { white-space: nowrap; }
-.tf-whole--fits :is(.tf-keep, .tf-nowrap) { max-width: none; }
-/* A link's underline runs through the groups of its name. */
-:is(.tf-stop-link, .tf-time-link) :is(.tf-whole, .tf-keep) { text-decoration: inherit; }
+.tf-whole--fits .tf-nowrap { max-width: none; }
 /* Parts of one line with a middle dot between them (see Dots). The parts run on as words do. The
    room between two is a space made as wide as a dot needs, which a line break takes with it, and
    each part after the first hangs its dot in that room. The line is cut off at its own left edge,
    so a part that starts a line shows none: no line ends or starts with a dot. The cut stops a few
    px short of the text, to leave a focused link its ring. Named with its tag, to outweigh the
    display of whichever line it also is (.tf-l2, .tf-group__how). */
-:is(span, div, p).tf-dots { --dot: 0.8em; display: block; clip-path: inset(-100vh -100vw -100vh -3px); text-wrap: wrap; }
+:is(span, div, p).tf-dots { --dot: 0.8em; display: block; clip-path: inset(-100vh -100vw -100vh -3px); text-wrap: pretty; }
 .tf-dots__gap { word-spacing: calc(var(--dot) - 0.25em); }
 .tf-dots__part { position: relative; }
 .tf-dots__part--next::before { content: "·" / ""; position: absolute; left: calc(-1 * var(--dot)); width: var(--dot); text-align: center; }
@@ -330,8 +328,11 @@ button:disabled { opacity: .45; cursor: default; }
    than run past it. */
 .tf-to { --arrow: 1.3em; display: block; min-width: 0; padding-left: var(--arrow); text-indent: calc(-1 * var(--arrow)); overflow-wrap: break-word; }
 .tf-to__arrow { display: inline-block; width: var(--arrow); text-indent: 0; }
-/* A box inside an indented line has no indent of its own. */
-.tf-keep, .tf-nowrap { text-indent: 0; }
+/* At large text the name's later lines run under the arrow, as its longest word needs the line. */
+@media (max-width: 18em) {
+  .tf-to { padding-left: 0; text-indent: 0; }
+  .tf-to__arrow { width: auto; margin-right: 0.3em; }
+}
 :is(.tf-l1, .tf-group__title) > * { min-width: 0; }
 .tf-l2 { display: block; font-size: var(--fs-body); line-height: 1.4; color: var(--muted); }
 .tf-l2 strong { color: var(--text); }
@@ -340,9 +341,10 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-end__u { font-size: var(--fs-meta); line-height: 1.3; color: var(--muted); }
 .tf-end > svg { color: var(--muted); }
 /* The band's chevron sits beside "away", not under it, so the countdown is no taller than the
-   time and status beside it, and every line below those runs the band's full width. */
-.tf-band__end { flex-flow: row wrap; justify-content: flex-end; align-items: center; column-gap: var(--s1); }
-.tf-band__end > .tf-end__n { flex-basis: 100%; }
+   time and status beside it, and every line below those runs the band's full width. A grid, so
+   the block is as wide as its wider line and no wider, which leaves the time its room. */
+.tf-band__end { display: grid; grid-template-columns: auto auto; justify-content: end; justify-items: end; align-items: center; column-gap: var(--s1); }
+.tf-band__end > .tf-end__n, .tf-band__end > .tf-end__u:last-child { grid-column: 1 / -1; }
 .tf-row--tight .tf-end__n { color: var(--late); }
 /* A row whose vehicle has left: its countdown counts up, quieter, and it can still be pinned. */
 .tf-row--left .tf-num__n { color: var(--muted); }
@@ -549,6 +551,8 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-chain__derived { position: relative; }
 /* A stop's own page names it in full, on as many lines as that takes. */
 .tf-chain__whole { min-width: 0; overflow-wrap: break-word; }
+/* At large text a stop's name has the header's width, and the live status the line under it. */
+@media (max-width: 18em) { .tf-chain:has(> .tf-chain__whole) { flex-basis: 100%; } }
 /* Where wrapping would take three lines: the rest on the second line, both names trimmed in
    proportion to their length, so each keeps as much as the other. */
 .tf-chain__rest--stacked { display: flex; flex-basis: 100%; align-items: center; gap: var(--s1); min-width: 0; white-space: nowrap; }
@@ -642,9 +646,9 @@ button:disabled { opacity: .45; cursor: default; }
 /* Under the title, on its text line: past the icon and its gap. */
 .tf-alert__body { padding: 0 var(--pad) var(--s3) calc(var(--pad) + 1.25rem + var(--s3)); text-wrap: pretty; overflow-wrap: break-word; }
 .tf-alert__body p { margin: 0 0 var(--s2); }
-/* On a narrow phone at about 200% text, an alert's words would have a few letters' room between
-   its icon and its chevron. They run under the two, at the alert's full width. */
-@media (max-width: 11em) {
+/* At large text an alert's words would have a few words' room a line between its icon and its
+   chevron. They run under the two, at the alert's full width. */
+@media (max-width: 18em) {
   .tf-alert__toggle { row-gap: var(--s1); }
   .tf-alert__icon { grid-row: 1; }
   .tf-alert__toggle .tf-alert__chev { grid-area: 1 / 3; }
@@ -797,6 +801,8 @@ button:disabled { opacity: .45; cursor: default; }
   .tf-sheet__head > .tf-sheet__pin { grid-area: 2 / 1 / auto / -1; justify-self: start; }
 }
 .tf-sheet__saved { text-align: center; color: var(--muted); margin-top: var(--s3); }
+/* The data credit reads the same under a sheet as under a page. */
+.tf-sheet__saved > .tf-credit { text-align: left; }
 .tf-sheet__done { margin-top: var(--s2); }
 /* A credit over Done has as much room under it as over it. */
 .tf-sheet__saved:has(> .tf-credit) + .tf-sheet__done { margin-top: var(--s3); }
@@ -855,12 +861,13 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-toast__text { flex: 1; min-width: 0; display: flex; align-items: flex-start; gap: var(--s2); padding-block: var(--s3); }
 .tf-toast__undo { min-height: var(--tap-min); padding: 0 var(--s3); color: var(--on-field); font-weight: var(--weight-bold); text-decoration: underline; text-underline-offset: 3px; }
 /* On the first line of words that take several. */
-.tf-toast__icon { flex: none; display: inline-flex; align-items: center; height: 1.4em; }
+.tf-toast__icon { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 1.125rem; height: 1.4em; }
 /* At large text Undo goes under the words, which then have the toast's width. */
 @media (max-width: 18em) {
-  .tf-toast { flex-wrap: wrap; row-gap: 0; }
-  .tf-toast__text { flex-basis: 100%; }
-  .tf-toast .tf-toast__undo { padding-left: 0; }
+  .tf-toast { flex-wrap: wrap; row-gap: 0; padding-bottom: var(--s2); }
+  .tf-toast__text { flex-basis: 100%; padding-bottom: 0; }
+  /* Undo starts where the words do, past the icon. */
+  .tf-toast .tf-toast__undo { padding-left: 0; margin-left: calc(1.125rem + var(--s2)); }
 }
 /* The sheet's pin: a filled button, on the pinned tint once pressed, as a pinned row is. */
 .tf-sheet__pin { flex: none; min-width: var(--tap-min); min-height: var(--tap-min); display: inline-flex; align-items: center; justify-content: center; gap: var(--s2); padding: 0 var(--s3); background: var(--card); color: var(--text); font-weight: var(--weight-bold); white-space: nowrap; }

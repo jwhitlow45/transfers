@@ -95,8 +95,13 @@
   .tf-app .tf-header { position: relative; }
   .tf-pinbar__actions { grid-template-columns: 1fr; }
   /* With room for a few words a line, the bar's name wraps whole, as its tab's does. */
-  .tf-pinbar .tf-pinbar__naming { flex-wrap: wrap; }
-  .tf-pinbar__naming .tf-pinbar__named { white-space: normal; overflow-wrap: break-word; }
+  /* With room for a few words a line, the bar's name wraps whole, as its tab's does: the line
+     runs on as text, balanced, with a dot between its parts. */
+  .tf-pinbar .tf-pinbar__naming { display: block; }
+  .tf-pinbar__naming > .tf-dots__gap { display: inline; }
+  .tf-pinbar__naming > .tf-dots__part { white-space: normal; }
+  .tf-pinbar__naming > .tf-dots__part.tf-whole--fits { white-space: nowrap; }
+  .tf-pinbar__naming .tf-pinbar__named { display: inline; overflow: visible; white-space: normal; overflow-wrap: break-word; }
   /* Side by side, two tabs would break a long name's words. Each takes a row. */
   .tf-pinbar__tabs { grid-auto-flow: row; }
 }
