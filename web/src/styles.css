@@ -130,6 +130,14 @@ a { color: var(--accent-ink); text-underline-offset: 3px; }
 a:hover { color: var(--text); }
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
 button:disabled { opacity: .45; cursor: default; }
+/* An icon is sized in rem, so it grows with the rider's text as the words beside it do (see
+   icons/ui.tsx). Alone in a button of a fixed size, it stops short of filling it. */
+.tf-icon { --shown: var(--icon); flex: none; width: var(--shown); height: var(--shown); }
+:is(.tf-btn-icon, .tf-bottombar__icon, .tf-swap) > .tf-icon { --shown: min(var(--icon), 32px); }
+/* A chevron or a pin is narrower than its square (--ink is the share empty at each side). The
+   square is trimmed to the drawing, so its ink sits on the line it is set against, and keeps the
+   gap to the text beside it. */
+.tf-icon--tight { margin-inline: calc(-1 * var(--ink) * var(--shown)); }
 /* Every fold's chevron points down closed and turns up open. A card's band has its toggle beside
    the chevron rather than around it. */
 .tf-chev { flex: none; transition: transform var(--motion-fast) ease; }
@@ -455,9 +463,12 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-header { position: sticky; top: 0; z-index: 3; background: var(--bg); border-bottom: var(--border-hair) solid var(--divider); }
 .tf-header__row { max-width: var(--page-max); margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s3); min-height: 3rem; padding: var(--s1) var(--gutter); }
 /* Back's glyph starts on the gutter, though its target reaches past it: by half of what the
-   target is wider than its 22 px glyph (--icon-inset). */
-.tf-header__row, .tf-sheet__head { --icon-inset: calc((22px - var(--tap-min)) / 2); }
+   target is wider than its 22 px glyph (--icon-inset), and its drawing is then moved by the room
+   beside it in its square, so the ink is what sits on the gutter. */
+.tf-header__row, .tf-sheet__head { --icon-inset: calc((min(1.375rem, 32px) - var(--tap-min)) / 2); }
 .tf-header__row > .tf-btn-icon { margin: 0 calc(-1 * var(--s2)) 0 var(--icon-inset); }
+.tf-header__row > .tf-btn-icon > .tf-icon { position: relative; left: calc(-1 * var(--ink, 0) * var(--shown)); }
+.tf-header__end > .tf-btn-icon > .tf-icon, .tf-sheet__head > .tf-btn-icon:last-child > .tf-icon { position: relative; left: calc(var(--ink, 0) * var(--shown)); }
 .tf-chain { flex: 1 1 6rem; min-width: 0; margin: 0; font-size: var(--fs-title); font-weight: var(--weight-bold); line-height: 1.3; display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s1); }
 .tf-header__end { margin-left: auto; display: flex; align-items: center; gap: var(--s3); font-size: var(--fs-meta); color: var(--muted); white-space: nowrap; }
 /* Its last button's glyph ends on the page gutter, as the cards below do. */
@@ -565,7 +576,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-alert--severe .tf-alert__title { font-weight: var(--weight-bold); }
 .tf-alert__chev { display: flex; color: var(--muted); }
 /* Under the title, on its text line: past the icon and its gap. */
-.tf-alert__body { padding: 0 var(--pad) var(--s3) calc(var(--pad) + 20px + var(--s3)); text-wrap: pretty; overflow-wrap: anywhere; }
+.tf-alert__body { padding: 0 var(--pad) var(--s3) calc(var(--pad) + 1.25rem + var(--s3)); text-wrap: pretty; overflow-wrap: anywhere; }
 .tf-alert__body p { margin: 0 0 var(--s2); }
 .tf-alert__foot { display: flex; align-items: center; gap: var(--s2); }
 /* The agency's line, then its link, each on its own line beside Dismiss. */
@@ -578,7 +589,8 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-notices__intro { margin: 0; }
 .tf-notices { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s3); }
 .tf-notice { padding: var(--s3) var(--pad); background: var(--card); }
-.tf-notice__kicker { display: flex; align-items: center; gap: var(--s2); }
+/* Its icon sits on the first line of a kind that takes two, as an alert's does. */
+.tf-notice__kicker { display: flex; align-items: flex-start; gap: var(--s2); }
 .tf-notice__icon { flex: none; display: inline-flex; color: var(--muted); }
 /* As the notice was in the results: its tint and icon color by severity. */
 .tf-notice--warning .tf-notice__icon { color: var(--caution); }
@@ -729,7 +741,7 @@ button:disabled { opacity: .45; cursor: default; }
    the theme tokens set, including a theme the rider picked in Settings. */
 .tf-select-wrap { position: relative; display: block; margin-top: var(--s2); }
 .tf-select-wrap > svg { position: absolute; right: var(--s3); top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
-.tf-select { width: 100%; min-height: var(--tap); font: inherit; font-size: var(--fs-title); color: var(--text); background: var(--card); border: 0; border-bottom: var(--border-hair) solid var(--line); appearance: none; -webkit-appearance: none; border-radius: var(--radius-none); padding: 0 calc(var(--s3) + 28px) 0 var(--s3); cursor: pointer; text-overflow: ellipsis; }
+.tf-select { width: 100%; min-height: var(--tap); font: inherit; font-size: var(--fs-title); color: var(--text); background: var(--card); border: 0; border-bottom: var(--border-hair) solid var(--line); appearance: none; -webkit-appearance: none; border-radius: var(--radius-none); padding: 0 calc(var(--s3) + 1.25rem + var(--s2)) 0 var(--s3); cursor: pointer; text-overflow: ellipsis; }
 @media (hover: hover) { .tf-select:hover { background: color-mix(in srgb, var(--text) 5%, var(--card)); } }
 .tf-select option, .tf-select optgroup { background: var(--bg); color: var(--text); }
 

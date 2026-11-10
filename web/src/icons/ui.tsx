@@ -4,13 +4,34 @@ import type { ComponentChildren } from 'preact';
 // Preact core passes attribute names through as written, so SVG attributes are spelled with dashes.
 type Props = { size?: number };
 
-const icon = (children: ComponentChildren, size: number, { className, stroke = 1.75 }: { className?: string; stroke?: number } = {}) => (
-  <svg class={className} width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width={stroke} stroke-linecap="round" stroke-linejoin="round">
+// An icon's size at 100% text, kept in rem, so it grows with the rider's text as the words beside
+// it do (see .tf-icon).
+export const iconSize = (size: number) => `--icon:${size / 16}rem`;
+
+// The room at each side of a drawing narrower than its square, as a share of the square: a
+// chevron's and the pin's. `tight` trims the square to the drawing, so its ink, not its empty
+// room, sits on the line the icon is set against and keeps the gap to the text beside it.
+const INK = { down: 5.125 / 24, side: 8.125 / 24, pin: 6.125 / 24, cross: 5.125 / 24, gear: 1.125 / 24 };
+
+const icon = (children: ComponentChildren, size: number, { className, stroke = 1.75, ink, tight = false }: { className?: string; stroke?: number; ink?: number; tight?: boolean } = {}) => (
+  <svg
+    class={`tf-icon${tight ? ' tf-icon--tight' : ''}${className ? ` ${className}` : ''}`}
+    style={`${iconSize(size)}${ink ? `;--ink:${ink.toFixed(4)}` : ''}`}
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    aria-hidden="true"
+    fill="none"
+    stroke="currentColor"
+    stroke-width={stroke}
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
     {children}
   </svg>
 );
 
-export const IconBack = ({ size = 22 }: Props) => icon(<path d="M15 18l-6-6 6-6" />, size);
+export const IconBack = ({ size = 22 }: Props) => icon(<path d="M15 18l-6-6 6-6" />, size, { ink: INK.side });
 export const IconSwap = ({ size = 22 }: Props) => icon(<path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4" />, size);
 export const IconSliders = ({ size = 22 }: Props) =>
   icon(
@@ -21,9 +42,9 @@ export const IconSliders = ({ size = 22 }: Props) =>
     </>,
     size,
   );
-export const IconChevron = ({ size = 20 }: Props) => icon(<path d="M6 9l6 6 6-6" />, size);
+export const IconChevron = ({ size = 20 }: Props) => icon(<path d="M6 9l6 6 6-6" />, size, { ink: INK.down, tight: true });
 // A fold's chevron, which turns up once the fold is open (see .tf-chev).
-export const IconFold = ({ size = 18 }: Props) => icon(<path d="M6 9l6 6 6-6" />, size, { className: 'tf-chev' });
+export const IconFold = ({ size = 18 }: Props) => icon(<path d="M6 9l6 6 6-6" />, size, { className: 'tf-chev', ink: INK.down, tight: true });
 // Route filters, on results' status line.
 export const IconFilter = ({ size = 16 }: Props) => icon(<path d="M4 5h16l-6 7.5V19l-4-2v-4.5z" />, size);
 
@@ -41,7 +62,7 @@ export const IconFullRoute = ({ size = 16 }: Props) =>
 export const IconFit = ({ size = 16 }: Props) => icon(<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" />, size, { stroke: 2 });
 // Two arrows drawn apart, as fingers spread to zoom in.
 export const IconPinch = ({ size = 14 }: Props) => icon(<path d="M10 14l-6 6M4 15v5h5M14 10l6-6M15 4h5v5" />, size);
-export const IconChevronRight = ({ size = 18 }: Props) => icon(<path d="M9 6l6 6-6 6" />, size);
+export const IconChevronRight = ({ size = 18 }: Props) => icon(<path d="M9 6l6 6-6 6" />, size, { ink: INK.side, tight: true });
 export const IconWarn = ({ size = 20 }: Props) => icon(<path d="M12 3l9.5 17h-19zM12 10v4M12 17v.5" />, size);
 export const IconInfo = ({ size = 20 }: Props) =>
   icon(
@@ -53,10 +74,10 @@ export const IconInfo = ({ size = 20 }: Props) =>
   );
 export const IconOffline = ({ size = 22 }: Props) => icon(<path d="M2 8.5a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M12 19.5h.01M3 3l18 18" />, size);
 export const IconPencil = ({ size = 18 }: Props) => icon(<path d="M4 20h4L19 9l-4-4L4 16z" />, size);
-export const IconClose = ({ size = 22 }: Props) => icon(<path d="M6 6l12 12M18 6L6 18" />, size);
+export const IconClose = ({ size = 22 }: Props) => icon(<path d="M6 6l12 12M18 6L6 18" />, size, { ink: INK.cross });
 // Not in the handoff. Drawn to match the set above.
 export const IconBookmark = ({ size = 22, filled = false }: Props & { filled?: boolean }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="1.75" stroke-linejoin="round">
+  <svg class="tf-icon" style={iconSize(size)} width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="1.75" stroke-linejoin="round">
     <path d="M6 3.5h12v17l-6-4.5-6 4.5z" />
   </svg>
 );
@@ -68,6 +89,7 @@ export const IconPin = ({ size = 16, filled = false }: Props & { filled?: boolea
       <path d="M12 13v7.5" />
     </>,
     size,
+    { ink: INK.pin, tight: true },
   );
 // The pin, struck through, for a trip just unpinned.
 export const IconUnpin = ({ size = 16 }: Props) =>
@@ -105,6 +127,7 @@ export const IconGear = ({ size = 22 }: Props) =>
       <circle cx="12" cy="12" r="3" />
     </>,
     size,
+    { ink: INK.gear },
   );
 // A new version of the app, as an arrow down into a circle, the usual mark for getting a newer
 // copy, and unlike the refresh arrows the times use.

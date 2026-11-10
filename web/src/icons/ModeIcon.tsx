@@ -1,4 +1,5 @@
 import type { Mode } from '../../../shared/api.ts';
+import { iconSize } from './ui.tsx';
 import { MODE_GLYPHS, type Mode as Glyph } from './modeGlyphs.ts';
 
 const GLYPH_FOR: Record<Mode, Glyph> = {
@@ -15,7 +16,7 @@ const GLYPH_FOR: Record<Mode, Glyph> = {
 // hidden from screen readers, since the route label beside it says the mode.
 export function ModeIcon({ mode, size = 16 }: { mode: Mode; size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+    <svg class="tf-icon" style={iconSize(size)} width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
       <ModeGlyph mode={mode} />
     </svg>
   );
