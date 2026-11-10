@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { IconClose, IconSwap } from '../icons/ui.tsx';
 import { typeWithoutUndo } from '../typing.ts';
+import { Cut } from './Cut.tsx';
 import { Dots } from './Dots.tsx';
 
 // meta is "Muni · Stop 13477 · Eastbound, toward 22nd St + Iowa St" once a result is picked.
@@ -22,6 +23,7 @@ function Field({ id, label, value, placeholder, enterKeyHint, onChange, onFocus,
     <label class="tf-field">
       <span class="tf-field__label">{label}</span>
       <span class="tf-field__row">
+        <span class="tf-field__box">
         <input
           ref={input}
           id={id}
@@ -48,6 +50,14 @@ function Field({ id, label, value, placeholder, enterKeyHint, onChange, onFocus,
             onEnter();
           }}
         />
+        {/* What the field holds, as text over it while the cursor is elsewhere (see styles.css).
+            Screen readers have the input's own value. */}
+        {value.query && (
+          <span class="tf-field__shown" aria-hidden="true">
+            <Cut text={value.query} />
+          </span>
+        )}
+        </span>
         {value.query && (
           <button
             type="button"
