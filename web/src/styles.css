@@ -232,7 +232,9 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-status--late, .tf-status-text--late { color: var(--late); font-weight: var(--weight-bold); }
 .tf-status--early, .tf-status-text--early { color: var(--early); font-weight: var(--weight-bold); }
 .tf-status--ontime, .tf-status-text--ontime, .tf-status--nodata, .tf-status-text--nodata { color: var(--muted); }
-.tf-status--waiting, .tf-status-text--waiting { color: var(--text); }
+/* Yet to leave its first stop, and on time: no exception, so no color, but bold as every status
+   but "On time" is, so it reads as a status among the muted detail beside it. */
+.tf-status--waiting, .tf-status-text--waiting { color: var(--text); font-weight: var(--weight-bold); }
 /* A vehicle's own scheduled time: the one dashed mark in the app, the same in every row and band. */
 .tf-status--scheduled, .tf-status-text--scheduled { padding: 0 var(--s1); color: var(--muted); border: 1px dashed currentColor; font-size: var(--fs-meta); font-weight: var(--weight-bold); line-height: 1.4; white-space: nowrap; }
 .tf-status--canceled { padding: 0 var(--s1); color: var(--late); background: var(--late-tint); font-weight: var(--weight-bold); }
