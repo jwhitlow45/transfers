@@ -43,7 +43,7 @@
 .tf-pinbar__tab { position: relative; min-width: 0; min-height: var(--tap); display: flex; flex-wrap: wrap; align-items: flex-start; align-content: flex-start; gap: 0 var(--s2); padding-block: var(--s3); font-size: var(--fs-body); line-height: 1.3; color: var(--muted); text-align: left; }
 .tf-pinbar__tab b { color: var(--text); white-space: nowrap; }
 /* A long name wraps and never truncates. */
-.tf-pinbar__tabname { min-width: 0; overflow-wrap: anywhere; }
+.tf-pinbar__tabname { min-width: 0; overflow-wrap: break-word; }
 /* One weight chosen or not, so choosing a tab rewraps nothing. The underline says which is
    showing, so color is not the only sign. */
 .tf-pinbar__tab[aria-selected="true"] { color: var(--text); }
@@ -54,7 +54,7 @@
 .tf-pinbar__scrim { position: absolute; top: 100%; left: 0; right: 0; height: 100dvh; background: var(--scrim); }
 .tf-pinbar__panel { position: absolute; z-index: 1; top: 100%; left: 0; right: 0; max-height: calc(100dvh - var(--pinbar-h, 3.5rem)); overflow-y: auto; padding-bottom: var(--s4); background: var(--pinned-bg); box-shadow: var(--pinned-edge), 0 8px 16px rgba(0, 0, 0, .2); border-top: var(--border-hair) solid var(--divider); outline: none; }
 .tf-pinbar__name { margin: 0; padding: var(--s3) var(--edge) var(--s1); }
-.tf-pinbar__name b { display: block; font-size: var(--fs-title); line-height: 1.3; overflow-wrap: anywhere; }
+.tf-pinbar__name b { display: block; font-size: var(--fs-title); line-height: 1.3; overflow-wrap: break-word; }
 /* Steps read as one list, so no line parts them, and they sit closer than a card's rows. */
 /* The list keeps the content line's padding, so each step's clock starts on it. */
 .tf-pinbar__steps { padding-inline: var(--edge); }
@@ -96,7 +96,9 @@
   .tf-pinbar__actions { grid-template-columns: 1fr; }
   /* With room for a few words a line, the bar's name wraps whole, as its tab's does. */
   .tf-pinbar .tf-pinbar__naming { flex-wrap: wrap; }
-  .tf-pinbar__naming .tf-pinbar__named { white-space: normal; overflow-wrap: anywhere; }
+  .tf-pinbar__naming .tf-pinbar__named { white-space: normal; overflow-wrap: break-word; }
+  /* Side by side, two tabs would break a long name's words. Each takes a row. */
+  .tf-pinbar__tabs { grid-auto-flow: row; }
 }
 /* On a narrow phone three equal buttons cannot hold "Open trip" and "Live map" on a line each. Each
    is as wide as its words need, and the words stand without their icons. */

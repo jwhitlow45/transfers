@@ -27,7 +27,8 @@ export function TripTimeBar({ times, now, color, second, minutes, firstScheduled
       </div>
       <div class="tf-tripbar__ticks" aria-hidden="true">
         {ticks.map(({ minute, left }) => (
-          <span key={minute} class="tf-tripbar__tick" style={{ left: `${left}%` }}>
+          // A mark near the bar's end hangs its label to the left, inside the bar.
+          <span key={minute} class={`tf-tripbar__tick${left > 85 ? ' tf-tripbar__tick--end' : ''}`} style={{ left: `${left}%` }}>
             {minute === 0 ? 'now' : `+${minute}`}
           </span>
         ))}
