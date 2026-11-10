@@ -14,11 +14,12 @@ test('a stop links to its agency page: Muni by its sign number, BART by its stat
   strictEqual(stopPage(undefined), null);
 });
 
-test('a vehicle yet to leave the first stop of its trip says so in place of on time, and how late it is to leave', () => {
+test('a vehicle yet to leave the first stop of its trip says so in place of on time, and how late or early it is', () => {
   deepStrictEqual(statusOf(0, true, false, true), { kind: 'waiting', label: 'Not left yet' });
   deepStrictEqual(statusOf(null, true, false, true), { kind: 'waiting', label: 'Not left yet' });
   deepStrictEqual(statusOf(178, true, false, true), { kind: 'late', label: 'Not left, 3 min late' });
-  deepStrictEqual(statusOf(-60, true, false, true), { kind: 'waiting', label: 'Not left yet' });
+  deepStrictEqual(statusOf(-60, true, false, true), { kind: 'early', label: 'Not left, 1 min early' });
+  deepStrictEqual(statusOf(-29, true, false, true), { kind: 'waiting', label: 'Not left yet' });
   // Canceled and scheduled say so first.
   deepStrictEqual([statusOf(0, true, true, true).kind, statusOf(null, false, false, true).kind], ['canceled', 'scheduled']);
 });

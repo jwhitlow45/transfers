@@ -38,14 +38,16 @@ export type StatusKind = 'late' | 'early' | 'ontime' | 'nodata' | 'scheduled' | 
 export type Status = { kind: StatusKind; label: string };
 
 // The feed's delay rounded to the nearest minute. A vehicle yet to leave the first stop of its trip
-// is on time only by the feed's assumption, so it says it has not left, and how late it will leave
-// when the vehicle bringing it runs late (J, 2026-11-09).
+// is on time only by the feed's assumption, so it says it has not left (J, 2026-11-09), and how late
+// or early the feed has it, as neither is ever hidden.
 export function statusOf(delaySeconds: number | null, live = true, canceled = false, notStarted = false): Status {
   if (canceled) return { kind: 'canceled', label: 'Canceled' };
   if (!live) return { kind: 'scheduled', label: 'Scheduled' };
   if (notStarted) {
-    const late = delaySeconds === null ? 0 : Math.round(delaySeconds / 60);
-    return late > 0 ? { kind: 'late', label: `Not left, ${late} min late` } : { kind: 'waiting', label: 'Not left yet' };
+    const minutes = delaySeconds === null ? 0 : Math.round(delaySeconds / 60);
+    if (minutes > 0) return { kind: 'late', label: `Not left, ${minutes} min late` };
+    if (minutes < 0) return { kind: 'early', label: `Not left, ${-minutes} min early` };
+    return { kind: 'waiting', label: 'Not left yet' };
   }
   if (delaySeconds === null) return { kind: 'nodata', label: 'No delay data' };
   const minutes = Math.round(delaySeconds / 60);
