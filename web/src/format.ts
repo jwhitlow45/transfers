@@ -71,3 +71,12 @@ export const shortDate = (ms: number) => shortDateFormat.format(ms);
 export const isOwlHour = (date: Date) => date.getHours() < 5;
 // Muni names them "NOWL" and "LOWL", and the 91 as "Owl".
 export const isOwlRoute = (route: { name: string; longName: string }) => /owl/i.test(route.name) || /owl/i.test(route.longName);
+
+// The class for a row's number that its column cannot fit at full size (see styles.css): four
+// characters or more, "100+" and "~125", are set a size down on every phone, and a word, "Now" and
+// "Left", on a narrow one.
+export function numSize(n: unknown) {
+  const text = typeof n === 'number' ? String(n) : typeof n === 'string' ? n : '';
+  if (/\d/.test(text)) return text.length >= 4 ? ' tf-num__n--long' : '';
+  return text ? ' tf-num__n--word' : '';
+}

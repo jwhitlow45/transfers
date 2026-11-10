@@ -1,7 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { Mode, Route, Stop, TrackLeg, TrackResponse } from '../../../shared/api.ts';
-import { atLeast, clock, minutesUntil, stillWaiting, walkText } from '../format.ts';
+import { atLeast, clock, minutesUntil, numSize, stillWaiting, walkText } from '../format.ts';
 import { useNow, usePoll } from '../hooks.ts';
 import { IconFit, IconFold, IconFullRoute } from '../icons/ui.tsx';
 import { routeColor } from '../lib/color.ts';
@@ -649,13 +649,13 @@ function When({ at, passed, notStarted, now }: { at: number | null; passed: bool
   if (!waiting && minutes < 1) {
     return (
       <span class="tf-track__num">
-        <span class="tf-track__num-n">Now</span>
+        <span class="tf-track__num-n tf-num__n--word">Now</span>
       </span>
     );
   }
   return (
     <span class="tf-track__num">
-      <span class="tf-track__num-n">
+      <span class={`tf-track__num-n${numSize(waiting ? atLeast(minutes) : minutes)}`}>
         {waiting ? (
           <>
             {atLeast(minutes).slice(0, -1)}

@@ -260,8 +260,12 @@ button:disabled { opacity: .45; cursor: default; }
 /* A row with no number, such as a card that has nothing coming. */
 .tf-row--note { grid-template-columns: minmax(0, 1fr); }
 .tf-num { display: flex; flex-direction: column; min-width: 0; }
-.tf-num__n { font-size: var(--fs-num); font-weight: var(--weight-bold); line-height: 1; letter-spacing: -0.01em; white-space: nowrap; }
-.tf-num__u { font-size: var(--fs-meta); line-height: 1.3; color: var(--muted); }
+.tf-num__n { font-size: var(--fs-num); font-weight: var(--weight-bold); line-height: 1.75rem; letter-spacing: -0.01em; white-space: nowrap; }
+/* Four characters or more, "100+" and "~125", are wider than the column at full size, so they are
+   set a size down, on the same line. A word, "Now" and "Left", is too on a narrow phone (below). */
+:is(.tf-num__n, .tf-track__num-n).tf-num__n--long { font-size: var(--fs-lead); }
+/* Kept whole: "32 min ago" may reach a few px into the room before the text column. */
+.tf-num__u { font-size: var(--fs-meta); line-height: 1.3; color: var(--muted); white-space: nowrap; }
 /* A clock time in the number column, where a step has no countdown. */
 .tf-num__clock { font-size: var(--fs-meta); font-weight: var(--weight-bold); line-height: 1.75rem; white-space: nowrap; }
 /* The text, then the trailing item. At large text the trailing item drops under the text. */
@@ -820,8 +824,18 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-time-link { font: inherit; padding: 0; white-space: nowrap; }
 /* A link inside a line of text keeps the line's height, and gets a full-size target from an
    invisible box around it. */
-:is(.tf-row, .tf-band, .tf-group__how, .tf-group__meta, .tf-credit) :is(.tf-time-link, a) { position: relative; }
-:is(.tf-row, .tf-band, .tf-group__how, .tf-group__meta, .tf-credit) :is(.tf-time-link, a)::after { content: ""; position: absolute; left: 50%; top: 50%; width: max(calc(100% + 8px), var(--tap-min)); height: var(--tap-min); translate: -50% -50%; }
+:is(.tf-row, .tf-band, .tf-group__how, .tf-group__meta, .tf-credit, .tf-alert__meta, .tf-notice__meta) :is(.tf-time-link, a) { position: relative; }
+:is(.tf-row, .tf-band, .tf-group__how, .tf-group__meta, .tf-credit, .tf-alert__meta, .tf-notice__meta) :is(.tf-time-link, a)::after { content: ""; position: absolute; left: 50%; top: 50%; width: max(calc(100% + 8px), var(--tap-min)); height: var(--tap-min); translate: -50% -50%; }
+
+/* ── narrow phones ─────────────────────────────────── */
+/* Under 360 px across, the number column gives a little of its width to the text beside it, on
+   every page, in the pin bar and in the live map's lists alike (see TrackMap.css). A word in it,
+   "Now" and "Left", is set a size down to fit, and under "Left" the unit drops its "ago". */
+@media (max-width: 359px) {
+  :root { --numcol: 3.25rem; }
+  .tf-num__ago { display: none; }
+  :is(.tf-num__n, .tf-track__num-n).tf-num__n--word { font-size: var(--fs-lead); }
+}
 
 /* ── large text ────────────────────────────────────── */
 /* From about 150% text (under 18em across the screen), the fixed number column would squeeze

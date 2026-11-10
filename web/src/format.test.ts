@@ -1,6 +1,6 @@
 import { deepStrictEqual, strictEqual } from 'node:assert/strict';
 import { test } from 'node:test';
-import { approx, approxMinutes, atLeast, clockOrDay, countdownTo, hasLeft, isOwlHour, isOwlRoute, minuteCount, stillWaiting, untilText, walkMinutes } from './format.ts';
+import { approx, approxMinutes, atLeast, clockOrDay, countdownTo, hasLeft, isOwlHour, isOwlRoute, minuteCount, numSize, stillWaiting, untilText, walkMinutes } from './format.ts';
 
 // Wednesday 2026-10-07 10:00 PM Pacific.
 const now = Date.parse('2026-10-08T05:00:00Z');
@@ -60,4 +60,16 @@ test('a vehicle has left once its time passes, unless it has yet to leave the fi
 
 test('spoken minutes say minute for one', () => {
   deepStrictEqual([minuteCount(1), minuteCount(2)], ['1 minute', '2 minutes']);
+});
+
+test('a number too wide for its column is marked to be set a size down', () => {
+  strictEqual(numSize(7), '');
+  strictEqual(numSize(125), '');
+  strictEqual(numSize('19+'), '');
+  strictEqual(numSize('~38'), '');
+  strictEqual(numSize('100+'), ' tf-num__n--long');
+  strictEqual(numSize('~125'), ' tf-num__n--long');
+  strictEqual(numSize('Now'), ' tf-num__n--word');
+  strictEqual(numSize('Left'), ' tf-num__n--word');
+  strictEqual(numSize(null), '');
 });
