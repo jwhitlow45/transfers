@@ -25,6 +25,7 @@ import { AppLink } from './AppLink.tsx';
 import { Num } from './Countdown.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import { Approx, StatusTag, Warnline } from './StatusTag.tsx';
+import { Dots } from './Dots.tsx';
 import { Toast, useToast } from './Toast.tsx';
 import './PinBar.css';
 
@@ -324,7 +325,7 @@ function TripFeed({ pin, name: savedName, dismissed, shown, open, onReport, onTo
   if (expired || !shown) return null;
   if (!view) {
     const note = data ? 'Times for this trip are not available right now.' : waitingNote(feed === 'offline');
-    return <BarView {...frame} spoken={`Pinned trip, ${name}. ${note}`} verb={null} num={null} unit={null} l2={note} />;
+    return <BarView {...frame} spoken={`Pinned trip, ${name}. ${note}`} verb={null} num={null} unit={null} l2={[note]} />;
   }
   return <BarView {...frame} {...view.bar} />;
 
@@ -438,26 +439,12 @@ function TripFeed({ pin, name: savedName, dismissed, shown, open, onReport, onTo
             <span>{approx(clock(focus.stop.at), offScheduled)}</span>
           </>
         ),
-        l2: (
-          <>
-            {focus.boards ? <StatusTag status={status} plain /> : phase === 'done' && !leg2.off ? `Left ${stopName(focus.stop)}` : phase === 'done' ? `Reached ${stopName(focus.stop)}` : `at ${stopName(focus.stop)}`}
-            {phase === 'change' && ` · at ${stopName(focus.stop)}`}
-            {canceled && !(focus.boards && canceled === focus.leg) && (
-              <>
-                {' · '}
-                <span class="tf-tight">{label(canceled)} canceled</span>
-              </>
-            )}
-            {alertCount > 0 && (
-              <>
-                {' · '}
-                <span class="tf-pinbar__alerts">
-                  <IconWarn size={14} /> {alertCount} alert{alertCount === 1 ? '' : 's'}
-                </span>
-              </>
-            )}
-          </>
-        ),
+        l2: [
+          focus.boards ? <StatusTag status={status} plain /> : phase === 'done' && !leg2.off ? `Left ${stopName(focus.stop)}` : phase === 'done' ? `Reached ${stopName(focus.stop)}` : `at ${stopName(focus.stop)}`,
+          phase === 'change' && `at ${stopName(focus.stop)}`,
+          canceled && !(focus.boards && canceled === focus.leg) && <span class="tf-tight">{label(canceled)} canceled</span>,
+          alertCount > 0 && <AlertCount count={alertCount} />,
+        ],
         end:
           ahead && transfer !== null ? (
             <span class="tf-end">
@@ -541,7 +528,7 @@ function StopFeed({ pin, name: savedName, dismissed, shown, open, onReport, onTo
     onClose,
     onUnpin: () => changePin(search, null, data?.routes),
   };
-  if (note) return <BarView {...frame} spoken={`Pinned arrival at ${name}. ${note}`} verb={null} num={null} unit={null} l2={note} />;
+  if (note) return <BarView {...frame} spoken={`Pinned arrival at ${name}. ${note}`} verb={null} num={null} unit={null} l2={[note]} />;
   const sheetPin: PinAction = { pinned: true, label: pinLabel([route, at]), set: (on) => changePin(search, on ? pin : null, data?.routes, on && ringsBell(pin, data)) };
   // Alerts about its stop or its route, counted and said as a pinned trip's are. Not once it has
   // gone or is canceled, when they no longer matter to the rider.
@@ -561,20 +548,7 @@ function StopFeed({ pin, name: savedName, dismissed, shown, open, onReport, onTo
           <span>{clock(at)}</span>
         </>
       }
-      l2={
-        <>
-          {canceled ? <span class="tf-tight">Canceled</span> : status && <StatusTag status={status} plain />}
-          {headsign && ` · → ${headsign}`}
-          {alertCount > 0 && (
-            <>
-              {' · '}
-              <span class="tf-pinbar__alerts">
-                <IconWarn size={14} /> {alertCount} alert{alertCount === 1 ? '' : 's'}
-              </span>
-            </>
-          )}
-        </>
-      }
+      l2={[canceled ? <span class="tf-tight">Canceled</span> : status && <StatusTag status={status} plain />, headsign && `→ ${headsign}`, alertCount > 0 && <AlertCount count={alertCount} />]}
       map={data ? { trip: pin.second.trip, stop: pin.second.board, title: vehicle, marks: [{ stop: pin.second.board, kind: 'yours' }], pin: sheetPin, stops: data.stops } : undefined}
       panel={
         <>
@@ -589,6 +563,13 @@ function StopFeed({ pin, name: savedName, dismissed, shown, open, onReport, onTo
     />
   );
 }
+
+// How many alerts a pin has, in the bar's status line. Kept whole on one line.
+const AlertCount = ({ count }: { count: number }) => (
+  <span class="tf-pinbar__alerts">
+    <IconWarn size={14} /> {count} alert{count === 1 ? '' : 's'}
+  </span>
+);
 
 // One step of the trip in the open panel: its time where a row has its number, then what to do.
 function Step({ at, scheduled, children }: { at: number; scheduled: boolean; children: ComponentChildren }) {
@@ -627,7 +608,8 @@ function BarView({ kind, name, sub, href, open, onToggle, onClose, onUnpin, spok
   num: string | null;
   unit: string | null;
   l1?: ComponentChildren;
-  l2: ComponentChildren;
+  // The parts of the status line, a dot between them.
+  l2: ComponentChildren[];
   end?: ComponentChildren;
   map?: (PinMap & { pin: PinAction; stops: TripResponse['stops'] }) | undefined;
   panel?: ComponentChildren;
@@ -638,17 +620,14 @@ function BarView({ kind, name, sub, href, open, onToggle, onClose, onUnpin, spok
     <>
       <button type="button" class="tf-pinbar__main" aria-expanded={open} aria-controls={PANEL} aria-label={spoken} onClick={onToggle}>
         <span class="tf-pinbar__in">
-          <span class="tf-pinbar__naming">
-            <b>Pinned</b> · {name}
-            {verb && ` · ${verb}`}
-          </span>
+          <Dots class="tf-pinbar__naming" parts={[<b>Pinned</b>, <span class="tf-pinbar__named">{name}</span>, verb]} />
           <span class="tf-pinbar__line">
             <span class="tf-row">
               <Num n={num} unit={unit} />
               <span class="tf-rb">
                 <span class="tf-rb__main">
                   {l1 && <span class="tf-l1">{l1}</span>}
-                  <span class="tf-l2">{l2}</span>
+                  <Dots class="tf-l2" parts={l2} />
                 </span>
                 {end}
               </span>
@@ -663,10 +642,7 @@ function BarView({ kind, name, sub, href, open, onToggle, onClose, onUnpin, spok
         <div class="tf-pinbar__in">
           <p class="tf-pinbar__name">
             <b>{name}</b>
-            <span class="tf-muted">
-              Pinned {kind}
-              {sub && ` · ${sub}`}
-            </span>
+            <Dots class="tf-muted" parts={[`Pinned ${kind}`, sub]} />
           </p>
           {panel}
           {/* Any of the three shuts the panel, and focus goes back to the bar, which a map's sheet

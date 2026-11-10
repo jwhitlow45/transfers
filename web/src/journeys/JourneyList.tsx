@@ -4,6 +4,7 @@ import type { Journey, JourneyLeg, JourneysResponse, RideLeg } from '../../../sh
 import { Collapse } from '../components/Collapse.tsx';
 import { Num } from '../components/Countdown.tsx';
 import { EmptyState } from '../components/EmptyState.tsx';
+import { Dots } from '../components/Dots.tsx';
 import { RouteChip } from '../components/RouteChip.tsx';
 import { Approx, StatusTag } from '../components/StatusTag.tsx';
 import { approx, approxMinutes, atLeast, clock, minutesUntil, stillWaiting } from '../format.ts';
@@ -124,9 +125,7 @@ function JourneyCard({ journey, data, now, toLabel, open, onToggle }: {
                   </Fragment>
                 ))}
               </div>
-              <div class="tf-l2">
-                {approx(String(length), lengthScheduled)}&nbsp;min · {kind}
-              </div>
+              <Dots class="tf-l2" tag="div" parts={[`${approx(String(length), lengthScheduled)}\u00a0min`, kind]} />
             </div>
             <span class="tf-end">
               <IconFold />
@@ -195,9 +194,15 @@ function Step({ leg, at, scheduled, data, lastRide }: { leg: JourneyLeg; at: num
         <span class="tf-l2">
           <StatusTag status={statusOf(leg.departDelay, leg.live, false, leg.notStarted)} plain />
         </span>
-        <span class="tf-l2">
-          {leg.stops} stop{leg.stops === 1 ? '' : 's'} · off at {name(leg.to)} <Approx scheduled={!leg.live}>{clock(leg.arrives)}</Approx>
-        </span>
+        <Dots
+          class="tf-l2"
+          parts={[
+            `${leg.stops} stop${leg.stops === 1 ? '' : 's'}`,
+            <>
+              off at {name(leg.to)} <Approx scheduled={!leg.live}>{clock(leg.arrives)}</Approx>
+            </>,
+          ]}
+        />
       </div>
     </li>
   );

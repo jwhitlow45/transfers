@@ -143,6 +143,14 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-kicker { font-size: var(--fs-meta); font-weight: var(--weight-bold); color: var(--muted); }
 .tf-muted { color: var(--muted); }
 .tf-nowrap { white-space: nowrap; }
+/* Parts of one line with a middle dot between them (see Dots). Every part carries its dot in the
+   room before it, and the line is cut off at its own left edge, so a part that starts a line shows
+   none: no line ends or starts with a dot. The cut stops a few px short of the text, to leave a
+   focused link its ring. Named with its tag, to outweigh the display and margin of whichever line
+   it also is (.tf-l2, .tf-group__how). */
+:is(span, div, p).tf-dots { --dot: 0.8em; display: flex; flex-wrap: wrap; margin-left: calc(-1 * var(--dot)); clip-path: inset(-100vh -100vw -100vh calc(var(--dot) - 3px)); }
+.tf-dots > span { position: relative; min-width: 0; padding-left: var(--dot); }
+.tf-dots > span::before { content: "·" / ""; position: absolute; left: 0.25em; }
 
 /* ── app shell ─────────────────────────────────────── */
 .tf-app { position: relative; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }

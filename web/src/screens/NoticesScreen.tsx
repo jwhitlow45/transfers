@@ -9,6 +9,7 @@ import { goBack } from '../router.ts';
 import { DISMISSED_DAYS, type DismissedNotice, dismissNotice, loadDismissed, restoreAllNotices, restoreNotice } from '../storage.ts';
 import { dayLabel } from '../view.ts';
 import { EmptyState } from '../components/EmptyState.tsx';
+import { Dots } from '../components/Dots.tsx';
 
 // Notices the rider dismissed from results, newest first, as they read then, each with a way to
 // put it back on every trip it concerns. Reached from the results that hid one, and Settings.
@@ -62,13 +63,13 @@ export function NoticesScreen() {
                   <li key={notice.id} class={`tf-notice tf-notice--${notice.severity ?? 'info'}`}>
                     <div class="tf-notice__kicker">
                       <span class="tf-notice__icon">{(notice.severity ?? 'info') === 'info' ? <IconInfo size={18} /> : <IconWarn size={18} />}</span>
-                      <span class="tf-kicker">{notice.kicker}</span>
+                      <Dots class="tf-kicker" parts={[notice.kicker]} />
                     </div>
                     <div class="tf-notice__title">{notice.title}</div>
                     {notice.body && <p class="tf-notice__body">{notice.body}</p>}
                     <div class="tf-notice__foot">
                       <span class="tf-notice__meta">
-                        <span>{notice.meta}</span>
+                        <Dots parts={[notice.meta]} />
                         {notice.url && (
                           <a href={notice.url} target="_blank" rel="noopener">
                             More from the agency

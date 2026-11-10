@@ -9,6 +9,7 @@ import { Departed } from './Departed.tsx';
 import { OutageTag } from './Outages.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import { StopLink } from './StopLink.tsx';
+import { Dots } from './Dots.tsx';
 import { EmptyState } from './EmptyState.tsx';
 import { useSettings } from '../settings.tsx';
 
@@ -84,13 +85,18 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
   ) : sameStop ? (
     <>Transfer at {boardLink}</>
   ) : (
-    <>
-      {alightVerb(group, data)} <StopLink stop={alight}>{alightName}</StopLink>&nbsp;·{' '}
-      <span class="tf-walk-gerbil" aria-hidden="true">
-        <IconGerbil />
-      </span>
-      {walkTime}&nbsp;min walk to {boardLink}
-    </>
+    // Two parts, with a dot between them where they share a line (see Dots).
+    [
+      <>
+        {alightVerb(group, data)} <StopLink stop={alight}>{alightName}</StopLink>
+      </>,
+      <>
+        <span class="tf-walk-gerbil" aria-hidden="true">
+          <IconGerbil />
+        </span>
+        {walkTime}&nbsp;min walk to {boardLink}
+      </>,
+    ]
   );
   // With a destination set, the heading names it, as the rider chose it, and every vehicle under it
   // goes there. Otherwise it names the direction, which is then the choice (J, 2026-10-12).
@@ -137,7 +143,7 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
           )}
         </h2>
         {/* Where to change is said here, once, for every card under it. */}
-        <p class="tf-group__how">{off}</p>
+        <Dots class="tf-group__how" tag="p" parts={Array.isArray(off) ? off : [off]} />
         {/* An elevator or escalator out where the rider gets off or changes, for riders who asked. */}
         {outages.length > 0 && (
           <div class="tf-outage-tags">

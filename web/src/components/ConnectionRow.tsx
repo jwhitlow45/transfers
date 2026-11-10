@@ -6,6 +6,7 @@ import { type CardContext, isTight } from '../lib/results.ts';
 import { TimeLink } from '../track.tsx';
 import { shortStopName, spokenRoute, statusAt } from '../view.ts';
 import { Num } from './Countdown.tsx';
+import { Dots } from './Dots.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import { StopLink } from './StopLink.tsx';
 import { PinToggle } from './PinToggle.tsx';
@@ -93,28 +94,32 @@ export function ConnectionRow({ connection, departure, alightName, alight, board
             <RouteChip route={route} hidden />
             <TimeLink {...map}>{clock(connection.departs)}</TimeLink>
           </div>
-          <div class="tf-l2">
-            <StatusTag status={status} plain hidden />
-            {/* Plain, to keep the row simple: the time above opens the same vehicle's map. */}
-            <span aria-hidden="true">
-              {' · '}
-              <span class="tf-nowrap">off {approx(clock(connection.arrives), offScheduled)}</span>
-            </span>
-            {/* A vehicle that lets the rider off elsewhere than the group's stop says where, and its
-                own walk from there. The group's heading says the usual ones once. */}
-            {offAt && (
+          <Dots
+            class="tf-l2"
+            tag="div"
+            parts={[
+              <StatusTag status={status} plain hidden />,
               <>
-                <span aria-hidden="true"> at </span>
-                <StopLink stop={context.data.stops[connection.alight!]}>{offAt}</StopLink>
-                {walk && (
-                  <span aria-hidden="true">
-                    {' · '}
-                    <span class="tf-nowrap">{walk}</span>
-                  </span>
+                {/* Plain, to keep the row simple: the time above opens the same vehicle's map. */}
+                <span class="tf-nowrap" aria-hidden="true">
+                  off {approx(clock(connection.arrives), offScheduled)}
+                </span>
+                {/* A vehicle that lets the rider off elsewhere than the group's stop says where, and
+                    its own walk from there. The group's heading says the usual ones once. */}
+                {offAt && (
+                  <>
+                    <span aria-hidden="true"> at </span>
+                    <StopLink stop={context.data.stops[connection.alight!]}>{offAt}</StopLink>
+                  </>
                 )}
-              </>
-            )}
-          </div>
+              </>,
+              offAt && walk && (
+                <span class="tf-nowrap" aria-hidden="true">
+                  {walk}
+                </span>
+              ),
+            ]}
+          />
           {boardAt && (
             <div class="tf-l2">
               <StopLink stop={boardStop}>{boardAt}</StopLink>

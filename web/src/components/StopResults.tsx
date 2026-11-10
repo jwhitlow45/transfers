@@ -3,6 +3,7 @@ import type { Route, RouteSearchResult, RouteStops, SearchResponse, StopSearchRe
 import { agencyName, spokenRoute } from '../view.ts';
 import { Segmented } from './DirectionSwitcher.tsx';
 import { RouteChip } from './RouteChip.tsx';
+import { Dots } from './Dots.tsx';
 
 export type SearchHit = StopSearchResult | RouteSearchResult;
 
@@ -132,7 +133,7 @@ function HitList({ label, hits, response, onPick, enterTakesFirst }: {
                   </span>
                   <span class="tf-result__code">{code}</span>
                 </span>
-                <span class="tf-result__dir">{detail}</span>
+                <Dots class="tf-result__dir" parts={[detail]} />
                 <span class="tf-chips">
                   {chips.map((key) => {
                     const chip = response.routes[key];

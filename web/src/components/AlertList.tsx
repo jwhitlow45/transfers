@@ -5,6 +5,7 @@ import { IconChevronRight, IconFold, IconInfo, IconWarn } from '../icons/ui.tsx'
 import type { ViewAlert } from '../lib/alerts.ts';
 import { Collapse } from './Collapse.tsx';
 import { AppLink } from './AppLink.tsx';
+import { Dots } from './Dots.tsx';
 
 // Inline, ordered by importance, one row each, since riders often have a notice from each agency
 // above their results. An alert where the rider boards is tinted and shows its kind and its whole
@@ -48,7 +49,7 @@ export function AlertList({ alerts, dismissed, onDismiss }: { alerts: ViewAlert[
                 <span class="tf-alert__icon">{alert.severity === 'info' ? <IconInfo /> : <IconWarn />}</span>
                 <span class="tf-alert__text">
                   {/* Folded, only the boarding alert shows its kind. Screen readers hear it on each. */}
-                  <span class="tf-alert__kicker">{alert.kicker}</span>
+                  <Dots class="tf-alert__kicker" parts={[alert.kicker]} />
                   <span class="tf-sr">: </span>
                   <span class="tf-alert__title">{alert.title}</span>
                 </span>
@@ -61,7 +62,7 @@ export function AlertList({ alerts, dismissed, onDismiss }: { alerts: ViewAlert[
                   {alert.body && <p>{alert.body}</p>}
                   <div class="tf-alert__foot">
                     <div class="tf-alert__meta">
-                      <span>{alert.meta}</span>
+                      <Dots parts={[alert.meta]} />
                       {alert.url && (
                         <a href={alert.url} target="_blank" rel="noopener">
                           More from the agency

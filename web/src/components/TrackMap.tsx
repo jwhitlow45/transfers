@@ -14,6 +14,7 @@ import type { Mark, Tracked } from '../track.tsx';
 import { useSettings } from '../settings.tsx';
 import { chipLabel, shortStopName, statusOf } from '../view.ts';
 import { Collapse } from './Collapse.tsx';
+import { Dots } from './Dots.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import { Approx, Plus, StatusTag } from './StatusTag.tsx';
 import './TrackMap.css';
@@ -594,14 +595,7 @@ function LegList({ leg, stops, labels, now, role, notes, name }: {
         <span class="tf-track__row-main">
           <span class="tf-track__stop-name">{shortStopName(stops[leg.path[index]!.stop], leg.path[index]!.stop)}</span>
           {second.length > 0 && (
-            <span class="tf-track__row-note">
-              {second.map((part, n) => (
-                <>
-                  {n > 0 && ' · '}
-                  {part}
-                </>
-              ))}
-            </span>
+            <Dots class="tf-track__row-note" parts={second} />
           )}
         </span>
         <Clock at={leg.path[index]!.at ?? null} passed={passed} now={now} />

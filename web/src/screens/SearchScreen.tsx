@@ -49,6 +49,7 @@ import { tripPath } from '../../../shared/paths.ts';
 import { Warnline } from '../components/StatusTag.tsx';
 import { Num } from '../components/Countdown.tsx';
 import { rowKey } from '../components/RouteCard.tsx';
+import { Dots } from '../components/Dots.tsx';
 
 // A picked stop or route. `short` is what headers and lists call it.
 export type Picked = { key: string; label: string; meta: string; short: string };
@@ -833,9 +834,7 @@ function NearStops({ picks, onPick }: { picks: { picked: Picked; meters: number 
                 {picked.label}
                 {index === 0 && <span class="tf-sr"> (Enter picks this)</span>}
               </span>
-              <span class="tf-result__dir">
-                {meters}&nbsp;m away · {picked.meta}
-              </span>
+              <Dots class="tf-result__dir" parts={[`${meters}\u00a0m away`, picked.meta]} />
             </button>
           </div>
         ))}

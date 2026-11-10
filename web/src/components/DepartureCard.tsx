@@ -11,6 +11,7 @@ import { chipLabel, pinLabel, shortStopName, spokenRoute, statusAt, statusOf, ve
 import { Collapse } from './Collapse.tsx';
 import { ConnectionRow, connectionMap } from './ConnectionRow.tsx';
 import { Departed } from './Departed.tsx';
+import { Dots } from './Dots.tsx';
 import { PinToggle } from './PinToggle.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import { Approx, PinnedTag, StatusTag } from './StatusTag.tsx';
@@ -95,7 +96,7 @@ export function DepartureCard({ departure, group, next, alightName, noun, walk, 
   const gone = count - countdowns.length;
   const shownCountdowns = countdowns.map(({ minutes, scheduled, notStarted }) => (notStarted ? atLeast(minutes) : approxMinutes(minutes, scheduled))).join(', ');
   const spokenCountdowns = countdowns.map(({ minutes, scheduled, notStarted }) => (scheduled ? `scheduled ${Math.max(1, minutes)}` : notStarted ? `at least ${Math.max(1, minutes)}` : minutes)).join(', ');
-  const summary = [`${count} ${noun[count === 1 ? 0 : 1]}`, gone > 0 && `${gone} departed`, countdowns.length > 0 && `in ${shownCountdowns}\u00a0min`].filter(Boolean).join(' · ');
+  const summary = [`${count} ${noun[count === 1 ? 0 : 1]}`, gone > 0 && `${gone} departed`, countdowns.length > 0 && `in ${shownCountdowns}\u00a0min`];
   const spokenDestination = destinationName && departure.destination ? `${destinationName} ${clock(departure.destination)}${destinationScheduled ? ' scheduled' : ''}` : null;
   const spoken =
     `${route ? spokenRoute(route) : 'Departure'} at ${clock(departure.at)}, ${status.label}, ` +
@@ -222,7 +223,7 @@ export function DepartureCard({ departure, group, next, alightName, noun, walk, 
       </Collapse>
       <Collapse open={!expanded}>
         <div class="tf-card__summary" aria-hidden="true">
-          {summary}
+          <Dots parts={summary} />
         </div>
       </Collapse>
     </article>
@@ -270,7 +271,7 @@ function ArrivalLine({ full, short }: { full: string; short: string | null }) {
   }, [short !== null]);
   return (
     <span class="tf-band__sub tf-band__dest" aria-hidden="true" ref={line}>
-      {wraps && short ? short : full}
+      <Dots parts={[wraps && short ? short : full]} />
     </span>
   );
 }

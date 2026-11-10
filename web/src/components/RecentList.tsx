@@ -1,5 +1,6 @@
 import { useRef, useState } from 'preact/hooks';
 import { IconChevronRight, IconClose } from '../icons/ui.tsx';
+import { Dots } from './Dots.tsx';
 
 export type RecentItem = { id: string; label: string; sub: string; href: string };
 
@@ -99,7 +100,7 @@ function SwipeRow({ item, onOpen, onRemove }: { item: RecentItem; onOpen: (item:
       >
         <span class="tf-recent__text">
           <span class="tf-recent__label">{item.label}</span>
-          <span class="tf-recent__sub">{item.sub}</span>
+          <Dots class="tf-recent__sub" parts={[item.sub]} />
         </span>
         <span class="tf-muted">
           <IconChevronRight />

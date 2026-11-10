@@ -20,6 +20,7 @@ import { ArrivalItem, RouteCard, routesOf, rowKey, upcoming } from '../component
 import { EmptyState } from '../components/EmptyState.tsx';
 import { failureOf } from '../lib/failure.ts';
 import { apiUrl } from '../api.ts';
+import { Dots } from '../components/Dots.tsx';
 
 type Located = { state: 'idle' | 'asking' | LocationProblem } | { state: 'found'; position: Position };
 
@@ -140,10 +141,7 @@ function NearbyResults({ position, onRelocate }: { position: Position; onRelocat
                     </span>
                   }
                   meta={
-                    <>
-                      <StopLink stop={stop}>{shortStopName(stop, row.stop)}</StopLink>
-                      {stop?.code ? ` · Stop ${stop.code}` : ''} · {row.meters}&nbsp;m away
-                    </>
+                    <Dots parts={[<StopLink stop={stop}>{shortStopName(stop, row.stop)}</StopLink>, stop?.code && `Stop ${stop.code}`, `${row.meters}\u00a0m away`]} />
                   }
                 >
                   <ul class="tf-near__times" aria-label="Next arrivals">
