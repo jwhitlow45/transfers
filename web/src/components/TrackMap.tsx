@@ -15,7 +15,7 @@ import { useSettings } from '../settings.tsx';
 import { chipLabel, shortStopName, statusOf } from '../view.ts';
 import { Collapse } from './Collapse.tsx';
 import { RouteChip } from './RouteChip.tsx';
-import { Approx, StatusTag } from './StatusTag.tsx';
+import { Approx, Plus, StatusTag } from './StatusTag.tsx';
 import './TrackMap.css';
 import { TripTimeBar } from './TripTimeBar.tsx';
 import { YouMarker } from './YouMarker.tsx';
@@ -667,15 +667,6 @@ function When({ at, passed, notStarted, now }: { at: number | null; passed: bool
     </span>
   );
 }
-
-// The "+" `atLeast` gives a vehicle yet to leave the first stop of its trip. The list is read as
-// shown, so a screen reader hears "or more" after the minutes.
-const Plus = () => (
-  <>
-    <span aria-hidden="true">+</span>
-    <span class="tf-sr"> or more</span>
-  </>
-);
 
 // The clock time beside it. Positions and predictions arrive apart, so the clock is kept on the
 // right side of now: a stop passed early never shows a time to come, nor a stop ahead a time gone.
