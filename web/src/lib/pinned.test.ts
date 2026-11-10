@@ -18,6 +18,13 @@ test('a pinned trip goes from waiting, to riding, to changing, to riding again, 
   );
 });
 
+test('a pinned vehicle yet to leave the first stop of its trip is still to come, whatever its times', () => {
+  const waiting = { ...trip, second: { ...trip.second!, notStarted: true as const } };
+  deepStrictEqual([817, 830].map((at) => pinnedPhase(waiting, at)), ['change', 'change']);
+  const firstWaiting = { ...trip, first: { ...trip.first!, notStarted: true as const } };
+  strictEqual(pinnedPhase(firstWaiting, 805), 'wait');
+});
+
 test('a pinned trip with no destination ends once the second vehicle leaves, and one with no first vehicle starts by waiting for the second', () => {
   const noDestination = { ...trip, second: { ...trip.second!, off: null } };
   strictEqual(pinnedPhase(noDestination, 817), 'done');

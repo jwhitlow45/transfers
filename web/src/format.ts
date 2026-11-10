@@ -11,6 +11,13 @@ export const clock = (unixSeconds: number) => timeFormat.format(unixSeconds * 10
 export const minutesUntil = (unixSeconds: number, nowMs: number) => Math.floor((unixSeconds * 1000 - nowMs) / 60_000);
 // Whole minutes since a time gone by, rounded down as well.
 export const minutesSince = (unixSeconds: number, nowMs: number) => Math.floor((nowMs - unixSeconds * 1000) / 60_000);
+// "1 minute" or "N minutes", for spoken text.
+export const minuteCount = (minutes: number) => `${minutes} minute${minutes === 1 ? '' : 's'}`;
+
+// Whether a vehicle has come and gone by its time. One yet to leave the first stop of its trip has
+// not, whatever time the feed gives it, as that time assumed it would leave on time. It stays
+// coming, at "1+" (see atLeast), until the feed drops that stop.
+export const hasLeft = (unixSeconds: number, nowMs: number, notStarted = false) => !notStarted && unixSeconds * 1000 < nowMs;
 
 // "Now" within a minute, or the minutes, kept on one line with their unit. A vehicle yet to leave
 // the first stop of its trip reads "19+ min" (see atLeast).

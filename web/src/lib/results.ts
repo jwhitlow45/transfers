@@ -1,5 +1,5 @@
 import type { Connection, Departure, Group, TripResponse } from '../../../shared/api.ts';
-import { minutesUntil } from '../format.ts';
+import { hasLeft, minutesUntil } from '../format.ts';
 import { chipLabel } from '../view.ts';
 import { resolveRouteColor, routeColor } from './color.ts';
 import type { Pin } from '../storage.ts';
@@ -54,7 +54,7 @@ const rideEnd = (departure: Departure) => Math.max(departure.at, departure.desti
 // Whether a departure's card has left entirely: its vehicle has left where the rider boards it,
 // or every vehicle that makes it has left From.
 export const cardLeft = (group: Group, departure: Departure, now: number) =>
-  departure.at * 1000 < now || (group.kind !== 'walk' && departure.connections.length > 0 && departure.connections.every(({ departs }) => departs * 1000 < now));
+  hasLeft(departure.at, now, departure.notStarted) || (group.kind !== 'walk' && departure.connections.length > 0 && departure.connections.every(({ departs, notStarted }) => hasLeft(departs, now, notStarted)));
 
 // The server's answer, trimmed as the clock runs between refreshes: up to three departures the
 // rider can still catch, each with the vehicles that still make it, and canceled departures in
@@ -66,21 +66,21 @@ export function visibleDepartures(group: Group, now: number, showHidden: boolean
   // A walk group has no first vehicles: each departure stands on its own.
   const walk = group.kind === 'walk';
   for (const departure of group.departures) {
-    const left = departure.at * 1000 < now;
+    const left = hasLeft(departure.at, now, departure.notStarted);
     if (left && !(underWay && rideEnd(departure) * 1000 >= now)) continue;
     if (departure.canceled) {
       if (!left && catchable < MAX_DEPARTURES) shown.push(departure);
       continue;
     }
     const counted = (connection: Connection) => showHidden || !connection.hidden;
-    const ahead = departure.connections.filter((connection) => connection.departs * 1000 >= now && counted(connection));
+    const ahead = departure.connections.filter((connection) => !hasLeft(connection.departs, now, connection.notStarted) && counted(connection));
     const canCatch = !left && (walk || ahead.length > 0) && catchable < MAX_DEPARTURES;
     if (walk) {
       if (canCatch || left) shown.push(departure);
       if (canCatch) catchable++;
       continue;
     }
-    const gone = underWay ? departure.connections.filter((connection) => connection.departs * 1000 < now && counted(connection)) : [];
+    const gone = underWay ? departure.connections.filter((connection) => hasLeft(connection.departs, now, connection.notStarted) && counted(connection)) : [];
     const connections = [...gone, ...(canCatch ? ahead : [])];
     if (connections.length === 0) continue;
     if (canCatch) catchable++;
@@ -129,7 +129,7 @@ export function tripSeconds(departure: Departure, walk: boolean, walkSeconds: nu
 
 // The vehicle from From that a trip's length counts from (see tripSeconds).
 export function tripStart(departure: Departure, now: number) {
-  const ahead = departure.connections.filter(({ departs }) => departs * 1000 >= now);
+  const ahead = departure.connections.filter(({ departs, notStarted }) => !hasLeft(departs, now, notStarted));
   return (ahead.length > 0 ? ahead : departure.connections).reduce<Connection | null>((latest, connection) => (!latest || connection.departs > latest.departs ? connection : latest), null);
 }
 

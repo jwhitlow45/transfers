@@ -230,7 +230,9 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
 
 // A pinned trip as its vehicles run now (see pinnedNow). Keeps the pin's end and last times
 // current, and unpins it the set time after its end, counted from the latest times, with that
-// setting on (see useKeptPin). `now` is milliseconds on the server's clock.
+// setting on (see useKeptPin). A vehicle yet to leave the first stop of its trip holds the end at
+// now, so a trip whose vehicle sits at its terminal past its times stays pinned (see hasLeft).
+// `now` is milliseconds on the server's clock.
 export function usePinnedTrip(pin: Pin | null, data: TripResponse | null, answered: boolean, search: Search, settings: DeviceSettings, now: number, change: (pin: Pin | null) => void) {
   const { pinned, fresh } = pin ? pinnedNow(pin, data, search.dest) : { pinned: null, fresh: false };
   const ends = pinned ? pinnedEnd(pinned) : null;
@@ -239,20 +241,23 @@ export function usePinnedTrip(pin: Pin | null, data: TripResponse | null, answer
     seen,
     known: pin ? JSON.stringify(pin.last) : null,
     latest: () => ({ ...pin!, last: pinned!, ...(ends !== null ? { ends } : {}) }),
-    end: ends ?? pin?.ends ?? null,
+    end: held(ends ?? pin?.ends ?? null, Boolean(pinned?.first?.notStarted || pinned?.second?.notStarted), now),
   });
   return { pinned, ...kept };
 }
 
 // An arrival pinned at a stop as it comes (see stopPinOf): keeps its end as the latest times move
 // it, and unpins it the set time after it arrives, with that setting on, as a trip is (see
-// useKeptPin).
+// useKeptPin), held while its vehicle has yet to leave the first stop of its trip.
 export function useStopPin(pin: Pin | null, data: StopResponse | null, answered: boolean, search: Search, settings: DeviceSettings, now: number, change: (pin: Pin | null) => void) {
   const found = pin ? pinnedArrival(pin, data) : null;
   const seen = found?.arrival?.at ?? null;
-  const kept = useKeptPin(pin, answered, search, settings, now, change, { seen, known: pin?.ends ?? null, latest: () => ({ ...pin!, ends: seen! }), end: seen ?? pin?.ends ?? null });
+  const kept = useKeptPin(pin, answered, search, settings, now, change, { seen, known: pin?.ends ?? null, latest: () => ({ ...pin!, ends: seen! }), end: held(seen ?? pin?.ends ?? null, found?.arrival?.notStarted === true, now) });
   return { found, ...kept };
 }
+
+// A pin's end, or now while its vehicle has yet to leave the first stop of its trip.
+const held = (end: number | null, notStarted: boolean, nowMs: number) => (end !== null && notStarted ? Math.max(end, Math.floor(nowMs / 1000)) : end);
 
 // What every pin shares as its times come: when the latest answer has seen it anew (`seen`, unlike
 // `known`, what the pin holds), its times are written back (`latest`), and the set time after its

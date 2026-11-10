@@ -1,6 +1,6 @@
 import { deepStrictEqual, strictEqual } from 'node:assert/strict';
 import { test } from 'node:test';
-import { approx, approxMinutes, atLeast, clockOrDay, countdownTo, isOwlHour, isOwlRoute, untilText, walkMinutes } from './format.ts';
+import { approx, approxMinutes, atLeast, clockOrDay, countdownTo, hasLeft, isOwlHour, isOwlRoute, minuteCount, untilText, walkMinutes } from './format.ts';
 
 // Wednesday 2026-10-07 10:00 PM Pacific.
 const now = Date.parse('2026-10-08T05:00:00Z');
@@ -50,4 +50,12 @@ test("a walk takes the rider's own speed, and at least a minute", () => {
   strictEqual(walkMinutes(300, 1.4), 5);
   strictEqual(walkMinutes(300, 0.7), 9);
   strictEqual(walkMinutes(10, 1.4), 1);
+});
+
+test('a vehicle has left once its time passes, unless it has yet to leave the first stop of its trip', () => {
+  deepStrictEqual([hasLeft(100, 99_000), hasLeft(100, 101_000), hasLeft(100, 101_000, true)], [false, true, false]);
+});
+
+test('spoken minutes say minute for one', () => {
+  deepStrictEqual([minuteCount(1), minuteCount(2)], ['1 minute', '2 minutes']);
 });

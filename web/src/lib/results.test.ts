@@ -90,3 +90,19 @@ test('on a trips tab, ways the server says nothing runs on are no way, and each 
   deepStrictEqual([nothingRuns([{ ...group, idle: true } as Group]), nothingRuns([{ ...group, idle: true } as Group, group]), nothingRuns([])], [true, false, false]);
   deepStrictEqual([pointId({ ...group, key: 'ride>SF:13477' } as Group), pointId(group)], ['ride>SF:13477', 'BA:901609>SF:13477>>SF:48']);
 });
+
+test('a vehicle yet to leave the first stop of its trip stays one the rider can catch after its time, as it has not come', () => {
+  // At 8:15, bus m3 (8:12) and train b3 (8:11) are past their times but still at the start of their routes.
+  const late = at(8, 15) * 1000;
+  const waiting = {
+    ...group,
+    departures: group.departures.map((d) => (d.trip === 'm3' ? { ...d, notStarted: true as const } : d.trip === 'm4' ? { ...d, connections: d.connections.map((c) => ({ ...c, notStarted: true as const })) } : d)),
+  } as Group;
+  deepStrictEqual(trips(visibleDepartures(waiting, late, false)), ['m4:b3', 'm5:b4', 'm6:b5']);
+  deepStrictEqual(trips(visibleDepartures(group, late, false)), ['m5:b4', 'm6:b5']);
+  // Train b2 has left, so m3 is one the rider may be on, and stays while it has yet to leave.
+  deepStrictEqual(trips(visibleDepartures(waiting, late, false, true)), ['m3:b2', 'm4:b3', 'm5:b4', 'm6:b5']);
+  deepStrictEqual(trips(visibleDepartures(group, late, false, true)), ['m4:b3', 'm5:b4', 'm6:b5']);
+  const [m3, m4] = visibleDepartures(waiting, late, false, true);
+  deepStrictEqual([cardLeft(waiting, m3!, late), cardLeft(waiting, m4!, late)], [true, false]);
+});

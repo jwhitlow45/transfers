@@ -12,8 +12,9 @@ import { Plus, StatusTag } from './StatusTag.tsx';
 
 export const rowKey = (row: NearbyStop) => `${row.stop}|${row.routes.join(',')}|${row.direction}`;
 
-// Each row with the arrivals that have not gone by since the latest times came.
-export const upcoming = (rows: NearbyStop[], now: number) => rows.map((row) => ({ row, arrivals: row.arrivals.filter(({ at }) => minutesUntil(at, now) >= 0) }));
+// Each row with the arrivals that have not gone by since the latest times came. One yet to leave
+// the first stop of its trip has not, whatever its time (see hasLeft).
+export const upcoming = (rows: NearbyStop[], now: number) => rows.map((row) => ({ row, arrivals: row.arrivals.filter(({ at, notStarted }) => minutesUntil(at, now) >= 0 || notStarted === true) }));
 
 export const routesOf = (row: NearbyStop, routes: Record<string, Route>) => row.routes.map((key) => routes[key]).filter((route) => route !== undefined);
 

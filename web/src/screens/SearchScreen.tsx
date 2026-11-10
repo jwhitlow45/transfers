@@ -781,7 +781,7 @@ function SavedStop({ search, now, pulls, onMove, canMoveUp, canMoveDown, onRepor
   const live = useHomeLive(polled, `saved:${search.id}`, pulls, onReport, now);
   const serverNow = live.now;
   const rows = (data?.rows ?? [])
-    .map((row) => ({ row, times: row.arrivals.map(({ at, live, notStarted }) => ({ minutes: minutesUntil(at, serverNow), scheduled: !live, notStarted: notStarted === true })).filter(({ minutes }) => minutes >= 0).slice(0, 3) }))
+    .map((row) => ({ row, times: row.arrivals.map(({ at, live, notStarted }) => ({ minutes: minutesUntil(at, serverNow), scheduled: !live, notStarted: notStarted === true })).filter(({ minutes, notStarted }) => minutes >= 0 || notStarted).slice(0, 3) }))
     .filter(({ times }) => times.length > 0)
     .slice(0, 3);
   return (

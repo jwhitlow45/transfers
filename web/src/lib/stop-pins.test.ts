@@ -40,6 +40,8 @@ test('a pinned arrival counts down, then says it came, or once it was due, that 
   deepStrictEqual(arrivalCountdown(at, (at - 300) * 1000, { canceled: true, known: true }), { lead: 'Arrives in', num: '5', unit: 'min' });
   deepStrictEqual(arrivalCountdown(at, (at + 60) * 1000, { canceled: false, known: true }), { lead: 'Arrived', num: '✓', unit: null });
   deepStrictEqual(arrivalCountdown(at, (at + 60) * 1000, { canceled: true, known: true }), { lead: 'Canceled', num: '✕', unit: null });
+  // A vehicle yet to leave the first stop of its trip has not come, whatever its time.
+  deepStrictEqual(arrivalCountdown(at, (at + 60) * 1000, { canceled: false, known: true, notStarted: true }), { lead: 'Arrives in', num: '1+', unit: 'min' });
   // Before the stop's times come, it says nothing has come yet.
   deepStrictEqual(arrivalCountdown(at, (at + 60) * 1000, { canceled: false, known: false }), { lead: 'Arriving', num: 'Now', unit: null });
 });

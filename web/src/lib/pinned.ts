@@ -10,13 +10,14 @@ export function pinnedEnd(pinned: PinnedTrip): number | null {
 
 // Where the rider is along a pinned trip, by when its vehicles are due: waiting for the first
 // vehicle, riding it, changing to the second, riding that, or done. Without a first vehicle the
-// trip starts at changing, which is waiting for the second.
+// trip starts at changing, which is waiting for the second. A vehicle yet to leave the first stop
+// of its trip is still to come at each of its stops, whatever its times say (see hasLeft).
 export type PinnedPhase = 'wait' | 'ride' | 'change' | 'ride-second' | 'done';
 
 export function pinnedPhase(pinned: PinnedTrip, now: number): PinnedPhase {
   const before = (leg: PinnedLeg | null | undefined, stop: 'on' | 'off') => {
     const at = leg?.[stop]?.at;
-    return at !== undefined && now < at;
+    return at !== undefined && (leg?.notStarted === true || now < at);
   };
   if (pinned.first) {
     if (before(pinned.first, 'on')) return 'wait';
