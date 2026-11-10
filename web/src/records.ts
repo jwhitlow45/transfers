@@ -4,7 +4,7 @@ import type { ToastMessage } from './components/Toast.tsx';
 import { useShownAgain } from './layers.ts';
 import type { ViewAlert } from './lib/alerts.ts';
 import { defaultSavedColor } from './lib/color.ts';
-import { changePin, setPin, usePin } from './pins.ts';
+import { changePin, keepPinSearch, usePin } from './pins.ts';
 import { type Pin, type Search, dismissNotice, findSaved, loadDismissed, loadSaved, removeSaved, restoreNotice, saveSaved, saveSearch } from './storage.ts';
 
 type Show = (message: Omit<ToastMessage, 'id'>) => void;
@@ -25,8 +25,8 @@ export function useSearchRecords(search: Search, show: Show) {
   return {
     saved,
     pin,
-    // The pin kept with the search as it stands now.
-    keepPin: (next: Pin) => setPin(search, next),
+    // The pin kept with the search as it stands now (see keepPinSearch).
+    keepPin: () => keepPinSearch(search),
     dismissedIds: new Set(dismissed.map(({ id }) => id)),
     // Pinning from a row or a map's sheet. Unpinning, and pinning in place of another, say so with
     // Undo (see changePin).

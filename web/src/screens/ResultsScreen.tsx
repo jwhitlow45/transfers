@@ -76,7 +76,7 @@ export function ResultsScreen({ search, view }: { search: Search; view?: Results
   const toggleCard = (card: string, first: boolean) => setToggled((current) => ({ ...current, [card]: !(current[card] ?? openAtFirst(first)) }));
   // Kept with the search as it stands, so the pin bar opens these results as they are now.
   useEffect(() => {
-    if (pin) records.keepPin(pin);
+    records.keepPin();
   }, [tripPath(search)]);
   // A trip pinned on one of a stop's tabs is followed on that tab: the page opens on it, and the
   // other does not mark it, as each tab ends the trip at its own stop. The pin bar asks after the

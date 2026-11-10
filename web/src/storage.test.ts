@@ -63,3 +63,15 @@ test('a pin written again keeps its place among the pins, and every change to th
   savePin(search('second'), null);
   deepStrictEqual([told, loadPins()], [4, []]);
 });
+
+test('a page keeping its pin with the search as it stands keeps times the pin bar wrote after the page read the pin', async () => {
+  const { keepPinSearch } = await import('./pins.ts');
+  const search = { from: 'a', to: 'b', fromLabel: 'A', toLabel: 'B' };
+  const read = { second: { trip: 't', board: 's' }, at: 100, ends: 1, search };
+  savePin(search, read);
+  // The page has read the pin. The pin bar writes the trip's latest times before the page keeps it.
+  savePin(search, { ...read, ends: 2 });
+  keepPinSearch({ ...search, dest: 'c', destLabel: 'C' });
+  deepStrictEqual(loadPins().map(({ ends, search: { dest } }) => [ends, dest]), [[2, 'c']]);
+  savePin(search, null);
+});

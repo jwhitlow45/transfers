@@ -33,6 +33,14 @@ export const usePin = (search: Search) => useStoredPins(() => loadPin(search));
 // its page. Null unpins.
 export const setPin = (search: Search, pin: Pin | null) => savePin(search, pin && { ...pin, search });
 
+// The pin on a search, written again with the search as it stands, as its page opens. Read as
+// stored when written, not as the page read it when it first rendered, as the pin bar may have
+// written the trip's latest times in between, and an older copy would put back older times.
+export function keepPinSearch(search: Search) {
+  const stored = loadPin(search);
+  if (stored) setPin(search, stored);
+}
+
 export const pinId = (pin: { search: Search }) => searchId(pin.search);
 
 // Home's pull to refresh reaches the pins too. Each polls in the app's pin bar, apart from the
