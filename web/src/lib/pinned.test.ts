@@ -2,7 +2,7 @@ import { deepStrictEqual, strictEqual } from 'node:assert/strict';
 import { test } from 'node:test';
 import { clock } from '../format.ts';
 import type { Connection, Departure, PinnedTrip, TripResponse } from '../../../shared/api.ts';
-import { pinOf, pinToastText, pinnedDestination, pinnedEnd, pinnedFor, pinnedNow, pinnedPhase, pinnedTransfer, samePin, scheduledAt, steadyPinned } from './pinned.ts';
+import { pinOf, pinToastText, pinnedDestination, pinnedEnd, pinnedFor, pinnedNow, pinnedPhase, pinnedTransfer, samePin, scheduledAt, steadyPinned, unpinTiming } from './pinned.ts';
 
 // BART from Montgomery at 8:00, off at 24th St at 8:08, then the 48 there at 8:17 to Potrero at 8:27.
 const trip: PinnedTrip = {
@@ -67,6 +67,9 @@ test('until the answer for a new pin arrives, the results it was pinned from sta
     first: { trip: 'BA:b3', route: 'BA:Yellow', on: { stop: 'BA:901209', at: 800, delay: 0 }, off: { stop: 'BA:901609', at: 808, delay: 0 }, live: true },
     second: { trip: 'SF:m3', route: 'SF:48', on: { stop: 'SF:13477', at: 817, delay: 60 }, off: { stop: 'SF:13500', at: 827, delay: null }, live: true },
   });
+  // A first vehicle the schedule lacks says so, so its map is not asked for.
+  const added = { ...data, groups: data.groups.map((group) => ({ ...group, departures: group.departures.map((d) => ({ ...d, connections: d.connections.map((c) => ({ ...c, added: true as const })) })) })) };
+  strictEqual(pinnedFor(pin, added, 'SF:13500')?.first?.added, true);
   // The server's answer wins once it is for this pin.
   const { ends: _, ...asked } = pin;
   strictEqual(pinnedFor(pin, { ...data, pinned: trip, pin: asked }, 'SF:13500'), trip);
@@ -215,4 +218,13 @@ test('a trip pinned from a row that boards across the street starts there until 
   } as unknown as TripResponse;
   const pin = { first: { trip: 'SF:t0', alight: 'SF:15565' }, second: { trip: 'SF:t1', board: 'SF:15566' }, at: 830, ends: 830 };
   strictEqual(pinnedFor(pin, data, undefined)?.first?.on?.stop, 'SF:14270');
+});
+
+test('a pin unpins the set time after it ends, but never while a vehicle of it has yet to leave the first stop of its trip, even set to unpin at once', () => {
+  const setting = { autoUnpin: true, unpinAfter: 0 };
+  deepStrictEqual(unpinTiming(1000, setting, { answered: true, waiting: false, now: 1_000_000 }), { unpinAt: 1_000_000, expired: true });
+  deepStrictEqual(unpinTiming(1000, setting, { answered: true, waiting: true, now: 2_000_000 }), { unpinAt: null, expired: false });
+  deepStrictEqual(unpinTiming(1000, { autoUnpin: true, unpinAfter: 5 }, { answered: true, waiting: false, now: 1_200_000 }), { unpinAt: 1_300_000, expired: false });
+  // Times from before an answer came never unpin.
+  deepStrictEqual(unpinTiming(1000, setting, { answered: false, waiting: false, now: 2_000_000 }).expired, false);
 });

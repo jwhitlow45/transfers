@@ -11,7 +11,7 @@ import { SearchFields } from '../components/SearchFields.tsx';
 import { type SearchHit, StopResults, hitMeta, hitName, searchCount } from '../components/StopResults.tsx';
 import { Toast, useToast } from '../components/Toast.tsx';
 import { ScreenHeader } from '../components/ResultsHeader.tsx';
-import { clock, minutesUntil } from '../format.ts';
+import { clock, minutesUntil, stillWaiting } from '../format.ts';
 import { type Polled, useNow, usePinnedTrip, usePoll, useStopPin } from '../hooks.ts';
 import { IconFold, IconGear, IconLocation } from '../icons/ui.tsx';
 import { defaultSavedColor } from '../lib/color.ts';
@@ -781,7 +781,7 @@ function SavedStop({ search, now, pulls, onMove, canMoveUp, canMoveDown, onRepor
   const live = useHomeLive(polled, `saved:${search.id}`, pulls, onReport, now);
   const serverNow = live.now;
   const rows = (data?.rows ?? [])
-    .map((row) => ({ row, times: row.arrivals.map(({ at, live, notStarted }) => ({ minutes: minutesUntil(at, serverNow), scheduled: !live, notStarted: notStarted === true })).filter(({ minutes, notStarted }) => minutes >= 0 || notStarted).slice(0, 3) }))
+    .map((row) => ({ row, times: row.arrivals.filter(({ at, notStarted }) => minutesUntil(at, serverNow) >= 0 || stillWaiting(at, serverNow, notStarted)).map(({ at, live, notStarted }) => ({ minutes: minutesUntil(at, serverNow), scheduled: !live, notStarted: notStarted === true })).slice(0, 3) }))
     .filter(({ times }) => times.length > 0)
     .slice(0, 3);
   return (

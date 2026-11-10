@@ -14,10 +14,14 @@ export const minutesSince = (unixSeconds: number, nowMs: number) => Math.floor((
 // "1 minute" or "N minutes", for spoken text.
 export const minuteCount = (minutes: number) => `${minutes} minute${minutes === 1 ? '' : 's'}`;
 
-// Whether a vehicle has come and gone by its time. One yet to leave the first stop of its trip has
-// not, whatever time the feed gives it, as that time assumed it would leave on time. It stays
-// coming, at "1+" (see atLeast), until the feed drops that stop.
-export const hasLeft = (unixSeconds: number, nowMs: number, notStarted = false) => !notStarted && unixSeconds * 1000 < nowMs;
+// Whether a vehicle has yet to leave the first stop of its trip, by its latest times, and so has
+// not come, whatever time the feed gives it, as that time assumed it would leave on time. It stays
+// coming, at "1+" (see atLeast), until the feed drops that stop, or for at most half an hour past
+// its time, so times kept from long ago, as offline, never hold it for good. The server holds it as
+// long (see soonest in server/engine/connections.ts).
+export const stillWaiting = (unixSeconds: number, nowMs: number, notStarted = false) => notStarted && nowMs - unixSeconds * 1000 < 30 * 60_000;
+// Whether a vehicle has come and gone by its time (see stillWaiting).
+export const hasLeft = (unixSeconds: number, nowMs: number, notStarted = false) => !stillWaiting(unixSeconds, nowMs, notStarted) && unixSeconds * 1000 < nowMs;
 
 // "Now" within a minute, or the minutes, kept on one line with their unit. A vehicle yet to leave
 // the first stop of its trip reads "19+ min" (see atLeast).

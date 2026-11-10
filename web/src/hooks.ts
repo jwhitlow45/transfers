@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { getJson } from './api.ts';
 import { usePeeking } from './gestures.ts';
 import { useScreenActive } from './layers.ts';
-import type { StopResponse, TripResponse } from '../../shared/api.ts';
-import { pinnedEnd, pinnedNow, samePin } from './lib/pinned.ts';
+import type { PinnedLeg, StopResponse, TripResponse } from '../../shared/api.ts';
+import { stillWaiting } from './format.ts';
+import { pinnedEnd, pinnedNow, samePin, unpinTiming } from './lib/pinned.ts';
 import { pinnedArrival } from './lib/stop-pins.ts';
 import { type DeviceSettings, type Pin, type Search, loadCached, loadPin, saveCached } from './storage.ts';
 
@@ -230,8 +231,8 @@ export function usePoll<T>(url: string | null, intervalMs = 30_000, initial: { d
 
 // A pinned trip as its vehicles run now (see pinnedNow). Keeps the pin's end and last times
 // current, and unpins it the set time after its end, counted from the latest times, with that
-// setting on (see useKeptPin). A vehicle yet to leave the first stop of its trip holds the end at
-// now, so a trip whose vehicle sits at its terminal past its times stays pinned (see hasLeft).
+// setting on (see useKeptPin), but not while a vehicle has yet to leave the first stop of its trip,
+// so a trip whose vehicle sits at its terminal past its times stays pinned (see stillWaiting).
 // `now` is milliseconds on the server's clock.
 export function usePinnedTrip(pin: Pin | null, data: TripResponse | null, answered: boolean, search: Search, settings: DeviceSettings, now: number, change: (pin: Pin | null) => void) {
   const { pinned, fresh } = pin ? pinnedNow(pin, data, search.dest) : { pinned: null, fresh: false };
@@ -241,23 +242,25 @@ export function usePinnedTrip(pin: Pin | null, data: TripResponse | null, answer
     seen,
     known: pin ? JSON.stringify(pin.last) : null,
     latest: () => ({ ...pin!, last: pinned!, ...(ends !== null ? { ends } : {}) }),
-    end: held(ends ?? pin?.ends ?? null, Boolean(pinned?.first?.notStarted || pinned?.second?.notStarted), now),
+    end: ends ?? pin?.ends ?? null,
+    waiting: legWaiting(pinned?.first, now) || legWaiting(pinned?.second, now),
   });
   return { pinned, ...kept };
 }
 
 // An arrival pinned at a stop as it comes (see stopPinOf): keeps its end as the latest times move
 // it, and unpins it the set time after it arrives, with that setting on, as a trip is (see
-// useKeptPin), held while its vehicle has yet to leave the first stop of its trip.
+// useKeptPin), but not while its vehicle has yet to leave the first stop of its trip.
 export function useStopPin(pin: Pin | null, data: StopResponse | null, answered: boolean, search: Search, settings: DeviceSettings, now: number, change: (pin: Pin | null) => void) {
   const found = pin ? pinnedArrival(pin, data) : null;
   const seen = found?.arrival?.at ?? null;
-  const kept = useKeptPin(pin, answered, search, settings, now, change, { seen, known: pin?.ends ?? null, latest: () => ({ ...pin!, ends: seen! }), end: held(seen ?? pin?.ends ?? null, found?.arrival?.notStarted === true, now) });
+  const arrival = found?.arrival;
+  const waiting = arrival ? stillWaiting(arrival.at, now, arrival.notStarted) : false;
+  const kept = useKeptPin(pin, answered, search, settings, now, change, { seen, known: pin?.ends ?? null, latest: () => ({ ...pin!, ends: seen! }), end: seen ?? pin?.ends ?? null, waiting });
   return { found, ...kept };
 }
 
-// A pin's end, or now while its vehicle has yet to leave the first stop of its trip.
-const held = (end: number | null, notStarted: boolean, nowMs: number) => (end !== null && notStarted ? Math.max(end, Math.floor(nowMs / 1000)) : end);
+const legWaiting = (leg: PinnedLeg | null | undefined, nowMs: number) => Boolean(leg?.on && stillWaiting(leg.on.at, nowMs, leg.notStarted));
 
 // What every pin shares as its times come: when the latest answer has seen it anew (`seen`, unlike
 // `known`, what the pin holds), its times are written back (`latest`), and the set time after its
@@ -265,7 +268,7 @@ const held = (end: number | null, notStarted: boolean, nowMs: number) => (end !=
 // cannot unpin a trip that is running late, nor be written over newer ones another screen saved.
 // Only the screen showing changes the pin, and only while it is still the one stored: a screen
 // kept under another may hold one the rider has since replaced there (see main.tsx).
-function useKeptPin(pin: Pin | null, answered: boolean, search: Search, settings: DeviceSettings, now: number, change: (pin: Pin | null) => void, { seen, known, latest, end }: { seen: string | number | null; known: string | number | null; latest: () => Pin; end: number | null }) {
+function useKeptPin(pin: Pin | null, answered: boolean, search: Search, settings: DeviceSettings, now: number, change: (pin: Pin | null) => void, { seen, known, latest, end, waiting }: { seen: string | number | null; known: string | number | null; latest: () => Pin; end: number | null; waiting: boolean }) {
   const active = useScreenActive();
   const changeOwn = (next: Pin | null) => {
     const stored = loadPin(search);
@@ -275,8 +278,7 @@ function useKeptPin(pin: Pin | null, answered: boolean, search: Search, settings
     if (!answered || !pin || seen === null || seen === known) return;
     changeOwn(latest());
   }, [seen, active, answered]);
-  const unpinAt = pin && settings.autoUnpin && end !== null ? (end + settings.unpinAfter * 60) * 1000 : null;
-  const expired = answered && unpinAt !== null && now >= unpinAt;
+  const { unpinAt, expired } = unpinTiming(pin ? end : null, settings, { answered, waiting, now });
   useEffect(() => {
     if (expired) changeOwn(null);
   }, [expired, active]);

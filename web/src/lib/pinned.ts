@@ -1,4 +1,5 @@
 import type { Connection, Departure, PinRequest, PinnedLeg, PinnedStop, PinnedTrip, Route, TripResponse } from '../../../shared/api.ts';
+import { stillWaiting } from '../format.ts';
 import { pinLabel } from '../view.ts';
 import type { Pin } from '../storage.ts';
 
@@ -11,13 +12,13 @@ export function pinnedEnd(pinned: PinnedTrip): number | null {
 // Where the rider is along a pinned trip, by when its vehicles are due: waiting for the first
 // vehicle, riding it, changing to the second, riding that, or done. Without a first vehicle the
 // trip starts at changing, which is waiting for the second. A vehicle yet to leave the first stop
-// of its trip is still to come at each of its stops, whatever its times say (see hasLeft).
+// of its trip is still to come at each of its stops, whatever its times say (see stillWaiting).
 export type PinnedPhase = 'wait' | 'ride' | 'change' | 'ride-second' | 'done';
 
 export function pinnedPhase(pinned: PinnedTrip, now: number): PinnedPhase {
   const before = (leg: PinnedLeg | null | undefined, stop: 'on' | 'off') => {
     const at = leg?.[stop]?.at;
-    return at !== undefined && (leg?.notStarted === true || now < at);
+    return at !== undefined && (stillWaiting(at, now * 1000, leg?.notStarted) || now < at);
   };
   if (pinned.first) {
     if (before(pinned.first, 'on')) return 'wait';
@@ -107,17 +108,26 @@ export function pinnedFor(pin: Pin, data: TripResponse, dest: string | undefined
       off: { stop: pin.first.alight, at: connection.arrives, delay: connection.arriveDelay, ...(connection.arrivesScheduled ? { scheduled: true } : {}) },
       live: connection.live,
       ...(connection.notStarted ? { notStarted: true } : {}),
+      ...(connection.added ? { added: true } : {}),
     };
     return { first, second };
   }
   return null;
 }
 
+// When a pin unpins itself, with that setting on: the set time after its end, once an answer has
+// come (see useKeptPin in hooks.ts). Never while a vehicle of it has yet to leave the first stop of
+// its trip (`waiting`, see stillWaiting), whatever its times, even set to unpin at once.
+export function unpinTiming(end: number | null, { autoUnpin, unpinAfter }: { autoUnpin: boolean; unpinAfter: number }, { answered, waiting, now }: { answered: boolean; waiting: boolean; now: number }) {
+  const unpinAt = autoUnpin && end !== null && !waiting ? (end + unpinAfter * 60) * 1000 : null;
+  return { unpinAt, expired: answered && unpinAt !== null && now >= unpinAt };
+}
+
 // A trip the schedule lacks is known only by the feed, which drops each stop once the vehicle has
 // passed it, and the trip once it has ended. Such a stop, or leg, keeps the time last seen, so
 // boarding does not wipe the trip. `end` is where the second leg ends now, and a kept arrival
 // counts only if it is still there. Times taken from the results before the server's first answer
-// do not say whether the trip is added, so a fresh leg's word counts over theirs.
+// say whether a first vehicle is added, but not a second, so a fresh leg's word counts over theirs.
 export function steadyPinned(fresh: PinnedTrip, last: PinnedTrip | undefined, pin: Pin, end: string | undefined): PinnedTrip {
   if (!last) return fresh;
   const keep = (now: PinnedLeg | null | undefined, before: PinnedLeg | null | undefined, offAt: string | undefined): PinnedLeg | null => {
