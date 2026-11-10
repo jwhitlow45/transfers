@@ -1,7 +1,10 @@
 /* The app's pin bar (see PinBar.tsx): one element above every page but Settings. It is the first
    thing in the app shell, outside the screens' layers, so it neither slides nor scrolls with a
    page. Its row is the row every page has, on the same alignment lines. */
-.tf-pinbar { position: relative; z-index: 12; flex: none; background: var(--pinned-bg); box-shadow: var(--pinned-edge); border-bottom: var(--border-hair) solid var(--divider); }
+.tf-pinbar { position: relative; z-index: 12; flex: none; background: var(--pinned-bg); border-bottom: var(--border-hair) solid var(--divider); }
+/* The accent edge, drawn over the bar's bottom border, where the open panel's top border lies
+   too, so no line cuts across the edge where the two meet. */
+.tf-pinbar::before { content: ""; position: absolute; z-index: 2; left: 0; top: 0; bottom: -1px; width: 4px; background: var(--accent); pointer-events: none; }
 .tf-pinbar__in { display: block; max-width: var(--page-max); margin: 0 auto; }
 
 /* The bar is one button: the line that names it, then one row and the chevron on the edge line. */
@@ -9,8 +12,10 @@
 /* The bar spans the screen, so a ring outside it would fall off three edges. */
 .tf-pinbar__main:focus-visible { outline: 2px solid var(--accent); outline-offset: -4px; }
 /* One line: a name too long for it ends in an ellipsis, between "Pinned" and what the countdown
-   counts to, which stay whole. The bar's spoken name, its tab and its panel have all of it. */
-.tf-pinbar__naming { margin-bottom: var(--s1); font-size: var(--fs-meta); line-height: 1.3; color: var(--muted); }
+   counts to, which stay whole. The bar's spoken name, its tab and its panel have all of it. The
+   chevron ends the line, on the edge the row's trailing item ends on. */
+.tf-pinbar__top { display: flex; align-items: flex-start; gap: var(--colgap); margin-bottom: var(--s1); }
+.tf-pinbar__naming { flex: 1; min-width: 0; font-size: var(--fs-meta); line-height: 1.3; color: var(--muted); }
 .tf-pinbar .tf-pinbar__naming { display: flex; column-gap: var(--dot); }
 .tf-pinbar__naming > .tf-dots__gap { display: none; }
 .tf-pinbar__naming > .tf-dots__part { flex: none; white-space: nowrap; }
@@ -18,9 +23,10 @@
 .tf-pinbar__naming b { color: var(--accent-ink); }
 /* As tall waiting for its times as with them (a time's line and a status line), so the bar coming
    in moves the page once, and the row the rider tapped stays under their finger. */
-.tf-pinbar__line { display: flex; align-items: center; gap: var(--colgap); min-height: calc(1.75rem + 1.4 * var(--fs-body)); }
+.tf-pinbar__line { display: flex; align-items: center; min-height: calc(1.75rem + 1.4 * var(--fs-body)); }
 .tf-pinbar__line > .tf-row { flex: 1; min-width: 0; padding: 0; }
-.tf-pinbar__chev { flex: none; display: flex; color: var(--muted); }
+/* As tall as the naming line's first line, whatever the chevron's own size. */
+.tf-pinbar__chev { flex: none; display: flex; align-items: center; height: calc(1.3 * var(--fs-meta)); color: var(--muted); }
 .tf-pinbar__main[aria-expanded="true"] .tf-pinbar__chev svg { transform: rotate(180deg); }
 @media (prefers-reduced-motion: no-preference) { :root:not([data-motion="off"]) .tf-pinbar__chev svg { transition: transform 150ms ease; } }
 .tf-pinbar__alerts { display: inline-flex; align-items: center; gap: var(--s1); color: var(--late); font-weight: var(--weight-bold); white-space: nowrap; }
@@ -33,13 +39,14 @@
 /* Two or more pins: one tab each, always in sight under the bar. A pin's name is what tells it
    apart, so it wraps rather than cuts short, and its countdown drops under it. */
 .tf-pinbar__tabs { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); column-gap: var(--s3); padding: 0 var(--edge); border-top: var(--border-hair) solid var(--divider); }
-.tf-pinbar__tab { position: relative; min-width: 0; min-height: var(--tap); display: flex; flex-wrap: wrap; align-items: center; align-content: center; gap: 0 var(--s2); padding-block: var(--s1); font-size: var(--fs-body); line-height: 1.3; color: var(--muted); text-align: left; }
+/* Tabs of unlike heights start their words on one line, at the top. */
+.tf-pinbar__tab { position: relative; min-width: 0; min-height: var(--tap); display: flex; flex-wrap: wrap; align-items: flex-start; align-content: flex-start; gap: 0 var(--s2); padding-block: var(--s3); font-size: var(--fs-body); line-height: 1.3; color: var(--muted); text-align: left; }
 .tf-pinbar__tab b { color: var(--text); white-space: nowrap; }
-/* Two lines of a long name are enough to tell two pins apart, and keep the tabs from growing
-   taller than the bar they sit under. */
-.tf-pinbar__tabname { min-width: 0; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
-.tf-pinbar__tab[aria-selected="true"] { color: var(--text); font-weight: var(--weight-bold); }
-/* The underline says which is showing, so color is not the only sign. */
+/* A long name wraps and never truncates. */
+.tf-pinbar__tabname { min-width: 0; overflow-wrap: anywhere; }
+/* One weight chosen or not, so choosing a tab rewraps nothing. The underline says which is
+   showing, so color is not the only sign. */
+.tf-pinbar__tab[aria-selected="true"] { color: var(--text); }
 .tf-pinbar__tab[aria-selected="true"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--text); }
 .tf-pinbar__tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
@@ -57,7 +64,9 @@
 .tf-pinbar__panel .tf-pinbar__in > .tf-warnline { padding: var(--s1) var(--edge); }
 .tf-pinbar__note { margin: 0; padding: var(--s1) var(--edge); color: var(--muted); }
 .tf-pinbar__actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: var(--s2); padding: var(--s3) var(--edge) 0; }
-.tf-pinbar__action, .tf-pinbar__actions > .tf-time-link { min-height: var(--tap); display: flex; align-items: center; justify-content: center; gap: var(--s2); padding: var(--s1) var(--s2); background: var(--card); color: var(--text); font-size: var(--fs-body); font-weight: var(--weight-bold); text-align: center; text-decoration: none; }
+/* A line around each button: a card's fill is too near the panel's tint to mark one, in the dark
+   theme most of all. */
+.tf-pinbar__action, .tf-pinbar__actions > .tf-time-link { min-height: var(--tap); display: flex; align-items: center; justify-content: center; gap: var(--s2); padding: var(--s1) var(--s2); background: var(--card); border: var(--border-hair) solid var(--line); color: var(--text); font-size: var(--fs-body); font-weight: var(--weight-bold); text-align: center; text-decoration: none; }
 .tf-pinbar__actions > .tf-time-link::after { content: none; }
 .tf-pinbar__actions svg { flex: none; }
 .tf-pinbar__actions :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -86,11 +95,6 @@
   /* With room for a few words a line, the bar's name wraps whole, as its tab's does. */
   .tf-pinbar .tf-pinbar__naming { flex-wrap: wrap; }
   .tf-pinbar__naming .tf-pinbar__named { white-space: normal; overflow-wrap: anywhere; }
-  .tf-pinbar__tabname { display: block; }
-  /* The chevron goes up beside the line that names the bar, and leaves its room to the row. */
-  .tf-pinbar__in { position: relative; }
-  .tf-pinbar__chev { position: absolute; top: 0; right: 0; }
-  .tf-pinbar .tf-pinbar__naming { margin-right: var(--s6); }
 }
 /* On a narrow phone three equal buttons cannot hold "Open trip" and "Live map" on a line each. Each
    is as wide as its words need, and the words stand without their icons. */

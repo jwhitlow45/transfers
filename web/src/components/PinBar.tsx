@@ -553,7 +553,7 @@ function StopFeed({ pin, name: savedName, dismissed, shown, open, onReport, onTo
           <span>{clock(at)}</span>
         </>
       }
-      l2={[canceled ? <span class="tf-tight">Canceled</span> : status && <StatusTag status={status} plain />, headsign && `→ ${headsign}`, alertCount > 0 && <AlertCount count={alertCount} />]}
+      l2={[canceled ? <span class="tf-tight">Canceled</span> : status && <StatusTag status={status} plain />, headsign && `→\u00a0${headsign}`, alertCount > 0 && <AlertCount count={alertCount} />]}
       map={data ? { trip: pin.second.trip, stop: pin.second.board, title: vehicle, marks: [{ stop: pin.second.board, kind: 'yours' }], pin: sheetPin, stops: data.stops } : undefined}
       panel={
         <>
@@ -623,7 +623,14 @@ function BarView({ kind, name, sub, href, open, onToggle, onClose, onUnpin, spok
     <>
       <button type="button" class="tf-pinbar__main" aria-expanded={open} aria-controls={PANEL} aria-label={spoken} onClick={onToggle}>
         <span class="tf-pinbar__in">
-          <Dots class="tf-pinbar__naming" parts={[<b>Pinned</b>, <Cut class="tf-pinbar__named" text={name} />, verb]} />
+          {/* The chevron sits beside the line that names the bar, so the row under it has the
+              bar's whole width, and its trailing item ends where a page row's does. */}
+          <span class="tf-pinbar__top">
+            <Dots class="tf-pinbar__naming" parts={[<b>Pinned</b>, <Cut class="tf-pinbar__named" text={name} />, verb]} />
+            <span class="tf-pinbar__chev">
+              <IconChevron size={18} />
+            </span>
+          </span>
           <span class="tf-pinbar__line">
             <span class="tf-row">
               <Num n={num} unit={unit} />
@@ -634,9 +641,6 @@ function BarView({ kind, name, sub, href, open, onToggle, onClose, onUnpin, spok
                 </span>
                 {end}
               </span>
-            </span>
-            <span class="tf-pinbar__chev">
-              <IconChevron />
             </span>
           </span>
         </span>
