@@ -1,4 +1,4 @@
-import { useRef } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { IconClose, IconSwap } from '../icons/ui.tsx';
 import { typeWithoutUndo } from '../typing.ts';
 
@@ -78,17 +78,34 @@ export function SearchFields({ from, to, onFrom, onTo, onFocus, onBlur, onEnter,
   onSwap: () => void;
   canSwap: boolean;
 }) {
+  // At large text a field holds a few words, so each hint keeps to what tells the two apart: To
+  // takes a route as well.
+  const large = useLargeText();
   return (
     <div class="tf-fields">
       <div class="tf-fields__stack">
         {/* The keyboard's Enter says where it goes: from From on to To, and from To to the results
             once From is picked. */}
-        <Field id="field-from" label="From" value={from} placeholder="Stop name or stop code" enterKeyHint="next" onChange={onFrom} onFocus={() => onFocus('from')} onBlur={onBlur} onEnter={() => onEnter('from')} />
-        <Field id="field-to" label="To" value={to} placeholder="Stop, stop code, or route" enterKeyHint={from.meta ? 'go' : 'next'} onChange={onTo} onFocus={() => onFocus('to')} onBlur={onBlur} onEnter={() => onEnter('to')} />
+        <Field id="field-from" label="From" value={from} placeholder={large ? 'Stop or code' : 'Stop name or stop code'} enterKeyHint="next" onChange={onFrom} onFocus={() => onFocus('from')} onBlur={onBlur} onEnter={() => onEnter('from')} />
+        <Field id="field-to" label="To" value={to} placeholder={large ? 'Stop or route' : 'Stop, stop code, or route'} enterKeyHint={from.meta ? 'go' : 'next'} onChange={onTo} onFocus={() => onFocus('to')} onBlur={onBlur} onEnter={() => onEnter('to')} />
       </div>
       <button type="button" class="tf-swap" onClick={onSwap} disabled={!canSwap} aria-label="Swap From and To">
         <IconSwap />
       </button>
     </div>
   );
+}
+
+// Whether the rider's text is about 150% or larger, by the screen's width in em, as the
+// stylesheet's large-text rules go.
+function useLargeText() {
+  const query = '(max-width: 18em)';
+  const [large, setLarge] = useState(() => typeof matchMedia === 'function' && matchMedia(query).matches);
+  useEffect(() => {
+    const media = matchMedia(query);
+    const onChange = () => setLarge(media.matches);
+    media.addEventListener('change', onChange);
+    return () => media.removeEventListener('change', onChange);
+  }, []);
+  return large;
 }
