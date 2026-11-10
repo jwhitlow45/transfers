@@ -273,6 +273,10 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-num__u { font-size: var(--fs-meta); line-height: 1.3; color: var(--muted); white-space: nowrap; }
 /* A clock time in the number column, where a step has no countdown. */
 .tf-num__clock { font-size: var(--fs-meta); font-weight: var(--weight-bold); line-height: 1.75rem; white-space: nowrap; }
+/* A list of steps shares one column for its clock times: the number column's width, or as much
+   more as the widest time needs, "~12:59 PM", so none runs into its step's text. */
+:is(.tf-steps, .tf-pinbar__steps) { display: grid; grid-template-columns: minmax(var(--numcol), max-content) minmax(0, 1fr); column-gap: var(--colgap); }
+:is(.tf-steps, .tf-pinbar__steps) > .tf-row { grid-column: 1 / -1; grid-template-columns: subgrid; }
 /* The text, then the trailing item. At large text the trailing item drops under the text. */
 .tf-rb { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0 var(--colgap); min-width: 0; }
 .tf-rb__main { flex: 1 1 6rem; min-width: 0; }

@@ -147,7 +147,9 @@ function JourneyCard({ journey, data, now, toLabel, open, onToggle }: {
               </span>
             </span>
             <span class="tf-step__t">
-              Arrive <strong>{toLabel}</strong>
+              <span>
+                Arrive <strong>{toLabel}</strong>
+              </span>
             </span>
           </li>
         </ol>
@@ -170,10 +172,12 @@ function Step({ leg, at, scheduled, data, lastRide }: { leg: JourneyLeg; at: num
           </span>
         </span>
         <span class="tf-step__t">
-          <span class="tf-walk-gerbil" aria-hidden="true">
-            <IconGerbil />
+          <span>
+            <span class="tf-walk-gerbil" aria-hidden="true">
+              <IconGerbil />
+            </span>
+            Walk {minutesOf(leg.seconds)}&nbsp;min to <strong>{name(leg.to)}</strong>
           </span>
-          Walk {minutesOf(leg.seconds)}&nbsp;min to <strong>{name(leg.to)}</strong>
         </span>
       </li>
     );
@@ -190,7 +194,9 @@ function Step({ leg, at, scheduled, data, lastRide }: { leg: JourneyLeg; at: num
       </span>
       <div>
         <span class="tf-step__t">
-          <RouteChip route={route} /> from {name(leg.from)}
+          <span>
+            <RouteChip route={route} /> from {name(leg.from)}
+          </span>
         </span>
         <span class="tf-l2">Toward {leg.toward}</span>
         <span class="tf-l2">
