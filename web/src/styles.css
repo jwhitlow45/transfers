@@ -694,7 +694,9 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-toast__text { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
 .tf-toast__undo { min-height: var(--tap-min); padding: 0 var(--s3); color: var(--on-field); font-weight: var(--weight-bold); text-decoration: underline; text-underline-offset: 3px; }
 .tf-toast__icon { flex: none; display: inline-flex; }
-.tf-sheet__pin { padding: 0 var(--s3); }
+/* The sheet's pin: a filled button, on the pinned tint once pressed, as a pinned row is. */
+.tf-sheet__pin { flex: none; min-width: var(--tap-min); min-height: var(--tap-min); display: inline-flex; align-items: center; justify-content: center; gap: var(--s2); padding: 0 var(--s3); background: var(--card); color: var(--text); font-weight: var(--weight-bold); white-space: nowrap; }
+.tf-sheet__pin[aria-pressed="true"] { background: var(--pinned-bg); color: var(--accent-ink); }
 
 
 /* ── nearby & a stop's arrivals ────────────────────── */

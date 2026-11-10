@@ -127,13 +127,14 @@ export function TimeLink({ trip, stop, title, color, marks, transfer, pin, child
 }
 
 // Pins the trip from the map's sheet, beside Close. It sits in the sheet, not the map, so it works
-// while the map loads or when it cannot. It says Pinned once pressed, as a pinned row does, and
-// the page's toast, above the sheet, says what changed.
+// while the map loads or when it cannot. It says Pinned once pressed, on the tint a pinned row
+// has, and its name starts with the word shown, then says which trip.
 function SheetPin({ pin, onToggle }: { pin: PinAction; onToggle: (pin: PinAction) => void }) {
   return (
-    <button type="button" class="tf-filter tf-sheet__pin" aria-pressed={pin.pinned} aria-label={`Pin ${pin.label}`} onClick={() => onToggle(pin)}>
+    <button type="button" class="tf-sheet__pin" aria-pressed={pin.pinned} onClick={() => onToggle(pin)}>
       <IconPin filled={pin.pinned} size={16} />
       {pin.pinned ? 'Pinned' : 'Pin'}
+      <span class="tf-sr">: {pin.label}</span>
     </button>
   );
 }
