@@ -40,6 +40,9 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
   const root = useRef<HTMLDivElement>(null);
   const step = useRef('');
   const app = useContext(AppSheets);
+  // What had focus as the sheet opened, read before the page behind turns inert, which takes focus
+  // off whatever in it had it.
+  const openedFrom = useRef(document.activeElement as HTMLElement | null);
   // The page behind is inert while the sheet is open. Over the whole app, the app makes its pages
   // so (see main.tsx). Inside a screen, that is everything else in the screen, which nothing else
   // makes inert. The pin bar is outside both.
@@ -122,7 +125,7 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
     },
   });
   useEffect(() => {
-    const opener = document.activeElement as HTMLElement | null;
+    const opener = openedFrom.current;
     // Without scrolling: the panel starts below the screen as it rises, and focusing it there
     // would scroll the whole app up to bring it into view.
     requestAnimationFrame(() => panel.current?.focus({ preventScroll: true }));
