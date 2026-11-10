@@ -213,8 +213,10 @@ button:disabled { opacity: .45; cursor: default; }
 /* A link beside the one a sheet is for, such as where to hide what it shows. */
 .tf-link-button--secondary { color: var(--muted); }
 /* A button of an icon, with or without a word, at the end of a card's heading. */
-.tf-iconbtn { min-width: var(--tap-min); height: var(--tap-min); display: inline-flex; align-items: center; justify-content: center; gap: var(--s1); padding: 0 var(--s2); color: var(--muted); }
+/* Its glyph, or its word once on, ends on the card's content line, as a row's trailing item does. */
+.tf-iconbtn { min-width: var(--tap-min); height: var(--tap-min); display: inline-flex; align-items: center; justify-content: center; gap: var(--s1); padding: 0 var(--s3); color: var(--muted); }
 .tf-iconbtn--on { color: var(--accent-ink); font-size: var(--fs-meta); font-weight: var(--weight-bold); }
+.tf-card__head .tf-iconbtn { justify-content: flex-end; }
 .tf-force-refresh { width: 100%; margin-top: var(--s2); font-weight: var(--weight-bold); }
 .tf-version { margin-top: var(--s2); }
 
@@ -306,7 +308,7 @@ button:disabled { opacity: .45; cursor: default; }
 /* A card is a fill on the page, with no outline. */
 .tf-card { position: relative; background: var(--card); }
 .tf-card__heading { margin: 0; font: inherit; }
-.tf-card__head { display: flex; align-items: center; gap: var(--s2); min-height: var(--tap-min); padding: var(--s1) var(--s1) 0 var(--pad); }
+.tf-card__head { display: flex; align-items: center; gap: var(--s2); min-height: var(--tap); padding: var(--s1) 0 0 var(--pad); }
 .tf-card__name { flex: 1; min-width: 0; margin: 0; font-size: var(--fs-title); font-weight: var(--weight-bold); line-height: 1.3; overflow-wrap: anywhere; }
 .tf-card__sub { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s2); margin: 0; padding: 0 var(--pad); font-size: var(--fs-meta); color: var(--muted); }
 .tf-card__foot { display: flex; flex-direction: column; gap: var(--s1); padding: 0 var(--pad) var(--s3); }
@@ -425,12 +427,14 @@ button:disabled { opacity: .45; cursor: default; }
 /* One row: the title, then how fresh the times are and the screen's own controls. */
 .tf-header { position: sticky; top: 0; z-index: 3; background: var(--bg); border-bottom: var(--border-hair) solid var(--divider); }
 .tf-header__row { max-width: var(--page-max); margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s3); min-height: 3rem; padding: var(--s1) var(--gutter); }
-/* Back's glyph starts on the gutter, though its target reaches past it. */
-.tf-header__row > .tf-btn-icon { margin: 0 calc(-1 * var(--s2)) 0 calc(-1 * var(--s3)); }
-.tf-chain { flex: 1 1 8rem; min-width: 0; margin: 0; font-size: var(--fs-title); font-weight: var(--weight-bold); line-height: 1.3; display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s1); }
+/* Back's glyph starts on the gutter, though its target reaches past it: by half of what the
+   target is wider than its 22 px glyph (--icon-inset). */
+.tf-header__row, .tf-sheet__head { --icon-inset: calc((22px - var(--tap-min)) / 2); }
+.tf-header__row > .tf-btn-icon { margin: 0 calc(-1 * var(--s2)) 0 var(--icon-inset); }
+.tf-chain { flex: 1 1 6rem; min-width: 0; margin: 0; font-size: var(--fs-title); font-weight: var(--weight-bold); line-height: 1.3; display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s1); }
 .tf-header__end { margin-left: auto; display: flex; align-items: center; gap: var(--s3); font-size: var(--fs-meta); color: var(--muted); white-space: nowrap; }
 /* Its last button's glyph ends on the page gutter, as the cards below do. */
-.tf-header__end > .tf-btn-icon { margin-right: calc(-1 * var(--s3)); }
+.tf-header__end > .tf-btn-icon { margin-right: var(--icon-inset); }
 .tf-chain__arrow { flex: none; color: var(--muted); font-weight: var(--weight-regular); }
 /* Its border takes from its line height, so the line is as tall with it as without it. */
 .tf-chain__derived { border: 1px dashed var(--accent); color: var(--accent-ink); padding: 0 var(--s1); line-height: calc(1.3em - 2px); font-style: italic; }
@@ -659,7 +663,9 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-sheet__body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 var(--gutter) calc(var(--s4) + var(--bottom-inset)); }
 .tf-sheet__inner { max-width: 560px; margin: 0 auto; }
 .tf-sheet__head { display: flex; align-items: center; gap: var(--s2); padding: var(--s1) 0; }
-.tf-sheet__head h2 { flex: 1; margin: 0; font-size: var(--fs-title); }
+.tf-sheet__head h2 { flex: 1; min-width: 0; margin: 0; font-size: var(--fs-title); line-height: 1.3; overflow-wrap: anywhere; text-wrap: balance; }
+/* Close's glyph ends on the gutter, as the header's last button does. */
+.tf-sheet__head > .tf-btn-icon:last-child { margin-right: var(--icon-inset); }
 .tf-sheet__subtitle { color: var(--muted); }
 .tf-sheet__saved { text-align: center; color: var(--muted); margin-top: var(--s3); }
 .tf-sheet__done { margin-top: var(--s2); }
