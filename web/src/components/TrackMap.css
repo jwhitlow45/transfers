@@ -1,78 +1,129 @@
-/* The live map's own styles, loaded with its chunk. */
-.tf-track { padding-top: var(--space-3); }
+/* The live map's own styles, loaded with its chunk. Colors come from the app's custom
+   properties. The scale and the sizes are the redesign's (4, 8, 12, 16, 24 px and its five text
+   sizes), set here so the sheet holds its shape whatever the page under it uses. */
+.tf-track {
+  --tm-1: .25rem; --tm-2: .5rem; --tm-3: .75rem; --tm-4: 1rem; --tm-5: 1.5rem;
+  --tm-meta: .8125rem; --tm-body: .9375rem; --tm-title: 1.0625rem; --tm-num: 1.75rem;
+  --tm-numcol: 4rem;
+  --tm-tap: 44px;
+  /* The map and the stop lists sit on the card color, a step off the sheet's own. */
+  --tm-card: var(--card, color-mix(in srgb, var(--bg) 93%, var(--text)));
+  --tm-pinned: var(--pinned-bg, color-mix(in srgb, var(--accent) 16%, var(--bg)));
+  --tm-late: var(--late, #b3261e);
+  container-type: inline-size;
+  display: flex; flex-direction: column; gap: var(--tm-4);
+  padding-top: var(--tm-3);
+  font-size: var(--tm-body); line-height: 1.4; font-variant-numeric: tabular-nums;
+}
 .tf-track p { margin: 0; }
-.tf-track__toward { font-size: var(--text-base); color: var(--muted); }
-.tf-track__headline { margin-top: 2px; font-size: var(--text-lg); font-weight: var(--weight-bold); }
-/* The map, with its buttons over the bottom right corner, inside the map's border. */
-.tf-track__frame { position: relative; margin-top: var(--space-3); --map-inset: var(--border-strong); }
-.tf-track__frame .tf-track__map { margin-top: 0; }
-.tf-track__controls { position: absolute; right: calc(var(--border-strong) + var(--space-2)); bottom: calc(var(--border-strong) + var(--space-2)); display: flex; gap: var(--space-2); }
-/* On, as every toggle that is on looks (see .tf-filter in styles.css). */
-.tf-track__fit[aria-pressed="true"] { background: var(--field); color: var(--on-field); border-color: var(--field); }
-.tf-track__map { display: block; width: 100%; height: auto; max-height: 50vh; margin-top: var(--space-3); border: var(--border-strong) solid var(--line); background: var(--bg); }
-.tf-track__stop { fill: var(--bg); stroke: var(--text); }
-.tf-track__square--yours { fill: var(--text); stroke: var(--bg); }
-.tf-track__square--transfer { fill: var(--bg); stroke: var(--text); }
-/* The end of the ride: filled like the rider's stop, inside a ring. */
-.tf-track__square--destination { fill: var(--text); stroke: var(--bg); }
-.tf-track__square-ring { fill: none; stroke: var(--text); }
-/* Where the rider changes: the transfer mark in a ring. */
-.tf-track__change-mark circle { fill: var(--bg); stroke: var(--text); }
-.tf-track__change-mark path { stroke: var(--text); }
-.tf-track__change-mark--passed { opacity: .5; }
-.tf-track__vehicle { stroke: var(--bg); }
-/* The rider, as phones' own maps show them: a blue dot in a ring, inside how sure the phone is. */
-.tf-track__vehicle--estimate { fill-opacity: .55; stroke: var(--text); }
-.tf-track__heading { fill: var(--text); stroke: var(--bg); }
-/* A slash through a stop the vehicle has passed: a line in the text color inside a wider one in
-   the background's, so it shows across a solid square as well as an open one. */
-.tf-track__slash-edge { stroke: var(--bg); }
-.tf-track__slash { stroke: var(--text); }
-.tf-track__mark--passed .tf-track__stop-dot { position: relative; }
-.tf-track__mark--passed .tf-track__stop-dot::after { content: ''; position: absolute; left: -4px; right: -4px; top: calc(50% - 1px); height: 2px; background: var(--text); box-shadow: 0 0 0 1.5px var(--bg); transform: rotate(-45deg); }
-.tf-track__age { margin-top: var(--space-2); font-size: var(--text-sm); color: var(--muted); }
-.tf-track__age--old { color: var(--late); font-weight: var(--weight-label); }
-.tf-track__stops { list-style: none; margin: var(--space-3) 0 0; padding: 0; }
-.tf-track__stops li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); padding: var(--space-2) 0; border-top: var(--border-hair) solid var(--divider); }
-.tf-track__stop-dot { flex: none; width: 10px; height: 10px; border-radius: var(--radius-dot); border: 1.5px solid var(--text); background: var(--bg); }
-.tf-track__stop-name { flex: 1; min-width: 0; }
-.tf-track__mark .tf-track__stop-name { font-weight: var(--weight-bold); }
-.tf-track__mark .tf-track__stop-dot { border-radius: 0; }
-.tf-track__mark--yours .tf-track__stop-dot { background: var(--text); }
-/* The rider's own stop is the row they look for, so it sits on a tinted band with an accent edge,
-   reaching past the list's sides so its text stays in line with the rows around it. */
-.tf-track__stops .tf-track__mark--yours { margin-inline: calc(-1 * var(--space-2)); padding-inline: var(--space-2); background: var(--accent-tint); box-shadow: inset 4px 0 var(--accent); }
-/* Once the vehicle has left it, the band turns to the stripes the results page gives hidden
-   connections: still the rider's stop, but no longer one to catch it at. */
-.tf-track__stops .tf-track__mark--yours.tf-track__mark--passed { background: repeating-linear-gradient(135deg, transparent 0 7px, color-mix(in srgb, var(--text) 5%, transparent) 7px 14px); box-shadow: inset 4px 0 var(--muted); }
-.tf-track__mark--transfer .tf-track__stop-dot { border-width: 3px; }
-.tf-track__mark--destination .tf-track__stop-dot { background: var(--text); box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--text); }
-.tf-track__tag { font-size: var(--text-sm); font-weight: var(--weight-label); color: var(--muted); }
-.tf-track__tag--mark { color: var(--text); }
-.tf-track__when { flex: none; min-width: 4.5em; display: flex; flex-direction: column; align-items: flex-end; font-variant-numeric: tabular-nums; }
-.tf-track__in { font-weight: var(--weight-bold); }
-.tf-track__in--passed { font-weight: var(--weight-label); color: var(--muted); }
-.tf-track__time { font-size: var(--text-sm); color: var(--muted); }
-.tf-track__stops .tf-track__fold { display: block; padding: 0; }
-/* Stops in an opened fold sit indented under it. The fold's dots are drawn on the fold itself,
-   from where its mark starts to as far above its bottom, so closed they are just the mark, and as
-   the fold opens and closes they grow and shrink with it as one unbroken line. */
-.tf-track__stops--between { margin: 0; padding-left: calc(10px + var(--space-3)); }
-.tf-track__fold { background: var(--track-dots) 4px var(--track-dots-top) / 2px calc(100% - 2 * var(--track-dots-top)) no-repeat; }
-.tf-track__more-line { visibility: hidden; }
-.tf-track__more { display: flex; align-items: center; gap: var(--space-2); width: 100%; min-height: var(--tap-min); padding: var(--space-2) 0; color: var(--muted); font-weight: var(--weight-label); text-align: left; }
-/* A dotted stretch of line where the stop dots would be, standing for the stops folded away. */
-/* The dots, and where they start in a fold's row: the row is the tap height, with the 20 px mark
-   centered in it. */
-.tf-track { --track-dots: repeating-linear-gradient(var(--muted) 0 2px, transparent 2px 5px); --track-dots-top: calc((var(--tap-min) - 20px) / 2); }
-.tf-track__more-line { flex: none; width: 10px; height: 20px; background: var(--track-dots) center / 2px 100% no-repeat; }
-/* The change of vehicles between the two lists, set off like a new section: the vehicle changed
-   to, with the transfer on the right, as a results row has it. */
-.tf-track__change { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-3); align-items: center; margin-top: var(--space-4); padding-top: var(--space-3); border-top: var(--border-strong) solid var(--line); }
-.tf-track__change .tf-row__xfer { padding-top: 0; }
-.tf-track__change--tight .tf-row__xfer-min, .tf-track__change--missed :is(.tf-row__xfer-min, .tf-row__xfer-label) { color: var(--late); }
-.tf-track__change-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); font-weight: var(--weight-bold); }
-.tf-track__change-kicker { font-size: var(--text-xs); font-weight: var(--weight-bold); letter-spacing: var(--tracking-kicker); text-transform: uppercase; color: var(--muted); }
-.tf-track__change-status { margin-top: 2px; font-size: var(--text-base); color: var(--muted); }
-.tf-track__change + .tf-track__stops { margin-top: var(--space-2); }
+.tf-track__where { display: flex; flex-direction: column; }
+.tf-track__toward { color: var(--muted); }
+.tf-track__headline { font-size: var(--tm-title); font-weight: 700; }
+.tf-track__warn { color: var(--tm-late); font-weight: 700; }
+
+/* The map, with its buttons over the bottom right corner. */
+.tf-track__frame { position: relative; --map-inset: 0px; }
+.tf-track__map { display: block; width: 100%; height: auto; max-height: 60vh; background: var(--tm-card); }
+.tf-track__controls { position: absolute; z-index: 1; right: var(--tm-2); bottom: var(--tm-2); display: flex; gap: var(--tm-2); }
+.tf-track__controls .tf-track__fit { min-height: var(--tm-tap); padding: 0 var(--tm-3); gap: var(--tm-2); background: var(--bg); color: var(--text); border: 1px solid var(--line); font-size: var(--tm-body); font-weight: 700; }
+/* On, as every toggle that is on looks. */
+.tf-track__controls .tf-track__fit[aria-pressed="true"] { background: var(--field); color: var(--on-field, #fff); border-color: var(--field); }
+.tf-track__controls .tf-track__fit:disabled { color: var(--muted); }
+
+/* Lines in the route's color over a darker casing, so a pale route still shows on the card. */
+.tf-track__casing, .tf-track__line { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.tf-track__casing { stroke: var(--line); }
 .tf-track__walk { stroke: var(--text); }
+.tf-track__stop { fill: var(--tm-card); stroke: var(--text); }
+/* The rider's stops: open rings, and a solid one where they are going. */
+.tf-track__mark-ring { fill: var(--tm-card); stroke: var(--text); }
+.tf-track__mark-ring--destination { fill: var(--text); stroke: var(--tm-card); }
+/* A slash through a stop the vehicle has passed: a line in the text color inside a wider one in
+   the background's, so it shows across a solid ring as well as an open one. */
+.tf-track__slash-edge { stroke: var(--tm-card); }
+.tf-track__slash { stroke: var(--text); }
+.tf-track__vehicle { fill: var(--text); stroke: var(--tm-card); }
+.tf-track__vehicle--estimate { fill: var(--tm-card); stroke: var(--text); }
+.tf-track__heading { fill: var(--text); stroke: var(--tm-card); }
+
+/* Labels beside the markers. They are HTML over the drawing, so they grow with the rider's text
+   size, and each carries an edge in the card's color, so it reads where it has to cross a line. */
+.tf-track__labels { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.tf-track__label {
+  position: absolute; left: 0; top: 0; display: flex; flex-direction: column; width: max-content; max-width: min(11em, 46cqi);
+  font-size: .75rem; line-height: 1.2; color: var(--text); text-align: center;
+  text-shadow: 0 0 2px var(--tm-card), 1px 1px 0 var(--tm-card), -1px 1px 0 var(--tm-card), 1px -1px 0 var(--tm-card), -1px -1px 0 var(--tm-card), 0 1.5px 0 var(--tm-card), 0 -1.5px 0 var(--tm-card), 1.5px 0 0 var(--tm-card), -1.5px 0 0 var(--tm-card);
+}
+.tf-track__label strong { font-weight: 700; }
+.tf-track__label--start { text-align: left; }
+.tf-track__label--end { text-align: right; }
+
+.tf-track__caption { display: flex; flex-direction: column; gap: var(--tm-1); margin-top: calc(-1 * var(--tm-2)); }
+.tf-track__age { font-size: var(--tm-meta); color: var(--muted); }
+.tf-track__age--old { color: var(--tm-late); font-weight: 700; }
+
+/* The whole transfer on one clock: the ride, the wait, the second vehicle. */
+.tf-tripbar { display: flex; flex-direction: column; gap: var(--tm-1); }
+.tf-tripbar__track { position: relative; height: 12px; margin-top: var(--tm-1); }
+.tf-tripbar__track::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px dotted var(--line); }
+.tf-tripbar__seg { position: absolute; top: 0; height: 12px; }
+.tf-tripbar__ride { background: var(--text); }
+.tf-tripbar__gap { border: 2px solid var(--text); background: var(--bg); }
+.tf-tripbar--tight .tf-tripbar__gap { border-color: var(--tm-late); background: var(--late-tint, var(--bg)); }
+.tf-tripbar__tight { color: var(--tm-late); font-weight: 700; }
+/* Minutes from now along the same scale, each label hanging from its mark. */
+.tf-tripbar__ticks { position: relative; height: 1.1rem; font-size: .75rem; color: var(--muted); }
+.tf-tripbar__tick { position: absolute; top: 0; padding-left: 3px; border-left: 1px solid var(--line); line-height: 1.1rem; white-space: nowrap; }
+.tf-tripbar__legend { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--tm-1) var(--tm-3); font-size: var(--tm-meta); color: var(--muted); }
+
+/* One vehicle: its chip, where it heads and how sure its times are, then its stops. */
+.tf-track__veh { display: flex; flex-direction: column; gap: var(--tm-2); }
+.tf-track .tf-track__veh-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--tm-2); margin: 0; font-size: var(--tm-title); font-weight: 700; line-height: 1.75rem; }
+.tf-track__veh-head .tf-chip { align-self: center; }
+.tf-track__state { font-size: var(--tm-body); font-weight: 700; }
+/* A trip from the schedule alone, marked once here by a dashed tag. */
+.tf-track__sched { padding: 0 var(--tm-1); border: 1px dashed currentColor; color: var(--muted); font-size: var(--tm-meta); font-weight: 700; line-height: 1.4; white-space: nowrap; }
+.tf-track__veh-where { color: var(--muted); margin-top: calc(-1 * var(--tm-1)); }
+
+.tf-track__stops { list-style: none; margin: 0; padding: 0; background: var(--tm-card); }
+.tf-track__stops > li + li { border-top: 1px solid var(--divider); }
+/* The row every list in the app shares: the number the rider acts on in the left column, then
+   the text, then the trailing time. */
+.tf-track__row { display: grid; grid-template-columns: var(--tm-numcol) minmax(0, 1fr) auto; column-gap: var(--tm-3); align-items: center; padding: var(--tm-3); }
+.tf-track__num { display: flex; flex-direction: column; }
+.tf-track__num-n { font-size: var(--tm-num); font-weight: 700; line-height: 1; letter-spacing: -.01em; }
+.tf-track__num-u { font-size: var(--tm-meta); line-height: 1.3; color: var(--muted); }
+.tf-track__num--passed { font-size: var(--tm-meta); font-weight: 700; color: var(--muted); }
+.tf-track__row-main { display: flex; flex-direction: column; min-width: 0; }
+.tf-track__stop-name { overflow-wrap: anywhere; }
+.tf-track__row--mark .tf-track__stop-name { font-size: var(--tm-title); font-weight: 700; line-height: 1.75rem; }
+.tf-track__row-note { color: var(--muted); }
+.tf-track__time { color: var(--muted); white-space: nowrap; }
+/* Where the rider gets on is the row they look for, so it sits on the tint a pinned row has, with
+   an accent edge. Once the vehicle has left it, the tint goes and the edge turns gray: still the
+   rider's stop, but no longer one to catch it at. */
+.tf-track__row--yours { background: var(--tm-pinned); box-shadow: inset 4px 0 var(--accent); }
+.tf-track__row--yours.tf-track__row--passed { background: none; box-shadow: inset 4px 0 var(--muted); }
+.tf-track__row--passed .tf-track__stop-name { color: var(--muted); }
+
+/* Stops between the rider's fold into one row, which names how many, on the same columns. */
+.tf-track__more { display: grid; grid-template-columns: var(--tm-numcol) minmax(0, 1fr); column-gap: var(--tm-3); align-items: center; width: 100%; min-height: var(--tm-tap); padding: 0 var(--tm-3); color: var(--muted); font: inherit; font-weight: 700; text-align: left; }
+.tf-track__more:focus-visible { outline-offset: -3px; }
+.tf-track__more-line { width: 2px; height: 20px; margin-left: var(--tm-2); background: repeating-linear-gradient(var(--muted) 0 2px, transparent 2px 5px); }
+.tf-track__more-text { display: inline-flex; align-items: center; gap: var(--tm-2); }
+.tf-track__stops--between { border-top: 1px solid var(--divider); }
+
+/* At about 150% text and up (the sheet under 16rem across), the fixed number column would squeeze each row's text into a narrow
+   strip. It shrinks to fit its number, and spacing stays at its 100% size, so the text gets the
+   width. */
+@container (max-width: 16rem) {
+  .tf-track > * { --tm-1: 4px; --tm-2: 8px; --tm-3: 12px; --tm-4: 16px; --tm-5: 24px; }
+  .tf-track__row { grid-template-columns: auto minmax(0, 1fr); }
+  .tf-track__num { min-width: 1.5em; }
+  .tf-track__time { grid-column: 2; }
+  .tf-track__more { grid-template-columns: auto minmax(0, 1fr); }
+}
+/* On a narrow phone the number column gives a little of its width to the stop names. */
+@container (max-width: 19rem) {
+  .tf-track > * { --tm-numcol: 3.25rem; }
+}
