@@ -81,8 +81,6 @@
 .tf-track .tf-track__veh-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--tm-2); margin: 0; font-size: var(--tm-title); font-weight: 700; line-height: 1.75rem; }
 .tf-track__veh-head .tf-chip { align-self: center; }
 .tf-track__state { font-size: var(--tm-body); font-weight: 700; }
-/* A trip from the schedule alone, marked once here by a dashed tag. */
-.tf-track__sched { padding: 0 var(--tm-1); border: 1px dashed currentColor; color: var(--muted); font-size: var(--tm-meta); font-weight: 700; line-height: 1.4; white-space: nowrap; }
 .tf-track__veh-where { color: var(--muted); margin-top: calc(-1 * var(--tm-1)); }
 
 .tf-track__stops { list-style: none; margin: 0; padding: 0; background: var(--tm-card); }

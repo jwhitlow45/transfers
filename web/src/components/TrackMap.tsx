@@ -12,10 +12,10 @@ import { metersFrom } from '../../../shared/projection.ts';
 import { ageText, clockSkewMs } from '../lib/freshness.ts';
 import type { Mark, Tracked } from '../track.tsx';
 import { useSettings } from '../settings.tsx';
-import { chipLabel, shortStopName } from '../view.ts';
+import { chipLabel, shortStopName, statusOf } from '../view.ts';
 import { Collapse } from './Collapse.tsx';
 import { RouteChip } from './RouteChip.tsx';
-import { Approx, Plus } from './StatusTag.tsx';
+import { Approx, StatusTag } from './StatusTag.tsx';
 import './TrackMap.css';
 import { TripTimeBar } from './TripTimeBar.tsx';
 import { YouMarker } from './YouMarker.tsx';
@@ -243,24 +243,19 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
   );
 }
 
-// One vehicle's part of the sheet: its chip, where it heads, and how sure its times are, over its
-// stops. A trip the feed predicts none of carries the one Scheduled tag here, so its times and
-// countdowns below stay bare (J, 2026-10-03).
+// One vehicle's part of the sheet: its chip, where it heads, and its status at the stop watched, in
+// the words its row in the results uses, over its stops. A trip the feed predicts none of carries
+// the one Scheduled tag here, so its times and countdowns below stay bare (J, 2026-10-03).
 function Vehicle({ leg, route, color, where, children }: { leg: TrackLeg; route: Route | undefined; color: string | undefined; where?: string; children: ComponentChildren }) {
+  // A server from before the map carried a status knows a canceled trip only by its missing vehicle.
+  const canceled = leg.canceled === true || leg.missing === 'canceled';
   return (
     <section class="tf-track__veh">
       <h3 class="tf-track__veh-head">
         <RouteChip route={route} {...(color ? { color } : {})} />
         <span>toward {leg.headsign}</span>
-        {leg.missing === 'canceled' ? (
-          <span class="tf-track__state tf-track__warn">Canceled</span>
-        ) : leg.scheduled ? (
-          <span class="tf-track__sched">Scheduled</span>
-        ) : leg.missing === 'not-started' ? (
-          <span class="tf-track__state">Not left yet</span>
-        ) : leg.missing === 'ended' ? (
-          <span class="tf-track__state">Ended</span>
-        ) : null}
+        {/* An ended trip's delay no longer matters. */}
+        {leg.missing === 'ended' && !canceled ? <span class="tf-track__state">Ended</span> : <StatusTag status={statusOf(leg.delay ?? null, !leg.scheduled, canceled, leg.notStarted)} />}
       </h3>
       {where && <p class="tf-track__veh-where">{where}</p>}
       {children}
@@ -577,7 +572,8 @@ function LegList({ leg, stops, labels, now, role, notes, name }: {
     else rows.push(plain ? [index] : index);
   }
   // A live vehicle yet to leave its first stop comes then at the soonest (see atLeast).
-  const notStarted = leg.missing === 'not-started' && !leg.scheduled;
+  // The feed says so of a vehicle that reports where it is too, parked at its first stop.
+  const notStarted = !leg.scheduled && (leg.notStarted === true || leg.missing === 'not-started');
   // By position, since a loop's path can hold one stop twice.
   const item = (index: number) => {
     const kind = labels.get(index)?.[0];
@@ -671,6 +667,15 @@ function When({ at, passed, notStarted, now }: { at: number | null; passed: bool
     </span>
   );
 }
+
+// The "+" `atLeast` gives a vehicle yet to leave the first stop of its trip. The list is read as
+// shown, so a screen reader hears "or more" after the minutes.
+const Plus = () => (
+  <>
+    <span aria-hidden="true">+</span>
+    <span class="tf-sr"> or more</span>
+  </>
+);
 
 // The clock time beside it. Positions and predictions arrive apart, so the clock is kept on the
 // right side of now: a stop passed early never shows a time to come, nor a stop ahead a time gone.
