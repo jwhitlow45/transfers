@@ -58,8 +58,10 @@ function toView(alert: Alert, data: AlertData, boardingStops: Set<string>, needs
     severity = 'severe';
     if (kicker.startsWith('Notice')) kicker = `Station access · ${routeNames || agencyOnly(alert.agency)}`;
   }
-  const until = alert.activeUntil ? ` · Until ${shortDate(alert.activeUntil * 1000)}` : '';
-  return { id: alert.id, severity, kicker, ...titleAndBody(alert.header, alert.description), meta: `${agencyOnly(alert.agency)}${until}`, url: alert.url, startOpen: severity === 'severe' && !relied };
+  // The agency, unless the kicker over it names it already, then how long the alert lasts.
+  const agency = agencyOnly(alert.agency);
+  const meta = [!kicker.split(' · ').includes(agency) && agency, alert.activeUntil && `Until ${shortDate(alert.activeUntil * 1000)}`].filter(Boolean).join(' · ');
+  return { id: alert.id, severity, kicker, ...titleAndBody(alert.header, alert.description), meta, url: alert.url, startOpen: severity === 'severe' && !relied };
 }
 
 // How much longer than the header its finished sentence may be and still read as a title.

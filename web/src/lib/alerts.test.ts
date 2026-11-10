@@ -61,3 +61,12 @@ test('a header the description does not start with stays as it is', () => {
   deepStrictEqual(titleAndBody('Schedule Change 10/12', 'SF Muni will operate on a Saturday schedule.'), { title: 'Schedule Change 10/12', body: 'SF Muni will operate on a Saturday schedule.' });
   deepStrictEqual(titleAndBody('Elevator out', null), { title: 'Elevator out', body: null });
 });
+
+test('the line under an alert names its agency only when the kicker over it does not', () => {
+  const until = Date.UTC(2026, 10, 30, 20) / 1000;
+  const [named, unnamed] = viewAlerts(data(undefined, [{ ...notice('a', 'Buses replace trains'), activeUntil: until }, { ...notice('b', 'Stop moved'), relevance: 'stop', stops: ['BA:901609'], activeUntil: until }, notice('c', 'Fare change')]), new Set()).sort((a, b) => a.id.localeCompare(b.id));
+  // "Notice · Muni" says the agency already.
+  deepStrictEqual([named!.kicker, named!.meta], ['Notice · Muni', 'Until Nov 30']);
+  deepStrictEqual([unnamed!.kicker, unnamed!.meta], ['At 24th St Mission', 'Muni · Until Nov 30']);
+  strictEqual(viewAlerts(data(undefined, [notice('c', 'Fare change')]), new Set())[0]!.meta, '');
+});
