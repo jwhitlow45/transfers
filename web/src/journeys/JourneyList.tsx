@@ -6,6 +6,7 @@ import { Clock, Num } from '../components/Countdown.tsx';
 import { EmptyState } from '../components/EmptyState.tsx';
 import { Dots } from '../components/Dots.tsx';
 import { RouteChip } from '../components/RouteChip.tsx';
+import { Name } from '../components/Whole.tsx';
 import { Approx, StatusTag } from '../components/StatusTag.tsx';
 import { approx, approxMinutes, atLeast, clock, minutesUntil, stillWaiting } from '../format.ts';
 import { IconFold, IconGerbil } from '../icons/ui.tsx';
@@ -113,8 +114,9 @@ function JourneyCard({ journey, data, now, toLabel, open, onToggle }: {
                 </span>
               </div>
               <div class="tf-l1 tf-journey__legs">
+                {/* Each mark goes with the leg after it, so no line ends with one. */}
                 {shownLegs.map((leg, index) => (
-                  <Fragment key={index}>
+                  <span key={index} class="tf-step">
                     {index > 0 && <span class="tf-journey__sep">›</span>}
                     {leg.kind === 'walk' ? (
                       <span class="tf-journey__walk">
@@ -126,7 +128,7 @@ function JourneyCard({ journey, data, now, toLabel, open, onToggle }: {
                     ) : (
                       <RouteChip route={data.routes[leg.route]} />
                     )}
-                  </Fragment>
+                  </span>
                 ))}
               </div>
               <Dots class="tf-l2" tag="div" parts={[`${approx(String(length), lengthScheduled)}\u00a0min`, kind]} />
@@ -148,7 +150,10 @@ function JourneyCard({ journey, data, now, toLabel, open, onToggle }: {
             </span>
             <span class="tf-step__t">
               <span>
-                Arrive <strong>{toLabel}</strong>
+                Arrive{' '}
+                <strong>
+                  <Name text={toLabel} />
+                </strong>
               </span>
             </span>
           </li>
@@ -174,7 +179,10 @@ function Step({ leg, at, scheduled, data, lastRide }: { leg: JourneyLeg; at: num
             <span class="tf-walk-gerbil" aria-hidden="true">
               <IconGerbil />
             </span>
-            Walk {minutesOf(leg.seconds)}&nbsp;min to <strong>{name(leg.to)}</strong>
+            <span class="tf-nowrap">Walk {minutesOf(leg.seconds)}&nbsp;min to</span>{' '}
+            <strong>
+              <Name text={name(leg.to)} />
+            </strong>
           </span>
         </span>
       </li>
@@ -191,10 +199,12 @@ function Step({ leg, at, scheduled, data, lastRide }: { leg: JourneyLeg; at: num
       <div>
         <span class="tf-step__t">
           <span>
-            <RouteChip route={route} /> from {name(leg.from)}
+            <RouteChip route={route} /> from <Name text={name(leg.from)} />
           </span>
         </span>
-        <span class="tf-l2">Toward {leg.toward}</span>
+        <span class="tf-l2">
+          <Name text={`Toward ${leg.toward}`} />
+        </span>
         <span class="tf-l2">
           <StatusTag status={statusOf(leg.departDelay, leg.live, false, leg.notStarted)} plain />
         </span>
@@ -203,7 +213,10 @@ function Step({ leg, at, scheduled, data, lastRide }: { leg: JourneyLeg; at: num
           parts={[
             `${leg.stops} stop${leg.stops === 1 ? '' : 's'}`,
             <>
-              off at {name(leg.to)} <Approx scheduled={!leg.live}>{clock(leg.arrives)}</Approx>
+              off at <Name text={name(leg.to)} />{' '}
+              <span class="tf-nowrap">
+                <Approx scheduled={!leg.live}>{clock(leg.arrives)}</Approx>
+              </span>
             </>,
           ]}
         />

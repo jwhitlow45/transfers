@@ -8,7 +8,9 @@ import { type PinAction, TimeLink } from '../track.tsx';
 import { Num } from './Countdown.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import { StatusTag, Warnline } from './StatusTag.tsx';
+import { Chain, Name } from './Whole.tsx';
 import { typeWithoutUndo } from '../typing.ts';
+import { Cut } from './Cut.tsx';
 import { keepInPlace } from '../lib/scroll.ts';
 
 // The main daily entry point: one tap opens its page, and it leads with a live countdown. The
@@ -61,6 +63,7 @@ export function SavedSearchCard({ name, color, href, openLabel, onOpen, editing,
         <div class="tf-saved__edit">
           <label class="tf-saved__name-field">
             <span class="tf-field__label">Name</span>
+            <span class="tf-field__box">
             <input
               class="tf-saved__name-input"
               value={draft}
@@ -74,6 +77,13 @@ export function SavedSearchCard({ name, color, href, openLabel, onOpen, editing,
               onBlur={() => setDraft(name)}
               onKeyDown={(event) => event.key === 'Enter' && event.currentTarget.blur()}
             />
+            {/* The name as text over the input while the cursor is elsewhere (see .tf-field__shown). */}
+            {draft && (
+              <span class="tf-field__shown" aria-hidden="true">
+                <Cut text={draft} />
+              </span>
+            )}
+            </span>
           </label>
           <div class="tf-saved__swatches" role="group" aria-label={`Color of ${name}`}>
             {SAVED_COLORS.map((swatch) => (
@@ -102,7 +112,9 @@ export function SavedSearchCard({ name, color, href, openLabel, onOpen, editing,
   return (
     <article class="tf-card tf-saved tf-card--link" ref={card} style={stripe}>
       <div class="tf-card__head">
-        <h3 class="tf-card__name">{name}</h3>
+        <h3 class="tf-card__name">
+          <Name text={name} />
+        </h3>
         {pin && (
           <button
             type="button"
@@ -166,7 +178,11 @@ export function SavedTripBody({ chain, named, windowText, next, trackPin, loadin
     <>
       {(named || windowText || loading) && (
         <p class="tf-card__sub">
-          {named && <span>{chain}</span>}
+          {named && (
+            <span>
+              <Chain text={chain} />
+            </span>
+          )}
           {windowText ? (
             <span class="tf-saved__window">
               <span class="tf-sr">Transfer window </span>

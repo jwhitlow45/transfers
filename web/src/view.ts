@@ -48,9 +48,9 @@ export function statusOf(delaySeconds: number | null, live = true, canceled = fa
   if (!live) return { kind: 'scheduled', label: 'Scheduled' };
   if (notStarted) {
     const minutes = delaySeconds === null ? 0 : Math.round(delaySeconds / 60);
-    if (minutes > 0) return { kind: 'late', label: `Not left, ${minutes}${NB}min${NB}late` };
-    if (minutes < 0) return { kind: 'early', label: `Not left, ${-minutes}${NB}min${NB}early` };
-    return { kind: 'waiting', label: 'Not left yet' };
+    if (minutes > 0) return { kind: 'late', label: `Not${NB}left, ${minutes}${NB}min${NB}late` };
+    if (minutes < 0) return { kind: 'early', label: `Not${NB}left, ${-minutes}${NB}min${NB}early` };
+    return { kind: 'waiting', label: `Not${NB}left${NB}yet` };
   }
   if (delaySeconds === null) return { kind: 'nodata', label: 'No delay data' };
   const minutes = Math.round(delaySeconds / 60);

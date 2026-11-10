@@ -11,6 +11,7 @@ import { RouteChip } from './RouteChip.tsx';
 import { StopLink } from './StopLink.tsx';
 import { Dots } from './Dots.tsx';
 import { EmptyState } from './EmptyState.tsx';
+import { Toward } from './Whole.tsx';
 import { useSettings } from '../settings.tsx';
 
 // One group per connecting route, or per transfer point when To is a route. Up to 3 departures.
@@ -124,24 +125,22 @@ export function TransferPointGroup({ group, context, isExpanded, onToggle, onWid
           {firstRoutes.length > 0 && (
             <>
               {chips(firstRoutes, colorOf)}
-              <span class="tf-group__then" aria-hidden="true">
-                ›
+              {/* The mark goes with what follows it, so no line of the title ends with one. */}
+              <span class="tf-step">
+                <span class="tf-group__then" aria-hidden="true">
+                  ›
+                </span>
+                <span class="tf-sr">then </span>
+                {chips(titleRoutes, colorOf)}
               </span>
-              <span class="tf-sr">then </span>
             </>
           )}
-          {chips(titleRoutes, colorOf)}
+          {firstRoutes.length === 0 && chips(titleRoutes, colorOf)}
           {/* Going to a stop, every vehicle in a group heads the rider's way, so the header names no
               direction, and each departure says where it goes. Catching a route, the direction is
               the choice (J, 2026-10-12). */}
           {!context.going && (
-            <span class="tf-to">
-              <span aria-hidden="true">→</span>
-              <span>
-                <span class="tf-sr">{destinationName ? 'to ' : 'toward '}</span>
-                {destinationName ?? group.headsign}
-              </span>
-            </span>
+            <Toward text={destinationName ?? group.headsign} spoken={destinationName ? 'to ' : 'toward '} />
           )}
         </h2>
         {/* Where to change is said here, once, for every card under it. */}

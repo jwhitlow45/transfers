@@ -15,6 +15,7 @@ import { Dots } from './Dots.tsx';
 import { PinToggle } from './PinToggle.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import { Approx, PinnedTag, StatusTag } from './StatusTag.tsx';
+import { Name } from './Whole.tsx';
 
 // One second-leg departure: a reversed band, then every first vehicle that makes it. The band
 // opens and closes the card. Closed, it keeps one line of countdowns for those vehicles.
@@ -151,7 +152,7 @@ export function DepartureCard({ departure, group, next, alightName, noun, walk, 
         </span>
         {toward && (
           <span class="tf-band__sub tf-band__toward" aria-hidden="true">
-            {toward}
+            <Name text={toward} />
           </span>
         )}
         {destination && (

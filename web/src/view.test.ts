@@ -15,11 +15,11 @@ test('a stop links to its agency page: Muni by its sign number, BART by its stat
 });
 
 test('a vehicle yet to leave the first stop of its trip says so in place of on time, and how late or early it is', () => {
-  deepStrictEqual(statusOf(0, true, false, true), { kind: 'waiting', label: 'Not left yet' });
-  deepStrictEqual(statusOf(null, true, false, true), { kind: 'waiting', label: 'Not left yet' });
-  deepStrictEqual(statusOf(178, true, false, true), { kind: 'late', label: 'Not left, 3\u00a0min\u00a0late' });
-  deepStrictEqual(statusOf(-60, true, false, true), { kind: 'early', label: 'Not left, 1\u00a0min\u00a0early' });
-  deepStrictEqual(statusOf(-29, true, false, true), { kind: 'waiting', label: 'Not left yet' });
+  deepStrictEqual(statusOf(0, true, false, true), { kind: 'waiting', label: 'Not\u00a0left\u00a0yet' });
+  deepStrictEqual(statusOf(null, true, false, true), { kind: 'waiting', label: 'Not\u00a0left\u00a0yet' });
+  deepStrictEqual(statusOf(178, true, false, true), { kind: 'late', label: 'Not\u00a0left, 3\u00a0min\u00a0late' });
+  deepStrictEqual(statusOf(-60, true, false, true), { kind: 'early', label: 'Not\u00a0left, 1\u00a0min\u00a0early' });
+  deepStrictEqual(statusOf(-29, true, false, true), { kind: 'waiting', label: 'Not\u00a0left\u00a0yet' });
   // Canceled and scheduled say so first.
   deepStrictEqual([statusOf(0, true, true, true).kind, statusOf(null, false, false, true).kind], ['canceled', 'scheduled']);
 });
@@ -28,7 +28,7 @@ test('a status beside a countdown says not left only while the vehicle is held a
   const at = 1_000_000;
   const status = (minutesPast: number, notStarted: boolean) => statusAt(at, (at + minutesPast * 60) * 1000, 120, true, false, notStarted).label;
   // Ahead of its time, and for half an hour past it, a vehicle yet to leave its first stop says so.
-  deepStrictEqual([status(-5, true), status(29, true)], ['Not left, 2\u00a0min\u00a0late', 'Not left, 2\u00a0min\u00a0late']);
+  deepStrictEqual([status(-5, true), status(29, true)], ['Not\u00a0left, 2\u00a0min\u00a0late', 'Not\u00a0left, 2\u00a0min\u00a0late']);
   // Past the hold its row reads "Left 32 min ago", so the status is its delay alone.
   strictEqual(status(32, true), '2\u00a0min\u00a0late');
   strictEqual(status(32, false), '2\u00a0min\u00a0late');

@@ -24,6 +24,7 @@ import { chipLabel, pinLabel, shortStopName, statusAt, vehicleAt } from '../view
 import { AppLink } from './AppLink.tsx';
 import { Clock, Num } from './Countdown.tsx';
 import { Cut } from './Cut.tsx';
+import { Name } from './Whole.tsx';
 import { Breakable } from './Breakable.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import { StatusTag, Warnline } from './StatusTag.tsx';
@@ -205,7 +206,9 @@ export function PinBar({ page, open, onOpen }: { page: Page; open: boolean; onOp
               return (
                 <button key={id} type="button" role="tab" class="tf-pinbar__tab" id={tabId(id)} aria-selected={selected} aria-controls={VIEW} tabIndex={selected ? 0 : -1} onClick={() => setChosen(id)}>
                   <span class="tf-sr">{pin.arrival ? 'Pinned arrival, ' : 'Pinned trip, '}</span>
-                  <span class="tf-pinbar__tabname">{pinName(pin, saved.find((item) => item.id === id)?.name)}</span> <b>{reports[id]?.tab}</b>
+                  <span class="tf-pinbar__tabname">
+                    <Name text={pinName(pin, saved.find((item) => item.id === id)?.name)} />
+                  </span> <b>{reports[id]?.tab}</b>
                 </button>
               );
             })}
@@ -346,7 +349,8 @@ function TripFeed({ pin, name: savedName, dismissed, shown, open, onReport, onTo
     // The walk between the two vehicles, as the results give it: the row's own when its vehicle lets
     // the rider off at another stop than its group's.
     const walkMeters = pin.first ? (connection?.walkMeters ?? group?.walkMeters) : undefined;
-    const walk = walkMeters !== undefined && walkMeters >= 15 ? `${walkMinutes(walkMeters, settings.walkSpeed)}\u00a0min walk to ${stopName(leg2.on!)}` : null;
+    const walkMinutesTo = walkMeters !== undefined && walkMeters >= 15 ? walkMinutes(walkMeters, settings.walkSpeed) : null;
+    const walk = walkMinutesTo !== null;
     // The window's shortest transfer, which the map marks a tight transfer by, as results do. A
     // hidden connection is outside the window already.
     const min = group && !connection?.hidden ? group.window.min : undefined;
@@ -398,10 +402,17 @@ function TripFeed({ pin, name: savedName, dismissed, shown, open, onReport, onTo
           <Step key={step} at={first!.off!.at} scheduled={scheduledAt(first!, first!.off!)}>
             <span class="tf-pinbar__step">
               <span>
-                Get off at <b>{stopName(first!.off!)}</b>
+                Get off at{' '}
+                <b>
+                  <Name text={stopName(first!.off!)} />
+                </b>
               </span>
             </span>
-            {walk && <span class="tf-l2">{walk}</span>}
+            {walkMinutesTo !== null && (
+              <span class="tf-l2">
+                <span class="tf-nowrap">{walkMinutesTo}&nbsp;min walk to</span> <Name text={stopName(leg2.on!)} />
+              </span>
+            )}
           </Step>
         );
       }
@@ -424,7 +435,10 @@ function TripFeed({ pin, name: savedName, dismissed, shown, open, onReport, onTo
         <Step key={step} at={leg2.off!.at} scheduled={scheduledAt(leg2, leg2.off!)}>
           <span class="tf-pinbar__step">
             <span>
-              {phase === 'done' ? 'Arrived at' : 'Arrive'} <b>{stopName(leg2.off!)}</b>
+              {phase === 'done' ? 'Arrived at' : 'Arrive'}{' '}
+              <b>
+                <Name text={stopName(leg2.off!)} />
+              </b>
             </span>
           </span>
           {total && <span class="tf-l2">{tripMinutesText(total)}</span>}
@@ -626,7 +640,7 @@ function BarView({ kind, name, sub, href, open, onToggle, onClose, onUnpin, spok
           {/* The chevron sits beside the line that names the bar, so the row under it has the
               bar's whole width, and its trailing item ends where a page row's does. */}
           <span class="tf-pinbar__top">
-            <Dots class="tf-pinbar__naming" parts={[<b>Pinned</b>, <Cut class="tf-pinbar__named" text={name} />, verb]} />
+            <Dots class="tf-pinbar__naming" parts={[<b>Pinned</b>, <Cut class="tf-pinbar__named" text={name} within=".tf-pinbar__naming" />, verb]} />
             <span class="tf-pinbar__chev">
               <IconChevron size={18} />
             </span>
@@ -648,7 +662,9 @@ function BarView({ kind, name, sub, href, open, onToggle, onClose, onUnpin, spok
       <div class="tf-pinbar__panel" id={PANEL} role="group" aria-label={`${name}, pinned ${kind}`} tabIndex={-1} hidden={!open}>
         <div class="tf-pinbar__in">
           <p class="tf-pinbar__name">
-            <b>{name}</b>
+            <b>
+              <Name text={name} />
+            </b>
             <Dots class="tf-muted" parts={[`Pinned ${kind}`, sub]} />
           </p>
           {panel}

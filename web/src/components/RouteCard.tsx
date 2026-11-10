@@ -7,6 +7,7 @@ import { PinToggle } from './PinToggle.tsx';
 import { RouteChip } from './RouteChip.tsx';
 import { PinnedTag, StatusTag } from './StatusTag.tsx';
 import { Num } from './Countdown.tsx';
+import { Toward } from './Whole.tsx';
 
 // Nearby's rows and a stop's page share these: a heading and a card for each route and direction
 // boarding at a stop, and a row for each arrival.
@@ -31,13 +32,7 @@ export function RouteCard({ routes, headsign, marker, meta, children }: { routes
           {routes.map((route) => (
             <RouteChip key={route.key} route={route} iconSize={18} label={routes.length > 1 && route.agency === 'BA' ? route.name : undefined} />
           ))}
-          <span class="tf-to">
-            <span aria-hidden="true">→</span>
-            <span>
-              <span class="tf-sr">toward </span>
-              {headsign}
-            </span>
-          </span>
+          <Toward text={headsign} spoken="toward " />
         </h2>
         {meta && <div class="tf-group__meta">{meta}</div>}
       </div>

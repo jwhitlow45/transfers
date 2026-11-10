@@ -1,3 +1,4 @@
+import { Toward } from '../components/Whole.tsx';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import type { Route, SearchResponse, StopResponse, TripResponse } from '../../../shared/api.ts';
 import { apiUrl, getJson } from '../api.ts';
@@ -749,10 +750,7 @@ function SavedStop({ search, now, pulls, editing, onMove, canMoveUp, canMoveDown
                     {chips.map((route) => (
                       <RouteChip key={route.key} route={route} />
                     ))}
-                    <span class="tf-to">
-                      <span>→</span>
-                      <span>{row.headsign}</span>
-                    </span>
+                    <Toward text={row.headsign} />
                   </div>
                   {later.length > 0 && <div class="tf-l2">{laterText(later)}</div>}
                 </div>

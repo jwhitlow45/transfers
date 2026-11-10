@@ -4,6 +4,7 @@ import { SLIDE_MS, motionOff, useDrag } from '../gestures.ts';
 import { AppSheets } from '../layers.ts';
 import { cameBackTo, closeSheetEntry, currentKey, currentUnder, isSheetEntry, openSheetEntry } from '../router.ts';
 import { IconClose } from '../icons/ui.tsx';
+import { Chain } from './Whole.tsx';
 
 // A drag down closes the sheet past this share of its height, or this far, whichever is less.
 const CLOSE_SHARE = 1 / 3;
@@ -158,7 +159,11 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
                 <IconClose />
               </button>
             </div>
-            {subtitle && <div class="tf-sheet__subtitle">{subtitle}</div>}
+            {subtitle && (
+              <div class="tf-sheet__subtitle">
+                <Chain text={subtitle} />
+              </div>
+            )}
           </div>
         </div>
         <div ref={body} class="tf-sheet__body">

@@ -1,3 +1,4 @@
+import { Name } from './Whole.tsx';
 import type { ComponentChildren } from 'preact';
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { Mode, Route, Stop, TrackLeg, TrackResponse } from '../../../shared/api.ts';
@@ -193,7 +194,7 @@ export function TrackMap({ tracked }: { tracked: Tracked }) {
           {route ? `${routeName} toward` : 'Toward'} {data.headsign}
         </span>
         <strong class="tf-track__headline" aria-live="polite">
-          {headline}
+          <Name text={headline} />
         </strong>
       </p>
       <div class="tf-track__frame tf-map-frame">
@@ -259,7 +260,7 @@ function Vehicle({ leg, route, color, where, now, children }: { leg: TrackLeg; r
       <h3 class="tf-track__veh-head">
         <RouteChip route={route} {...(color ? { color } : {})} />
         <span class="tf-track__veh-to">
-          toward {leg.headsign} {/* An ended trip's delay no longer matters. */}
+          toward <Name text={leg.headsign} /> {/* An ended trip's delay no longer matters. */}
           {leg.missing === 'ended' && !canceled ? <span class="tf-track__state">Ended</span> : <StatusTag status={statusOf(leg.delay ?? null, !leg.scheduled, canceled, notStarted)} />}
         </span>
       </h3>
@@ -663,7 +664,9 @@ function LegList({ leg, stops, labels, now, role, notes, name }: {
         <When at={leg.path[index]!.at ?? null} passed={passed} notStarted={notStarted && leg.span[0] + index > 0} now={now} />
         <span class="tf-track__rb">
           <span class="tf-track__row-main">
-            <span class="tf-track__stop-name">{shortStopName(stops[leg.path[index]!.stop], leg.path[index]!.stop)}</span>
+            <span class="tf-track__stop-name">
+              <Name text={shortStopName(stops[leg.path[index]!.stop], leg.path[index]!.stop)} />
+            </span>
             {second.length > 0 && (
               <Dots class="tf-track__row-note" parts={second} />
             )}
