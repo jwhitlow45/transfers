@@ -47,16 +47,18 @@
 .tf-track__heading { fill: var(--text); stroke: var(--tm-card); }
 
 /* Labels beside the markers. They are HTML over the drawing, so they grow with the rider's text
-   size, and each carries an edge in the card's color, so it reads where it has to cross a line. */
+   size, and each carries an edge in the card's color, so it reads against the drawing. Each line
+   is set by the map (see fitName), so nothing here wraps or clips. */
 .tf-track__labels { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 .tf-track__label {
-  position: absolute; left: 0; top: 0; display: flex; flex-direction: column; width: max-content; max-width: min(11em, 46cqi);
-  font-size: .75rem; line-height: 1.2; color: var(--text); text-align: center;
+  position: absolute; left: 0; top: 0; display: flex; flex-direction: column; width: max-content;
+  font-size: var(--tm-meta); line-height: 1.2; color: var(--text); text-align: center; white-space: nowrap;
   text-shadow: 0 0 2px var(--tm-card), 1px 1px 0 var(--tm-card), -1px 1px 0 var(--tm-card), 1px -1px 0 var(--tm-card), -1px -1px 0 var(--tm-card), 0 1.5px 0 var(--tm-card), 0 -1.5px 0 var(--tm-card), 1.5px 0 0 var(--tm-card), -1.5px 0 0 var(--tm-card);
 }
-/* Two lines of a long name, as its row under the map has all of it, so a label stays small enough
-   to keep clear of the others. */
-.tf-track__label strong { font-weight: 700; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.tf-track__label strong { font-weight: 700; }
+.tf-track__label-line { display: block; }
+/* The line from a marker to a label standing off it, edged like the text. */
+.tf-track__leader { position: absolute; height: 1.5px; margin-top: -.75px; background: var(--text); box-shadow: 0 0 0 1px var(--tm-card); transform-origin: 0 50%; }
 .tf-track__label--start { text-align: left; }
 .tf-track__label--end { text-align: right; }
 

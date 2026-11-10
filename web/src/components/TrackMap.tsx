@@ -6,7 +6,7 @@ import { useNow, usePoll } from '../hooks.ts';
 import { IconFit, IconFold, IconFullRoute } from '../icons/ui.tsx';
 import { routeColor } from '../lib/color.ts';
 import { useWatchedPosition } from '../lib/location.ts';
-import { type Rect, placeLabels } from '../lib/map-labels.ts';
+import { type LabelAsk, type Rect, fitName, placeLabels } from '../lib/map-labels.ts';
 import { useMapView } from '../lib/map-view.ts';
 import { metersFrom } from '../../../shared/projection.ts';
 import { ageText, clockSkewMs } from '../lib/freshness.ts';
@@ -274,10 +274,11 @@ function Vehicle({ leg, route, color, where, now, children }: { leg: TrackLeg; r
 type Drawn = { leg: TrackLeg; color: string; labels: Map<number, Mark['kind'][]>; word: string; role: (kind: Mark['kind']) => string };
 type Rider = { x: number; y: number; accuracy: number };
 // A label on the map: the marker it names, in the picture's own units, with the marker's radius in
-// screen pixels at any zoom.
-type MapLabel = { key: string; x: number; y: number; radius: number; name: string; role?: string };
-// `text` is the rider's text size against the usual one, 2 at 200%.
-type Measured = { width: number; height: number; text: number; sizes: Record<string, { width: number; height: number }>; blocked: Rect[] };
+// screen pixels at any zoom. `leader` and `must` are the placer's (see LabelAsk).
+type MapLabel = { key: string; x: number; y: number; radius: number; name: string; role?: string; leader?: boolean; must?: boolean };
+// `text` is the rider's text size against the usual one, 2 at 200%. `fits` are the ways each
+// label's name can be set, fullest first, with the size of the label each makes.
+type Measured = { width: number; height: number; text: number; fits: Record<string, { lines: string[]; role: string[]; width: number; height: number; bare: boolean }[]>; blocked: Rect[] };
 
 // Whether the vehicle has passed a stop of its leg. An ended trip has passed every stop.
 const passedAt = (leg: TrackLeg, index: number) => (leg.nextIndex === null ? leg.missing === 'ended' : index < leg.nextIndex);
@@ -359,30 +360,33 @@ function LineMap({ legs, stops, label, rider, framedAt }: { legs: Drawn[]; stops
   // Getting off and boarding at one place is one transfer, drawn and named once.
   const oneStop = getOff !== undefined && board !== undefined && Math.hypot(getOff.x - board.x, getOff.y - board.y) <= 15;
 
-  // The labels, most important first, as one with no room left for it is left off the map: the
-  // rider's stops in the order they reach them, then the vehicles.
+  // The labels, most important first, as one with no room left for it is left off the map. The
+  // rider acts on them in this order: where they board, where they change, where the vehicles
+  // are, and last where they end up, which the sheet's title and the list under the map both say.
+  // Only the destination goes without a leader line, and only it is ever left off: where the
+  // rider boards and where they change always say so, with the role alone at the least.
   const labels: MapLabel[] = [];
-  const stopLabels = (drawn: Drawn, prefix: string, skip: (kind: Mark['kind']) => boolean) => {
+  const stopLabels = (drawn: Drawn, prefix: string, want: Mark['kind']) => {
     for (const [index, kinds] of [...drawn.labels].sort(([a], [b]) => a - b)) {
       const place = drawn.leg.path[index];
-      if (!place || skip(kinds[0]!)) continue;
-      labels.push({ key: `${prefix}${index}`, x: place.x, y: -place.y, radius: MARK_R + 0.5, name: shortStopName(stops[place.stop], place.stop), role: drawn.role(kinds[0]!) });
+      if (!place || kinds[0] !== want) continue;
+      labels.push({ key: `${prefix}${index}`, x: place.x, y: -place.y, radius: MARK_R + 0.5, name: shortStopName(stops[place.stop], place.stop), role: drawn.role(want), leader: want !== 'destination', must: want !== 'destination' });
     }
   };
   // The pointer that gives a vehicle's bearing reaches past its ring.
-  const vehicleLabel = (drawn: Drawn, key: string) => drawn.leg.vehicle && labels.push({ key, x: drawn.leg.vehicle.x, y: -drawn.leg.vehicle.y, radius: VEHICLE_R + 1.7, name: drawn.word });
-  // Stops first, as they stay put and their names are long. A vehicle's one word fits beside them.
-  stopLabels(main!, 'stop-', () => false);
-  if (next) stopLabels(next, 'next-', (kind) => kind === 'transfer');
+  const vehicleLabel = (drawn: Drawn, key: string) => drawn.leg.vehicle && labels.push({ key, x: drawn.leg.vehicle.x, y: -drawn.leg.vehicle.y, radius: VEHICLE_R + 1.7, name: drawn.word, leader: true });
+  stopLabels(main!, 'stop-', 'yours');
+  stopLabels(main!, 'stop-', 'transfer');
+  if (next && !oneStop) stopLabels(next, 'board-', 'transfer');
   vehicleLabel(main!, 'vehicle');
-  if (next) {
-    vehicleLabel(next, 'next-vehicle');
-    if (!oneStop) stopLabels(next, 'board-', (kind) => kind !== 'transfer');
-  }
+  if (next) vehicleLabel(next, 'next-vehicle');
+  stopLabels(main!, 'stop-', 'destination');
+  if (next) stopLabels(next, 'next-', 'destination');
 
   // The labels are HTML over the map, not text in the drawing, so they follow the rider's text
-  // size and wrap like any other text. They are measured once drawn, with the map and the buttons
-  // over it, and placed from that.
+  // size. Their text is measured in the page, with the map and the buttons over it, and each
+  // name is set in lines from that (see fitName), so a long one breaks evenly and one cut short
+  // always says so.
   const layer = useRef<HTMLDivElement>(null);
   const wording = labels.map(({ key, name, role }) => `${key}:${name}:${role}`).join('|');
   useLayoutEffect(() => {
@@ -391,50 +395,98 @@ function LineMap({ legs, stops, label, rider, framedAt }: { legs: Drawn[]; stops
     if (!svg || !frame || !layer.current) return;
     const measure = () => {
       const box = svg.getBoundingClientRect();
-      const sizes: Measured['sizes'] = {};
-      for (const element of layer.current!.children as Iterable<HTMLElement>) sizes[element.dataset.key!] = { width: element.offsetWidth, height: element.offsetHeight };
+      // A label of one line, in the page for as long as the measuring takes.
+      const probe = (tag: 'strong' | 'span') => {
+        const label = document.createElement('span');
+        label.className = 'tf-track__label';
+        label.style.visibility = 'hidden';
+        const line = label.appendChild(document.createElement(tag));
+        layer.current!.append(label);
+        const widths = new Map<string, number>();
+        const width = (text: string) => {
+          if (!widths.has(text)) {
+            line.textContent = text;
+            widths.set(text, line.getBoundingClientRect().width);
+          }
+          return widths.get(text)!;
+        };
+        return { label, line, width };
+      };
+      const [bold, plain] = [probe('strong'), probe('span')];
+      plain.line.textContent = 'x';
+      const lineHeight = plain.line.getBoundingClientRect().height;
+      const em = parseFloat(getComputedStyle(plain.label).fontSize) || 13;
+      // A name gets about eleven letters' width, less on a narrow map, and as much as the line
+      // under it takes anyway.
+      const [max, wide] = [Math.min(11 * em, box.width * 0.46), box.width * 0.62];
+      const fits: Measured['fits'] = {};
+      for (const { key, name, role } of labels) {
+        const roleWidth = role ? plain.width(role) : 0;
+        const nameMax = Math.max(max, Math.min(roleWidth, wide));
+        const [full, short] = [fitName(name, nameMax, wide, 2, bold.width), fitName(name, nameMax, wide, 1, bold.width)];
+        // Last, what the rider does there alone: it is what the marker cannot say for itself,
+        // and the name is in the list under the map. At large text on a narrow map even that
+        // can be most of the map across, so it may take two lines.
+        const named = (full.lines.length > 1 ? [full, short] : [full]).map(({ lines, width }) => ({ lines, role: role ? [role] : [], width: Math.max(width, roleWidth) }));
+        const split = role ? fitName(role, roleWidth * 0.62, roleWidth * 0.62, 2, plain.width) : null;
+        const bare = role ? [{ lines: [], role: [role], width: roleWidth }, ...(split && split.lines.length === 2 && !split.lines[1]!.endsWith('…') ? [{ lines: [], role: split.lines, width: split.width }] : [])] : [];
+        fits[key] = [...named, ...bare].map(({ lines, role: roleLines, width }) => ({
+          lines,
+          role: roleLines,
+          width: Math.ceil(width),
+          height: Math.ceil(lineHeight * (lines.length + roleLines.length)),
+          bare: lines.length === 0,
+        }));
+      }
+      bold.label.remove();
+      plain.label.remove();
       // The buttons and hints over the map's corners, where they show.
       const blocked = [...frame.querySelectorAll<HTMLElement>('.tf-track__controls, .tf-map-recenter, .tf-map-hint')]
         .map((element) => element.getBoundingClientRect())
         .filter((rect) => rect.width > 0)
         .map((rect) => ({ left: rect.left - box.left, top: rect.top - box.top, width: rect.width, height: rect.height }));
       const text = parseFloat(getComputedStyle(document.documentElement).fontSize) / 16 || 1;
-      const now = { width: box.width, height: box.height, text, sizes, blocked };
+      const now = { width: box.width, height: box.height, text, fits, blocked };
       setMeasured((before) => (JSON.stringify(before) === JSON.stringify(now) ? before : now));
     };
     measure();
     // The map changes size with the sheet, and a label with the rider's text size.
     const observer = new ResizeObserver(measure);
     observer.observe(svg);
-    for (const element of layer.current.children) observer.observe(element);
+    for (const element of layer.current.querySelectorAll('.tf-track__label')) observer.observe(element);
     return () => observer.disconnect();
   }, [wording, map.moved, map.zoomed, map.hint]);
   const lines = useMemo(() => legs.map(({ leg }) => thinned(leg.line)), legs.map(({ leg }) => leg.line));
-  const placed = new Map<string, { left: number; top: number; align: string }>();
+  const placed = new Map<string, ReturnType<typeof placeLabels>[number]>();
   if (measured && measured.width > 0) {
     // The drawing is fitted inside its box and centered, as SVG does with a viewBox.
     const scale = Math.min(measured.width / shown.width, measured.height / shown.height);
     const px = (x: number, y: number): [number, number] => [(x - shown.left) * scale + (measured.width - shown.width * scale) / 2, (y - shown.top) * scale + (measured.height - shown.height * scale) / 2];
-    const asks = labels.flatMap(({ key, x, y, radius }) => {
-      const size = measured.sizes[key];
+    const size = unit * scale;
+    // Where the rider gets off and where they board next, a short walk apart, are one marker on
+    // the map until it is pinched in far enough to part them. Until then one label names the
+    // change, as two would each sit beside the other's stop.
+    const asOne = getOff !== undefined && board !== undefined && !oneStop && Math.hypot(getOff.x - board.x, getOff.y - board.y) * scale < (MARK_R + 0.5) * size;
+    const asks: LabelAsk[] = labels.flatMap(({ key, x, y, radius, leader = false, must = false }) => {
+      const sizes = measured.fits[key];
       const [cx, cy] = px(x, y);
-      return size ? [{ key, x: cx, y: cy, radius: radius * unit * scale, ...size }] : [];
+      return sizes && !(asOne && key.startsWith('board-')) ? [{ key, x: cx, y: cy, radius: radius * size, sizes, leader, must }] : [];
     });
-    // No label covers a marker another label names.
-    const markers = asks.map(({ x, y, radius }) => ({ left: x - radius, top: y - radius, width: radius * 2, height: radius * 2 }));
-    const walked = getOff && board && !oneStop ? [[px(getOff.x, -getOff.y), px(board.x, -board.y)]] : [];
-    // A stop the vehicle only passes counts as a short stretch of line across it, so a label
-    // keeps off its ring as it does the line.
+    // A stop the vehicle only passes, out to the edge of its ring.
     const passing = legs.flatMap(({ leg, labels: marked }) =>
       leg.path.flatMap(({ x, y }, index) => {
         if (marked.has(index)) return [];
         const [cx, cy] = px(x, -y);
-        const r = (STOP_R + 0.3) * unit * scale;
-        return [[[cx - r, cy] as const, [cx + r, cy] as const], [[cx, cy - r] as const, [cx, cy + r] as const]];
+        return [{ x: cx, y: cy, radius: (STOP_R + 0.225) * size }];
       }),
     );
-    const drawnLines = [...lines.map((line) => line.map(([x, y]) => px(x, -y))), ...walked, ...passing];
-    for (const { key, ...at } of placeLabels(asks, [...measured.blocked, ...markers], drawnLines, measured)) placed.set(key, at);
+    const you = rider && nearby ? [{ x: px(rider.x, -rider.y)[0], y: px(rider.x, -rider.y)[1], radius: 1.9 * size }] : [];
+    // Each line out to the edge of its casing.
+    const drawnLines = [
+      ...lines.map((line) => ({ points: line.map(([x, y]) => px(x, -y)), half: 0.9 * size })),
+      ...(getOff && board && !oneStop ? [{ points: [px(getOff.x, -getOff.y), px(board.x, -board.y)], half: 0.225 * size }] : []),
+    ];
+    for (const at of placeLabels(asks, { blocked: measured.blocked, stops: [...passing, ...you], lines: drawnLines, bounds: measured })) placed.set(at.key, at);
   }
   return (
     <>
@@ -475,12 +527,28 @@ function LineMap({ legs, stops, label, rider, framedAt }: { legs: Drawn[]; stops
     <div ref={layer} class="tf-track__labels" aria-hidden="true">
       {labels.map(({ key, name, role }) => {
         const at = placed.get(key);
+        const fit = measured?.fits[key]?.[at?.size ?? 0];
+        const [lines, roleLines] = [fit?.lines ?? [name], fit?.role ?? (role ? [role] : [])];
         return (
           <span key={key} data-key={key} class={`tf-track__label tf-track__label--${at?.align ?? 'center'}`} style={at ? { left: `${at.left}px`, top: `${at.top}px` } : { visibility: 'hidden' }}>
-            <strong>{name}</strong>
-            {role && <span>{role}</span>}
+            {lines.length > 0 && (
+              <strong>
+                {lines.map((line, n) => (
+                  <span key={n} class="tf-track__label-line">{line}</span>
+                ))}
+              </strong>
+            )}
+            {roleLines.map((line, n) => (
+              <span key={`role-${n}`} class="tf-track__label-line">{line}</span>
+            ))}
           </span>
         );
+      })}
+      {/* A label with no room beside its marker stands a little off it, tied to it by a line. */}
+      {[...placed.values()].map(({ key, leader }) => {
+        if (!leader) return null;
+        const [x1, y1, x2, y2] = leader;
+        return <span key={`leader-${key}`} class="tf-track__leader" style={{ left: `${x1}px`, top: `${y1}px`, width: `${Math.hypot(x2 - x1, y2 - y1)}px`, transform: `rotate(${Math.atan2(y2 - y1, x2 - x1)}rad)` }} />;
       })}
     </div>
     </>
