@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { IconClose, IconSwap } from '../icons/ui.tsx';
 import { typeWithoutUndo } from '../typing.ts';
+import { Dots } from './Dots.tsx';
 
 // meta is "Muni · Stop 13477 · Eastbound, toward 22nd St + Iowa St" once a result is picked.
 export type FieldValue = { query: string; meta?: string };
@@ -62,7 +63,7 @@ function Field({ id, label, value, placeholder, enterKeyHint, onChange, onFocus,
           </button>
         )}
       </span>
-      {value.meta && <span class="tf-field__meta">{value.meta}</span>}
+      {value.meta && <Dots class="tf-field__meta" parts={[value.meta]} />}
     </label>
   );
 }

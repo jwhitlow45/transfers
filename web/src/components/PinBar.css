@@ -56,7 +56,9 @@
 .tf-pinbar__name { margin: 0; padding: var(--s3) var(--edge) var(--s1); }
 .tf-pinbar__name b { display: block; font-size: var(--fs-title); line-height: 1.3; overflow-wrap: anywhere; }
 /* Steps read as one list, so no line parts them, and they sit closer than a card's rows. */
-.tf-pinbar__steps > .tf-row, .tf-pinbar__steps > .tf-row + .tf-row { padding: var(--s2) var(--edge); border-top: 0; }
+/* The list keeps the content line's padding, so each step's clock starts on it. */
+.tf-pinbar__steps { padding-inline: var(--edge); }
+.tf-pinbar__steps > .tf-row, .tf-pinbar__steps > .tf-row + .tf-row { padding: var(--s2) 0; border-top: 0; }
 /* One line of a step is as tall as its clock time, and a long one's lines sit as a title's do. */
 .tf-pinbar__step { display: block; padding-block: calc((1.75rem - 1.3em) / 2); font-size: var(--fs-title); line-height: 1.3; }
 .tf-pinbar__step .tf-chip { vertical-align: middle; }

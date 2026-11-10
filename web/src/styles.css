@@ -311,9 +311,12 @@ button:disabled { opacity: .45; cursor: default; }
    chip stays on the first of them. */
 :is(.tf-l1, .tf-group__title) > :not(.tf-chip, .tf-stop-letter) { padding-block: calc((1.75rem - 1.3em) / 2); }
 :is(.tf-l1, .tf-group__title, .tf-band__line) > :is(.tf-chip, .tf-stop-letter) { margin-block: calc((1.75rem - 1.5em) / 2); }
-/* "→ Airport": a long name's later lines start under its first word, not under the arrow. */
-.tf-to { display: flex; gap: 0.3em; min-width: 0; }
-.tf-to > :first-child { flex: none; }
+/* "→ Airport": a long name's later lines start under its first word, not under the arrow. A word
+   too long for the line breaks rather than run past it. */
+.tf-to { display: flex; min-width: 0; overflow-wrap: anywhere; }
+.tf-to > :first-child { flex: none; margin-right: 0.3em; }
+.tf-to > :last-child { min-width: 0; }
+:is(.tf-l1, .tf-group__title) > * { min-width: 0; }
 .tf-l2 { display: block; font-size: var(--fs-body); line-height: 1.4; color: var(--muted); }
 .tf-l2 strong { color: var(--text); }
 .tf-end { display: flex; flex-direction: column; align-items: flex-end; text-align: right; }
@@ -505,7 +508,8 @@ button:disabled { opacity: .45; cursor: default; }
 /* Where wrapping would take three lines: the rest on the second line, both names trimmed in
    proportion to their length, so each keeps as much as the other. */
 .tf-chain__rest--stacked { display: flex; flex-basis: 100%; align-items: center; gap: var(--s1); min-width: 0; white-space: nowrap; }
-.tf-chain__rest--stacked .tf-chain__step { flex-shrink: 1; min-width: 4.5em; }
+/* Each keeps a few letters, or with two names at large text, its share of the line. */
+.tf-chain__rest--stacked .tf-chain__step { flex-shrink: 1; min-width: min(4.5em, 40%); }
 /* A step that is only a route's chip keeps its own width, so the name before it has the rest. */
 .tf-chain__rest--stacked .tf-chain__step:has(> .tf-chip) { flex: none; min-width: 0; }
 .tf-dot { width: 8px; height: 8px; border-radius: var(--radius-dot); background: var(--accent); border: 1.5px solid var(--accent); }
@@ -947,9 +951,15 @@ button:disabled { opacity: .45; cursor: default; }
   .tf-band__end { float: none; order: 1; align-self: flex-end; }
   .tf-band__min { display: inline; }
   .tf-band__min.tf-band__min--under { display: none; }
+  /* A name after its arrow runs on under it, as its longest word needs the line's whole width. */
+  .tf-to { display: block; }
+  /* Home's two ways on from a picked stop each take a line, with their words whole. */
+  .tf-find-row { grid-template-columns: minmax(0, 1fr); }
+  .tf-find-row__long { display: inline; }
+  .tf-find-row__short { display: none; }
   /* A step's clock time takes a line above its text, whole, as a clock reads: "10:47 PM". */
   :is(.tf-steps, .tf-pinbar__steps) > .tf-row { grid-template-columns: minmax(0, 1fr); }
-  :is(.tf-steps, .tf-pinbar__steps) .tf-num, :is(.tf-steps, .tf-pinbar__steps) .tf-num > .tf-time-link { flex-direction: row; align-items: baseline; gap: 0.25em; }
+  :is(.tf-steps, .tf-pinbar__steps) .tf-num, :is(.tf-steps, .tf-pinbar__steps) .tf-num > .tf-time-link { flex-direction: row; align-items: baseline; gap: var(--s1); }
   :is(.tf-steps, .tf-pinbar__steps) .tf-num__u { font-size: var(--fs-body); font-weight: var(--weight-bold); line-height: 1.75rem; color: inherit; }
   /* A nearby stop's three ways on, and a suggestion's name and stop number, stack. */
   .tf-near__actions { grid-auto-flow: row; }
