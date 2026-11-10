@@ -73,7 +73,7 @@
 .tf-tripbar__tight { color: var(--tm-late); font-weight: 700; }
 /* Minutes from now along the same scale, each label hanging from its mark. */
 .tf-tripbar__ticks { position: relative; height: 1.1rem; font-size: .75rem; color: var(--muted); }
-.tf-tripbar__tick { position: absolute; top: 0; padding-left: 3px; border-left: 1px solid var(--line); line-height: 1.1rem; white-space: nowrap; }
+.tf-tripbar__tick { position: absolute; top: 0; padding-left: var(--tm-1); border-left: 1px solid var(--line); line-height: 1.1rem; white-space: nowrap; }
 .tf-tripbar__legend { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--tm-1) var(--tm-3); font-size: var(--tm-meta); color: var(--muted); }
 
 /* One vehicle: its chip, where it heads and how sure its times are, then its stops. */
