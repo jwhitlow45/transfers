@@ -371,6 +371,25 @@ test('a bus at the first stop of its trip is yet to leave it, however its feed n
   ok(connections.some(({ trip, added }) => trip !== 'BA:bx' && added === undefined));
 });
 
+test('a bus yet to leave the first stop of its trip stays at a stop and in a walk group after its time, and a detour listed first does not hide where it starts', () => {
+  const busAt = (n: number) => DAY + 7.5 * 3600 + 120 + n * 900;
+  const listing = (stops: string[]) => [
+    { id: 'm3', tripUpdate: { trip: { tripId: 'SF:m3', routeId: 'SF:48' }, stopTimeUpdate: stops.map((stopId, index) => ({ stopId, arrival: { time: busAt(3) - 120 + index * 120, delay: 0 } })) } },
+  ];
+  // Five minutes after its time at 24th & Mission, it is still at 24th & Valencia, where it starts.
+  const late = busAt(3) + 300;
+  const live = realtime(listing(['13486', '13477']));
+  const at = (stop: string, now: number, feed = live) => stopArrivals(schedule, feed, stop, now).rows[0]?.arrivals.find(({ trip }) => trip === 'SF:m3');
+  strictEqual(at('SF:13477', late)?.notStarted, true);
+  const walk = planTrip(schedule, live, { from: 'SF:13477', to: 'route:SF:48' }, late).groups[0]!;
+  strictEqual(walk.departures.find(({ trip }) => trip === 'SF:m3')?.notStarted, true);
+  // Once it has left, its time passed is gone.
+  strictEqual(at('SF:13477', late, realtime(listing(['13477']))), undefined);
+  // A stop off its pattern listed first does not make 24th & Valencia, where it is boarded, a stop it has yet to leave.
+  strictEqual(at('SF:13486', NOW, realtime(listing(['99999', '13486', '13477'])))?.notStarted, undefined);
+  strictEqual(at('SF:13477', NOW, realtime(listing(['99999', '13486', '13477'])))?.notStarted, true);
+});
+
 test('names the alert on the boarding stop', () => {
   const response = planTrip(schedule, realtime(), { from: 'BA:901209', to: 'SF:13477' }, NOW);
   deepStrictEqual(response.alerts.map(({ relevance, header }) => [relevance, header]), [['stop', '48 STOP TEMP. MOVED Board at 24th & Capp']]);

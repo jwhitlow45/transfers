@@ -38,6 +38,14 @@ export type SecondLeg = {
   notStarted?: true;
 };
 
+// When a vehicle comes at the soonest. One yet to leave the first stop of its trip comes a minute
+// from now at the soonest, whatever its time, as that time assumed it would leave on time (see
+// notStarted in vehicles.ts). It has not come or left until the feed drops that stop, or for at
+// most half an hour past its time, so old times never hold it for good. The page holds it as long
+// (see hasLeft in web/src/format.ts).
+export const NOT_STARTED_HOLD_SECONDS = 30 * 60;
+export const soonest = (at: number, notStarted: boolean | undefined, now: number) => (notStarted && now - at < NOT_STARTED_HOLD_SECONDS ? Math.max(at, now + 60) : at);
+
 export type PairingOptions = {
   now: number;
   // Minutes.
@@ -72,12 +80,10 @@ export function pairConnections(firstLegs: FirstLeg[], secondLegs: SecondLeg[], 
   const hidden: { departure: SecondLeg; connection: Connection }[] = [];
 
   for (const vehicle of [...firstLegs].sort((a, b) => a.departs - b.departs)) {
-    // One yet to leave the first stop of its trip comes a minute from now at the soonest, whatever
-    // its time, and has not left From (see notStarted in vehicles.ts).
-    const minutesAway = vehicle.notStarted ? Math.max(1, minutesBetween(now, vehicle.departs)) : minutesBetween(now, vehicle.departs);
+    const minutesAway = minutesBetween(now, soonest(vehicle.departs, vehicle.notStarted, now));
     if (vehicle.canceled) continue;
     // A vehicle that has left is one the rider may be on, so it is never too soon.
-    const left = vehicle.departs < now && !vehicle.notStarted;
+    const left = soonest(vehicle.departs, vehicle.notStarted, now) < now;
     const base = {
       trip: vehicle.trip,
       route: vehicle.route,
@@ -123,8 +129,8 @@ export function pairConnections(firstLegs: FirstLeg[], secondLegs: SecondLeg[], 
   // A pair whose first vehicle has left is under way: the rider may be on it. It stays while the
   // second vehicle has yet to leave, or with a destination, to get there. Neither has left while it
   // has yet to leave the first stop of its trip.
-  const underWay = ({ connection }: (typeof qualifying)[number]) => connection.departs < now && !connection.notStarted;
-  const ongoing = ({ departure }: (typeof qualifying)[number]) => departure.at >= now || departure.notStarted === true || (departure.destination ?? -Infinity) >= now;
+  const underWay = ({ connection }: (typeof qualifying)[number]) => soonest(connection.departs, connection.notStarted, now) < now;
+  const ongoing = ({ departure }: (typeof qualifying)[number]) => soonest(departure.at, departure.notStarted, now) >= now || (departure.destination ?? -Infinity) >= now;
   const kept = (pairs: typeof qualifying) => pairs.filter((pair) => !underWay(pair) || ongoing(pair));
   const ahead = (pairs: typeof qualifying) => [...new Set(pairs.filter((pair) => !underWay(pair)).map(({ departure }) => departure))].sort(byTime);
   // The count is of departures the rider can still catch from From. Those under way come on top.

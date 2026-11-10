@@ -1,4 +1,5 @@
 import type { NearbyArrival, NearbyResponse, NearbyStop, Schematic } from '../../shared/api.ts';
+import { soonest } from '../engine/connections.ts';
 import { type Link, rankedHeading } from '../engine/links.ts';
 import { projector, shapePoints } from '../engine/shapes.ts';
 import type { RealtimeView } from '../engine/realtime-view.ts';
@@ -77,7 +78,7 @@ export function arrivalsFor(context: { schedule: Schedule; snapshot: RealtimeVie
     stopsRidden: 0,
   };
   return secondLegs(context, link, [])
-    .filter(({ at, canceled }) => !canceled && at >= now - 30)
+    .filter(({ at, canceled, notStarted }) => !canceled && soonest(at, notStarted, now) >= now - 30)
     .sort((a, b) => a.at - b.at)
     .slice(0, count)
     .map(({ trip, route, at, delay, live, notStarted }) => ({ trip, route: tables.route(schedule.routesByKey.get(route)!), at, delay, live, ...(notStarted ? { notStarted } : {}) }));

@@ -2,7 +2,7 @@ import { type AgencyId, type Departure, type DestinationsResponse, type Group, M
 import type { Agency } from '../config.ts';
 import { RequestError } from '../http.ts';
 import { type Schedule, type StopRow, routeKeyOf, stopKeyOf } from '../schedule.ts';
-import { type FirstLeg, type PairingOptions, type SecondLeg, pairConnections } from './connections.ts';
+import { type FirstLeg, type PairingOptions, type SecondLeg, pairConnections, soonest } from './connections.ts';
 import { type Link, arrivalStops, changeSeconds, destinationStops, findLinks, walkBetween, walkTo } from './links.ts';
 import { pinnedTrip } from './pinned.ts';
 import { type RealtimeView, serviceStatus, stationOutages, wantsOutages } from './realtime-view.ts';
@@ -213,10 +213,10 @@ export function planTrip(schedule: Schedule, realtime: RealtimeView, request: Tr
     if (link.kind === 'walk') {
       // The rider's "hide departures under N" counts here too, alongside the walk itself.
       departures = walkDepartures(second, now, Math.max(link.defaultMinutes, request.hide ?? 0));
-      runs = second.some(({ canceled, at }) => !canceled && at >= now);
+      runs = second.some(({ canceled, at, notStarted }) => !canceled && soonest(at, notStarted, now) >= now);
     } else {
       const first = firstLegs(context, linkForRoutes, firstFilter);
-      runs = first.some((vehicle) => !vehicle.canceled && vehicle.departs >= now && second.some(({ canceled, at }) => !canceled && at >= vehicle.arrives));
+      runs = first.some((vehicle) => !vehicle.canceled && soonest(vehicle.departs, vehicle.notStarted, now) >= now && second.some(({ canceled, at }) => !canceled && at >= vehicle.arrives));
       const pairing = { now, min, max, hide: request.hide ?? 0, count: DEPARTURES_PER_GROUP, showHidden: request.hidden ?? false, soonestThere: going, ...(boardWalk ? { boardWalk } : {}) };
       departures = pairConnections(first, second, pairing);
       widen = connects(departures, now) ? null : widenWindow(first, second, pairing);
@@ -373,7 +373,7 @@ function feasibleSystems(schedule: Schedule, from: StopRow, to: To, request: Tri
 }
 
 // Whether any connection shown is one the rider can still catch, rather than one under way.
-const connects = (departures: Departure[], now: number) => departures.some(({ canceled, connections }) => !canceled && connections.some(({ hidden, departs }) => !hidden && departs >= now));
+const connects = (departures: Departure[], now: number) => departures.some(({ canceled, connections }) => !canceled && connections.some(({ hidden, departs, notStarted }) => !hidden && soonest(departs, notStarted, now) >= now));
 
 // The smallest raise of an empty window's maximum that finds a connection, within half an hour.
 // The minimum stays, since it is the time the walk takes.
@@ -387,10 +387,10 @@ function widenWindow(first: FirstLeg[], second: SecondLeg[], pairing: PairingOpt
 // Departures the rider can walk to in time, for a route that already stops at or near From, and
 // those that have left but have yet to reach the destination, as the rider may be on one.
 function walkDepartures(second: SecondLeg[], now: number, walkMinutes: number): Departure[] {
-  const sorted = [...second].filter(({ at }) => at >= now + walkMinutes * 60).sort((a, b) => a.at - b.at);
+  const sorted = [...second].filter(({ at, notStarted }) => soonest(at, notStarted, now) >= now + walkMinutes * 60).sort((a, b) => a.at - b.at);
   const running = sorted.filter(({ canceled }) => !canceled).slice(0, DEPARTURES_PER_GROUP);
   const last = running.at(-1)?.at ?? -Infinity;
-  const underWay = second.filter(({ at, canceled, destination }) => !canceled && at < now && destination !== undefined && destination >= now);
+  const underWay = second.filter(({ at, canceled, notStarted, destination }) => !canceled && soonest(at, notStarted, now) < now && destination !== undefined && destination >= now);
   return [...underWay, ...sorted.filter((leg) => (running.includes(leg) || leg.canceled) && (!leg.canceled || leg.at <= last))]
     .sort((a, b) => a.at - b.at)
     .map(({ trip, route, at, delay, live, canceled, notStarted, destination, destinationScheduled, toward }) => ({
