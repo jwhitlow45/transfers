@@ -456,6 +456,8 @@ button:disabled { opacity: .45; cursor: default; }
    proportion to their length, so each keeps as much as the other. */
 .tf-chain__rest--stacked { display: flex; flex-basis: 100%; align-items: center; gap: var(--s1); min-width: 0; white-space: nowrap; }
 .tf-chain__rest--stacked .tf-chain__step { flex-shrink: 1; min-width: 4.5em; }
+/* A step that is only a route's chip keeps its own width, so the name before it has the rest. */
+.tf-chain__rest--stacked .tf-chain__step:has(> .tf-chip) { flex: none; min-width: 0; }
 .tf-dot { width: 8px; height: 8px; border-radius: var(--radius-dot); background: var(--accent); border: 1.5px solid var(--accent); }
 /* Under the header's divider and over the page's top padding, so it takes no room of its own. */
 .tf-header__edge { position: absolute; left: 0; right: 0; bottom: -4px; height: 4px; overflow: hidden; pointer-events: none; }
@@ -861,10 +863,26 @@ button:disabled { opacity: .45; cursor: default; }
   :root { --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; }
   .tf-row { grid-template-columns: auto minmax(0, 1fr); }
   .tf-num { min-width: 1.5em; }
+  /* Rows of one list share the column their widest number needs, so their text still starts on
+     one line down the list. */
+  :is([role="list"], .tf-near__times, .tf-steps, .tf-pinbar__steps):has(> .tf-row) { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--colgap); }
+  :is([role="list"], .tf-near__times, .tf-steps, .tf-pinbar__steps):has(> .tf-row) > * { grid-column: 1 / -1; }
+  :is([role="list"], .tf-near__times, .tf-steps, .tf-pinbar__steps) > .tf-row { grid-template-columns: subgrid; }
+  /* A nearby stop's three ways on, and a suggestion's name and stop number, stack. */
+  .tf-near__actions { grid-auto-flow: row; }
+  .tf-near__actions .tf-btn-secondary + .tf-btn-secondary { border-left: 0; border-top: var(--border-hair) solid var(--divider); }
+  .tf-result__top { flex-wrap: wrap; }
+  .tf-nowrap { white-space: normal; }
   /* The bottom bar's three buttons share a narrow row: the window keeps its numbers, smaller, and
      gives up its icon. */
   .tf-bottombar__icon { width: var(--tap-min); }
   .tf-bottombar__open { justify-content: center; padding: 0 var(--s1); }
   .tf-bottombar__open strong { font-size: var(--fs-meta); }
   .tf-bottombar__value strong + svg { display: none; }
+}
+/* A narrow phone at about 200% text has no room for a number beside a time: the number and its
+   unit take a line of their own above the row's text. */
+@media (max-width: 11em) {
+  .tf-row, :is([role="list"], .tf-near__times, .tf-steps, .tf-pinbar__steps) > .tf-row { grid-template-columns: minmax(0, 1fr); }
+  .tf-num { flex-direction: row; align-items: baseline; gap: var(--s2); }
 }

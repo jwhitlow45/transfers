@@ -121,8 +121,17 @@
   .tf-track > * { --tm-1: 4px; --tm-2: 8px; --tm-3: 12px; --tm-4: 16px; --tm-5: 24px; }
   .tf-track__row { grid-template-columns: auto minmax(0, 1fr); }
   .tf-track__num { min-width: 1.5em; }
+  /* Rows of one list share the column their widest number needs, as the pages' rows do. */
+  .tf-track__stops { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--tm-3); }
+  .tf-track__stops > li { grid-column: 1 / -1; }
+  .tf-track__stops > .tf-track__row { grid-template-columns: subgrid; }
   .tf-track__time { grid-column: 2; }
   .tf-track__more { grid-template-columns: auto minmax(0, 1fr); }
+}
+/* The sheet's own gaps hold at their 100% size too, as the pages' do at large text (see
+   styles.css). By the screen's width, as a container cannot be styled by its own query. */
+@media (max-width: 18em) {
+  .tf-track { --tm-1: 4px; --tm-2: 8px; --tm-3: 12px; --tm-4: 16px; --tm-5: 24px; }
 }
 /* On a narrow phone the number column gives a little of its width to the stop names. */
 @container (max-width: 19rem) {
