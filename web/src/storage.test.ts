@@ -92,3 +92,17 @@ test('a pin is still the one pinned to its search until it is unpinned or anothe
   deepStrictEqual([pinnedAfterTimes, pinnedAfterReplace, pinnedAfterUnpin, isPinnedTo(search, pin)], [true, false, false, true]);
   savePin(search, null);
 });
+
+test('undoing an unpin puts the pin back in its place among the pins', async () => {
+  const { changePin, onPinToast } = await import('./pins.ts');
+  const search = (from: string) => ({ from, to: 'b', fromLabel: from, toLabel: 'B' });
+  const pin = { second: { trip: 't', board: 's' }, at: 100, ends: 1 };
+  for (const from of ['first', 'middle', 'last']) savePin(search(from), { ...pin, search: search(from) });
+  let undo: (() => void) | undefined;
+  const stop = onPinToast((toast) => (undo = toast.undo));
+  changePin(search('middle'), null);
+  undo?.();
+  stop();
+  deepStrictEqual(loadPins().map(({ search: { from } }) => from), ['first', 'middle', 'last']);
+  for (const from of ['first', 'middle', 'last']) savePin(search(from), null);
+});

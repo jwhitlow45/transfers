@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { pinToastText, samePin } from './lib/pinned.ts';
-import { type Pin, type Search, loadPin, loadPins, onPinsChange, savePin, searchId } from './storage.ts';
+import { type Pin, type Search, loadPin, loadPins, onPinsChange, pinPlace, savePin, searchId } from './storage.ts';
 
 // The pins as stored, read again whenever one changes (see onPinsChange), here or in another tab.
 function useStoredPins<T>(read: () => T) {
@@ -30,7 +30,7 @@ export const usePin = (search: Search) => useStoredPins(() => loadPin(search));
 
 // Pins to a search, kept with the search as it stands, so the pin bar can name the pin and open
 // its page. Null unpins.
-export const setPin = (search: Search, pin: Pin | null) => savePin(search, pin && { ...pin, search });
+export const setPin = (search: Search, pin: Pin | null, place?: number) => savePin(search, pin && { ...pin, search }, place);
 
 // The pin on a search, written again with the search as it stands, as its page opens. Read as
 // stored when written, not as the page read it when it first rendered, as the pin bar may have
@@ -80,7 +80,8 @@ export function onPinToast(listener: (toast: PinToast) => void) {
 // is read as it is now.
 export function changePin(search: Search, next: Pin | null, bell = false) {
   const previous = loadPin(search);
+  const place = pinPlace(search);
   setPin(search, next);
   const text = pinToastText(previous, next, bell);
-  if (text) toastListener?.({ text, about: next ? 'pin' : 'unpin', ...(previous ? { undo: () => setPin(search, previous) } : {}) });
+  if (text) toastListener?.({ text, about: next ? 'pin' : 'unpin', ...(previous ? { undo: () => setPin(search, previous, place) } : {}) });
 }

@@ -144,15 +144,21 @@ export function loadPins(): (Pin & { search: Search })[] {
   return Object.values(readStored<Record<string, Pin>>('pins', {})).filter((pin): pin is Pin & { search: Search } => pin.search !== undefined);
 }
 
-export function savePin(search: Search, pin: Pin | null) {
+// `place` puts a pin not already there back where it was among the pins, as an unpin's Undo does.
+export function savePin(search: Search, pin: Pin | null, place?: number) {
   const id = searchId(search);
   const all = readStored<Record<string, Pin>>('pins', {});
   const { [id]: _old, ...others } = all;
   // A pin written again, as its times move, keeps its place among the pins, so the pin bar's tabs
   // stay in the order the rider pinned them.
-  writeStored('pins', !pin ? others : id in all ? Object.fromEntries(Object.entries(all).map(([key, kept]) => [key, key === id ? pin : kept])) : { ...others, [id]: pin });
+  const entries = Object.entries(others);
+  if (pin && !(id in all)) entries.splice(place !== undefined && place >= 0 ? place : entries.length, 0, [id, pin]);
+  writeStored('pins', !pin ? others : id in all ? Object.fromEntries(Object.entries(all).map(([key, kept]) => [key, key === id ? pin : kept])) : Object.fromEntries(entries));
   for (const listener of pinListeners) listener();
 }
+
+// Where a search's pin is among the pins, or -1.
+export const pinPlace = (search: Search) => Object.keys(readStored<Record<string, Pin>>('pins', {})).indexOf(searchId(search));
 
 // Told of every change to the pins: the app's pin bar, and each page that marks what is pinned,
 // follow them wherever they are changed from. Returns how to stop being told.
