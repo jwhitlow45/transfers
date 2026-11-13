@@ -31,10 +31,12 @@ export function Toast({ message, page = false, above = 0, quiet = false, onDone 
     while (layer?.parentElement && !layer.parentElement.classList.contains('tf-app')) layer = layer.parentElement;
     if (!layer || typeof MutationObserver === 'undefined') return;
     const watched = layer;
-    const update = () => setCovered(watched.inert);
+    // Only the page showing is covered. One kept under another page is inert too, and its toast
+    // runs out there as before, rather than coming back on the way back.
+    const update = () => setCovered(watched.inert && watched.classList.contains('tf-layer'));
     update();
     const observer = new MutationObserver(update);
-    observer.observe(watched, { attributes: true, attributeFilter: ['inert'] });
+    observer.observe(watched, { attributes: true, attributeFilter: ['inert', 'class'] });
     return () => observer.disconnect();
   }, []);
   // The last note stays while it sinks away after `message` clears.
