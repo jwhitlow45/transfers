@@ -47,6 +47,11 @@ export function SavedSearchCard({ name, color, href, openLabel, onOpen, editing,
   useEffect(() => {
     if (!editing) setDraft(name);
   }, [editing, name]);
+  // A card saved in its route's color shows that color as one more choice, which the ten do not
+  // have, so editing never hides the color it has (J, 2026-11-13). It is the color as editing
+  // began, so a rider who tries another can still go back to it.
+  const routeColor = useRef(offPalette(color));
+  if (!editing) routeColor.current = offPalette(color);
   // Pinning puts the trip above Home's fields, and moving the card moves it, which would take the
   // card from under the rider's finger, so the page scrolls by as much, as a results row's pin does.
   // A move keeps focus on its button, or the other one once the card reaches an end.
@@ -86,6 +91,12 @@ export function SavedSearchCard({ name, color, href, openLabel, onOpen, editing,
             </span>
           </label>
           <div class="tf-saved__swatches" role="group" aria-label={`Color of ${name}`}>
+            {routeColor.current && (
+              <button type="button" class="tf-swatch-route" aria-pressed={color === routeColor.current} onClick={() => onEdit({ name, color: routeColor.current })}>
+                <span class="tf-swatch" style={{ background: routeColor.current }} />
+                <span class="tf-swatch-route__label">Route color</span>
+              </button>
+            )}
             {SAVED_COLORS.map((swatch) => (
               <button key={swatch.color} type="button" class="tf-swatch" style={{ background: swatch.color }} aria-label={swatch.name} aria-pressed={color === swatch.color} onClick={() => onEdit({ name, color: swatch.color })} />
             ))}
@@ -147,6 +158,10 @@ export function SavedSearchCard({ name, color, href, openLabel, onOpen, editing,
       {children}
     </article>
   );
+}
+
+function offPalette(color: string | undefined) {
+  return color && !SAVED_COLORS.some((swatch) => swatch.color === color.toLowerCase()) ? color : undefined;
 }
 
 // A saved trip's card body: the trip and its transfer window under the name, then the next

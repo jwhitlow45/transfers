@@ -494,7 +494,11 @@ button:disabled { opacity: .45; cursor: default; }
 /* Ten colors, five to a line at every width, each as wide as its share of the line. */
 .tf-saved__swatches { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--s2); }
 .tf-swatch { min-width: var(--tap-min); height: var(--tap-min); border: 2px solid transparent; outline-offset: 2px; }
-.tf-swatch[aria-pressed="true"] { border-color: var(--card); outline: 3px solid var(--text); }
+.tf-swatch[aria-pressed="true"], [aria-pressed="true"] > .tf-swatch { border-color: var(--card); outline: 3px solid var(--text); }
+/* The route's color, when the card has it, on a line of its own above the ten: its square in the
+   first column, named beside it, clear of the outline it has while chosen. */
+.tf-swatch-route { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center; min-height: var(--tap-min); text-align: left; }
+.tf-swatch-route__label { grid-column: 2 / -1; padding-left: var(--s2); }
 .tf-saved__edit-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s4); }
 .tf-saved__remove { margin-left: auto; color: var(--late); }
 .tf-recent { display: flex; align-items: flex-start; gap: var(--s3); width: 100%; min-height: 3.75rem; padding: var(--s2) 0; text-align: left; border-bottom: var(--border-hair) solid var(--divider); color: inherit; text-decoration: none; }
