@@ -4,6 +4,7 @@ import type { Stop } from '../../shared/api.ts';
 import { DataCredit } from './components/DataCredit.tsx';
 import { Sheet } from './components/Sheet.tsx';
 import { IconPin } from './icons/ui.tsx';
+import { onPinsChange } from './storage.ts';
 
 // A vehicle the rider asked to follow to a stop. The title is what they tapped, such as "49 at
 // 8:12", so the sheet names it before the map arrives. The color is the route's on the page they
@@ -23,7 +24,8 @@ export type Transfer = { trip: string; stop: string; color?: string; minutes?: n
 // `pin` pins the trip the rider opened the map from, when it is one trip they can pin, from the
 // sheet's header: its state, kept as the page says while the sheet is open, what it pins for
 // screen readers and for telling pins apart, and pinning or not.
-export type PinAction = { pinned: boolean; label: string; set: (on: boolean) => void };
+// `isPinned`, where given, reads whether it is pinned as stored now (see TrackProvider).
+export type PinAction = { pinned: boolean; label: string; set: (on: boolean) => void; isPinned?: () => boolean };
 export type Tracked = { trip: string; stop: string; title: string; color?: string; marks?: Mark[]; transfer?: Transfer; pin?: PinAction };
 
 type MapComponent = FunctionComponent<{ tracked: Tracked }>;
@@ -63,6 +65,19 @@ export function TrackProvider({ children }: { children: ComponentChildren }) {
   // can pin or unpin the trip the sheet shows, and the time links it was opened from then say so.
   const syncPin = (label: string, pinned: boolean) =>
     setTracked((current) => (current?.pin?.label === label && current.pin.pinned !== pinned ? { ...current, pin: { ...current.pin, pinned } } : current));
+  // A sheet opened from the pin bar outlives the link that opened it once its pin goes, so no link
+  // is left to tell it. It reads the pin again on every change instead: an Unpin in the bar, an
+  // auto-unpin, a replacing pin, or Undo.
+  useEffect(
+    () =>
+      onPinsChange(() =>
+        setTracked((current) => {
+          const pinned = current?.pin?.isPinned?.();
+          return pinned === undefined || pinned === current!.pin!.pinned ? current : { ...current!, pin: { ...current!.pin!, pinned } };
+        }),
+      ),
+    [],
+  );
   const togglePin = (pin: PinAction) => {
     pin.set(!pin.pinned);
     syncPin(pin.label, !pin.pinned);

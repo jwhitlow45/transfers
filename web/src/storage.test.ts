@@ -75,3 +75,20 @@ test('a page keeping its pin with the search as it stands keeps times the pin ba
   deepStrictEqual(loadPins().map(({ ends, search: { dest } }) => [ends, dest]), [[2, 'c']]);
   savePin(search, null);
 });
+
+test('a pin is still the one pinned to its search until it is unpinned or another replaces it, and again once put back', async () => {
+  const { isPinnedTo } = await import('./pins.ts');
+  const search = { from: 'a', to: 'b', fromLabel: 'A', toLabel: 'B' };
+  const pin = { second: { trip: 't', board: 's' }, at: 100, ends: 1 };
+  savePin(search, pin);
+  // Its times moving keep it the same pin.
+  savePin(search, { ...pin, ends: 2 });
+  const pinnedAfterTimes = isPinnedTo(search, pin);
+  savePin(search, { ...pin, second: { trip: 'u', board: 's' } });
+  const pinnedAfterReplace = isPinnedTo(search, pin);
+  savePin(search, null);
+  const pinnedAfterUnpin = isPinnedTo(search, pin);
+  savePin(search, pin);
+  deepStrictEqual([pinnedAfterTimes, pinnedAfterReplace, pinnedAfterUnpin, isPinnedTo(search, pin)], [true, false, false, true]);
+  savePin(search, null);
+});

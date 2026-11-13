@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { pinToastText } from './lib/pinned.ts';
+import { pinToastText, samePin } from './lib/pinned.ts';
 import { type Pin, type Search, loadPin, loadPins, onPinsChange, savePin, searchId } from './storage.ts';
 
 // The pins as stored, read again whenever one changes (see onPinsChange), here or in another tab.
@@ -41,6 +41,12 @@ export function keepPinSearch(search: Search) {
 }
 
 export const pinId = (pin: { search: Search }) => searchId(pin.search);
+
+// Whether `pin` is still the one pinned to `search`, as stored now.
+export function isPinnedTo(search: Search, pin: Pin) {
+  const stored = loadPin(search);
+  return stored !== null && samePin(stored, pin);
+}
 
 // Home's pull to refresh reaches the pins too. Each polls in the app's pin bar, apart from the
 // page (see PinBar.tsx), so the page asks through here, and every pin's poll answers.
