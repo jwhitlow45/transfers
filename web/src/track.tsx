@@ -61,7 +61,7 @@ export function TrackProvider({ children }: { children: ComponentChildren }) {
       () => setFailed(true),
     );
   };
-  // The sheet's pin says what the page says. The page's toast shows above the sheet, so its Undo
+  // The sheet's pin says what the page says. The pin bar's toast shows above the sheet, so its Undo
   // can pin or unpin the trip the sheet shows, and the time links it was opened from then say so.
   const syncPin = (label: string, pinned: boolean) =>
     setTracked((current) => (current?.pin?.label === label && current.pin.pinned !== pinned ? { ...current, pin: { ...current.pin, pinned } } : current));
@@ -114,7 +114,8 @@ export function TrackProvider({ children }: { children: ComponentChildren }) {
 
 // A vehicle's time at a stop, which opens its live map. For BART and the ferry, which report no
 // positions, the map places the vehicle by when it is due at its stops.
-export function TimeLink({ trip, stop, title, color, marks, transfer, pin, children }: {
+// `named` is set where the link's own words already say it opens the map, as the pin bar's Live map.
+export function TimeLink({ trip, stop, title, color, marks, transfer, pin, named = false, children }: {
   trip: string;
   stop: Stop | undefined;
   title: string;
@@ -122,6 +123,7 @@ export function TimeLink({ trip, stop, title, color, marks, transfer, pin, child
   marks?: Mark[];
   transfer?: Transfer;
   pin?: PinAction;
+  named?: boolean;
   children: ComponentChildren;
 }) {
   const { open, syncPin } = useContext(TrackContext);
@@ -136,7 +138,7 @@ export function TimeLink({ trip, stop, title, color, marks, transfer, pin, child
       onClick={() => open({ trip, stop: stop.key, title, ...(color ? { color } : {}), ...(marks ? { marks } : {}), ...(transfer ? { transfer } : {}), ...(pin ? { pin } : {}) })}
     >
       {children}
-      <span class="tf-sr">, follow on a map</span>
+      {!named && <span class="tf-sr">, follow on a map</span>}
     </button>
   );
 }

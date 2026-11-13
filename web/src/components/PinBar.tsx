@@ -6,11 +6,12 @@ import { apiUrl } from '../api.ts';
 import { approx, clock, hasLeft, minuteCount, minutesUntil, stillWaiting, walkMinutes } from '../format.ts';
 import { useNow, usePinnedTrip, usePoll, useStopPin } from '../hooks.ts';
 import { IconChevron, IconClose, IconFullRoute, IconWarn } from '../icons/ui.tsx';
+import { focusInstead } from '../focus.ts';
 import { ScreenActive } from '../layers.ts';
 import { titleAndBody } from '../lib/alerts.ts';
 import { ringsBell } from '../lib/eggs.ts';
 import { liveClock, liveNote } from '../lib/freshness.ts';
-import { type PinMap, type RankedPin, alertStops, pinFocus, pinMap, pinVerb, restOfTrip, shownPin, tripCountdown, tripMinutes, tripMinutesText, tripStatusText, vehicleWord } from '../lib/pin-bar.ts';
+import { type ChosenPin, type PinMap, type RankedPin, alertStops, pinFocus, pinMap, pinVerb, restOfTrip, shownPin, tripCountdown, tripMinutes, tripMinutesText, tripStatusText, vehicleWord } from '../lib/pin-bar.ts';
 import { pinnedDestination, pinnedPhase, pinnedTransfer, scheduledAt } from '../lib/pinned.ts';
 import { pageColors } from '../lib/results.ts';
 import { arrivalAlerts, arrivalCountdown, pinnedArrival } from '../lib/stop-pins.ts';
@@ -57,10 +58,11 @@ export function PinBar({ page, open, onOpen }: { page: Page; open: boolean; onOp
   const hidden = page.name === 'settings';
   const [reports, setReports] = useState<Record<string, PinReport>>({});
   const report: Report = useCallback((id, next) => setReports(({ [id]: _old, ...others }) => (next ? { ...others, [id]: next } : others)), []);
-  // The tab the rider tapped, kept until that pin ends.
-  const [chosen, setChosen] = useState<string | null>(null);
+  // The tab the rider tapped, kept until that pin ends (see shownPin).
+  const [chosen, setChosen] = useState<ChosenPin | null>(null);
   const ranked = pins.map((pin) => reports[pinId(pin)] ?? { id: pinId(pin), at: null, ended: false });
   const shown = shownPin(ranked, chosen);
+  const choose = (id: string) => setChosen({ id, ended: reports[id]?.ended ?? false });
   useEffect(() => {
     if (shown.chosen !== chosen) setChosen(shown.chosen);
   }, [shown.chosen]);
@@ -101,10 +103,18 @@ export function PinBar({ page, open, onOpen }: { page: Page; open: boolean; onOp
 
   const bar = useRef<HTMLElement>(null);
   const main = () => bar.current?.querySelector<HTMLElement>('.tf-pinbar__main');
+  // Focus goes back to the bar at once, as a map's sheet opened from the panel reads where to return
+  // it as it opens. An Unpin then takes that button away with its pin, so once drawn, focus goes to
+  // the bar of the pin that takes its place, or with none left, the page.
+  const [closed, setClosed] = useState(0);
   const close = () => {
     onOpen(false);
     main()?.focus();
+    setClosed((count) => count + 1);
   };
+  useLayoutEffect(() => {
+    if (closed && (!document.activeElement || document.activeElement === document.body)) focusInstead(main());
+  }, [closed]);
   // Opened, focus moves into the panel, so a screen reader starts at its top.
   useEffect(() => {
     if (open) bar.current?.querySelector<HTMLElement>(`#${PANEL}`)?.focus({ preventScroll: true });
@@ -177,14 +187,16 @@ export function PinBar({ page, open, onOpen }: { page: Page; open: boolean; onOp
   });
   // Arrow keys move between tabs, and choosing one is showing it, as the app's other tabs do.
   const moveTab = (event: KeyboardEvent) => {
-    const index = pins.findIndex((pin) => pinId(pin) === shown.id);
+    const from = (event.target as HTMLElement | null)?.id;
+    const focused = pins.findIndex((pin) => tabId(pinId(pin)) === from);
+    const index = focused >= 0 ? focused : pins.findIndex((pin) => pinId(pin) === shown.id);
     const last = pins.length - 1;
     const steps: Record<string, number> = { ArrowRight: index === last ? 0 : index + 1, ArrowLeft: index <= 0 ? last : index - 1, Home: 0, End: last };
     const next = steps[event.key];
     if (next === undefined) return;
     event.preventDefault();
     const id = pinId(pins[next]!);
-    setChosen(id);
+    choose(id);
     document.getElementById(tabId(id))?.focus();
   };
   return (
@@ -204,7 +216,7 @@ export function PinBar({ page, open, onOpen }: { page: Page; open: boolean; onOp
               const id = pinId(pin);
               const selected = id === shown.id;
               return (
-                <button key={id} type="button" role="tab" class="tf-pinbar__tab" id={tabId(id)} aria-selected={selected} aria-controls={VIEW} tabIndex={selected ? 0 : -1} onClick={() => setChosen(id)}>
+                <button key={id} type="button" role="tab" class="tf-pinbar__tab" id={tabId(id)} aria-selected={selected} aria-controls={VIEW} tabIndex={selected ? 0 : -1} onClick={() => choose(id)}>
                   <span class="tf-sr">{pin.arrival ? 'Pinned arrival, ' : 'Pinned trip, '}</span>
                   <span class="tf-pinbar__tabname">
                     <Name text={pinName(pin, saved.find((item) => item.id === id)?.name)} />
@@ -682,12 +694,22 @@ function BarView({ kind, name, sub, href, open, onToggle, onClose, onUnpin, spok
               <span class="tf-sr">, {name}</span>
             </AppLink>
             {map && watched && (
-              <TimeLink {...(track as Omit<PinMap, 'stop'> & { pin: PinAction })} stop={watched}>
+              <TimeLink {...(track as Omit<PinMap, 'stop'> & { pin: PinAction })} stop={watched} named>
                 <IconFullRoute />
                 Live map
               </TimeLink>
             )}
-            <button type="button" class="tf-pinbar__action" onClick={onUnpin}>
+            {/* Unpin shuts the panel itself, first: the unpin takes this row away before the click
+                reaches the row's own handler. */}
+            <button
+              type="button"
+              class="tf-pinbar__action"
+              onClick={(event) => {
+                event.stopPropagation();
+                onClose();
+                onUnpin();
+              }}
+            >
               <IconClose size={16} />
               Unpin<span class="tf-sr"> {name}</span>
             </button>

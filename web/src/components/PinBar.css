@@ -94,9 +94,8 @@
 @media (max-width: 18em) {
   .tf-app .tf-header { position: relative; }
   .tf-pinbar__actions { grid-template-columns: 1fr; }
-  /* With room for a few words a line, the bar's name wraps whole, as its tab's does. */
   /* With room for a few words a line, the bar's name wraps whole, as its tab's does: the line
-     runs on as text, balanced, with a dot between its parts. */
+     runs on as text, with a dot between its parts. */
   .tf-pinbar .tf-pinbar__naming { display: block; }
   .tf-pinbar__naming > .tf-dots__gap { display: inline; }
   .tf-pinbar__naming > .tf-dots__part { white-space: normal; }

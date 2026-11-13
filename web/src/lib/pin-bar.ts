@@ -13,11 +13,13 @@ export type RankedPin = { id: string; at: number | null; ended: boolean };
 
 // The pin the bar shows: the most urgent, the one the rider acts on soonest, until they tap a tab.
 // Then it keeps that choice until that pin ends or is unpinned (J, 2026-11-09). An ended pin, or
-// one with no times, shows only when nothing else is pinned. `chosen` comes back null once it no
-// longer holds, for the bar to forget it.
-export function shownPin(pins: RankedPin[], chosen: string | null): { id: string | null; chosen: string | null } {
-  const kept = pins.find(({ id, ended }) => id === chosen && !ended);
-  if (kept) return { id: kept.id, chosen: kept.id };
+// one with no times, shows only when nothing else is pinned, or when its tab is tapped, so its
+// panel and Unpin can be reached. `chosen` is the tapped pin and whether it had ended by then, and
+// comes back null once it no longer holds, for the bar to forget it.
+export type ChosenPin = { id: string; ended: boolean };
+export function shownPin(pins: RankedPin[], chosen: ChosenPin | null): { id: string | null; chosen: ChosenPin | null } {
+  const kept = chosen && pins.find(({ id, ended }) => id === chosen.id && (!ended || chosen.ended));
+  if (kept) return { id: kept.id, chosen };
   const rank = ({ at, ended }: RankedPin) => (ended ? Infinity : (at ?? Number.MAX_VALUE));
   // The earliest of them, and of two as urgent, the one pinned first, as they are listed.
   const first = pins.reduce<RankedPin | null>((best, pin) => (best === null || rank(pin) < rank(best) ? pin : best), null);
