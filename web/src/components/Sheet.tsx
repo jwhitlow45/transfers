@@ -28,15 +28,21 @@ export const useLeaveOpen = () => useContext(LeaveOpen);
 // closes it by surprise. It is a step in history of its own, so the system back closes it rather
 // than leaving the page under it, and closing it any other way takes that step back.
 // `action` is a control beside Close, such as pinning the trip a map follows.
-// What the rider last pressed. WebKit does not focus a button or link it is tapped or clicked, so
-// with nothing focused, this is what opened a sheet, for focus to go back to once it closes.
+// What the rider last pressed, until a key is. WebKit does not focus a button or link it is tapped
+// or clicked: focus stays where it was, or goes to an ancestor that can take it, such as the page's
+// main once it has a tabindex (see focusInstead). So the button pressed inside what has focus is
+// what opened a sheet, for focus to go back to once it closes. Read once.
 let pressed: HTMLElement | null = null;
 if (typeof document !== 'undefined') {
   document.addEventListener('pointerdown', (event) => (pressed = (event.target as Element | null)?.closest<HTMLElement>('button, a[href]') ?? null), true);
+  document.addEventListener('keydown', () => (pressed = null), true);
 }
 const opener = () => {
   const active = document.activeElement as HTMLElement | null;
-  return active && active !== document.body ? active : pressed;
+  const tapped = pressed?.isConnected ? pressed : null;
+  pressed = null;
+  if (tapped && (!active || active === document.body || active.contains(tapped))) return tapped;
+  return active && active !== document.body ? active : null;
 };
 
 // Everything in `parent` but the sheet turns inert, apart from the screen's toast region, which shows
@@ -160,13 +166,13 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
     // Without scrolling: the panel starts below the screen as it rises, and focusing it there
     // would scroll the whole app up to bring it into view.
     requestAnimationFrame(() => panel.current?.focus({ preventScroll: true }));
-    // Once the sheet is gone, focus goes back to what opened it. That may be gone too, such as a pin
-    // bar whose last pin was unpinned from the sheet, and then focus goes to the page, unless
-    // something else took it in the meantime.
+    // Once the sheet is gone, focus goes back to what opened it. That may be gone or hidden by then,
+    // such as a pin bar whose last pin was unpinned from the sheet, and then focus goes to the
+    // page, unless something else took it in the meantime.
     return () =>
       requestAnimationFrame(() => {
         if (opener?.isConnected) opener.focus();
-        else if (!document.activeElement || document.activeElement === document.body) focusInstead(null);
+        if (document.activeElement !== opener && (!document.activeElement || document.activeElement === document.body)) focusInstead(null);
       });
   }, []);
   // Escape closes it from wherever focus is, the pin bar included, unless something nearer took
