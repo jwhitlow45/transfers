@@ -396,6 +396,11 @@ function TripFeed({ pin, name: savedName, dismissed, shown, open, onReport, onTo
     });
     const destination = pinnedDestination(pin, data!, search.dest);
     const total = tripMinutes(pinned!);
+    const walkLine = walk && (
+      <span class="tf-l2">
+        <span class="tf-nowrap">{walkMinutesTo}&nbsp;min walk to</span> <Name text={stopName(leg2.on!)} />
+      </span>
+    );
     const steps = restOfTrip(phase, trip).map((step) => {
       if (step === 'off') {
         return (
@@ -408,11 +413,7 @@ function TripFeed({ pin, name: savedName, dismissed, shown, open, onReport, onTo
                 </b>
               </span>
             </span>
-            {walkMinutesTo !== null && (
-              <span class="tf-l2">
-                <span class="tf-nowrap">{walkMinutesTo}&nbsp;min walk to</span> <Name text={stopName(leg2.on!)} />
-              </span>
-            )}
+            {walkLine}
           </Step>
         );
       }
@@ -429,8 +430,9 @@ function TripFeed({ pin, name: savedName, dismissed, shown, open, onReport, onTo
                 ]}
               />
             </span>
-            {/* The walk there, a step up, names the stop already. */}
+            {/* The walk there names the stop: a step up until the rider gets off, then here. */}
             <Dots class="tf-l2" parts={[<StatusTag status={statusAt(leg2.on!.at, now, leg2.on!.delay, leg2.live, leg2.canceled, leg2.notStarted)} plain />, !walk && `at ${stopName(leg2.on!)}`]} />
+            {!ahead && walkLine}
             {alertLines(alertsAt(where.changing))}
           </Step>
         );
