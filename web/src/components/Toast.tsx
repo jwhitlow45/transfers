@@ -14,7 +14,7 @@ const LEAVE_MS = 160;
 
 // A short note at the bottom of the screen after the rider unpins a trip or pins one in place of
 // another, saves a search or removes it, or dismisses or restores a notice, with Undo for a tap
-// they did not mean. It rises into place and sinks away.
+// they did not mean, or after a pin that rings a cable car's bell. It rises into place and sinks away.
 // The region is always there, so screen readers announce what fills it, and it never takes focus.
 // `page` places it on a screen with no bottom bar to sit above. `above` lifts it that many pixels
 // from the bottom, over a bar it is not inside. `quiet` leaves saying it to its owner, as the pin

@@ -27,6 +27,36 @@ export const useLeaveOpen = () => useContext(LeaveOpen);
 // closes it by surprise. It is a step in history of its own, so the system back closes it rather
 // than leaving the page under it, and closing it any other way takes that step back.
 // `action` is a control beside Close, such as pinning the trip a map follows.
+// What the rider last pressed. WebKit does not focus a button or link it is tapped or clicked, so
+// with nothing focused, this is what opened a sheet, for focus to go back to once it closes.
+let pressed: HTMLElement | null = null;
+if (typeof document !== 'undefined') {
+  document.addEventListener('pointerdown', (event) => (pressed = (event.target as Element | null)?.closest<HTMLElement>('button, a[href]') ?? null), true);
+}
+const opener = () => {
+  const active = document.activeElement as HTMLElement | null;
+  return active && active !== document.body ? active : pressed;
+};
+
+// Everything in `parent` but the sheet turns inert, apart from the screen's toast region, which shows
+// above the sheet so a toast raised from the sheet, such as Saved with its Undo, can be tapped.
+// Only what is around the region turns inert. Returns what it made inert.
+function inertBehind(parent: Element, sheet: Element) {
+  const made: HTMLElement[] = [];
+  const around = (container: Element) => {
+    for (const element of [...container.children] as HTMLElement[]) {
+      if (element === sheet || element.classList.contains('tf-sheet') || element.classList.contains('tf-toast-region') || element.inert) continue;
+      if (element.querySelector('.tf-toast-region')) around(element);
+      else {
+        element.inert = true;
+        made.push(element);
+      }
+    }
+  };
+  around(parent);
+  return made;
+}
+
 export function Sheet({ title, subtitle, footer, action, onClose, children }: {
   title: string;
   subtitle?: string;
@@ -43,7 +73,7 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
   const app = useContext(AppSheets);
   // What had focus as the sheet opened, read before the page behind turns inert, which takes focus
   // off whatever in it had it.
-  const openedFrom = useRef(document.activeElement as HTMLElement | null);
+  const openedFrom = useRef(opener());
   // The page behind is inert while the sheet is open. Over the whole app, the app makes its pages
   // so (see main.tsx). Inside a screen, that is everything else in the screen, which nothing else
   // makes inert. The pin bar is outside both.
@@ -52,8 +82,7 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
     const parent = sheet?.parentElement;
     if (!sheet || !parent) return;
     if (parent.classList.contains('tf-app')) return app.hold();
-    const behind = ([...parent.children] as HTMLElement[]).filter((element) => element !== sheet && !element.classList.contains('tf-sheet') && !element.inert);
-    for (const element of behind) element.inert = true;
+    const behind = inertBehind(parent, sheet);
     return () => {
       for (const element of behind) element.inert = false;
     };

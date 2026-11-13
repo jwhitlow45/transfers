@@ -174,7 +174,7 @@ button:disabled { opacity: .45; cursor: default; }
 :is(span, div, p).tf-dots { --dot: 0.8em; display: block; clip-path: inset(-100vh -100vw -100vh -3px); text-wrap: pretty; }
 .tf-dots__gap { word-spacing: calc(var(--dot) - 0.25em); }
 .tf-dots__part { position: relative; }
-.tf-dots__part--next::before { content: "·" / ""; position: absolute; left: calc(-1 * var(--dot)); width: var(--dot); text-align: center; }
+.tf-dots__part--next::before { content: "·"; content: "·" / ""; position: absolute; left: calc(-1 * var(--dot)); width: var(--dot); text-align: center; }
 /* A name cut short to fit its line (see Cut): a block that may shrink, on one line. */
 .tf-cut { display: block; min-width: 0; overflow: hidden; white-space: nowrap; }
 
@@ -853,9 +853,12 @@ button:disabled { opacity: .45; cursor: default; }
 @media (hover: hover) { .tf-seg__option:hover { background: color-mix(in srgb, var(--text) 7%, transparent); } }
 .tf-seg__option[aria-pressed="true"] { background: var(--field); color: var(--on-field); box-shadow: inset 0 0 0 2px var(--chosen); }
 
-/* Above the bottom bar, sliding with it when swiping back, and above any sheet (z-index 10), as a
-   map's sheet can pin and unpin. */
+/* Above the bottom bar, sliding with it when swiping back, and above a sheet inside the screen
+   (z-index 10), which leaves the region out of what it makes inert, as Trip settings can save the
+   search. Under a sheet over the whole app, or the pin bar's open panel, the page is inert, Undo
+   with it, so its toast waits hidden until the page is back. */
 .tf-bottombar { position: relative; }
+.tf-layer[inert] .tf-toast-region { visibility: hidden; }
 .tf-toast-region { position: absolute; z-index: 11; left: var(--gutter); right: var(--gutter); bottom: calc(100% + var(--s2)); max-width: 560px; margin: 0 auto; pointer-events: none; }
 /* On a screen with no bottom bar, at the bottom of the screen itself. */
 .tf-toast-region--page { position: fixed; bottom: calc(var(--s3) + var(--bottom-inset)); }
