@@ -6,7 +6,7 @@
 export function focusInstead(target: HTMLElement | null | undefined) {
   if (target) return target.focus({ preventScroll: true });
   const main = document.querySelector<HTMLElement>('.tf-layer #main');
-  const sheet = [...document.querySelectorAll<HTMLElement>('.tf-app > .tf-sheet .tf-sheet__panel')].at(-1);
+  const sheet = [...document.querySelectorAll<HTMLElement>('.tf-app > .tf-sheet:not([inert]) .tf-sheet__panel')].at(-1);
   if (main && !main.closest('[inert]')) {
     main.tabIndex = -1;
     main.focus({ preventScroll: true });
