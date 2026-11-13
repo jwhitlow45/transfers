@@ -20,7 +20,7 @@ Agencies: Muni (bus, electric trolley bus, Muni Metro light rail, historic stree
    - A "Nearby routes" text button under the fields. Location is asked for only when it is tapped, never on page load.
    - Saved searches and recent searches, each one tap away. Saved searches are the main way people use the app day to day, so make them prominent. A saved search can be renamed (such as "Work to home"), recolored, reordered, and deleted, all under one Edit button on the Saved heading. They are stored on the device for now. Accounts may come later, so leave a natural place for a sign-in without designing one.
 
-2. **Nearby** (after the rider taps Show nearby and grants location)
+2. **Nearby** (after the rider taps Nearby routes and grants location)
    - A small schematic map at the top, drawn as SVG: the rider's position, nearby stops as dots with mode icons, and the route lines through them. No streets, no map tiles, so it appears instantly and works offline.
    - Tapping the schematic expands it to a full street map. The street map loads only then, so the design needs a short loading state for it.
    - Below the map, nearby stops grouped by route and direction, nearest first. Each shows the walking distance and the next 2 or 3 arrivals with countdowns and lateness.

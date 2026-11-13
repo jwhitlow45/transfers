@@ -3,8 +3,7 @@ import { agencyOnly, chipLabel, shortStopName } from '../view.ts';
 import { shortDate } from '../format.ts';
 
 export type Severity = 'severe' | 'warning' | 'info';
-// `startOpen` opens the alert at first.
-export type ViewAlert = { id: string; severity: Severity; kicker: string; title: string; body: string | null; meta: string; url: string | null; startOpen: boolean };
+export type ViewAlert = { id: string; severity: Severity; kicker: string; title: string; body: string | null; meta: string; url: string | null };
 
 // How the kicker starts for a notice about no stop of the trip in particular.
 export const NOTICE = 'Notice · ';
@@ -61,7 +60,7 @@ function toView(alert: Alert, data: AlertData, boardingStops: Set<string>, needs
   // The agency, unless the kicker over it names it already, then how long the alert lasts.
   const agency = agencyOnly(alert.agency);
   const meta = [!kicker.split(' · ').includes(agency) && agency, alert.activeUntil && `Until ${shortDate(alert.activeUntil * 1000)}`].filter(Boolean).join(' · ');
-  return { id: alert.id, severity, kicker, ...titleAndBody(alert.header, alert.description), meta, url: alert.url, startOpen: severity === 'severe' && !relied };
+  return { id: alert.id, severity, kicker, ...titleAndBody(alert.header, alert.description), meta, url: alert.url };
 }
 
 // How much longer than the header its finished sentence may be and still read as a title.

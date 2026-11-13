@@ -38,8 +38,8 @@ test('each setting raises only alerts about what it covers, folded and labeled a
   const alerts = [notice('e', 'Van Ness Platform Elevator Out of Service'), notice('s', 'Powell Escalator Out of Service')];
   const elevators = viewAlerts(data(undefined, alerts), new Set(), { elevators: true, escalators: false });
   deepStrictEqual(
-    elevators.map(({ id, severity, kicker, startOpen }) => `${id} ${severity} ${kicker} ${startOpen}`),
-    ['e severe Station access · Muni false', 's info Notice · Muni false'],
+    elevators.map(({ id, severity, kicker }) => `${id} ${severity} ${kicker}`),
+    ['e severe Station access · Muni', 's info Notice · Muni'],
   );
   const escalators = viewAlerts(data(undefined, alerts), new Set(), { elevators: false, escalators: true });
   strictEqual(escalators[0]?.id, 's');

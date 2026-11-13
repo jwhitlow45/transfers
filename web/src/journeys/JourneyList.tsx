@@ -1,4 +1,3 @@
-import { Fragment } from 'preact';
 import { useId, useState } from 'preact/hooks';
 import type { Journey, JourneyLeg, JourneysResponse, RideLeg } from '../../../shared/journeys.ts';
 import { Collapse } from '../components/Collapse.tsx';
