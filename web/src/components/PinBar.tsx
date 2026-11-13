@@ -60,9 +60,13 @@ export function PinBar({ page, open, onOpen }: { page: Page; open: boolean; onOp
   const report: Report = useCallback((id, next) => setReports(({ [id]: _old, ...others }) => (next ? { ...others, [id]: next } : others)), []);
   // The tab the rider tapped, kept until that pin ends (see shownPin).
   const [chosen, setChosen] = useState<ChosenPin | null>(null);
-  const ranked = pins.map((pin) => reports[pinId(pin)] ?? { id: pinId(pin), at: null, ended: false });
+  const tripOf = (pin: Pin) => `${pin.first?.trip ?? ''}>${pin.second.trip}`;
+  const ranked = pins.map((pin) => ({ ...(reports[pinId(pin)] ?? { id: pinId(pin), at: null, ended: false }), trip: tripOf(pin) }));
   const shown = shownPin(ranked, chosen);
-  const choose = (id: string) => setChosen({ id, ended: reports[id]?.ended ?? false });
+  const choose = (id: string) => {
+    const pin = pins.find((each) => pinId(each) === id);
+    setChosen({ id, ended: reports[id]?.ended ?? false, ...(pin ? { trip: tripOf(pin) } : {}) });
+  };
   useEffect(() => {
     if (shown.chosen !== chosen) setChosen(shown.chosen);
   }, [shown.chosen]);
@@ -690,8 +694,10 @@ function BarView({ kind, name, sub, href, open, onToggle, onClose, onUnpin, spok
           </p>
           {panel}
           {/* Any of the three shuts the panel, and focus goes back to the bar, which a map's sheet
-              then returns it to. */}
-          <div class="tf-pinbar__actions" onClick={onClose}>
+              then returns it to. It shuts as the click comes down, before the action's own
+              handler: Preact draws between the two, and would draw the map's sheet, or take this
+              row away with an unpinned pin, before a shut on the way back up. */}
+          <div class="tf-pinbar__actions" onClickCapture={onClose}>
             <AppLink class="tf-pinbar__action" href={href}>
               Open {kind === 'trip' ? 'trip' : 'stop'}
               <span class="tf-sr">, {name}</span>
@@ -702,15 +708,13 @@ function BarView({ kind, name, sub, href, open, onToggle, onClose, onUnpin, spok
                 Live map
               </TimeLink>
             )}
-            {/* Unpin shuts the panel itself, first: the unpin takes this row away before the click
-                reaches the row's own handler. */}
+            {/* Closing again once unpinned looks for focus after the pin's bar is gone. */}
             <button
               type="button"
               class="tf-pinbar__action"
-              onClick={(event) => {
-                event.stopPropagation();
-                onClose();
+              onClick={() => {
                 onUnpin();
+                onClose();
               }}
             >
               <IconClose size={16} />
