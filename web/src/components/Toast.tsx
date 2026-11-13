@@ -21,6 +21,22 @@ const LEAVE_MS = 160;
 // bar says its toast through its own status line.
 export function Toast({ message, page = false, above = 0, quiet = false, onDone }: { message: ToastMessage | null; page?: boolean; above?: number; quiet?: boolean; onDone: () => void }) {
   const [held, setHeld] = useState(false);
+  // Under a sheet over the whole app, or the pin bar's open panel, the page is inert and its toast
+  // hidden with it (see .tf-toast-region in styles.css), so the toast waits, its time starting over
+  // once the page is back.
+  const region = useRef<HTMLDivElement>(null);
+  const [covered, setCovered] = useState(false);
+  useEffect(() => {
+    let layer: HTMLElement | null = region.current;
+    while (layer?.parentElement && !layer.parentElement.classList.contains('tf-app')) layer = layer.parentElement;
+    if (!layer || typeof MutationObserver === 'undefined') return;
+    const watched = layer;
+    const update = () => setCovered(watched.inert);
+    update();
+    const observer = new MutationObserver(update);
+    observer.observe(watched, { attributes: true, attributeFilter: ['inert'] });
+    return () => observer.disconnect();
+  }, []);
   // The last note stays while it sinks away after `message` clears.
   const [shown, setShown] = useState(message);
   const [leaving, setLeaving] = useState(false);
@@ -35,10 +51,10 @@ export function Toast({ message, page = false, above = 0, quiet = false, onDone 
     return () => clearTimeout(timer);
   }, [message?.id]);
   useEffect(() => {
-    if (!message || held) return;
+    if (!message || held || covered) return;
     const timer = setTimeout(onDone, TOAST_MS);
     return () => clearTimeout(timer);
-  }, [message?.id, held]);
+  }, [message?.id, held, covered]);
   const icon = {
     pin: <IconPin filled size={15} />,
     unpin: <IconUnpin size={15} />,
@@ -48,6 +64,7 @@ export function Toast({ message, page = false, above = 0, quiet = false, onDone 
   };
   return (
     <div
+      ref={region}
       class={`tf-toast-region${page ? ' tf-toast-region--page' : ''}`}
       role={quiet ? undefined : 'status'}
       style={above > 0 ? { bottom: `calc(${above}px + var(--s2))` } : undefined}
