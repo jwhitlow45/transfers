@@ -73,4 +73,9 @@ test('the next connection opens one map from either time: the first vehicle, wit
   added.groups[0]!.departures[0]!.connections[0]!.added = true;
   const alone = summarize(search, added, now).next!.track;
   deepStrictEqual([alone.trip, alone.stop?.key, alone.title, alone.marks, alone.transfer], ['SM:b', 'SM:board', `2 at ${clock(seconds(20))}`, [{ stop: 'SM:board', kind: 'transfer' }], undefined]);
+
+  // On the trips tab, the stop in To is where the rider is going, as the results' map has it, with
+  // no destination sent along.
+  const trips = { ...structuredClone(data), view: 'trips', to: { stop: 'SM:end' } } as TripResponse;
+  strictEqual(summarize({ ...search, to: 'SM:end', dest: undefined }, trips, now).next!.track.transfer?.destination, 'SM:end');
 });

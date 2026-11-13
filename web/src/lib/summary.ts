@@ -90,7 +90,7 @@ export function summarize(search: Search, data: TripResponse | null, now: number
         const secondStatus = statusAt(departure.at, now, departure.delay, departure.live, false, departure.notStarted);
         // From where the first vehicle lets the rider off to the second reaching them.
         const transferScheduled = !connection.live || Boolean(connection.arrivesScheduled) || !departure.live;
-        const map = connectionTrack(connection, departure, { data: data!, alight: group.alight, board: group.board, min: group.window.min, walkMeters: group.walkMeters, secondColor: colorOf!(departure.route), destination: search.dest });
+        const map = connectionTrack(connection, departure, { data: data!, alight: group.alight, board: group.board, min: group.window.min, walkMeters: group.walkMeters, secondColor: colorOf!(departure.route), destination: going ? search.to : search.dest });
         next = {
           minutes: minutesUntil(connection.departs, now),
           notStarted: stillWaiting(connection.departs, now, connection.notStarted),
