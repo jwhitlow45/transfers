@@ -353,7 +353,7 @@ function EmptyTrip({ data, search, summary, going, noWays, walk, update, more }:
   }
   if (notice?.kind === 'idle') {
     return (
-      <EmptyState title={`Nothing from ${summary.from} connects to ${toName} at this hour`}>
+      <EmptyState {...heading} title={`Nothing from ${summary.from} connects to ${toName} at this hour`}>
         <div class="tf-muted">{again(notice.next, `Service from ${summary.from}`)}</div>
       </EmptyState>
     );
