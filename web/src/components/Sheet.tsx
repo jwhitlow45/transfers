@@ -1,5 +1,5 @@
 import { type ComponentChildren, createContext } from 'preact';
-import { useContext, useEffect, useLayoutEffect, useRef } from 'preact/hooks';
+import { useContext, useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { SLIDE_MS, motionOff, useDrag } from '../gestures.ts';
 import { focusInstead } from '../focus.ts';
 import { AppSheets } from '../layers.ts';
@@ -78,9 +78,9 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
   const root = useRef<HTMLDivElement>(null);
   const step = useRef('');
   const app = useContext(AppSheets);
-  // What had focus as the sheet opened, read before the page behind turns inert, which takes focus
-  // off whatever in it had it.
-  const openedFrom = useRef(opener());
+  // What had focus as the sheet opened (see opener), read once, at the first render, before the
+  // page behind turns inert, which takes focus off whatever in it had it.
+  const [openedFrom] = useState(() => ({ current: opener() }));
   // The page behind is inert while the sheet is open. Over the whole app, the app makes its pages
   // so (see main.tsx). Inside a screen, that is everything else in the screen, which nothing else
   // makes inert. The pin bar is outside both.
