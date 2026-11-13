@@ -163,6 +163,7 @@ export function SearchScreen() {
   // Whether the saved cards show their editing: one Edit on the Saved heading turns it on for all
   // of them, in place of a pencil on each. With the last card removed, there is nothing to edit.
   const [editingSaved, setEditingSaved] = useState(false);
+  const editButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (saved.length === 0) setEditingSaved(false);
   }, [saved.length]);
@@ -505,11 +506,19 @@ export function SearchScreen() {
               {/* One Edit for every card: each then shows its name, color, order and removal. */}
               <div class="tf-section__head">
                 <h2 id="saved-heading">Saved</h2>
-                <button type="button" class="tf-textbtn" onClick={() => setEditingSaved(!editingSaved)}>
+                <button type="button" class="tf-textbtn" ref={editButton} onClick={() => setEditingSaved(!editingSaved)}>
                   {editingSaved ? 'Done' : 'Edit'}
                 </button>
               </div>
-              <div class="tf-saved-grid" onKeyDown={(event) => event.key === 'Escape' && setEditingSaved(false)}>
+              {/* Escape ends editing, and focus, on a field or swatch that goes with it, moves to Edit. */}
+              <div
+                class="tf-saved-grid"
+                onKeyDown={(event) => {
+                  if (event.key !== 'Escape' || !editingSaved) return;
+                  setEditingSaved(false);
+                  editButton.current?.focus();
+                }}
+              >
                 {saved.map((search, index) =>
                   isStopSearch(search) ? (
                     <SavedStop

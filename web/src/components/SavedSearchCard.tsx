@@ -52,7 +52,7 @@ export function SavedSearchCard({ name, color, href, openLabel, onOpen, editing,
   // began, so a rider who tries another can still go back to it.
   const routeColor = useRef(offPalette(color));
   if (!editing) routeColor.current = offPalette(color);
-  // Pinning puts the trip above Home's fields, and moving the card moves it, which would take the
+  // Pinning brings in the pin bar above the page, and moving the card moves it, which would take the
   // card from under the rider's finger, so the page scrolls by as much, as a results row's pin does.
   // A move keeps focus on its button, or the other one once the card reaches an end.
   const inPlace = (change: () => void, refocus?: string) =>
@@ -188,7 +188,8 @@ export function SavedTripBody({ chain, named, windowText, next, trackPin, loadin
 }) {
   // A vehicle yet to leave the first stop of its trip cannot be arriving now (see atLeast).
   const now = next !== null && next.minutes < 1 && !next.notStarted;
-  const spoken = next && `${now ? 'Leaving now' : `In ${next.notStarted ? 'at least ' : ''}${Math.max(next.notStarted ? 1 : 0, next.minutes)} minute${next.minutes === 1 ? '' : 's'}`}: ${next.line}.${laterSpoken(next.later)}`;
+  const count = next && Math.max(next.notStarted ? 1 : 0, next.minutes);
+  const spoken = next && `${now ? 'Leaving now' : `In ${next.notStarted ? 'at least ' : ''}${count} minute${count === 1 ? '' : 's'}`}: ${next.line}.${laterSpoken(next.later)}`;
   return (
     <>
       {(named || windowText || loading) && (
