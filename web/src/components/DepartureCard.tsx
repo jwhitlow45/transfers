@@ -237,7 +237,7 @@ export function DepartureCard({ departure, group, next, alightName, noun, walk, 
 // The name is one part and its time another (see Whole), so a long name wraps by itself and the
 // time stays whole after its last word.
 function ArrivalLine({ name, short, at, trip }: { name: string; short: string | null; at: string; trip: string | null }) {
-  const full = `${name} ${at} ${trip}`;
+  const full = [name, at, trip ?? ''].join(' ');
   const line = useRef<HTMLSpanElement>(null);
   const [wraps, setWraps] = useState(false);
   // Counts changes to the line's room: its width, and the size of what comes before it in the
@@ -252,7 +252,9 @@ function ArrivalLine({ name, short, at, trip }: { name: string; short: string | 
   useEffect(() => {
     const element = line.current;
     if (!short || !element?.parentElement || typeof ResizeObserver === 'undefined') return;
-    const before = [...element.parentElement.children].filter((child) => child !== element);
+    // The band's countdown floats beside its lines, outside their block, and narrows them as it grows.
+    const end = element.closest('.tf-band')?.querySelector('.tf-band__end');
+    const before = [...element.parentElement.children, ...(end ? [end] : [])].filter((child) => child !== element);
     // The line's own height changes as it wraps, so only its width counts.
     const size = (target: Element) => {
       const { width, height } = target.getBoundingClientRect();
