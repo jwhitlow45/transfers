@@ -2,7 +2,8 @@ import type { Mode, PinnedLeg, PinnedStop, PinnedTrip, Route } from '../../../sh
 import { approx, clock, countdownTo, minuteCount, minutesUntil } from '../format.ts';
 import type { Mark, Transfer } from '../track.tsx';
 import { dayLabel, vehicleAt } from '../view.ts';
-import { type PinnedPhase, scheduledAt } from './pinned.ts';
+import type { Pin } from '../storage.ts';
+import { type PinnedPhase, samePin, scheduledAt } from './pinned.ts';
 
 // What the app's pin bar works out from a pin, apart from drawing it: which pin it shows, the word
 // for the moment, its countdown, the steps left, and the map it opens.
@@ -25,6 +26,13 @@ export function shownPin<C extends ChosenPin>(pins: RankedPin[], chosen: C | nul
   // The earliest of them, and of two as urgent, the one pinned first, as they are listed.
   const first = pins.reduce<RankedPin | null>((best, pin) => (best === null || rank(pin) < rank(best) ? pin : best), null);
   return { id: first?.id ?? null, chosen: null };
+}
+
+// The tapped pin's choice, while the pin on its search is still the one tapped. Another trip, other
+// stops, or another day's run of the same trips pinned in its place is a new pin, which the tap no
+// longer holds. Its times moving keep it the same.
+export function heldChoice<C extends ChosenPin & { pin: Pin }>(stored: Pin | undefined, chosen: C | null): C | null {
+  return chosen && stored && samePin(stored, chosen.pin) ? chosen : null;
 }
 
 // What a rider calls the vehicle they change to, for the bar's "bus leaves in".

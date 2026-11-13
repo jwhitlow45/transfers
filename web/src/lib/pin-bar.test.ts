@@ -2,7 +2,7 @@ import { deepStrictEqual, strictEqual } from 'node:assert/strict';
 import { test } from 'node:test';
 import type { PinnedLeg, PinnedTrip, Route } from '../../../shared/api.ts';
 import { clock } from '../format.ts';
-import { alertStops, pinFocus, pinMap, pinVerb, restOfTrip, shownPin, tripCountdown, tripMinutes, tripMinutesText, tripStatusText, vehicleWord } from './pin-bar.ts';
+import { alertStops, heldChoice, pinFocus, pinMap, pinVerb, restOfTrip, shownPin, tripCountdown, tripMinutes, tripMinutesText, tripStatusText, vehicleWord } from './pin-bar.ts';
 import { type PinnedPhase, pinnedPhase } from './pinned.ts';
 
 const PHASES: PinnedPhase[] = ['wait', 'ride', 'change', 'ride-second', 'done'];
@@ -32,6 +32,18 @@ test('the bar shows the most urgent pin, then the one the rider tapped until tha
   const tappedEnded = { id: 'trip', ended: true };
   deepStrictEqual(shownPin(ended, tappedEnded), { id: 'trip', chosen: tappedEnded });
   deepStrictEqual(shownPin([pins[1]!], tappedEnded), { id: 'stop', chosen: null });
+});
+
+test('a tapped tab holds while its pin is the one tapped, through moving times, but not once another pin replaces it', () => {
+  const day = 24 * 3600;
+  const tapped = { first: { trip: 'BA:b3', alight: 'BA:901609' }, second: { trip: 'SF:m3', board: 'SF:13477' }, at: 1_000_000, ends: 1_000_900 };
+  const chosen = { id: 'a>b', ended: true, pin: tapped };
+  deepStrictEqual(heldChoice({ ...tapped, ends: 1_001_200 }, chosen), chosen);
+  deepStrictEqual(heldChoice({ ...tapped, second: { ...tapped.second, trip: 'SF:m4' } }, chosen), null);
+  deepStrictEqual(heldChoice({ ...tapped, second: { ...tapped.second, board: 'SF:13478' } }, chosen), null);
+  deepStrictEqual(heldChoice({ ...tapped, at: tapped.at + day, ends: tapped.ends + day }, chosen), null);
+  deepStrictEqual(heldChoice(undefined, chosen), null);
+  deepStrictEqual(heldChoice(tapped, null), null);
 });
 
 test('an ended pin, or one with no times yet, shows only when nothing else is pinned, and equals keep their order', () => {
