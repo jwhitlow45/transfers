@@ -12,7 +12,7 @@ import { titleAndBody } from '../lib/alerts.ts';
 import { ringsBell } from '../lib/eggs.ts';
 import { liveClock, liveNote } from '../lib/freshness.ts';
 import { type ChosenPin, type PinMap, type RankedPin, alertStops, pinFocus, pinMap, pinVerb, restOfTrip, shownPin, tripCountdown, tripMinutes, tripMinutesText, tripStatusText, vehicleWord } from '../lib/pin-bar.ts';
-import { pinnedDestination, pinnedPhase, pinnedTransfer, scheduledAt } from '../lib/pinned.ts';
+import { pinnedDestination, pinnedPhase, pinnedTransfer, samePin, scheduledAt } from '../lib/pinned.ts';
 import { pageColors } from '../lib/results.ts';
 import { arrivalAlerts, arrivalCountdown, pinnedArrival } from '../lib/stop-pins.ts';
 import { stopAlerts, summarize } from '../lib/summary.ts';
@@ -59,13 +59,15 @@ export function PinBar({ page, open, onOpen }: { page: Page; open: boolean; onOp
   const [reports, setReports] = useState<Record<string, PinReport>>({});
   const report: Report = useCallback((id, next) => setReports(({ [id]: _old, ...others }) => (next ? { ...others, [id]: next } : others)), []);
   // The tab the rider tapped, kept until that pin ends (see shownPin).
-  const [chosen, setChosen] = useState<ChosenPin | null>(null);
-  const tripOf = (pin: Pin) => `${pin.first?.trip ?? ''}>${pin.second.trip}`;
-  const ranked = pins.map((pin) => ({ ...(reports[pinId(pin)] ?? { id: pinId(pin), at: null, ended: false }), trip: tripOf(pin) }));
-  const shown = shownPin(ranked, chosen);
+  const [chosen, setChosen] = useState<(ChosenPin & { pin: Pin }) | null>(null);
+  const ranked = pins.map((pin) => reports[pinId(pin)] ?? { id: pinId(pin), at: null, ended: false });
+  // A pin that replaced the tapped one on its search, another trip or another day's run of it, is a
+  // new pin, which the tap no longer holds.
+  const current = chosen && pins.find((pin) => pinId(pin) === chosen.id);
+  const shown = shownPin(ranked, chosen && current && samePin(current, chosen.pin) ? chosen : null);
   const choose = (id: string) => {
     const pin = pins.find((each) => pinId(each) === id);
-    setChosen({ id, ended: reports[id]?.ended ?? false, ...(pin ? { trip: tripOf(pin) } : {}) });
+    if (pin) setChosen({ id, ended: reports[id]?.ended ?? false, pin });
   };
   useEffect(() => {
     if (shown.chosen !== chosen) setChosen(shown.chosen);

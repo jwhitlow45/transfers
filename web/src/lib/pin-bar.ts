@@ -8,19 +8,18 @@ import { type PinnedPhase, scheduledAt } from './pinned.ts';
 // for the moment, its countdown, the steps left, and the map it opens.
 
 // A pin as the bar ranks it: when the rider next acts on it, in unix seconds, or null when its
-// times are away, and whether it has ended. `trip` tells a pin from one that replaced it on the
-// same search.
-export type RankedPin = { id: string; at: number | null; ended: boolean; trip?: string };
+// times are away, and whether it has ended.
+export type RankedPin = { id: string; at: number | null; ended: boolean };
 
 // The pin the bar shows: the most urgent, the one the rider acts on soonest, until they tap a tab.
 // Then it keeps that choice until that pin ends or is unpinned (J, 2026-11-09). An ended pin, or
 // one with no times, shows only when nothing else is pinned, or when its tab is tapped, so its
-// panel and Unpin can be reached. `chosen` is the tapped pin, its trip, and whether it had ended by
-// then. It comes back null once it no longer holds, or another trip replaced the pin, for the bar to
-// forget it.
-export type ChosenPin = { id: string; ended: boolean; trip?: string };
-export function shownPin(pins: RankedPin[], chosen: ChosenPin | null): { id: string | null; chosen: ChosenPin | null } {
-  const kept = chosen && pins.find(({ id, ended, trip }) => id === chosen.id && trip === chosen.trip && (!ended || chosen.ended));
+// panel and Unpin can be reached. `chosen` is the tapped pin and whether it had ended by then. It
+// comes back null once it no longer holds, for the bar to forget it. (The bar forgets it too once
+// another pin replaces it on the same search.)
+export type ChosenPin = { id: string; ended: boolean };
+export function shownPin<C extends ChosenPin>(pins: RankedPin[], chosen: C | null): { id: string | null; chosen: C | null } {
+  const kept = chosen && pins.find(({ id, ended }) => id === chosen.id && (!ended || chosen.ended));
   if (kept) return { id: kept.id, chosen };
   const rank = ({ at, ended }: RankedPin) => (ended ? Infinity : (at ?? Number.MAX_VALUE));
   // The earliest of them, and of two as urgent, the one pinned first, as they are listed.

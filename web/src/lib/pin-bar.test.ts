@@ -32,10 +32,6 @@ test('the bar shows the most urgent pin, then the one the rider tapped until tha
   const tappedEnded = { id: 'trip', ended: true };
   deepStrictEqual(shownPin(ended, tappedEnded), { id: 'trip', chosen: tappedEnded });
   deepStrictEqual(shownPin([pins[1]!], tappedEnded), { id: 'stop', chosen: null });
-  // Another trip pinned in its place is a new pin, which the tap no longer holds.
-  const tappedRun = { id: 'trip', ended: true, trip: 'a' };
-  deepStrictEqual(shownPin([{ id: 'trip', at: null, ended: true, trip: 'a' }, pins[1]!], tappedRun), { id: 'trip', chosen: tappedRun });
-  deepStrictEqual(shownPin([{ id: 'trip', at: null, ended: true, trip: 'b' }, pins[1]!], tappedRun), { id: 'stop', chosen: null });
 });
 
 test('an ended pin, or one with no times yet, shows only when nothing else is pinned, and equals keep their order', () => {
