@@ -413,7 +413,9 @@ function TripFeed({ pin, name: savedName, dismissed, shown, open, onReport, onTo
         <span class="tf-nowrap">{walkMinutesTo}&nbsp;min walk to</span> <Name text={stopName(leg2.on!)} />
       </span>
     );
-    const steps = restOfTrip(phase, trip).map((step) => {
+    const rest = restOfTrip(phase, trip);
+    const offListed = rest.includes('off');
+    const steps = rest.map((step) => {
       if (step === 'off') {
         return (
           <Step key={step} at={first!.off!.at} scheduled={scheduledAt(first!, first!.off!)}>
@@ -442,9 +444,10 @@ function TripFeed({ pin, name: savedName, dismissed, shown, open, onReport, onTo
                 ]}
               />
             </span>
-            {/* The walk there names the stop: a step up until the rider gets off, then here. */}
+            {/* The walk there names the stop: in the step that gets off, while it is listed, and here
+                once the rider is off or when the first vehicle has no stop listed to get off at. */}
             <Dots class="tf-l2" parts={[<StatusTag status={statusAt(leg2.on!.at, now, leg2.on!.delay, leg2.live, leg2.canceled, leg2.notStarted)} plain />, !walk && `at ${stopName(leg2.on!)}`]} />
-            {!ahead && walkLine}
+            {!offListed && walkLine}
             {alertLines(alertsAt(where.changing))}
           </Step>
         );
