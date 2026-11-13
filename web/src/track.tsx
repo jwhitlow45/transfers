@@ -63,21 +63,27 @@ export function TrackProvider({ children }: { children: ComponentChildren }) {
   };
   // The sheet's pin says what the page says. The pin bar's toast shows above the sheet, so its Undo
   // can pin or unpin the trip the sheet shows, and the time links it was opened from then say so.
-  const syncPin = (label: string, pinned: boolean) =>
-    setTracked((current) => (current?.pin?.label === label && current.pin.pinned !== pinned ? { ...current, pin: { ...current.pin, pinned } } : current));
+  // A sheet whose pin can be read as stored (`isPinned`) says that, whatever a link with the same
+  // label says, as two searches can pin the same trip.
+  const withPinned = (current: Tracked | null, pinned: boolean) => {
+    if (!current?.pin) return current;
+    const now = current.pin.isPinned?.() ?? pinned;
+    return now === current.pin.pinned ? current : { ...current, pin: { ...current.pin, pinned: now } };
+  };
+  const syncPin = (label: string, pinned: boolean) => setTracked((current) => (current?.pin?.label === label ? withPinned(current, pinned) : current));
   // A sheet opened from the pin bar outlives the link that opened it once its pin goes, so no link
-  // is left to tell it. It reads the pin again on every change instead: an Unpin in the bar, an
-  // auto-unpin, a replacing pin, or Undo.
-  useEffect(
-    () =>
-      onPinsChange(() =>
-        setTracked((current) => {
-          const pinned = current?.pin?.isPinned?.();
-          return pinned === undefined || pinned === current!.pin!.pinned ? current : { ...current!, pin: { ...current!.pin!, pinned } };
-        }),
-      ),
-    [],
-  );
+  // is left to tell it. It reads the pin again on every change instead, here or in another tab: an
+  // Unpin in the bar, an auto-unpin, a replacing pin, or Undo.
+  useEffect(() => {
+    const reread = () => setTracked((current) => (current?.pin?.isPinned ? withPinned(current, current.pin.pinned) : current));
+    const stop = onPinsChange(reread);
+    const onStorage = (event: StorageEvent) => (event.key === null || event.key.endsWith(':pins')) && reread();
+    addEventListener('storage', onStorage);
+    return () => {
+      stop();
+      removeEventListener('storage', onStorage);
+    };
+  }, []);
   const togglePin = (pin: PinAction) => {
     pin.set(!pin.pinned);
     syncPin(pin.label, !pin.pinned);
