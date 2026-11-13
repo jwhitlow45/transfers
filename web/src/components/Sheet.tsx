@@ -1,6 +1,7 @@
 import { type ComponentChildren, createContext } from 'preact';
 import { useContext, useEffect, useLayoutEffect, useRef } from 'preact/hooks';
 import { SLIDE_MS, motionOff, useDrag } from '../gestures.ts';
+import { focusInstead } from '../focus.ts';
 import { AppSheets } from '../layers.ts';
 import { cameBackTo, closeSheetEntry, currentKey, currentUnder, isSheetEntry, openSheetEntry } from '../router.ts';
 import { IconClose } from '../icons/ui.tsx';
@@ -159,7 +160,14 @@ export function Sheet({ title, subtitle, footer, action, onClose, children }: {
     // Without scrolling: the panel starts below the screen as it rises, and focusing it there
     // would scroll the whole app up to bring it into view.
     requestAnimationFrame(() => panel.current?.focus({ preventScroll: true }));
-    return () => requestAnimationFrame(() => opener?.isConnected && opener.focus());
+    // Once the sheet is gone, focus goes back to what opened it. That may be gone too, such as a pin
+    // bar whose last pin was unpinned from the sheet, and then focus goes to the page, unless
+    // something else took it in the meantime.
+    return () =>
+      requestAnimationFrame(() => {
+        if (opener?.isConnected) opener.focus();
+        else if (!document.activeElement || document.activeElement === document.body) focusInstead(null);
+      });
   }, []);
   // Escape closes it from wherever focus is, the pin bar included, unless something nearer took
   // the key, as the bar's open panel does. Only the sheet on top, in a page that is showing.
