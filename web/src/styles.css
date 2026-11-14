@@ -124,6 +124,10 @@ body {
   -webkit-font-smoothing: antialiased;
   /* No last word alone on a line, where the browser can help it. */
   text-wrap: pretty;
+  /* The large-text rules ask the page's width in root ems (@container app). A media query in em
+     reads the browser's own default size, which the home-screen app's text size leaves as it is
+     (see text-size.ts). */
+  container: app / inline-size;
 }
 /* Names, headings and labels of a few words share them evenly between their lines. */
 :is(.tf-l1, .tf-group__title, .tf-card__name, .tf-chain__whole, .tf-section h2, .tf-setting__label, .tf-recent__label, .tf-pinbar__name b, .tf-pinbar__tabname, .tf-pinbar__naming, .tf-field__shown, .tf-toast__text, .tf-sheet__saved, .tf-result__name, .tf-credit) { text-wrap: balance; }
@@ -329,7 +333,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-to { --arrow: 1.3em; display: block; min-width: 0; padding-left: var(--arrow); text-indent: calc(-1 * var(--arrow)); overflow-wrap: break-word; }
 .tf-to__arrow { display: inline-block; width: var(--arrow); text-indent: 0; }
 /* At large text the name's later lines run under the arrow, as its longest word needs the line. */
-@media (max-width: 18em) {
+@container app (max-width: 18rem) {
   .tf-to { padding-left: 0; text-indent: 0; }
   .tf-to__arrow { width: auto; margin-right: 0.3em; }
 }
@@ -419,7 +423,7 @@ button:disabled { opacity: .45; cursor: default; }
 :is(.tf-field, .tf-saved__name-field):not(:focus-within) .tf-field__box:has(> .tf-field__shown) > input { position: absolute; inset: 0; height: 100%; color: transparent; -webkit-text-fill-color: transparent; }
 .tf-saved__name-field .tf-field__shown { min-height: var(--tap-min); font-weight: var(--weight-bold); }
 /* At large text the name has the field's whole width, and the clear button the label's line. */
-@media (max-width: 18em) {
+@container app (max-width: 18rem) {
   .tf-field__shown > .tf-cut { white-space: normal; overflow-wrap: break-word; }
   .tf-field { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
   .tf-field__row { display: contents; }
@@ -556,7 +560,7 @@ button:disabled { opacity: .45; cursor: default; }
 /* A stop's own page names it in full, on as many lines as that takes. */
 .tf-chain__whole { min-width: 0; overflow-wrap: break-word; }
 /* At large text a stop's name has the header's width, and the live status the line under it. */
-@media (max-width: 18em) { .tf-chain:has(> .tf-chain__whole) { flex-basis: 100%; } }
+@container app (max-width: 18rem) { .tf-chain:has(> .tf-chain__whole) { flex-basis: 100%; } }
 /* Where wrapping would take three lines: the rest on the second line, both names trimmed in
    proportion to their length, so each keeps as much as the other. */
 .tf-chain__rest--stacked { display: flex; flex-basis: 100%; align-items: center; gap: var(--s1); min-width: 0; white-space: nowrap; }
@@ -652,7 +656,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-alert__body p { margin: 0 0 var(--s2); }
 /* At large text an alert's words would have a few words' room a line between its icon and its
    chevron. They run under the two, at the alert's full width. */
-@media (max-width: 18em) {
+@container app (max-width: 18rem) {
   .tf-alert__toggle { row-gap: var(--s1); }
   .tf-alert__icon { grid-row: 1; }
   .tf-alert__toggle .tf-alert__chev { grid-area: 1 / 3; }
@@ -800,7 +804,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-sheet__subtitle { color: var(--muted); }
 /* At large text a title beside both a pin button and Close would take a few letters a line. The
    title has the line beside Close, and the pin button the next. */
-@media (max-width: 18em) {
+@container app (max-width: 18rem) {
   .tf-sheet__head:has(> .tf-sheet__pin) { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
   .tf-sheet__head > .tf-sheet__pin { grid-area: 2 / 1 / auto / -1; justify-self: start; }
 }
@@ -824,7 +828,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-trip-actions > .tf-btn-secondary { flex: 1; min-width: 0; padding: 0 var(--s2); text-align: center; }
 .tf-trip-actions__note { margin-top: var(--s2); }
 /* At large text each takes the sheet's width, so its words keep to a line beside its icon. */
-@media (max-width: 18em) { .tf-trip-actions { flex-direction: column; } .tf-trip-actions > .tf-btn-secondary { flex: none; } }
+@container app (max-width: 18rem) { .tf-trip-actions { flex-direction: column; } .tf-trip-actions > .tf-btn-secondary { flex: none; } }
 /* A toggle: a fill, and once on, solid like every other choice that is on (J, 2026-10-08). */
 .tf-filter { min-height: var(--tap-min); padding: var(--s2) var(--s3); display: inline-flex; align-items: center; gap: var(--s2); font-weight: var(--weight-bold); line-height: 1.3; text-align: left; background: var(--card); color: var(--muted); }
 /* A ring as well (--chosen), which is the fill's own color in the light theme, where the fill
@@ -870,7 +874,7 @@ button:disabled { opacity: .45; cursor: default; }
 /* On the first line of words that take several. */
 .tf-toast__icon { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 1.125rem; height: 1.4em; }
 /* At large text Undo goes under the words, which then have the toast's width. */
-@media (max-width: 18em) {
+@container app (max-width: 18rem) {
   .tf-toast { flex-wrap: wrap; row-gap: 0; padding-bottom: var(--s2); }
   .tf-toast__text { flex-basis: 100%; padding-bottom: 0; }
   /* Undo starts where the words do, past the icon. */
@@ -946,7 +950,7 @@ button:disabled { opacity: .45; cursor: default; }
 /* ── sliders ───────────────────────────────────────── */
 .tf-slider__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s3); }
 /* At large text the value has the line under its label, which then has the width to itself. */
-@media (max-width: 18em) { .tf-slider__head { flex-direction: column; align-items: flex-start; gap: 0; } }
+@container app (max-width: 18rem) { .tf-slider__head { flex-direction: column; align-items: flex-start; gap: 0; } }
 /* On the label's own line height, so a slider's label sits where any setting's does. */
 .tf-slider__value { flex: none; font-size: var(--fs-title); font-weight: var(--weight-bold); line-height: calc(1.4 * var(--fs-body)); white-space: nowrap; }
 /* The track runs the full width. Its filled part runs between --from and --to, shares of the way
@@ -1021,8 +1025,9 @@ button:disabled { opacity: .45; cursor: default; }
 /* From about 150% text (under 18em across the screen), spacing holds at its 100% size, and the
    number column is the narrow phone's, as wide as its widest number, so every list on a page, and
    the pin bar over it, starts its text on one line, and that text gets the rest of the width. */
-@media (max-width: 18em) {
-  :root { --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --numcol: 3.5rem; }
+@container app (max-width: 18rem) {
+  /* Set on the app, as a query cannot reach the root, with the spacing made of the steps again. */
+  .tf-app { --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --numcol: 3.5rem; --gutter: var(--s4); --pad: var(--s3); --edge: calc(var(--gutter) + var(--pad)); --colgap: var(--s3); }
   :is(.tf-num__n, .tf-track__num-n).tf-num__n--word { font-size: var(--fs-lead); }
   /* The band's countdown has no room beside its time, so it follows the band's lines, at the
      right, whole on one line. */
@@ -1053,7 +1058,7 @@ button:disabled { opacity: .45; cursor: default; }
 }
 /* A narrow phone at about 200% text has no room for a number beside a time: the number and its
    unit take a line of their own above the row's text. */
-@media (max-width: 11em) {
+@container app (max-width: 11rem) {
   .tf-row { grid-template-columns: minmax(0, 1fr); }
   .tf-num { flex-direction: row; align-items: baseline; gap: var(--s2); }
 }

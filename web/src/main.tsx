@@ -12,6 +12,7 @@ import { SettingsScreen } from './screens/SettingsScreen.tsx';
 import { StopScreen } from './screens/StopScreen.tsx';
 import { SettingsProvider } from './settings.tsx';
 import { searchId } from './storage.ts';
+import { followDynamicType } from './text-size.ts';
 import { TrackProvider } from './track.tsx';
 import './styles.css';
 
@@ -167,6 +168,7 @@ function App() {
   );
 }
 
+followDynamicType();
 render(<App />, document.getElementById('app')!);
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {

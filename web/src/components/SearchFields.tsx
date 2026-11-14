@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useRef } from 'preact/hooks';
 import { IconClose, IconSwap } from '../icons/ui.tsx';
+import { useLargeText } from '../text-size.ts';
 import { typeWithoutUndo } from '../typing.ts';
 import { Cut } from './Cut.tsx';
 import { Dots } from './Dots.tsx';
@@ -107,16 +108,3 @@ export function SearchFields({ from, to, onFrom, onTo, onFocus, onBlur, onEnter,
   );
 }
 
-// Whether the rider's text is about 150% or larger, by the screen's width in em, as the
-// stylesheet's large-text rules go.
-function useLargeText() {
-  const query = '(max-width: 18em)';
-  const [large, setLarge] = useState(() => typeof matchMedia === 'function' && matchMedia(query).matches);
-  useEffect(() => {
-    const media = matchMedia(query);
-    const onChange = () => setLarge(media.matches);
-    media.addEventListener('change', onChange);
-    return () => media.removeEventListener('change', onChange);
-  }, []);
-  return large;
-}

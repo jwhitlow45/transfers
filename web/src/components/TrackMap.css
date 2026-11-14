@@ -149,7 +149,7 @@
 }
 /* The sheet's own gaps hold at their 100% size too, as the pages' do at large text (see
    styles.css). By the screen's width, as a container cannot be styled by its own query. */
-@media (max-width: 18em) {
+@container app (max-width: 18rem) {
   .tf-track { --tm-1: 4px; --tm-2: 8px; --tm-3: 12px; --tm-4: 16px; --tm-5: 24px; }
 }
 /* On a narrow phone the three captions cannot share a line, so each takes its own, in order,

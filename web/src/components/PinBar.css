@@ -91,7 +91,7 @@
 /* From about 150% text, the page's title row scrolls away with its page, and only the pin bar
    stays (J, 2026-11-09), as the two together took half the screen. It stays the box its stripe and
    loading bar hang from. */
-@media (max-width: 18em) {
+@container app (max-width: 18rem) {
   .tf-app .tf-header { position: relative; }
   .tf-pinbar__actions { grid-template-columns: 1fr; }
   /* With room for a few words a line, the bar's name wraps whole, as its tab's does: the line
@@ -106,7 +106,7 @@
 }
 /* On a narrow phone three equal buttons cannot hold "Open trip" and "Live map" on a line each. Each
    is as wide as its words need, and the words stand without their icons. */
-@media (max-width: 359px) and (min-width: 18.01em) {
+@container app (max-width: 359px) and (min-width: 18.01rem) {
   .tf-pinbar__actions { display: flex; }
   .tf-pinbar__action, .tf-pinbar__actions > .tf-time-link { flex: 1 1 auto; white-space: nowrap; }
   .tf-pinbar__actions svg { display: none; }
