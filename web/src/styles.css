@@ -1,8 +1,8 @@
 /* Transfers: one stylesheet. Tokens first (both themes), then components.
    Theme follows the OS by default. Add data-theme="light" | "dark" on <html> to force one. */
 
-/* The scale: five type sizes, two weights, one spacing scale, and the alignment lines every row and
-   card sits on. In rem, so they follow the rider's text size. */
+/* The scale: five type sizes and two weights here, and one spacing scale with the alignment lines
+   every row and card sits on, on the app below. In rem, so they follow the rider's text size. */
 :root {
   /* type */
   --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
@@ -13,7 +13,6 @@
   --fs-num: 1.75rem;      /* 28: the number the rider acts on */
   --weight-regular: 400;
   --weight-bold: 700;
-
 
   /* shape */
   --radius-none: 0;       /* cards, chips, buttons, fields: all square */

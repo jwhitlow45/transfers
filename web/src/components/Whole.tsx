@@ -16,8 +16,8 @@ function lineOf(element: HTMLElement) {
 // it going on after its last word. CSS alone cannot do both, as a box kept whole takes the rest
 // of its last line. So a part wraps as any text does (.tf-whole) until it is measured to fit its
 // line, and is then kept on one (.tf-whole--fits). Wrapping is what it does unmeasured, so a part
-// can never widen what holds it. Measured before paint, when its text changes, and when the
-// window's width does.
+// can never widen what holds it. Measured before paint, when its text changes, and on `resize`:
+// when the window's width does, and when the text size does (see text-size.ts).
 function useWhole() {
   const ref = useRef<HTMLSpanElement>(null);
   // The width the text needs on one line, kept while the text stays the same, so a part is not
