@@ -39,9 +39,9 @@
   --tap: 48px;            /* steppers, sheet buttons */
   --tap-min: 44px;        /* the smallest tap target */
   --tap-primary: 52px;    /* primary buttons, bottom bar */
-  --page-max: 1120px;     /* results on desktop */
-  --form-max: 760px;      /* search, alerts */
-  --group-min: 380px;     /* transfer-point column min width on desktop */
+  --page-max: 70rem;      /* 1120 at 100%: results on desktop */
+  --form-max: 47.5rem;    /* 760 at 100%: search, alerts */
+  --group-min: 23.75rem;  /* 380 at 100%: transfer-point column min width on desktop */
 
   --motion-indeterminate: 1.1s linear infinite;
   --motion-fast: 150ms;   /* opening and closing */
@@ -448,7 +448,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-find-row > .tf-btn-secondary { min-height: var(--tap-primary); }
 /* Narrower phones have room beside Find transfers only for the short label. */
 .tf-find-row__short { display: none; }
-@container app (max-width: 399px) or ((min-width: 18.01rem) and (max-width: 24.9375rem)) { .tf-find-row__long { display: none; } .tf-find-row__short { display: inline; } }
+@container app (max-width: 399px) or (max-width: 24.9375rem) { .tf-find-row__long { display: none; } .tf-find-row__short { display: inline; } }
 .tf-find-hint { margin: calc(var(--s2) - var(--s5)) 0 0; font-size: var(--fs-meta); color: var(--muted); text-align: center; }
 /* The suggestions, under the fields as one list. */
 .tf-results { background: var(--card); margin-top: calc(var(--s2) - var(--s5)); }
@@ -605,11 +605,11 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-stat--update .tf-stat__value { text-decoration: underline; text-underline-offset: 3px; }
 /* Narrower phones have room for "Update" alone, and the narrowest for the icon alone. Screen
    readers hear the whole sentence either way. */
-@container app (max-width: 399px) or ((min-width: 18.01rem) and (max-width: 24.9375rem)) { .tf-update-more { display: none; } }
+@container app (max-width: 399px) or (max-width: 24.9375rem) { .tf-update-more { display: none; } }
 @container app (max-width: 359px) or ((min-width: 18.01rem) and (max-width: 22.4375rem)) { .tf-stat--update .tf-stat__value { display: none; } }
 /* Route filters say so in words where the row has room for them, and by their icon alone on
    narrower phones. It still opens its sentence. */
-@container app (max-width: 429px) or ((min-width: 18.01rem) and (max-width: 26.8125rem)) { .tf-stat--routes .tf-stat__value { display: none; } }
+@container app (max-width: 429px) or (max-width: 26.8125rem) { .tf-stat--routes .tf-stat__value { display: none; } }
 /* Tips open under the header, from its right edge, so one stays on screen whichever item opens it. */
 .tf-tip { position: absolute; top: calc(100% + var(--s1)); right: var(--gutter); z-index: 6; width: max-content; max-width: min(20rem, calc(100% - 2 * var(--gutter))); padding: var(--s2) var(--s3); background: var(--field); color: var(--on-field); font-size: var(--fs-meta); font-weight: var(--weight-regular); line-height: 1.4; white-space: normal; }
 
@@ -776,7 +776,7 @@ button:disabled { opacity: .45; cursor: default; }
 
 /* ── bottom bar ────────────────────────────────────── */
 .tf-bottombar { position: relative; flex: none; border-top: var(--border-hair) solid var(--divider); background: var(--bg); padding: var(--s2) calc(var(--gutter) + var(--corner-inset)) calc(var(--s2) + var(--bottom-inset)); }
-.tf-bottombar__inner { max-width: 560px; margin: 0 auto; display: flex; gap: var(--s2); }
+.tf-bottombar__inner { max-width: 35rem; margin: 0 auto; display: flex; gap: var(--s2); }
 .tf-bottombar__fill { flex: 1; }
 .tf-bottombar__open { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: var(--s2); padding: 0 var(--pad); white-space: nowrap; }
 .tf-bottombar__open strong { font-size: var(--fs-title); }
@@ -785,7 +785,7 @@ button:disabled { opacity: .45; cursor: default; }
 /* With back and save beside it, the settings button fits "Transfer window" only on wide screens,
    "Window" on most phones, and no label on the narrowest. */
 .tf-bottombar__short { display: none; }
-@container app (max-width: 429px) or ((min-width: 18.01rem) and (max-width: 26.8125rem)) { .tf-bottombar__long { display: none; } .tf-bottombar__short { display: inline; } }
+@container app (max-width: 429px) or (max-width: 26.8125rem) { .tf-bottombar__long { display: none; } .tf-bottombar__short { display: inline; } }
 /* Without its label, what is left sits in the middle of the button. */
 @container app (max-width: 359px) or ((min-width: 18.01rem) and (max-width: 22.4375rem)) { .tf-bottombar__label { display: none; } .tf-bottombar__open { justify-content: center; } }
 
@@ -796,7 +796,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-sheet__panel { position: relative; display: flex; flex-direction: column; background: var(--bg); border-top: 1px solid var(--line); max-height: 90%; outline: none; }
 .tf-sheet__top { flex: none; padding: var(--s1) var(--gutter) var(--s2); border-bottom: var(--border-hair) solid var(--divider); cursor: grab; }
 .tf-sheet__body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 var(--gutter) calc(var(--s4) + var(--bottom-inset)); }
-.tf-sheet__inner { max-width: 560px; margin: 0 auto; }
+.tf-sheet__inner { max-width: 35rem; margin: 0 auto; }
 .tf-sheet__head { display: flex; align-items: center; gap: var(--s2); padding: var(--s1) 0; }
 .tf-sheet__head h2 { flex: 1; min-width: 0; margin: 0; font-size: var(--fs-title); line-height: 1.3; overflow-wrap: break-word; text-wrap: balance; }
 /* Close's glyph ends on the gutter, as the header's last button does. */
@@ -1006,9 +1006,11 @@ button:disabled { opacity: .45; cursor: default; }
 
 /* ── narrow phones ─────────────────────────────────── */
 /* The rules for narrower phones are for less room for words, so each also holds at the same width
-   in root ems while the text is larger, short of the large-text rules from 18em: the second half
-   of each query. At 100% that half matches the px it stands for. At 135% a phone 402 px across is
-   only about 18.6em, narrower than a 320 px phone at 100%, and needs them too. */
+   in root ems while the text is larger: the second half of each query, which at 100% matches the
+   px it stands for. At 135% a phone 402 px across is only about 18.6em, narrower than a 320 px
+   phone at 100%, and needs them too. Those under 360 px stop at the large-text rules from 18em,
+   which a 390 px phone at 200% was laid out without, and the rest hold there too, as that phone
+   had them, so a wider phone at 200% matches it. */
 /* Under 360 px across, the number column gives a little of its width to the text beside it, on
    every page, in the pin bar and in the live map's lists alike (see TrackMap.css): as wide as the
    widest number, "100+" a size down or "125" at full size. A word in it, "Now" and "Left", is set
