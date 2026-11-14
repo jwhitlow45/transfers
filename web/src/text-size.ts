@@ -16,12 +16,12 @@ export function textScale(bodyPx: number) {
 }
 
 // An element the rider never sees, sized only to be watched.
-function hidden(style: string) {
+function hidden(style: string, parent: HTMLElement = document.body) {
   const element = document.createElement('span');
   element.setAttribute('aria-hidden', 'true');
   element.textContent = 'M';
   element.style.cssText = `position: absolute; top: 0; left: 0; visibility: hidden; pointer-events: none; ${style}`;
-  document.body.append(element);
+  parent.append(element);
   return element;
 }
 
@@ -32,11 +32,13 @@ function hidden(style: string) {
 // render, and as the rider changes it, in Settings or from Control Center while the app is open.
 export function followTextSize() {
   if (typeof ResizeObserver === 'undefined') return;
+  // One level under the system text's probe below, as a resize observer hears in one go only the
+  // elements deeper than those it just told of: a system change resizes this in the same frame.
   let first = true;
   new ResizeObserver(() => {
     if (first) return void (first = false);
     dispatchEvent(new Event('resize'));
-  }).observe(hidden('width: 1rem; height: 1px'));
+  }).observe(hidden('width: 1rem; height: 1px', hidden('')));
 
   const homeScreen = (navigator as { standalone?: boolean }).standalone === true;
   if (!homeScreen || !CSS.supports('font', '-apple-system-body')) return;
