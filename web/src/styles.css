@@ -14,20 +14,6 @@
   --weight-regular: 400;
   --weight-bold: 700;
 
-  /* space: the only values, 4, 8, 12, 16, 24, 32 */
-  --s1: 0.25rem;
-  --s2: 0.5rem;
-  --s3: 0.75rem;
-  --s4: 1rem;
-  --s5: 1.5rem;
-  --s6: 2rem;
-
-  /* alignment lines */
-  --gutter: var(--s4);                        /* page edge to card edge */
-  --pad: var(--s3);                           /* card edge to content */
-  --edge: calc(var(--gutter) + var(--pad));   /* page edge to the number column */
-  --numcol: 4rem;                             /* the number the rider acts on */
-  --colgap: var(--s3);                        /* number column to text column */
 
   /* shape */
   --radius-none: 0;       /* cards, chips, buttons, fields: all square */
@@ -55,6 +41,25 @@
      home indicator, which reports no inset. */
   --bottom-inset: calc(env(safe-area-inset-bottom) + min(env(safe-area-inset-bottom), 10px));
   --corner-inset: min(env(safe-area-inset-bottom), 8px);
+}
+
+/* Spacing, on the app, not the root, where the large-text rules (a container query, which cannot
+   reach the root) set its steps, and the lines made of them follow. Nothing outside the app uses it. */
+.tf-app {
+  /* space: the only values, 4, 8, 12, 16, 24, 32 */
+  --s1: 0.25rem;
+  --s2: 0.5rem;
+  --s3: 0.75rem;
+  --s4: 1rem;
+  --s5: 1.5rem;
+  --s6: 2rem;
+
+  /* alignment lines */
+  --gutter: var(--s4);                        /* page edge to card edge */
+  --pad: var(--s3);                           /* card edge to content */
+  --edge: calc(var(--gutter) + var(--pad));   /* page edge to the number column */
+  --numcol: 4rem;                             /* the number the rider acts on */
+  --colgap: var(--s3);                        /* number column to text column */
 }
 
 :root, [data-theme="light"] {
@@ -117,6 +122,8 @@
 /* ── base ───────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
+/* The page's color past body's box too: body, a query container (below), no longer lends it. */
+html { background: var(--bg); }
 body {
   background: var(--bg); color: var(--text);
   font: var(--weight-regular) var(--fs-body)/1.4 var(--font);
@@ -1032,8 +1039,7 @@ button:disabled { opacity: .45; cursor: default; }
    number column is the narrow phone's, as wide as its widest number, so every list on a page, and
    the pin bar over it, starts its text on one line, and that text gets the rest of the width. */
 @container app (max-width: 18rem) {
-  /* Set on the app, as a query cannot reach the root, with the spacing made of the steps again. */
-  .tf-app { --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --numcol: 3.5rem; --gutter: var(--s4); --pad: var(--s3); --edge: calc(var(--gutter) + var(--pad)); --colgap: var(--s3); }
+  .tf-app { --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --numcol: 3.5rem; }
   :is(.tf-num__n, .tf-track__num-n).tf-num__n--word { font-size: var(--fs-lead); }
   /* The band's countdown has no room beside its time, so it follows the band's lines, at the
      right, whole on one line. */
