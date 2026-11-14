@@ -448,7 +448,7 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-find-row > .tf-btn-secondary { min-height: var(--tap-primary); }
 /* Narrower phones have room beside Find transfers only for the short label. */
 .tf-find-row__short { display: none; }
-@media (max-width: 399px) { .tf-find-row__long { display: none; } .tf-find-row__short { display: inline; } }
+@container app (max-width: 399px) or ((min-width: 18.01rem) and (max-width: 24.9375rem)) { .tf-find-row__long { display: none; } .tf-find-row__short { display: inline; } }
 .tf-find-hint { margin: calc(var(--s2) - var(--s5)) 0 0; font-size: var(--fs-meta); color: var(--muted); text-align: center; }
 /* The suggestions, under the fields as one list. */
 .tf-results { background: var(--card); margin-top: calc(var(--s2) - var(--s5)); }
@@ -605,11 +605,11 @@ button:disabled { opacity: .45; cursor: default; }
 .tf-stat--update .tf-stat__value { text-decoration: underline; text-underline-offset: 3px; }
 /* Narrower phones have room for "Update" alone, and the narrowest for the icon alone. Screen
    readers hear the whole sentence either way. */
-@media (max-width: 399px) { .tf-update-more { display: none; } }
-@media (max-width: 359px) { .tf-stat--update .tf-stat__value { display: none; } }
+@container app (max-width: 399px) or ((min-width: 18.01rem) and (max-width: 24.9375rem)) { .tf-update-more { display: none; } }
+@container app (max-width: 359px) or ((min-width: 18.01rem) and (max-width: 22.4375rem)) { .tf-stat--update .tf-stat__value { display: none; } }
 /* Route filters say so in words where the row has room for them, and by their icon alone on
    narrower phones. It still opens its sentence. */
-@media (max-width: 429px) { .tf-stat--routes .tf-stat__value { display: none; } }
+@container app (max-width: 429px) or ((min-width: 18.01rem) and (max-width: 26.8125rem)) { .tf-stat--routes .tf-stat__value { display: none; } }
 /* Tips open under the header, from its right edge, so one stays on screen whichever item opens it. */
 .tf-tip { position: absolute; top: calc(100% + var(--s1)); right: var(--gutter); z-index: 6; width: max-content; max-width: min(20rem, calc(100% - 2 * var(--gutter))); padding: var(--s2) var(--s3); background: var(--field); color: var(--on-field); font-size: var(--fs-meta); font-weight: var(--weight-regular); line-height: 1.4; white-space: normal; }
 
@@ -785,9 +785,9 @@ button:disabled { opacity: .45; cursor: default; }
 /* With back and save beside it, the settings button fits "Transfer window" only on wide screens,
    "Window" on most phones, and no label on the narrowest. */
 .tf-bottombar__short { display: none; }
-@media (max-width: 429px) { .tf-bottombar__long { display: none; } .tf-bottombar__short { display: inline; } }
+@container app (max-width: 429px) or ((min-width: 18.01rem) and (max-width: 26.8125rem)) { .tf-bottombar__long { display: none; } .tf-bottombar__short { display: inline; } }
 /* Without its label, what is left sits in the middle of the button. */
-@media (max-width: 359px) { .tf-bottombar__label { display: none; } .tf-bottombar__open { justify-content: center; } }
+@container app (max-width: 359px) or ((min-width: 18.01rem) and (max-width: 22.4375rem)) { .tf-bottombar__label { display: none; } .tf-bottombar__open { justify-content: center; } }
 
 /* ── sheet ─────────────────────────────────────────── */
 .tf-sheet { position: absolute; inset: 0; z-index: 10; display: flex; flex-direction: column; justify-content: flex-end; }
@@ -899,7 +899,7 @@ button:disabled { opacity: .45; cursor: default; }
 /* Over a map's corners, inside any border its frame draws (--map-inset). */
 .tf-map-recenter { position: absolute; z-index: 1; top: calc(var(--map-inset, 0px) + var(--s2)); right: calc(var(--map-inset, 0px) + var(--s2)); }
 /* On the narrowest phones the live map's hint says only "Pinch", to clear Full and Fit. */
-@media (max-width: 359px) { .tf-track__frame .tf-map-hint__more { display: none; } }
+@container app (max-width: 359px) or ((min-width: 18.01rem) and (max-width: 22.4375rem)) { .tf-track__frame .tf-map-hint__more { display: none; } }
 .tf-map-hint { position: absolute; z-index: 1; left: calc(var(--map-inset, 0px) + var(--s2)); bottom: calc(var(--map-inset, 0px) + var(--s2)); display: inline-flex; align-items: center; gap: var(--s1); padding: var(--s1) var(--s2); background: color-mix(in srgb, var(--bg) 85%, transparent); color: var(--muted); font-size: var(--fs-meta); font-weight: var(--weight-bold); pointer-events: none; }
 /* With the keyboard's focus, a map's corner names its keys in place of the pinch, and its ring
    sits inside its edge. */
@@ -1005,12 +1005,16 @@ button:disabled { opacity: .45; cursor: default; }
 :is(.tf-row, .tf-band, .tf-group__how, .tf-group__meta, .tf-credit, .tf-alert__meta, .tf-notice__meta) :is(.tf-time-link, a)::after { content: ""; position: absolute; left: 50%; top: 50%; width: max(calc(100% + 8px), var(--tap-min)); height: var(--tap-min); translate: -50% -50%; }
 
 /* ── narrow phones ─────────────────────────────────── */
+/* The rules for narrower phones are for less room for words, so each also holds at the same width
+   in root ems while the text is larger, short of the large-text rules from 18em: the second half
+   of each query. At 100% that half matches the px it stands for. At 135% a phone 402 px across is
+   only about 18.6em, narrower than a 320 px phone at 100%, and needs them too. */
 /* Under 360 px across, the number column gives a little of its width to the text beside it, on
    every page, in the pin bar and in the live map's lists alike (see TrackMap.css): as wide as the
    widest number, "100+" a size down or "125" at full size. A word in it, "Now" and "Left", is set
    a size down to fit. */
-@media (max-width: 359px) {
-  :root { --numcol: 3.5rem; }
+@container app (max-width: 359px) or ((min-width: 18.01rem) and (max-width: 22.4375rem)) {
+  .tf-app { --numcol: 3.5rem; }
   /* The band's countdown reads "20+" over "min away", which leaves its vehicle and time one line
      in every band, whatever the number. */
   .tf-band__min { display: none; }
